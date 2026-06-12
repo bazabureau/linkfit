@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The big lime CTA. Locks in the brand accent, ships with three states
+/// The primary brand CTA. Locks in the accent gradient, ships with three states
 /// (idle, disabled, loading), and animates the press with a tiny scale +
 /// haptic. Use as the primary action on auth screens.
 struct PrimaryAuthButton: View {
@@ -28,21 +28,32 @@ struct PrimaryAuthButton: View {
                         .font(.system(size: 15, weight: .heavy))
                 }
             }
-            .foregroundStyle(isEnabled ? DSColor.textOnAccent : DSColor.textSecondary)
-            .frame(maxWidth: .infinity, minHeight: 54)
+            .foregroundStyle(DSColor.textOnAccent.opacity(isEnabled ? 1 : 0.85))
+            .frame(maxWidth: .infinity, minHeight: 56)
             .background(
+                // Disabled keeps the brand fill at reduced strength so the
+                // button still reads as "the action lives here" instead of
+                // a dead gray slab; enabling it just turns the light on.
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(isEnabled ? DSColor.accent : DSColor.surfaceElevated.opacity(0.55))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(
-                        isEnabled ? Color.clear : DSColor.border.opacity(0.5),
-                        lineWidth: 1
+                    .fill(
+                        LinearGradient(
+                            colors: isEnabled
+                                ? [DSColor.accent, DSColor.accentSoft]
+                                : [DSColor.accent.opacity(0.48), DSColor.accent.opacity(0.40)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
                     )
             )
+            .overlay(
+                // Hairline top highlight gives the pill a slight convex
+                // "pressable" sheen without resorting to heavy gloss.
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(DSColor.textOnAccent.opacity(isEnabled ? 0.18 : 0.08), lineWidth: 1)
+                    .blendMode(.plusLighter)
+            )
             .shadow(
-                color: isEnabled ? DSColor.accent.opacity(0.35) : .clear,
+                color: DSColor.accent.opacity(isEnabled ? 0.35 : 0),
                 radius: pressed ? 6 : 16,
                 y: pressed ? 2 : 8
             )

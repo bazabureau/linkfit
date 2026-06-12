@@ -67,7 +67,7 @@ struct RegisterView: View {
 
     private var hero: some View {
         VStack(spacing: 16) {
-            LogoWordmark(size: .custom(32))
+            LogoWordmark(size: .custom(36))
 
             VStack(spacing: 6) {
                 Text("auth.register.title")
@@ -85,13 +85,14 @@ struct RegisterView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 4)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
         .opacity(heroVisible ? 1 : 0)
         .offset(y: heroVisible ? 0 : 12)
     }
 
     private var socialBlock: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             PremiumSocialButton(provider: .apple) {
                 Task { await viewModel.signInWithApple() }
             }
@@ -150,12 +151,18 @@ struct RegisterView: View {
                 errorMessage: viewModel.passwordError
             )
 
-            passwordStrength
+            // The strength meter only earns its space once there is a
+            // password to grade — an empty form stays clean.
+            if !viewModel.password.isEmpty {
+                passwordStrength
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
 
             if let formError = viewModel.formError {
                 inlineError(formError)
             }
         }
+        .animation(.easeInOut(duration: 0.22), value: viewModel.password.isEmpty)
         .opacity(formVisible ? 1 : 0)
         .offset(y: formVisible ? 0 : 12)
     }
@@ -172,8 +179,8 @@ struct RegisterView: View {
                 .frame(width: 22)
 
             Text("auth.birth_date")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(DSColor.textSecondary)
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(DSColor.textTertiary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             DatePicker(

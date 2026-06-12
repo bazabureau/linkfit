@@ -28,12 +28,13 @@ struct PremiumSocialButton: View {
                     .font(.system(size: 16, weight: .semibold, design: .default))
                     .foregroundStyle(textColor)
             }
-            .frame(maxWidth: .infinity, minHeight: 52)
+            .frame(maxWidth: .infinity, minHeight: 54)
             .background(background)
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .strokeBorder(borderColor, lineWidth: 1)
             )
+            .shadow(color: DSColor.limeInk.opacity(0.06), radius: 8, y: 3)
             .scaleEffect(pressed ? 0.98 : 1)
             .animation(.spring(response: 0.25, dampingFraction: 0.75), value: pressed)
         }
@@ -84,10 +85,10 @@ struct PremiumSocialButton: View {
     private var background: some View {
         switch provider {
         case .apple:
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(DSColor.limeInk)
         case .google:
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(DSColor.textOnAccent)
         }
     }
@@ -95,7 +96,9 @@ struct PremiumSocialButton: View {
     private var borderColor: Color {
         switch provider {
         case .apple:  return DSColor.textOnAccent.opacity(0.10)
-        case .google: return DSColor.limeInk.opacity(0.10)
+        // Google is a white pill — on the light canvas it needs a real
+        // hairline or it dissolves into the page.
+        case .google: return DSColor.border
         }
     }
 }

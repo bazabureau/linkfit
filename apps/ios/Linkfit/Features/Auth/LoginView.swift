@@ -72,7 +72,7 @@ struct LoginView: View {
 
     private var hero: some View {
         VStack(spacing: 16) {
-            LogoWordmark(size: .custom(32))
+            LogoWordmark(size: .custom(36))
 
             VStack(spacing: 6) {
                 Text("auth.login.title")
@@ -90,13 +90,14 @@ struct LoginView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 4)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
         .opacity(heroVisible ? 1 : 0)
         .offset(y: heroVisible ? 0 : 12)
     }
 
     private var socialBlock: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             PremiumSocialButton(provider: .apple) {
                 Task { await viewModel.signInWithApple() }
             }

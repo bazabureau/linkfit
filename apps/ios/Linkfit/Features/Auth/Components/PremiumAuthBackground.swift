@@ -36,9 +36,9 @@ struct PremiumAuthBackground: View {
                 let w = proxy.size.width
                 let h = proxy.size.height
 
-                // Upper-right lime glow — the "stage" key light.
+                // Upper-right royal-blue glow — the "stage" key light.
                 Circle()
-                    .fill(DSColor.accent.opacity(colorScheme == .dark ? 0.22 : 0.05))
+                    .fill(DSColor.accent.opacity(colorScheme == .dark ? 0.22 : 0.11))
                     .frame(width: w * 0.95, height: w * 0.95)
                     .blur(radius: 90)
                     .offset(
@@ -46,15 +46,23 @@ struct PremiumAuthBackground: View {
                         y: -h * 0.18 + (reduceMotion ? 0 : cos(phase) * 10)
                     )
 
-                // Lower-left deep blue glow — fills cool side of frame.
+                // Lower-left lime glow — fills the warm side of the frame.
                 Circle()
-                    .fill(DSColor.secondary.opacity(colorScheme == .dark ? 0.32 : 0.06))
+                    .fill(DSColor.secondary.opacity(colorScheme == .dark ? 0.32 : 0.14))
                     .frame(width: w * 1.0, height: w * 1.0)
                     .blur(radius: 100)
                     .offset(
                         x: -w * 0.45,
                         y: h * 0.55 + (reduceMotion ? 0 : sin(phase + .pi) * 8)
                     )
+
+                // Small counter-glow upper-left — breaks the diagonal
+                // symmetry so the canvas reads as lit, not tinted.
+                Circle()
+                    .fill(DSColor.accent.opacity(colorScheme == .dark ? 0.10 : 0.06))
+                    .frame(width: w * 0.55, height: w * 0.55)
+                    .blur(radius: 80)
+                    .offset(x: -w * 0.35, y: -h * 0.05)
             }
             .ignoresSafeArea()
             // Thin top/bottom vignette — strong on dark to mask Mach
