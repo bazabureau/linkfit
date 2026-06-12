@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 10 14 20; /* #0A0E14 */
+  --surface: 20 26 34; /* #141A22 */
+  --surface-elevated: 30 37 48; /* #1E2530 */
+  --border: 38 47 61; /* #262F3D */
+  --foreground: 230 234 242; /* #E6EAF2 */
+  --foreground-muted: 156 166 184; /* #9CA6B8 */
+  --accent: 34 197 94; /* #22C55E */
+  --focus-ring: 34 197 94;
+}
+
+.transition-premium {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: rgb(var(--background));
+  color: rgb(var(--foreground));
+  font-feature-settings: "rlig" 1, "calt" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Subtle scrollbars on the dark theme */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(156, 166, 184, 0.15);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 166, 184, 0.3);
+}
+
+/* Default focus ring uses accent */
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+}

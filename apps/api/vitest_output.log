@@ -1,0 +1,6 @@
+
+ RUN  v2.1.9 /Users/kamrannamazov/Desktop/linkfit/apps/api
+
+Local-only mode: using local PostgreSQL database 'linkfit_test' directly.
+No migrations to run!
+Migrations complete!

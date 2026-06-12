@@ -1,0 +1,7 @@
+apps/ios/build/
+node_modules/
+.DS_Store
+*.xcuserdata
+DerivedData/
+dist/
+.next/

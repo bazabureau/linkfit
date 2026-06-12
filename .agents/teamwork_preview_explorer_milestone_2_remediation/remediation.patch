@@ -1,0 +1,90 @@
+diff --git a/apps/api/tests/e2e/linkfit.e2e.test.ts b/apps/api/tests/e2e/linkfit.e2e.test.ts
+index e9fd2a1..3c9d7bf 100644
+--- a/apps/api/tests/e2e/linkfit.e2e.test.ts
++++ b/apps/api/tests/e2e/linkfit.e2e.test.ts
+@@ -84,3 +84,3 @@
+   beforeEach(async () => {
+     await cleanDb(db);
+-    const venues = await seedBakuPadelVenues(db);
++    await seedBakuPadelVenues(db);
+     const courts = await db.db
+@@ -149,3 +149,3 @@
+       expect(res.statusCode).toBe(200);
+       const body = res.json();
+-      const ids = body.items.map((i: any) => i.actor.id);
++      const ids = body.items.map((i: { actor: { id: string } }) => i.actor.id);
+       expect(ids).toContain(bob.id);
+@@ -440,3 +440,3 @@
+       expect(joinRes.statusCode).toBe(200);
+-      expect(joinRes.json().participants.some((p: any) => p.user_id === bob.id && p.status === "confirmed")).toBe(true);
++      expect(joinRes.json().participants.some((p: { user_id: string; status: string }) => p.user_id === bob.id && p.status === "confirmed")).toBe(true);
+ 
+@@ -448,3 +448,3 @@
+       expect(leaveRes.statusCode).toBe(200);
+-      expect(leaveRes.json().participants.some((p: any) => p.user_id === bob.id)).toBe(false);
++      expect(leaveRes.json().participants.some((p: { user_id: string }) => p.user_id === bob.id)).toBe(false);
+     });
+@@ -993,3 +993,3 @@
+       });
+-      expect(detail.json().members.some((m: any) => m.user_id === bob.id && m.status === "active")).toBe(true);
++      expect(detail.json().members.some((m: { user_id: string; status: string }) => m.user_id === bob.id && m.status === "active")).toBe(true);
+     });
+@@ -1383,3 +1383,3 @@
+       expect(followersRes.statusCode).toBe(200);
+-      expect(followersRes.json().items.some((i: any) => i.id === alice.id)).toBe(true);
++      expect(followersRes.json().items.some((i: { id: string }) => i.id === alice.id)).toBe(true);
+ 
+@@ -1391,3 +1391,3 @@
+       expect(followingRes.statusCode).toBe(200);
+-      expect(followingRes.json().items.some((i: any) => i.id === bob.id)).toBe(true);
++      expect(followingRes.json().items.some((i: { id: string }) => i.id === bob.id)).toBe(true);
+     });
+@@ -1719,3 +1719,3 @@
+       });
+-      expect(feedRes.json().items.some((i: any) => i.type === "joined_game")).toBe(true);
++      expect(feedRes.json().items.some((i: { type: string }) => i.type === "joined_game")).toBe(true);
+     });
+@@ -1753,3 +1753,3 @@
+       });
+-      expect(notifications.json().items.some((n: any) => n.type === "game_joined")).toBe(true);
++      expect(notifications.json().items.some((n: { type: string }) => n.type === "game_joined")).toBe(true);
+     });
+@@ -1768,4 +1768,7 @@
+       const aliceCode = await app.inject({
+         method: "GET",
+         url: "/api/v1/me/referral",
+         headers: { authorization: `Bearer ${alice.access_token}` },
+-      }).then((r) => r.json().code);
++      }).then((r) => {
++        const body = r.json() as { code: string };
++        return body.code;
++      });
+ 
+@@ -1782,4 +1785,7 @@
+       const bobCode = await app.inject({
+         method: "GET",
+         url: "/api/v1/me/referral",
+         headers: { authorization: `Bearer ${bob.access_token}` },
+-      }).then((r) => r.json().code);
++      }).then((r) => {
++        const body = r.json() as { code: string };
++        return body.code;
++      });
+ 
+@@ -2065,3 +2071,3 @@
+         headers: { authorization: `Bearer ${alice.access_token}` },
+       });
+-      expect(aliceDiscover.json().items.some((i: any) => i.id === gameId)).toBe(false);
++      expect(aliceDiscover.json().items.some((i: { id: string }) => i.id === gameId)).toBe(false);
+ 
+@@ -2080,3 +2086,3 @@
+         headers: { authorization: `Bearer ${alice.access_token}` },
+       });
+-      expect(aliceFeed.json().items.some((i: any) => i.actor.id === bob.id)).toBe(false);
++      expect(aliceFeed.json().items.some((i: { actor: { id: string } }) => i.actor.id === bob.id)).toBe(false);
+ 
+@@ -2088,3 +2094,3 @@
+       });
+-      expect(bobPlayersList.json().items.some((i: any) => i.id === alice.id)).toBe(false);
++      expect(bobPlayersList.json().items.some((i: { id: string }) => i.id === alice.id)).toBe(false);
+     });

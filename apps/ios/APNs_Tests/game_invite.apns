@@ -1,0 +1,12 @@
+{
+  "Simulator Target Bundle": "az.linkfit.app",
+  "aps": {
+    "alert": {
+      "title": "Yeni Oyun Dəvəti! 🎾",
+      "body": "Kamran səni Padel oyununa dəvət etdi. Vaxt itirmədən qoşul!"
+    },
+    "badge": 1,
+    "sound": "default"
+  },
+  "game_id": "00000000-0000-0000-0000-000000000001"
+}

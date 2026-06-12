@@ -1,0 +1,32 @@
+# Build artifacts and caches that should not enter the build context.
+node_modules
+dist
+build
+coverage
+
+# Local secrets and env files — never embed in an image.
+.env
+.env.local
+.env.*.local
+
+# Tests are not needed in the runtime image.
+tests
+**/*.test.ts
+vitest.config.ts
+
+# OS / editor cruft.
+.DS_Store
+.idea
+.vscode
+
+# VCS.
+.git
+.gitignore
+
+# Logs.
+*.log
+npm-debug.log*
+
+# Docker metafiles.
+Dockerfile
+.dockerignore

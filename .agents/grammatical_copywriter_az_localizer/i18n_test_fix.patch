@@ -1,0 +1,12 @@
+diff --git a/apps/api/src/shared/i18n/i18n.test.ts b/apps/api/src/shared/i18n/i18n.test.ts
+--- a/apps/api/src/shared/i18n/i18n.test.ts
++++ b/apps/api/src/shared/i18n/i18n.test.ts
+@@ -82,7 +82,7 @@ describe("i18n / renderPushTemplate", () => {
+ 
+   it("ships copy for every (locale, key) pair", () => {
+     const rows = listPushTemplates();
+-    expect(rows.length).toBe(3 * 5); // 3 locales × 5 keys
++    expect(rows.length).toBe(3 * 8); // 3 locales × 8 keys
+     for (const row of rows) {
+       expect(row.title.length).toBeGreaterThan(0);
+       expect(row.body.length).toBeGreaterThan(0);

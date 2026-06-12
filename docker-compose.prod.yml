@@ -1,0 +1,110 @@
+# Production docker-compose skeleton for Linkfit API.
+#
+# Usage:
+#   1. Copy .env.production.example → .env.production and fill in secrets.
+#   2. docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+#   3. Run migrations on first boot:
+#        docker compose -f docker-compose.prod.yml exec api npm run migrate:up:prod
+#
+# This file is a starting point — production operators will likely want
+# to swap the bundled nginx for their existing edge (Cloudflare, Caddy,
+# Traefik) and manage TLS certs there. Postgres is bundled here for the
+# single-host deployment story; multi-host setups should replace it with
+# a managed database URL.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: linkfit-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-linkfit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:-linkfit}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-linkfit} -d ${POSTGRES_DB:-linkfit}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Postgres is not exposed to the host; only the api service can reach it
+    # via the internal docker network.
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: linkfit-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATABASE_URL: postgres://${POSTGRES_USER:-linkfit}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-linkfit}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS must list at least one origin}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set (>= 32 chars)}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET must be set (>= 32 chars)}
+      JWT_ACCESS_TTL_SECONDS: ${JWT_ACCESS_TTL_SECONDS:-900}
+      JWT_REFRESH_TTL_DAYS: ${JWT_REFRESH_TTL_DAYS:-30}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-300}
+      RATE_LIMIT_WINDOW_SECONDS: ${RATE_LIMIT_WINDOW_SECONDS:-60}
+      AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX:-10}
+      AUTH_RATE_LIMIT_WINDOW_SECONDS: ${AUTH_RATE_LIMIT_WINDOW_SECONDS:-60}
+      FEATURE_BOOKINGS: ${FEATURE_BOOKINGS:-true}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?PUBLIC_BASE_URL must be set}
+      UPLOAD_DIR: /app/uploads
+      METRICS_USER: ${METRICS_USER:-metrics}
+      METRICS_PASSWORD: ${METRICS_PASSWORD:?METRICS_PASSWORD must be set}
+      # Stripe — required in production.
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:?STRIPE_SECRET_KEY must be a live key}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?STRIPE_WEBHOOK_SECRET must be set}
+      # APNs (optional — set all four to enable real push)
+      APNS_KEY_ID: ${APNS_KEY_ID:-}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-}
+      APNS_AUTH_KEY: ${APNS_AUTH_KEY:-}
+      APNS_USE_SANDBOX: ${APNS_USE_SANDBOX:-false}
+      # SMTP (optional — set all four to enable real email)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@linkfit.app}
+      # OAuth (optional)
+      OAUTH_APPLE_CLIENT_IDS: ${OAUTH_APPLE_CLIENT_IDS:-az.linkfit.app}
+      OAUTH_GOOGLE_CLIENT_IDS: ${OAUTH_GOOGLE_CLIENT_IDS:-}
+      # Medical encryption (recommended — strong key required for AES-256-GCM)
+      MEDICAL_ENCRYPTION_KEY: ${MEDICAL_ENCRYPTION_KEY:-}
+    volumes:
+      - uploads:/app/uploads
+    expose:
+      - "3000"
+    # Only reachable via the nginx reverse proxy; not published to host.
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: linkfit-nginx
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/certs:/etc/nginx/certs:ro
+    # nginx config (infra/nginx.conf) should:
+    #   - terminate TLS via Let's Encrypt certs mounted from host;
+    #   - proxy / → http://api:3000;
+    #   - block /metrics from public (allow only Prometheus scraper IP);
+    #   - rate-limit at the edge as defense-in-depth on top of the
+    #     application-level limits.
+
+volumes:
+  pg_data:
+  uploads:

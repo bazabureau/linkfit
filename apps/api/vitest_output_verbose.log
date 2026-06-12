@@ -1,0 +1,340 @@
+
+ RUN  v2.1.9 /Users/kamrannamazov/Desktop/linkfit/apps/api
+
+Local-only mode: using local PostgreSQL database 'linkfit_test' directly.
+No migrations to run!
+Migrations complete!
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Happy-path > F1-T1-1: lists public events for anonymous callers
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Happy-path > F1-T1-1: lists public events for anonymous callers
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Happy-path > F1-T1-2: shows followed and self events for authenticated users
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Happy-path > F1-T1-2: shows followed and self events for authenticated users
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Happy-path > F1-T1-3: allows a user to like a feed event
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Happy-path > F1-T1-3: allows a user to like a feed event
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Happy-path > F1-T1-4: allows a user to unlike a feed event
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Happy-path > F1-T1-4: allows a user to unlike a feed event
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Happy-path > F1-T1-5: paginates feed events with limit and cursor
+   → expected +0 to be 1 // Object.is equality
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Happy-path > F1-T1-5: paginates feed events with limit and cursor
+   → expected +0 to be 1 // Object.is equality
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Boundary & Corner Cases > F1-T2-1: private events are only visible to the host user
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Boundary & Corner Cases > F1-T2-1: private events are only visible to the host user 378ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Boundary & Corner Cases > F1-T2-2: liking a non-existent feed event ID returns a 400 error
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Boundary & Corner Cases > F1-T2-2: liking a non-existent feed event ID returns a 400 error
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Boundary & Corner Cases > F1-T2-3: double liking the same event is idempotent and returns 200 with unchanged count
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Boundary & Corner Cases > F1-T2-3: double liking the same event is idempotent and returns 200 with unchanged count
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Boundary & Corner Cases > F1-T2-4: unliking an event that was not liked returns 200 gracefully
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Boundary & Corner Cases > F1-T2-4: unliking an event that was not liked returns 200 gracefully 339ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Boundary & Corner Cases > F1-T2-5: querying feed with an invalid/malformed cursor string returns a 400 error
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Boundary & Corner Cases > F1-T2-5: querying feed with an invalid/malformed cursor string returns a 400 error
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Happy-path > F2-T1-1: creates a Padel game with valid inputs
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Happy-path > F2-T1-1: creates a Padel game with valid inputs 331ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Happy-path > F2-T1-2: retrieves game details by ID and list public games
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Happy-path > F2-T1-2: retrieves game details by ID and list public games 370ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Happy-path > F2-T1-3: allows a user to join and subsequently leave a game
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Happy-path > F2-T1-3: allows a user to join and subsequently leave a game 644ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Happy-path > F2-T1-4: permits the game host to reschedule a game
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Happy-path > F2-T1-4: permits the game host to reschedule a game 351ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Happy-path > F2-T1-5: permits the game host to cancel a game with a reason
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Happy-path > F2-T1-5: permits the game host to cancel a game with a reason
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Boundary & Corner Cases > F2-T2-1: prevents non-hosts from cancelling a game, returning 403
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Boundary & Corner Cases > F2-T2-1: prevents non-hosts from cancelling a game, returning 403 572ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Boundary & Corner Cases > F2-T2-2: prevents non-hosts from rescheduling a game, returning 403
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Boundary & Corner Cases > F2-T2-2: prevents non-hosts from rescheduling a game, returning 403 478ms
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Boundary & Corner Cases > F2-T2-3: blocks joining a game twice, returning a 409 or 422 error
+   → expected [ 200 ] to include 400
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Boundary & Corner Cases > F2-T2-3: blocks joining a game twice, returning a 409 or 422 error 550ms
+   → expected [ 200 ] to include 400
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Boundary & Corner Cases > F2-T2-4: blocks joining a full game, returning a 422 or 409 error
+   → expected [ 409, 422 ] to include 400
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Boundary & Corner Cases > F2-T2-4: blocks joining a full game, returning a 422 or 409 error 756ms
+   → expected [ 409, 422 ] to include 400
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Boundary & Corner Cases > F2-T2-5: prevents rescheduling a game into a past start time, returning 400
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Boundary & Corner Cases > F2-T2-5: prevents rescheduling a game into a past start time, returning 400 569ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Happy-path > F3-T1-1: lists tournaments and supports filtering by status
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Happy-path > F3-T1-1: lists tournaments and supports filtering by status
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Happy-path > F3-T1-2: retrieves detailed view of a tournament including open registration status
+   → update or delete on table "users" violates foreign key constraint "games_host_user_id_fkey" on table "games"
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Happy-path > F3-T1-2: retrieves detailed view of a tournament including open registration status
+   → update or delete on table "users" violates foreign key constraint "games_host_user_id_fkey" on table "games"
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Happy-path > F3-T1-3: registers a squad with captain and additional players successfully
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Happy-path > F3-T1-3: registers a squad with captain and additional players successfully 451ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Happy-path > F3-T1-4: allows the captain user to withdraw their squad entry
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Happy-path > F3-T1-4: allows the captain user to withdraw their squad entry 1491ms
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Happy-path > F3-T1-5: shows the current user's entry under my_entry when authenticated
+   → expected 404 to be 200 // Object.is equality
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Happy-path > F3-T1-5: shows the current user's entry under my_entry when authenticated 562ms
+   → expected 404 to be 200 // Object.is equality
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-1: prevents squad registration on full tournaments, returning 409
+   → expected 404 to be 201 // Object.is equality
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-1: prevents squad registration on full tournaments, returning 409 721ms
+   → expected 404 to be 201 // Object.is equality
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-2: blocks double-registration of squads by the same captain, returning 409
+   → expected 404 to be 409 // Object.is equality
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-2: blocks double-registration of squads by the same captain, returning 409 697ms
+   → expected 404 to be 409 // Object.is equality
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-3: blocks registration once the tournament registration is closed or completed (409)
+   → expected 404 to be 409 // Object.is equality
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-3: blocks registration once the tournament registration is closed or completed (409) 306ms
+   → expected 404 to be 409 // Object.is equality
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-4: prevents squad withdrawal when tournament is already in_progress, returning 409
+   → expected 400 to be 409 // Object.is equality
+ × tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-4: prevents squad withdrawal when tournament is already in_progress, returning 409 451ms
+   → expected 400 to be 409 // Object.is equality
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-5: prevents non-captains from withdrawing a squad, returning 403
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-5: prevents non-captains from withdrawing a squad, returning 403 410ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Happy-path > F4-T1-1: creates a new squad successfully
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Happy-path > F4-T1-1: creates a new squad successfully
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Happy-path > F4-T1-2: lists the user's squads under squads/me and retrieves details by ID
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Happy-path > F4-T1-2: lists the user's squads under squads/me and retrieves details by ID
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Happy-path > F4-T1-3: invites another user to join the squad
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Happy-path > F4-T1-3: invites another user to join the squad
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Happy-path > F4-T1-4: allows the invited user to accept the squad invitation
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Happy-path > F4-T1-4: allows the invited user to accept the squad invitation
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Happy-path > F4-T1-5: permits a member to leave the squad, or the owner to delete the squad
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Happy-path > F4-T1-5: permits a member to leave the squad, or the owner to delete the squad
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Boundary & Corner Cases > F4-T2-1: blocks inviting an already active member or pending invite, returning 409/422
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Boundary & Corner Cases > F4-T2-1: blocks inviting an already active member or pending invite, returning 409/422
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Boundary & Corner Cases > F4-T2-2: blocks accepting an invitation for a non-existent squad, returning 404
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Boundary & Corner Cases > F4-T2-2: blocks accepting an invitation for a non-existent squad, returning 404
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Boundary & Corner Cases > F4-T2-3: prevents non-owners from deleting a squad, returning 403
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Boundary & Corner Cases > F4-T2-3: prevents non-owners from deleting a squad, returning 403
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Boundary & Corner Cases > F4-T2-4: prevents non-owners from updating squad details, returning 403
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Boundary & Corner Cases > F4-T2-4: prevents non-owners from updating squad details, returning 403
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Boundary & Corner Cases > F4-T2-5: blocks squad creation with invalid size limits (e.g. max_size = 1 or 20), returning 400
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Boundary & Corner Cases > F4-T2-5: blocks squad creation with invalid size limits (e.g. max_size = 1 or 20), returning 400
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Happy-path > F5-T1-1: registers a user with a valid referral code in the query param or body
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Happy-path > F5-T1-1: registers a user with a valid referral code in the query param or body
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Happy-path > F5-T1-2: retrieves the current user's referral code and referees list
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Happy-path > F5-T1-2: retrieves the current user's referral code and referees list
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Happy-path > F5-T1-3: retrieves the compact single-user summary including share URL and count
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Happy-path > F5-T1-3: retrieves the compact single-user summary including share URL and count
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Happy-path > F5-T1-4: fetches localized referral share text/payload successfully
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Happy-path > F5-T1-4: fetches localized referral share text/payload successfully
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Happy-path > F5-T1-5: allows a referee to redeem a referral code explicitly after registration
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Happy-path > F5-T1-5: allows a referee to redeem a referral code explicitly after registration
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Boundary & Corner Cases > F5-T2-1: registering with an invalid/unknown referral code succeeds but silently ignores referral
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Boundary & Corner Cases > F5-T2-1: registering with an invalid/unknown referral code succeeds but silently ignores referral
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Boundary & Corner Cases > F5-T2-2: prevents a user from redeeming their own referral code, returning 400/422
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Boundary & Corner Cases > F5-T2-2: prevents a user from redeeming their own referral code, returning 400/422
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Boundary & Corner Cases > F5-T2-3: blocks redeeming a referral code twice by the same user, returning 409
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Boundary & Corner Cases > F5-T2-3: blocks redeeming a referral code twice by the same user, returning 409
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Boundary & Corner Cases > F5-T2-4: rejects redeeming a referral code with invalid format, returning 400
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Boundary & Corner Cases > F5-T2-4: rejects redeeming a referral code with invalid format, returning 400
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Boundary & Corner Cases > F5-T2-5: blocks redeeming referral code if more than 7 days have passed since signup (returns 422)
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Boundary & Corner Cases > F5-T2-5: blocks redeeming referral code if more than 7 days have passed since signup (returns 422)
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Happy-path > F6-T1-1: allows a user to follow and subsequently unfollow another user
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Happy-path > F6-T1-1: allows a user to follow and subsequently unfollow another user 357ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Happy-path > F6-T1-2: lists followers and following with counts
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Happy-path > F6-T1-2: lists followers and following with counts
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Happy-path > F6-T1-3: starts a message conversation thread with another user
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Happy-path > F6-T1-3: starts a message conversation thread with another user
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Happy-path > F6-T1-4: sends messages in a conversation and lists the message thread
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Happy-path > F6-T1-4: sends messages in a conversation and lists the message thread
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Happy-path > F6-T1-5: marks a conversation thread as read and sends typing status
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Happy-path > F6-T1-5: marks a conversation thread as read and sends typing status
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Boundary & Corner Cases > F6-T2-1: prevents a user from following themselves, returning 400/422
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Boundary & Corner Cases > F6-T2-1: prevents a user from following themselves, returning 400/422
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Boundary & Corner Cases > F6-T2-2: double follow is idempotent and handles elegantly without failing
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Boundary & Corner Cases > F6-T2-2: double follow is idempotent and handles elegantly without failing
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Boundary & Corner Cases > F6-T2-3: sending a message to a non-existent conversation returns a 403/404 error
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Boundary & Corner Cases > F6-T2-3: sending a message to a non-existent conversation returns a 403/404 error
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Boundary & Corner Cases > F6-T2-4: soft-leaves a conversation thread, removing it from active inbox list
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Boundary & Corner Cases > F6-T2-4: soft-leaves a conversation thread, removing it from active inbox list
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Boundary & Corner Cases > F6-T2-5: rejects sending an empty message without body or attachment, returning 400
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Boundary & Corner Cases > F6-T2-5: rejects sending an empty message without body or attachment, returning 400
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F1-F6-T3-1: follow action automatically generates feed items for followers
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F1-F6-T3-1: follow action automatically generates feed items for followers 316ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F2-F4-T3-2: squad members attending is correctly populated on game schedules
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F2-F4-T3-2: squad members attending is correctly populated on game schedules 393ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F3-F4-T3-3: squad detail matches player registrations in tournaments
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F3-F4-T3-3: squad detail matches player registrations in tournaments 607ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F5-F6-T3-4: referral redemption emits a push notification or social message in notifications list
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F5-F6-T3-4: referral redemption emits a push notification or social message in notifications list 517ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F2-F1-T3-5: scheduling a game publishes a joined_game feed event for host
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F2-F1-T3-5: scheduling a game publishes a joined_game feed event for host
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F2-F6-T3-6: joining a game generates a notification for the game host
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F2-F6-T3-6: joining a game generates a notification for the game host 389ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 4: Real-World Application Scenarios (T4) > Scenario 1: Organic Community Expansion & Growth
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 4: Real-World Application Scenarios (T4) > Scenario 1: Organic Community Expansion & Growth 712ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 4: Real-World Application Scenarios (T4) > Scenario 2: Complete Tournament Lifecycle & Squad Management
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 4: Real-World Application Scenarios (T4) > Scenario 2: Complete Tournament Lifecycle & Squad Management 319ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 4: Real-World Application Scenarios (T4) > Scenario 3: Competitive Match Discovery & ELO Progress Tracking
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 4: Real-World Application Scenarios (T4) > Scenario 3: Competitive Match Discovery & ELO Progress Tracking 681ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 4: Real-World Application Scenarios (T4) > Scenario 4: Private Matchmaking & Real-time Chat Coordination
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 4: Real-World Application Scenarios (T4) > Scenario 4: Private Matchmaking & Real-time Chat Coordination 541ms
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 4: Real-World Application Scenarios (T4) > Scenario 5: User Moderation & Social Boundaries (Mutual Blocks)
+ ✓ tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 4: Real-World Application Scenarios (T4) > Scenario 5: User Moderation & Social Boundaries (Mutual Blocks) 383ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Happy-path > F1-T1-5: paginates feed events with limit and cursor
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ tests/e2e/linkfit.e2e.test.ts:302:40
+    300|       });
+    301|       expect(res2.statusCode).toBe(200);
+    302|       expect(res2.json().items.length).toBe(1);
+       |                                        ^
+    303|     });
+    304|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Boundary & Corner Cases > F2-T2-3: blocks joining a game twice, returning a 409 or 422 error
+AssertionError: expected [ 200 ] to include 400
+ ❯ tests/e2e/linkfit.e2e.test.ts:666:21
+    664|         headers: { authorization: `Bearer ${bob.access_token}` },
+    665|       });
+    666|       expect([200]).toContain(doubleJoin.statusCode);
+       |                     ^
+    667|     });
+    668| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Boundary & Corner Cases > F2-T2-4: blocks joining a full game, returning a 422 or 409 error
+AssertionError: expected [ 409, 422 ] to include 400
+ ❯ tests/e2e/linkfit.e2e.test.ts:701:26
+    699|         headers: { authorization: `Bearer ${carol.access_token}` },
+    700|       });
+    701|       expect([409, 422]).toContain(fullJoin.statusCode);
+       |                          ^
+    702|     });
+    703| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Happy-path > F3-T1-2: retrieves detailed view of a tournament including open registration status
+error: update or delete on table "users" violates foreign key constraint "games_host_user_id_fkey" on table "games"
+ ❯ node_modules/.pnpm/pg@8.21.0/node_modules/pg/lib/client.js:646:17
+ ❯ PostgresConnection.executeQuery node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:72:28
+ ❯ PostgresConnection.connection.executeQuery node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/driver/runtime-driver.js:90:24
+ ❯ node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ cleanDb tests/e2e/linkfit.e2e.test.ts:89:7
+     87|     ];
+     88|     for (const table of tables) {
+     89|       await sql`DELETE FROM ${sql.raw(table)}`.execute(dbHandle.db);
+       |       ^
+     90|     }
+     91|   }
+ ❯ tests/e2e/linkfit.e2e.test.ts:137:5
+ ❯ PostgresConnection.executeQuery node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:92:41
+ ❯ PostgresConnection.connection.executeQuery node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/driver/runtime-driver.js:90:24
+ ❯ node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ cleanDb tests/e2e/linkfit.e2e.test.ts:89:7
+ ❯ tests/e2e/linkfit.e2e.test.ts:137:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { length: 306, severity: 'ERROR', code: '23503', detail: 'Key (id)=(91bfcc81-bb3b-4d56-9ef4-fb39797d52be) is still referenced from table "games".', hint: undefined, position: undefined, internalPosition: undefined, internalQuery: undefined, where: undefined, schema: 'public', table: 'games', column: undefined, dataType: undefined, constraint: 'games_host_user_id_fkey', file: 'ri_triggers.c', line: '2553', routine: 'ri_ReportViolation' }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Happy-path > F3-T1-5: shows the current user's entry under my_entry when authenticated
+AssertionError: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ tests/e2e/linkfit.e2e.test.ts:829:36
+    827|         headers: { authorization: `Bearer ${alice.access_token}` },
+    828|       });
+    829|       expect(detailRes.statusCode).toBe(200);
+       |                                    ^
+    830|       expect(detailRes.json().my_entry.id).toBe(entryId);
+    831|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-1: prevents squad registration on full tournaments, returning 409
+AssertionError: expected 404 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 404
+
+ ❯ tests/e2e/linkfit.e2e.test.ts:871:36
+    869|         payload: { squad_name: "Second Squad", player_ids: [dave.id] },
+    870|       });
+    871|       expect(secondReg.statusCode).toBe(201);
+       |                                    ^
+    872| 
+    873|       // Squad 3 (prevented with 409)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-2: blocks double-registration of squads by the same captain, returning 409
+AssertionError: expected 404 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 404
+
+ ❯ tests/e2e/linkfit.e2e.test.ts:900:36
+    898|         payload: { squad_name: "Squad Two", player_ids: [bob.id] },
+    899|       });
+    900|       expect(secondReg.statusCode).toBe(409);
+       |                                    ^
+    901|     });
+    902| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-3: blocks registration once the tournament registration is closed or completed (409)
+AssertionError: expected 404 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 404
+
+ ❯ tests/e2e/linkfit.e2e.test.ts:916:33
+    914|         payload: { squad_name: "Late Squad", player_ids: [bob.id] },
+    915|       });
+    916|       expect(regRes.statusCode).toBe(409);
+       |                                 ^
+    917|     });
+    918| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/9]⎯
+
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-4: prevents squad withdrawal when tournament is already in_progress, returning 409
+AssertionError: expected 400 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 400
+
+ ❯ tests/e2e/linkfit.e2e.test.ts:939:38
+    937|         headers: { authorization: `Bearer ${alice.access_token}` },
+    938|       });
+    939|       expect(withdrawRes.statusCode).toBe(409);
+       |                                      ^
+    940|     });
+    941| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯
+
+ Test Files  1 failed (1)
+      Tests  9 failed | 62 passed (71)
+   Start at  02:45:01
+   Duration  26.98s (transform 747ms, setup 11ms, collect 1.62s, tests 24.75s, environment 0ms, prepare 51ms)
+

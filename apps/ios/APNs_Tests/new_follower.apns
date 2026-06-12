@@ -1,0 +1,12 @@
+{
+  "Simulator Target Bundle": "az.linkfit.app",
+  "aps": {
+    "alert": {
+      "title": "Yeni İzləyici! 👤",
+      "body": "Leyla səni izləməyə başladı."
+    },
+    "badge": 1,
+    "sound": "default"
+  },
+  "follower_user_id": "00000000-0000-0000-0000-000000000003"
+}

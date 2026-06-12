@@ -1,0 +1,198 @@
+
+ RUN  v2.1.9 /Users/kamrannamazov/Desktop/linkfit/apps/api
+
+Could not start PostgreSqlContainer. Falling back to local PostgreSQL database 'linkfit_test'. Error: Could not find a working container runtime strategy
+    at getContainerRuntimeClient (/Users/kamrannamazov/Desktop/linkfit/apps/api/node_modules/.pnpm/testcontainers@10.28.0/node_modules/testcontainers/build/container-runtime/clients/client.js:66:11)
+    at async PostgreSqlContainer.start (/Users/kamrannamazov/Desktop/linkfit/apps/api/node_modules/.pnpm/testcontainers@10.28.0/node_modules/testcontainers/build/generic-container/generic-container.js:58:24)
+    at async PostgreSqlContainer.start (/Users/kamrannamazov/Desktop/linkfit/apps/api/node_modules/.pnpm/@testcontainers+postgresql@10.28.0/node_modules/@testcontainers/postgresql/build/postgresql-container.js:45:47)
+    at async Object.setup (/Users/kamrannamazov/Desktop/linkfit/apps/api/tests/setup/globalSetup.ts:17:17)
+    at async WorkspaceProject.initializeGlobalSetup (file:///Users/kamrannamazov/Desktop/linkfit/apps/api/node_modules/.pnpm/vitest@2.1.9_@types+node@22.19.19/node_modules/vitest/dist/chunks/cli-api.DqsSTaIi.js:9926:24)
+    at async Vitest.initializeGlobalSetup (file:///Users/kamrannamazov/Desktop/linkfit/apps/api/node_modules/.pnpm/vitest@2.1.9_@types+node@22.19.19/node_modules/vitest/dist/chunks/cli-api.DqsSTaIi.js:10794:7)
+    at async file:///Users/kamrannamazov/Desktop/linkfit/apps/api/node_modules/.pnpm/vitest@2.1.9_@types+node@22.19.19/node_modules/vitest/dist/chunks/cli-api.DqsSTaIi.js:10816:7
+    at async Vitest.runFiles (file:///Users/kamrannamazov/Desktop/linkfit/apps/api/node_modules/.pnpm/vitest@2.1.9_@types+node@22.19.19/node_modules/vitest/dist/chunks/cli-api.DqsSTaIi.js:10840:12)
+    at async Vitest.start (file:///Users/kamrannamazov/Desktop/linkfit/apps/api/node_modules/.pnpm/vitest@2.1.9_@types+node@22.19.19/node_modules/vitest/dist/chunks/cli-api.DqsSTaIi.js:10682:7)
+    at async startVitest (file:///Users/kamrannamazov/Desktop/linkfit/apps/api/node_modules/.pnpm/vitest@2.1.9_@types+node@22.19.19/node_modules/vitest/dist/chunks/cli-api.DqsSTaIi.js:11848:7)
+No migrations to run!
+Migrations complete!
+ ❯ tests/e2e/linkfit.e2e.test.ts (71 tests | 11 failed) 20670ms
+   ✓ Linkfit Premium E2E Integration Suite > Feature 1: Feed (F1) - Happy-path > F1-T1-1: lists public events for anonymous callers 422ms
+   ✓ Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Happy-path > F2-T1-1: creates a Padel game with valid inputs 346ms
+   ✓ Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Happy-path > F2-T1-2: retrieves game details by ID and list public games 1172ms
+   × Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Happy-path > F2-T1-3: allows a user to join and subsequently leave a game 538ms
+     → expected true to be false // Object.is equality
+   ✓ Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Happy-path > F2-T1-4: permits the game host to reschedule a game 477ms
+   ✓ Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Happy-path > F2-T1-5: permits the game host to cancel a game with a reason 958ms
+   × Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Boundary & Corner Cases > F2-T2-3: blocks joining a game twice, returning a 409 or 422 error 225ms
+     → expected [ 409, 422 ] to include 200
+   ✓ Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Boundary & Corner Cases > F2-T2-4: blocks joining a full game, returning a 422 or 409 error 409ms
+   ✓ Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Happy-path > F3-T1-3: registers a squad with captain and additional players successfully 460ms
+   ✓ Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Happy-path > F3-T1-4: allows the captain user to withdraw their squad entry 311ms
+   ✓ Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Happy-path > F3-T1-5: shows the current user's entry under my_entry when authenticated 408ms
+   × Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-1: prevents squad registration on full tournaments, returning 409 90ms
+     → new row for relation "tournaments" violates check constraint "tournaments_max_squads_check"
+   × Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-2: blocks double-registration of squads by the same captain, returning 409 22ms
+     → new row for relation "tournaments" violates check constraint "tournaments_max_squads_check"
+   × Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-3: blocks registration once the tournament registration is closed or completed (409) 25ms
+     → new row for relation "tournaments" violates check constraint "tournaments_max_squads_check"
+   × Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-4: prevents squad withdrawal when tournament is already in_progress, returning 409 28ms
+     → new row for relation "tournaments" violates check constraint "tournaments_max_squads_check"
+   × Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-5: prevents non-captains from withdrawing a squad, returning 403 143ms
+     → new row for relation "tournaments" violates check constraint "tournaments_max_squads_check"
+   ✓ Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Happy-path > F4-T1-4: allows the invited user to accept the squad invitation 851ms
+   ✓ Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Happy-path > F4-T1-5: permits a member to leave the squad, or the owner to delete the squad 675ms
+   ✓ Linkfit Premium E2E Integration Suite > Feature 4: Squad Management (F4) - Boundary & Corner Cases > F4-T2-3: prevents non-owners from deleting a squad, returning 403 330ms
+   ✓ Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Happy-path > F5-T1-5: allows a referee to redeem a referral code explicitly after registration 467ms
+   ✓ Linkfit Premium E2E Integration Suite > Feature 5: Referrals (F5) - Boundary & Corner Cases > F5-T2-5: blocks redeeming referral code if more than 7 days have passed since signup (returns 422) 316ms
+   ✓ Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Happy-path > F6-T1-1: allows a user to follow and subsequently unfollow another user 614ms
+   ✓ Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Happy-path > F6-T1-3: starts a message conversation thread with another user 438ms
+   ✓ Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Happy-path > F6-T1-4: sends messages in a conversation and lists the message thread 735ms
+   ✓ Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Boundary & Corner Cases > F6-T2-2: double follow is idempotent and handles elegantly without failing 424ms
+   ✓ Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Boundary & Corner Cases > F6-T2-3: sending a message to a non-existent conversation returns a 403/404 error 413ms
+   ✓ Linkfit Premium E2E Integration Suite > Feature 6: Chat Threads / Followers (F6) - Boundary & Corner Cases > F6-T2-4: soft-leaves a conversation thread, removing it from active inbox list 600ms
+   × Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F1-F6-T3-1: follow action automatically generates feed items for followers 209ms
+     → expected 2 to be 1 // Object.is equality
+   ✓ Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F2-F4-T3-2: squad members attending is correctly populated on game schedules 346ms
+   × Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F5-F6-T3-4: referral redemption emits a push notification or social message in notifications list 149ms
+     → expected 0 to be greater than 0
+   × Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F2-F6-T3-6: joining a game generates a notification for the game host 145ms
+     → expected false to be true // Object.is equality
+   × Linkfit Premium E2E Integration Suite > Tier 4: Real-World Application Scenarios (T4) > Scenario 1: Organic Community Expansion & Growth 219ms
+     → expected +0 to be 1 // Object.is equality
+   ✓ Linkfit Premium E2E Integration Suite > Tier 4: Real-World Application Scenarios (T4) > Scenario 3: Competitive Match Discovery & ELO Progress Tracking 513ms
+   ✓ Linkfit Premium E2E Integration Suite > Tier 4: Real-World Application Scenarios (T4) > Scenario 4: Private Matchmaking & Real-time Chat Coordination 348ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 11 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Happy-path > F2-T1-3: allows a user to join and subsequently leave a game
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/e2e/linkfit.e2e.test.ts:451:83
+    449|       });
+    450|       expect(leaveRes.statusCode).toBe(200);
+    451|       expect(leaveRes.json().participants.some((p: any) => p.user_id =…
+       |                                                                                   ^
+    452|     });
+    453| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/11]⎯
+
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 2: Matches Discovery / Matchmaking (F2) - Boundary & Corner Cases > F2-T2-3: blocks joining a game twice, returning a 409 or 422 error
+AssertionError: expected [ 409, 422 ] to include 200
+ ❯ tests/e2e/linkfit.e2e.test.ts:611:26
+    609|         headers: { authorization: `Bearer ${bob.access_token}` },
+    610|       });
+    611|       expect([409, 422]).toContain(doubleJoin.statusCode);
+       |                          ^
+    612|     });
+    613| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/11]⎯
+
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-1: prevents squad registration on full tournaments, returning 409
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-2: blocks double-registration of squads by the same captain, returning 409
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-3: blocks registration once the tournament registration is closed or completed (409)
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-4: prevents squad withdrawal when tournament is already in_progress, returning 409
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Feature 3: Tournaments (F3) - Boundary & Corner Cases > F3-T2-5: prevents non-captains from withdrawing a squad, returning 403
+error: new row for relation "tournaments" violates check constraint "tournaments_max_squads_check"
+ ❯ node_modules/.pnpm/pg@8.21.0/node_modules/pg/lib/client.js:646:17
+ ❯ PostgresConnection.executeQuery node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:72:28
+ ❯ PostgresConnection.connection.executeQuery node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/driver/runtime-driver.js:90:24
+ ❯ node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ tests/e2e/linkfit.e2e.test.ts:783:19
+    781| 
+    782|     beforeEach(async () => {
+    783|       const row = await sql<{ id: string }>`
+       |                   ^
+    784|         INSERT INTO tournaments
+    785|           (name, sport_id, starts_at, ends_at, registration_deadline, …
+ ❯ PostgresConnection.executeQuery node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:92:41
+ ❯ PostgresConnection.connection.executeQuery node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/driver/runtime-driver.js:90:24
+ ❯ node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery node_modules/.pnpm/kysely@0.27.6/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ tests/e2e/linkfit.e2e.test.ts:783:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/11]⎯
+
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F1-F6-T3-1: follow action automatically generates feed items for followers
+AssertionError: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ tests/e2e/linkfit.e2e.test.ts:1586:45
+    1584|         headers: { authorization: `Bearer ${alice.access_token}` },
+    1585|       });
+    1586|       expect(aliceFeed.json().items.length).toBe(1);
+       |                                             ^
+    1587|     });
+    1588| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/11]⎯
+
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F5-F6-T3-4: referral redemption emits a push notification or social message in notifications list
+AssertionError: expected 0 to be greater than 0
+ ❯ tests/e2e/linkfit.e2e.test.ts:1697:45
+    1695|       });
+    1696|       expect(notifyRes.statusCode).toBe(200);
+    1697|       expect(notifyRes.json().items.length).toBeGreaterThan(0);
+       |                                             ^
+    1698|     });
+    1699| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/11]⎯
+
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 3: Cross-Feature Combinations (T3) > F2-F6-T3-6: joining a game generates a notification for the game host
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/e2e/linkfit.e2e.test.ts:1756:85
+    1754|         headers: { authorization: `Bearer ${alice.access_token}` },
+    1755|       });
+    1756|       expect(notifications.json().items.some((n: any) => n.type === "g…
+       |                                                                                     ^
+    1757|     });
+    1758|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/11]⎯
+
+ FAIL  tests/e2e/linkfit.e2e.test.ts > Linkfit Premium E2E Integration Suite > Tier 4: Real-World Application Scenarios (T4) > Scenario 1: Organic Community Expansion & Growth
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ tests/e2e/linkfit.e2e.test.ts:1818:37
+    1816|         headers: { authorization: `Bearer ${alice.access_token}` },
+    1817|       });
+    1818|       expect(aliceRef.json().count).toBe(1);
+       |                                     ^
+    1819| 
+    1820|       const bobRef = await app.inject({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/11]⎯
+
+ Test Files  1 failed (1)
+      Tests  11 failed | 60 passed (71)
+   Start at  01:40:00
+   Duration  24.16s (transform 865ms, setup 3ms, collect 2.09s, tests 20.67s, environment 0ms, prepare 78ms)
+

@@ -1,0 +1,5 @@
+## 2026-06-01T09:15:55Z
+Your task is to perform a detailed, rigorous final review and critique of two blueprints: `/Users/kamrannamazov/Desktop/linkfit/.agents/orchestrator/CUSTOMER_SUPPORT.md` (SwiftUI onboarding, ELO calibration, dynamic pricing, qəpik split refunds) and `/Users/kamrannamazov/Desktop/linkfit/.agents/orchestrator/COMPLIANCE_LEGAL.md` (PCI-DSS tokenization, MilliÖN cash terminals, GDPR Article 17 erasure).
+Verify that they are accurate, complete, grammatically elegant in both Azerbaijani and English, contain zero robotic translations, and satisfy all financial (qəpik-level split calculations, idempotency) and regulatory compliance standards (GDPR, personal data Law No. 998-IIIQ).
+Verify that all app elements maintain extreme comfort, cleanliness, minimalism, high-contrast, professional typography, and spacious layouts (zero visual clutter).
+Produce a comprehensive critique and review report detailing compliance highlights, customer workflows, localizations, and overall alignment. Save your report as `reviewer_2_report.md` in your own working directory and send a message back with the summary and path to the report.

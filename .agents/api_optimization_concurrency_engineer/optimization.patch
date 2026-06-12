@@ -1,0 +1,129 @@
+diff --git a/apps/api/src/shared/http/server.ts b/apps/api/src/shared/http/server.ts
+index server.ts..optimized 100644
+--- a/apps/api/src/shared/http/server.ts
++++ b/apps/api/src/shared/http/server.ts
+@@ -10,6 +10,9 @@ import fastifyStatic from "@fastify/static";
+ import fastifySwagger from "@fastify/swagger";
+ import fastifySwaggerUi from "@fastify/swagger-ui";
+ import { mkdirSync } from "node:fs";
++import compress from "@fastify/compress";
++import { zodToJsonSchema } from "zod-to-json-schema";
++import fastJson from "fast-json-stringify";
+ import {
+   jsonSchemaTransform,
+   serializerCompiler,
+@@ -263,8 +266,31 @@ export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
+     trustProxy: deps.env.NODE_ENV === "production",
+     bodyLimit: 1_048_576, // 1 MiB
+   }).withTypeProvider<ZodTypeProvider>();
+ 
++  // Register compression plugin for higher throughput
++  await app.register(compress, {
++    global: true,
++    threshold: 1024, // only compress responses larger than 1 KiB
++    encodings: ["gzip", "deflate"],
++  });
++
+   app.setValidatorCompiler(validatorCompiler);
+-  app.setSerializerCompiler(serializerCompiler);
++
++  // Fastify optimized JSON schema serialization boost using fast-json-stringify
++  app.setSerializerCompiler(({ schema }: { schema: any }) => {
++    try {
++      let jsonSchema = schema;
++      if (schema && (schema._def || schema.safeParse)) {
++        jsonSchema = zodToJsonSchema(schema);
++      }
++      const stringify = fastJson(jsonSchema);
++      return (data: any) => stringify(data);
++    } catch (err) {
++      return (data: any) => {
++        if (schema && schema.safeParse) {
++          const parsed = schema.safeParse(data);
++          if (parsed.success) return JSON.stringify(parsed.data);
++        }
++        return JSON.stringify(data);
++      };
++    }
++  });
+ 
+   // Register Sentry's onError hook BEFORE any route registration so it
+diff --git a/apps/api/src/shared/auth/partnerGuard.ts b/apps/api/src/shared/auth/partnerGuard.ts
+index partnerGuard.ts..optimized 100644
+--- a/apps/api/src/shared/auth/partnerGuard.ts
++++ b/apps/api/src/shared/auth/partnerGuard.ts
+@@ -21,12 +21,39 @@ export interface PartnerGuardDeps {
+   jwtAccessSecret: string;
+   db: DbHandle;
+ }
+ 
++interface CachedPartnerInfo {
++  admin_role: string | null;
++  venue_id: string | null;
++  deleted_at: Date | string | null;
++}
++
+ /**
+  * Fastify preHandler guard that ensures a user is authenticated,
+  * active, and is either a global admin or an operator assigned to a venue.
++ * 
++ * Optimized: Uses an in-memory process-local cache with a 60s TTL to
++ * avoid redundant DB queries on hot REST partner endpoints.
+  */
+ export function buildPartnerGuard(deps: PartnerGuardDeps) {
+   const authenticate = buildAuthGuard({ jwtAccessSecret: deps.jwtAccessSecret });
++  const cache = new Map<string, { info: CachedPartnerInfo | null; iat: number }>();
++  const TTL_MS = 60_000; // 60s cache TTL
+ 
+   return async function partnerGuard(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+     await authenticate(req, reply);
+     if (!req.authUserId) {
+       throw new UnauthenticatedError("Authentication required");
+     }
+ 
+-    const row = await deps.db.db
+-      .selectFrom("users")
+-      .select(["id", "admin_role", "venue_id", "deleted_at"])
+-      .where("id", "=", req.authUserId)
+-      .executeTakeFirst();
++    const now = Date.now();
++    const cached = cache.get(req.authUserId);
++    let row: CachedPartnerInfo | null = null;
++
++    if (cached && (now - cached.iat) < TTL_MS) {
++      row = cached.info;
++    } else {
++      const dbRow = await deps.db.db
++        .selectFrom("users")
++        .select(["id", "admin_role", "venue_id", "deleted_at"])
++        .where("id", "=", req.authUserId)
++        .executeTakeFirst();
++
++      row = dbRow ? {
++        admin_role: dbRow.admin_role,
++        venue_id: dbRow.venue_id,
++        deleted_at: dbRow.deleted_at
++      } : null;
++
++      cache.set(req.authUserId, { info: row, iat: now });
++    }
+ 
+-    if (row?.deleted_at !== null) {
++    if (!row) {
++      throw new UnauthenticatedError("Account no longer active");
++    }
++
++    if (row.deleted_at !== null) {
+       throw new UnauthenticatedError("Account no longer active");
+     }
+ 
+     // Must be either a global admin or have a venue_id association
+     if (row.admin_role !== "admin" && !row.venue_id) {
+       throw new ForbiddenError("Partner access required");
+     }
+ 
+     if (row.venue_id !== null) {
+       req.partnerVenueId = row.venue_id;
+     }
+   };
+ }
