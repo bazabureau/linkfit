@@ -42,7 +42,7 @@ struct NotificationsView: View {
                         confirmClearAll = true
                     } label: {
                         Text("notifications.action.clear_all")
-                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                            .font(.system(.subheadline, design: .default, weight: .semibold))
                             .foregroundStyle(DSColor.danger)
                     }
                     .accessibilityLabel(Text("notifications.action.clear_all"))
@@ -71,7 +71,7 @@ struct NotificationsView: View {
             Text(viewModel.unreadCount > 0
                  ? String(format: String(localized: "notifications.unread_format"), viewModel.unreadCount)
                  : String(localized: "notifications.all_caught_up"))
-                .font(.system(.footnote, design: .rounded, weight: .bold))
+                .font(.system(.footnote, design: .default, weight: .bold))
                 .foregroundStyle(DSColor.textSecondary)
             Spacer()
             if viewModel.unreadCount > 0 {
@@ -81,7 +81,7 @@ struct NotificationsView: View {
                     Task { await viewModel.markAllRead() }
                 } label: {
                     Text("notifications.mark_all_read")
-                        .font(.system(.footnote, design: .rounded, weight: .heavy))
+                        .font(.system(.footnote, design: .default, weight: .heavy))
                         .foregroundStyle(DSColor.accent)
                 }
                 .buttonStyle(.plain)
@@ -163,7 +163,7 @@ struct NotificationsView: View {
                     }
                 } header: {
                     Text(sectionTitle)
-                        .font(.system(.footnote, design: .rounded, weight: .heavy))
+                        .font(.system(.footnote, design: .default, weight: .heavy))
                         .foregroundStyle(DSColor.textSecondary)
                         .textCase(nil)
                         .padding(.horizontal, DSSpacing.xxs)
@@ -222,7 +222,7 @@ struct NotificationRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(notification.title)
-                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .font(.system(.subheadline, design: .default, weight: .bold))
                         .foregroundStyle(DSColor.textPrimary)
                     Spacer()
                     
@@ -239,7 +239,7 @@ struct NotificationRow: View {
                     .lineLimit(3)
                 
                 Text(timeAgo(notification.created_at))
-                    .font(.system(.caption, design: .rounded, weight: .bold))
+                    .font(.system(.caption, design: .default, weight: .bold))
                     .foregroundStyle(DSColor.textTertiary)
                     .padding(.top, 2)
             }
@@ -309,12 +309,14 @@ struct PulsingDot: View {
                 .scaleEffect(pulse ? 1.6 : 0.8)
                 .opacity(pulse ? 0.0 : 0.8)
                 .animation(
-                    .easeOut(duration: 1.4)
-                    .repeatForever(autoreverses: false),
+                    UIAccessibility.isReduceMotionEnabled
+                        ? nil
+                        : .easeOut(duration: 1.4).repeatForever(autoreverses: false),
                     value: pulse
                 )
         }
         .onAppear {
+            guard !UIAccessibility.isReduceMotionEnabled else { return }
             pulse = true
         }
     }

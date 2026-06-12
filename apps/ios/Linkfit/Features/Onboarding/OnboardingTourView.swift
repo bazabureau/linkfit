@@ -102,7 +102,7 @@ struct OnboardingTourView: View {
                     .font(.system(.subheadline, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary.opacity(0.88))
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
+                    .padding(.vertical, 10)
                     .background(
                         Capsule().fill(.ultraThinMaterial)
                     )
@@ -128,7 +128,7 @@ struct OnboardingTourView: View {
             ProgressPills(
                 count: viewModel.slides.count,
                 active: viewModel.currentIndex,
-                spacing: 7,
+                spacing: 8,
                 height: 5,
                 inactiveWidth: 18,
                 activeWidth: 40
@@ -247,7 +247,7 @@ private struct OnboardingTourSlideView: View {
 
             // Subtle inner ring for dimensionality.
             Circle()
-                .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
+                .strokeBorder(DSColor.textOnAccent.opacity(0.18), lineWidth: 1)
                 .frame(width: 168, height: 168)
 
             Image(systemName: slide.icon)

@@ -62,12 +62,12 @@ struct FeedPreviewCard: View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             HStack {
                 Text("feed.preview.title")
-                    .font(.system(.headline, design: .rounded, weight: .semibold))
+                    .font(.system(.headline, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
                 Spacer()
                 Button(action: onSeeAll) {
                     Text("feed.preview.see_all")
-                        .font(.system(.footnote, design: .rounded, weight: .semibold))
+                        .font(.system(.footnote, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.accent)
                 }
                 .buttonStyle(.plain)
@@ -78,7 +78,7 @@ struct FeedPreviewCard: View {
                 LoadingView().frame(height: 120)
             case .empty:
                 Text("feed.empty.message")
-                    .font(.system(.footnote, design: .rounded))
+                    .font(.system(.footnote, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
                     .padding(.vertical, DSSpacing.sm)
             case .error:

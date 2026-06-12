@@ -63,10 +63,10 @@ struct Skeleton: ViewModifier {
     /// sizing that `GeometryReader` introduces inside stacks.
     private var placeholder: some View {
         Rectangle()
-            .fill(Color.gray.opacity(0.25))
+            .fill(DSColor.surfaceElevated)
             .overlay(shimmer)
             .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
-            .accessibilityLabel(Text("Loading"))
+            .accessibilityLabel(String(localized: "loading.default"))
     }
 
     /// The moving gradient. We render it across a 3x-wide rectangle and
@@ -82,9 +82,9 @@ struct Skeleton: ViewModifier {
 
         return LinearGradient(
             colors: [
-                Color.gray.opacity(0.1),
-                Color.white.opacity(0.3),
-                Color.gray.opacity(0.1)
+                DSColor.textPrimary.opacity(0.04),
+                DSColor.textPrimary.opacity(0.14),
+                DSColor.textPrimary.opacity(0.04)
             ],
             startPoint: start,
             endPoint: end

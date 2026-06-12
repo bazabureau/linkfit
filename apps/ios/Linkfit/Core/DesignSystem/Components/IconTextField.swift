@@ -17,7 +17,7 @@ struct IconTextField: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(labelKey)
                     .font(.system(.subheadline, design: .default, weight: .semibold))

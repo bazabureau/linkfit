@@ -444,7 +444,7 @@ struct GameDetailView: View {
                 Image(systemName: countdownIcon(to: date))
                     .foregroundStyle(DSColor.accent)
                 Text(countdown)
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
                 Spacer()
             }
@@ -471,7 +471,7 @@ struct GameDetailView: View {
                 ZStack {
                     Circle().fill(DSColor.accent).frame(width: 18, height: 18)
                         .shadow(color: DSColor.accent.opacity(0.6), radius: 6)
-                    Circle().strokeBorder(.white, lineWidth: 2).frame(width: 18, height: 18)
+                    Circle().strokeBorder(DSColor.textOnAccent, lineWidth: 2).frame(width: 18, height: 18)
                 }
             }
         }
@@ -534,7 +534,7 @@ struct GameDetailView: View {
                     Spacer()
                     Text(String(format: String(localized: "game.detail.players_count_format"),
                                 game.participants_count, game.capacity))
-                        .font(.system(.footnote, design: .rounded, weight: .semibold))
+                        .font(.system(.footnote, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.accent)
                 }
                 // Each active participant is a NavigationLink into the
@@ -563,8 +563,8 @@ struct GameDetailView: View {
                                 .frame(width: 36, height: 36)
                                 .overlay(
                                     Text(initials(p.display_name))
-                                        .font(.system(.caption, design: .rounded, weight: .bold))
-                                        .foregroundStyle(.white)
+                                        .font(.system(.caption, design: .default, weight: .bold))
+                                        .foregroundStyle(DSColor.textOnAccent)
                                 )
                             VStack(alignment: .leading, spacing: 0) {
                                 Text(p.display_name)
@@ -572,14 +572,14 @@ struct GameDetailView: View {
                                     .foregroundStyle(DSColor.textPrimary)
                                 if p.user_id == game.host_user_id {
                                     Text("game.detail.host")
-                                        .font(.system(.caption2, design: .rounded, weight: .semibold))
+                                        .font(.system(.caption2, design: .default, weight: .semibold))
                                         .foregroundStyle(DSColor.accent)
                                 } else if alreadyMarked {
                                     // Visual breadcrumb so the host can tell
                                     // at a glance who's been flagged without
                                     // needing to re-open the menu.
                                     Text("game.detail.no_show_flag")
-                                        .font(.system(.caption2, design: .rounded, weight: .semibold))
+                                        .font(.system(.caption2, design: .default, weight: .semibold))
                                         .foregroundStyle(DSColor.danger)
                                 }
                             }
@@ -642,7 +642,7 @@ struct GameDetailView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "bubble.left.and.bubble.right.fill")
                             Text("group_chat.open_for_game")
-                                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                                .font(.system(.subheadline, design: .default, weight: .semibold))
                         }
                         .foregroundStyle(DSColor.accent)
                         .padding(.horizontal, DSSpacing.md)
@@ -654,7 +654,7 @@ struct GameDetailView: View {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small).tint(DSColor.accent)
                         Text("group_chat.open_for_game")
-                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                            .font(.system(.subheadline, design: .default, weight: .semibold))
                     }
                     .foregroundStyle(DSColor.accent)
                     .padding(.horizontal, DSSpacing.md)
@@ -821,7 +821,7 @@ struct GameDetailView: View {
             }
         }()
         return Text(key)
-            .font(.system(.caption, design: .rounded, weight: .semibold))
+            .font(.system(.caption, design: .default, weight: .semibold))
             .foregroundStyle(color)
             .padding(.horizontal, DSSpacing.xs)
             .padding(.vertical, 4)

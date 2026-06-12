@@ -97,8 +97,7 @@ struct MatchResultCard: View {
     private var shareKicker: some View {
         Text("share_card.kicker")
             .font(.system(size: variant == .story ? 11 : 10,
-                          weight: .bold, design: .rounded))
-            .tracking(2.0)
+                          weight: .bold, design: .default))
             .foregroundStyle(DSColor.textTertiary)
     }
 
@@ -108,8 +107,7 @@ struct MatchResultCard: View {
                 .fill(data.outcome.accent)
                 .frame(width: 8, height: 8)
             Text(data.outcome.bannerKey)
-                .font(.system(size: bannerFontSize, weight: .black, design: .rounded))
-                .tracking(4)
+                .font(.system(size: bannerFontSize, weight: .black, design: .default))
                 .foregroundStyle(data.outcome.accent)
         }
         .padding(.horizontal, 14)
@@ -127,7 +125,7 @@ struct MatchResultCard: View {
             scoreNumeral(data.scoreSelf, highlighted: true)
             Text(":")
                 .font(.system(size: scoreFontSize * 0.7,
-                              weight: .black, design: .rounded))
+                              weight: .black, design: .default))
                 .foregroundStyle(DSColor.textTertiary)
                 .baselineOffset(scoreFontSize * 0.05)
             scoreNumeral(data.scoreOpponent, highlighted: false)
@@ -138,7 +136,7 @@ struct MatchResultCard: View {
     private func scoreNumeral(_ value: Int, highlighted: Bool) -> some View {
         Text("\(value)")
             .font(.system(size: scoreFontSize,
-                          weight: .black, design: .rounded))
+                          weight: .black, design: .default))
             .foregroundStyle(highlighted ? DSColor.accent : DSColor.textPrimary)
             .shadow(color: highlighted ? DSColor.accent.opacity(0.35) : .clear,
                     radius: 24, x: 0, y: 8)
@@ -174,8 +172,7 @@ struct MatchResultCard: View {
     ) -> some View {
         VStack(alignment: alignment, spacing: 6) {
             Text(labelKey)
-                .font(.system(size: 10, weight: .bold, design: .rounded))
-                .tracking(2.5)
+                .font(.system(size: 10, weight: .bold, design: .default))
                 .foregroundStyle(DSColor.textTertiary)
             HStack(spacing: 10) {
                 ForEach(players) { player in
@@ -195,13 +192,12 @@ struct MatchResultCard: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text(player.displayName)
                     .font(.system(size: variant == .story ? 15 : 13,
-                                  weight: .semibold, design: .rounded))
+                                  weight: .semibold, design: .default))
                     .foregroundStyle(DSColor.textPrimary)
                     .lineLimit(1)
                 if highlighted {
                     Text("share_card.you_badge")
-                        .font(.system(size: 9, weight: .heavy, design: .rounded))
-                        .tracking(1.5)
+                        .font(.system(size: 9, weight: .heavy, design: .default))
                         .foregroundStyle(DSColor.accent)
                 }
             }
@@ -226,7 +222,7 @@ struct MatchResultCard: View {
                 .foregroundStyle(DSColor.textSecondary)
             text
                 .font(.system(size: variant == .story ? 12 : 11,
-                              weight: .semibold, design: .rounded))
+                              weight: .semibold, design: .default))
                 .foregroundStyle(DSColor.textSecondary)
                 .lineLimit(1)
         }
@@ -250,8 +246,7 @@ struct MatchResultCard: View {
             // FinalResultCard so social shares stay jargon-free.
             Text(String(format: String(localized: "score.delta_format"), "\(sign)\(magnitude)"))
                 .font(.system(size: variant == .story ? 12 : 11,
-                              weight: .heavy, design: .rounded))
-                .tracking(0.5)
+                              weight: .heavy, design: .default))
         }
         .foregroundStyle(positive ? DSColor.textOnAccent : Color.white)
         .padding(.horizontal, 10)
@@ -267,8 +262,7 @@ struct MatchResultCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("share_card.footer.tagline")
                     .font(.system(size: variant == .story ? 11 : 10,
-                                  weight: .heavy, design: .rounded))
-                    .tracking(2)
+                                  weight: .heavy, design: .default))
                     .foregroundStyle(DSColor.textTertiary)
                 if let url = data.shareURL {
                     Text(url.host.map { $0 + url.path } ?? url.absoluteString)
@@ -324,7 +318,7 @@ private struct Avatar: View {
                 )
             Text(initials(name))
                 .font(.system(size: size * 0.38,
-                              weight: .black, design: .rounded))
+                              weight: .black, design: .default))
                 .foregroundStyle(highlighted ? DSColor.textOnAccent : DSColor.textPrimary)
         }
         .frame(width: size, height: size)

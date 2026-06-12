@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Brand-styled toggle for follow / unfollow.
 ///
-/// - Filled green "Follow" when `isFollowing == false`.
+/// - Filled accent "Follow" when `isFollowing == false`.
 /// - Outlined "Following" when `isFollowing == true`.
 ///
 /// The button drives optimistic UI: it flips its visual state immediately on
@@ -52,7 +52,7 @@ struct FollowButton: View {
                 Text(titleKey)
                     .font(.system(
                         size == .compact ? .caption : .footnote,
-                        design: .rounded,
+                        design: .default,
                         weight: .semibold
                     ))
                     .lineLimit(1)

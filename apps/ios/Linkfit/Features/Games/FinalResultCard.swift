@@ -127,7 +127,7 @@ struct FinalResultCard: View {
             // dropped in favour of the neutral "xal" / "pts" word — fits
             // the jargon-free vocabulary used elsewhere in the app.
             Text(String(format: String(localized: "score.delta_format"), "\(prefix)\(delta)"))
-                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .font(.system(size: 12, weight: .bold))
         }
         .foregroundStyle(tint)
         .padding(.horizontal, 10)
@@ -166,7 +166,7 @@ struct FinalResultCard: View {
                 .minimumScaleFactor(0.85)
             Spacer(minLength: 4)
             Text("\(setsWon)")
-                .font(.system(.title2, design: .rounded, weight: .heavy))
+                .font(.system(.title2, design: .default, weight: .heavy))
                 .foregroundStyle(isWinner ? DSColor.accent : DSColor.textTertiary)
                 .monospacedDigit()
         }
@@ -201,7 +201,7 @@ struct FinalResultCard: View {
                 Text("\(set.b)")
                     .foregroundStyle(set.b > set.a ? DSColor.accent : DSColor.textSecondary)
             }
-            .font(.system(size: 13, weight: .bold, design: .rounded))
+            .font(.system(size: 13, weight: .bold))
             .monospacedDigit()
             if let tb = set.tb {
                 Text("(\(tb.a)-\(tb.b))")
@@ -209,8 +209,8 @@ struct FinalResultCard: View {
                     .foregroundStyle(DSColor.textTertiary)
             }
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
         .background(RoundedRectangle(cornerRadius: 8).fill(DSColor.surfaceElevated))
     }
 }

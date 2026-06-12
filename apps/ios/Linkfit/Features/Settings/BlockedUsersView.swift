@@ -229,7 +229,7 @@ private struct BlockedUserRow: View {
             avatar
             VStack(alignment: .leading, spacing: 4) {
                 Text(user.display_name)
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
                     .lineLimit(1)
                 Text(blockedCaption)
@@ -272,7 +272,7 @@ private struct BlockedUserRow: View {
                 Circle()
                     .fill(DSColor.accent.opacity(0.18))
                 Text(initials)
-                    .font(.system(size: 16, weight: .heavy, design: .rounded))
+                    .font(.system(size: 16, weight: .heavy))
                     .foregroundStyle(DSColor.accent)
             }
         }
@@ -290,7 +290,7 @@ private struct BlockedUserRow: View {
                         .scaleEffect(0.7)
                 } else {
                     Text("blocked_users.action.unblock")
-                        .font(.system(.footnote, design: .rounded, weight: .semibold))
+                        .font(.system(.footnote, weight: .semibold))
                 }
             }
             .foregroundStyle(DSColor.danger)

@@ -34,9 +34,13 @@ import SwiftUI
 // MARK: - Palette (extension-local — see LinkfitWidget for rationale)
 
 private enum NextMatchPalette {
+    /// Mirrors `DSColor.background` (dark variant, #0A0E14) — values are
+    /// replicated locally because widget extensions don't link the app's
+    /// DesignSystem tokens.
     static let canvas = Color(red: 0x0A / 255.0, green: 0x0E / 255.0, blue: 0x14 / 255.0)
-    static let lime = Color(red: 0xC8 / 255.0, green: 0xFF / 255.0, blue: 0x3D / 255.0)
-    static let limeDim = Color(red: 0x9F / 255.0, green: 0xCB / 255.0, blue: 0x2C / 255.0)
+    /// Mirrors `DSColor.secondary` — brand lime-yellow (#DCF166).
+    static let lime = Color(red: 0xDC / 255.0, green: 0xF1 / 255.0, blue: 0x66 / 255.0)
+    /// Mirrors `DSColor.textPrimary` (dark variant).
     static let ink = Color.white
     static let inkMuted = Color.white.opacity(0.62)
 }
@@ -158,11 +162,11 @@ private struct SmallView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HeaderLabel(text: entry.snapshot == nil ? "LINKFIT" : "NEXT MATCH")
+            HeaderLabel(isEmpty: entry.snapshot == nil)
             Spacer(minLength: 0)
             if let snap = entry.snapshot {
                 Text(relativeLabel(for: snap.starts_at))
-                    .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    .font(.system(size: 22, weight: .heavy, design: .default))
                     .foregroundStyle(NextMatchPalette.lime)
                     .minimumScaleFactor(0.7)
                     .lineLimit(1)
@@ -185,17 +189,17 @@ private struct MediumView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HeaderLabel(text: entry.snapshot == nil ? "LINKFIT" : "NEXT MATCH")
+            HeaderLabel(isEmpty: entry.snapshot == nil)
             if let snap = entry.snapshot {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(relativeLabel(for: snap.starts_at))
-                        .font(.system(size: 26, weight: .heavy, design: .rounded))
+                        .font(.system(size: 26, weight: .heavy, design: .default))
                         .foregroundStyle(NextMatchPalette.lime)
                     Text("·")
                         .font(.system(size: 18, weight: .heavy))
-                        .foregroundStyle(NextMatchPalette.limeDim)
+                        .foregroundStyle(NextMatchPalette.inkMuted)
                     Text(snap.starts_at, style: .time)
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .font(.system(size: 16, weight: .semibold, design: .default))
                         .foregroundStyle(NextMatchPalette.ink)
                 }
                 .minimumScaleFactor(0.7)
@@ -210,7 +214,7 @@ private struct MediumView: View {
                     } icon: {
                         Image(systemName: "person.fill")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(NextMatchPalette.limeDim)
+                            .foregroundStyle(NextMatchPalette.inkMuted)
                     }
                     Label {
                         Text(snap.venue_name)
@@ -220,7 +224,7 @@ private struct MediumView: View {
                     } icon: {
                         Image(systemName: "mappin.and.ellipse")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(NextMatchPalette.limeDim)
+                            .foregroundStyle(NextMatchPalette.inkMuted)
                     }
                 }
                 Spacer(minLength: 0)
@@ -235,14 +239,13 @@ private struct MediumView: View {
 // MARK: Shared subviews
 
 private struct HeaderLabel: View {
-    let text: String
+    let isEmpty: Bool
 
     var body: some View {
         HStack(spacing: 4) {
             Circle().fill(NextMatchPalette.lime).frame(width: 6, height: 6)
-            Text(text)
+            (isEmpty ? Text("Linkfit") : Text("Next match"))
                 .font(.system(size: 10, weight: .heavy))
-                .tracking(1.2)
                 .foregroundStyle(NextMatchPalette.inkMuted)
         }
     }

@@ -31,8 +31,8 @@ struct MatchLiveActivity: Widget {
                 attributes: context.attributes,
                 state: context.state
             )
-            .activityBackgroundTint(Color.black.opacity(0.85))
-            .activitySystemActionForegroundColor(.white)
+            .activityBackgroundTint(LiveActivityPalette.canvas.opacity(0.85))
+            .activitySystemActionForegroundColor(LiveActivityPalette.ink)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -159,7 +159,7 @@ private struct LockScreenBanner: View {
                 } else {
                     Text("Set \(state.currentSetIndex + 1): \(state.currentGameA)-\(state.currentGameB)")
                         .font(.caption2.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.65))
+                        .foregroundStyle(LiveActivityPalette.inkMuted)
                 }
             }
         }
@@ -181,7 +181,7 @@ private struct TeamNameRow: View {
         HStack(spacing: 6) {
             Text(name)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(LiveActivityPalette.ink)
                 .lineLimit(1)
             if isServing {
                 Circle()
@@ -205,10 +205,10 @@ private struct BigScoreRow: View {
                 .foregroundStyle(LiveActivityPalette.lime)
             Text("\(games)")
                 .font(.body.monospacedDigit().weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(LiveActivityPalette.ink)
             Text(MatchActivityAttributes.ContentState.pointLabel(point))
                 .font(.caption.monospacedDigit().weight(.medium))
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(LiveActivityPalette.ink.opacity(0.7))
                 .frame(minWidth: 22, alignment: .trailing)
         }
         // No `.animation` here — see ReduceMotion note at the top.
@@ -292,7 +292,14 @@ private struct CourtSilhouette: Shape {
 
 /// Local palette for the widget extension. Cannot import the main
 /// app's `DSColor` enum because widget extensions don't link the app
-/// binary; values here mirror the brand lime token.
+/// binary; values here mirror the brand tokens in
+/// `Linkfit/Core/DesignSystem/Tokens/Colors.swift`.
 enum LiveActivityPalette {
-    static let lime = Color(red: 200 / 255, green: 247 / 255, blue: 70 / 255)
+    /// Mirrors `DSColor.secondary` — brand lime-yellow (#DCF166).
+    static let lime = Color(red: 0xDC / 255, green: 0xF1 / 255, blue: 0x66 / 255)
+    /// Mirrors `DSColor.background` (dark variant, #0A0E14) — banner tint.
+    static let canvas = Color(red: 0x0A / 255, green: 0x0E / 255, blue: 0x14 / 255)
+    /// Mirrors `DSColor.textPrimary` (dark variant) — text on the banner tint.
+    static let ink = Color.white
+    static let inkMuted = Color.white.opacity(0.65)
 }

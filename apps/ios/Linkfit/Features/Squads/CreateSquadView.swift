@@ -33,7 +33,7 @@ struct CreateSquadView: View {
         ZStack(alignment: .bottom) {
             PremiumAuthBackground()
             ScrollView {
-                VStack(spacing: 22) {
+                VStack(spacing: 24) {
                     topBar
                     heroHeader
                     photoSection
@@ -311,8 +311,6 @@ struct CreateSquadView: View {
             Text(titleKey)
                 .font(.system(size: 11, weight: .heavy))
                 .foregroundStyle(DSColor.textTertiary)
-                .textCase(.uppercase)
-                .tracking(0.6)
                 .padding(.horizontal, 20)
             content()
                 .padding(.horizontal, 16)

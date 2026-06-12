@@ -262,7 +262,7 @@ struct SettingsView: View {
                             Image(systemName: "rectangle.portrait.and.arrow.right")
                                 .font(.system(size: 14, weight: .bold))
                             Text("common.signout")
-                                .font(.system(size: 14, weight: .black, design: .rounded))
+                                .font(.system(size: 14, weight: .black))
                             Spacer()
                         }
                         .foregroundStyle(DSColor.danger)
@@ -415,7 +415,6 @@ struct SettingsView: View {
         Text(key)
             .font(.system(size: 11, weight: .bold))
             .foregroundStyle(DSColor.textSecondary)
-            .textCase(.uppercase)
             .padding(.leading, 8)
     }
 

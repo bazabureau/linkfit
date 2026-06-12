@@ -22,11 +22,11 @@ struct CheckboxRow: View {
                     if isOn {
                         Image(systemName: "checkmark")
                             .font(.system(size: 12, weight: .heavy))
-                            .foregroundStyle(Color.white)
+                            .foregroundStyle(DSColor.limeInk)
                     }
                 }
                 Text(labelKey)
-                    .font(.system(.subheadline, design: .rounded))
+                    .font(.system(.subheadline, design: .default))
                     .foregroundStyle(DSColor.textPrimary)
                 Spacer(minLength: 0)
             }

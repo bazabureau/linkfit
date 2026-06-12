@@ -66,7 +66,7 @@ struct RankingsView: View {
             Task { await viewModel.setSport(slug) }
         } label: {
             Text(label)
-                .font(.system(.footnote, design: .rounded, weight: .semibold))
+                .font(.system(.footnote, design: .default, weight: .semibold))
                 .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
                 .padding(.horizontal, DSSpacing.md)
                 .padding(.vertical, 8)
@@ -118,15 +118,15 @@ private struct RankRow: View {
                     startPoint: .topLeading, endPoint: .bottomTrailing
                 )).frame(width: 40, height: 40)
                 Text(initials(item.display_name))
-                    .font(.system(.caption, design: .rounded, weight: .bold))
-                    .foregroundStyle(.white)
+                    .font(.system(.caption, design: .default, weight: .bold))
+                    .foregroundStyle(DSColor.textOnAccent)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.display_name)
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
                 Text(String(format: String(localized: "rankings.games_wins_format"), item.games_played, item.games_won))
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
             }
             Spacer()
@@ -137,11 +137,11 @@ private struct RankRow: View {
             VStack(alignment: .trailing, spacing: 2) {
                 let level = SkillLevel.from(elo: item.elo_rating)
                 Text(level.labelKey)
-                    .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                    .font(.system(.subheadline, design: .default, weight: .heavy))
                     .foregroundStyle(level.accent)
                     .lineLimit(1)
                 Text("skill.label")
-                    .font(.system(.caption2, design: .rounded))
+                    .font(.system(.caption2, design: .default))
                     .foregroundStyle(DSColor.textTertiary)
             }
         }
@@ -158,19 +158,18 @@ private struct RankRow: View {
     }
 
     private var rankBadge: some View {
-        // Podium colors are semantic (gold/silver/bronze medal). Foreground
-        // uses fixed hexes so the medal reads consistently in light & dark
-        // mode (Color.gray + Color(white:) would invert legibility in light).
+        // Podium colors use the adaptive medal tokens (gold/silver/bronze)
+        // so the medal reads consistently in light & dark mode.
         let (bg, fg): (Color, Color) = {
             switch item.rank {
-            case 1: return (Color(hex: 0xFACC15).opacity(0.18), Color(hex: 0xCA8A04))
-            case 2: return (Color(hex: 0x9CA3AF).opacity(0.22), Color(hex: 0x4B5563))
-            case 3: return (Color(hex: 0xFB923C).opacity(0.20), Color(hex: 0xC2410C))
+            case 1: return (DSColor.medalGold.opacity(0.18), DSColor.medalGold)
+            case 2: return (DSColor.medalSilver.opacity(0.22), DSColor.medalSilver)
+            case 3: return (DSColor.medalBronze.opacity(0.20), DSColor.medalBronze)
             default: return (DSColor.surfaceElevated, DSColor.textSecondary)
             }
         }()
         return Text("\(item.rank)")
-            .font(.system(.subheadline, design: .rounded, weight: .heavy))
+            .font(.system(.subheadline, design: .default, weight: .heavy))
             .foregroundStyle(fg)
             .frame(width: 36, height: 36)
             .background(Circle().fill(bg))

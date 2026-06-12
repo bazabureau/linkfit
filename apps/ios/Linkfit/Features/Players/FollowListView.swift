@@ -57,10 +57,7 @@ struct FollowListView: View {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(DSColor.textPrimary)
-                        .padding(8)
-                        .background(Circle().fill(Color.white.opacity(0.04)))
+                        .fontWeight(.semibold)
                 }
                 .accessibilityLabel(Text("common.close"))
             }
@@ -144,7 +141,7 @@ struct FollowListView: View {
                     .font(.system(size: 13, weight: .heavy))
                     .foregroundStyle(DSColor.textOnAccent)
                     .padding(.horizontal, 18)
-                    .padding(.vertical, 11)
+                    .padding(.vertical, 12)
                     .background(Capsule().fill(DSColor.accent))
             }
             .buttonStyle(.plain)
@@ -154,12 +151,12 @@ struct FollowListView: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color.white.opacity(0.02))
+                .fill(DSColor.textPrimary.opacity(0.02))
                 .background(.ultraThinMaterial)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                .strokeBorder(DSColor.textPrimary.opacity(0.08), lineWidth: 1)
         )
         .padding(.horizontal, 16)
         .padding(.top, 60)
@@ -179,12 +176,12 @@ struct FollowListView: View {
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(edge.display_name)
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .font(.system(size: 14, weight: .bold, design: .default))
                         .foregroundStyle(DSColor.textPrimary)
                         .lineLimit(1)
                     
                     Text(relativeFollowedAt(edge.followed_at))
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .font(.system(size: 11, weight: .medium, design: .default))
                         .foregroundStyle(DSColor.textSecondary)
                 }
                 
@@ -208,12 +205,12 @@ struct FollowListView: View {
                     }
                 } label: {
                     Text(String(localized: "follow.action.remove", defaultValue: "Remove"))
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .font(.system(size: 11, weight: .bold, design: .default))
                         .foregroundStyle(DSColor.textSecondary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(Capsule().fill(Color.white.opacity(0.04)))
-                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+                        .background(Capsule().fill(DSColor.textPrimary.opacity(0.04)))
+                        .overlay(Capsule().strokeBorder(DSColor.textPrimary.opacity(0.08), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
             } else {
@@ -243,12 +240,12 @@ struct FollowListView: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.white.opacity(0.02))
+                .fill(DSColor.textPrimary.opacity(0.02))
                 .background(.ultraThinMaterial)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                .strokeBorder(DSColor.textPrimary.opacity(0.08), lineWidth: 1)
         )
     }
 
@@ -271,7 +268,7 @@ struct FollowListView: View {
         }
         .frame(width: 44, height: 44)
         .clipShape(Circle())
-        .overlay(Circle().stroke(Color.white.opacity(0.12), lineWidth: 1))
+        .overlay(Circle().stroke(DSColor.textPrimary.opacity(0.12), lineWidth: 1))
     }
 
     private func initialsCircle(for edge: FollowEdge) -> some View {
@@ -282,8 +279,8 @@ struct FollowListView: View {
                     startPoint: .topLeading, endPoint: .bottomTrailing
                 ))
             Text(initials(edge.display_name))
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+                .font(.system(size: 14, weight: .bold, design: .default))
+                .foregroundStyle(DSColor.textOnAccent)
         }
     }
 

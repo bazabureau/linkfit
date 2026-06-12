@@ -18,6 +18,10 @@ struct ToastHost: ViewModifier {
     // the singleton instance never changes for the lifetime of the app.
     private let center = ToastCenter.shared
 
+    /// Reduce Motion: skip the slide/spring entrance and swap toasts without
+    /// the decorative movement.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func body(content: Content) -> some View {
         content
             .overlay(alignment: .bottom) {
@@ -48,7 +52,9 @@ struct ToastHost: ViewModifier {
             // Drive the transition off `current?.id` so identity changes
             // (new toast) trigger animation even when the previous toast
             // was still present.
-            .animation(.spring(response: 0.42, dampingFraction: 0.82),
+            .animation(reduceMotion
+                        ? nil
+                        : .spring(response: 0.42, dampingFraction: 0.82),
                        value: center.current?.id)
     }
 }

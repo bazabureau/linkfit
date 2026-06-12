@@ -36,6 +36,7 @@ struct RatingFlowView: View {
                 }
             }
         }
+        .presentationDragIndicator(.visible)
     }
 
     @ViewBuilder
@@ -98,8 +99,8 @@ struct RatingFlowView: View {
                     .frame(width: 72, height: 72)
                     .overlay(
                         Text(initials(player.display_name))
-                            .font(.system(.title, design: .rounded, weight: .heavy))
-                            .foregroundStyle(.white)
+                            .font(.system(.title, design: .default, weight: .heavy))
+                            .foregroundStyle(DSColor.textOnAccent)
                     )
                 Text(player.display_name)
                     .font(DSType.title)

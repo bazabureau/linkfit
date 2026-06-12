@@ -113,14 +113,13 @@ struct ToastView: View {
     }
 
     /// Spoken by VoiceOver before the message body so the user understands
-    /// the toast's severity. English here matches the SF Symbol semantics
-    /// and is acceptable in this codebase per the no-touch on Localizable.
+    /// the toast's severity. Localized — keys live in Localizable.xcstrings.
     private var accessibilityPrefix: String {
         switch toast.kind {
-        case .success:         return "Success"
+        case .success:         return String(localized: "toast.a11y.success")
         case .error,
-             .errorWithRetry: return "Error"
-        case .info:            return "Info"
+             .errorWithRetry: return String(localized: "toast.a11y.error")
+        case .info:            return String(localized: "toast.a11y.info")
         }
     }
 }

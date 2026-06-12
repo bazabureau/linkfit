@@ -204,7 +204,7 @@ private struct EmptyActionHero: View {
             primaryCTA
             secondaryCTA
         }
-        .padding(.horizontal, 22)
+        .padding(.horizontal, 20)
         .padding(.vertical, 24)
         .frame(maxWidth: .infinity)
         .background(cardBackground)

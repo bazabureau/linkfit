@@ -67,7 +67,7 @@ struct LeaderboardsView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: DSSpacing.xxs) {
             Text("leaderboards.subtitle")
-                .font(.system(.subheadline, design: .rounded, weight: .medium))
+                .font(.system(.subheadline, design: .default, weight: .medium))
                 .foregroundStyle(DSColor.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -111,7 +111,7 @@ struct LeaderboardsView: View {
             // a single tap target on narrow screens.
             HStack(spacing: DSSpacing.xs) {
                 Text("leaderboards.skill.label")
-                    .font(.system(.caption, design: .rounded, weight: .medium))
+                    .font(.system(.caption, design: .default, weight: .medium))
                     .foregroundStyle(DSColor.textSecondary)
                 Spacer(minLength: 0)
                 Menu {
@@ -130,7 +130,7 @@ struct LeaderboardsView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Text(skillLabelKey(viewModel.skillFilter))
-                            .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                            .font(.system(.subheadline, design: .default, weight: .heavy))
                         Image(systemName: "chevron.down")
                             .font(.system(size: 11, weight: .heavy))
                     }
@@ -230,7 +230,7 @@ private struct LeaderboardRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.display_name)
                     .font(.system(isPodium ? .body : .subheadline,
-                                  design: .rounded,
+                                  design: .default,
                                   weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
                     .lineLimit(1)
@@ -240,13 +240,13 @@ private struct LeaderboardRow: View {
                     // smaller rows.
                     let level = resolvedSkill
                     Text(level.labelKey)
-                        .font(.system(.caption2, design: .rounded, weight: .heavy))
+                        .font(.system(.caption2, design: .default, weight: .heavy))
                         .foregroundStyle(level.accent)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(Capsule().fill(level.accent.opacity(0.14)))
                     Text(secondaryLine)
-                        .font(.system(.caption, design: .rounded))
+                        .font(.system(.caption, design: .default))
                         .foregroundStyle(DSColor.textSecondary)
                         .lineLimit(1)
                 }
@@ -260,7 +260,7 @@ private struct LeaderboardRow: View {
                 Text(String(format: String(localized: "leaderboards.row.wins_format"),
                             resolvedWins))
                     .font(.system(isPodium ? .subheadline : .footnote,
-                                  design: .rounded,
+                                  design: .default,
                                   weight: .heavy))
                     .foregroundStyle(DSColor.accent)
                     .monospacedDigit()
@@ -302,41 +302,40 @@ private struct LeaderboardRow: View {
 
     // MARK: Sub-views
 
-    /// Rank badge — medal emoji for the podium (gold/silver/bronze), a
-    /// numeric badge with a trailing dot ("4.", "5.") for everyone else.
-    /// The Apple HIG convention for ordered lists in casual surfaces uses
-    /// the dot to imply ordinal, which is what product asked for.
+    /// Rank badge — medal SF Symbol tinted with the semantic medal tokens
+    /// for the podium (gold/silver/bronze), a numeric badge with a
+    /// trailing dot ("4.", "5.") for everyone else. The Apple HIG
+    /// convention for ordered lists in casual surfaces uses the dot to
+    /// imply ordinal, which is what product asked for.
     @ViewBuilder
     private var rankBadge: some View {
         switch item.rank {
         case 1:
-            medalCell(emoji: "🥇", bg: Color(hex: 0xFACC15).opacity(0.20),
-                      fg: Color(hex: 0xCA8A04))
+            medalCell(tint: DSColor.medalGold)
         case 2:
-            medalCell(emoji: "🥈", bg: Color(hex: 0x9CA3AF).opacity(0.22),
-                      fg: Color(hex: 0x4B5563))
+            medalCell(tint: DSColor.medalSilver)
         case 3:
-            medalCell(emoji: "🥉", bg: Color(hex: 0xFB923C).opacity(0.22),
-                      fg: Color(hex: 0xC2410C))
+            medalCell(tint: DSColor.medalBronze)
         default:
             Text("\(item.rank).")
-                .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                .font(.system(.subheadline, design: .default, weight: .heavy))
                 .foregroundStyle(DSColor.textSecondary)
                 .frame(width: rankBadgeSize, height: rankBadgeSize)
                 .background(Circle().fill(DSColor.surfaceElevated))
         }
     }
 
-    /// Reusable medal cell — circle background with the emoji centered. We
-    /// render the emoji a touch smaller than the badge so it has visual
+    /// Reusable medal cell — circle wash with a tinted `medal.fill` glyph
+    /// centered. Rendered a touch smaller than the badge so it has visual
     /// breathing room on both light and dark canvases.
-    private func medalCell(emoji: String, bg: Color, fg: Color) -> some View {
+    private func medalCell(tint: Color) -> some View {
         ZStack {
             Circle()
-                .fill(bg)
-                .overlay(Circle().strokeBorder(fg.opacity(0.35), lineWidth: 1))
-            Text(emoji)
-                .font(.system(size: rankBadgeSize * 0.55))
+                .fill(tint.opacity(0.20))
+                .overlay(Circle().strokeBorder(tint.opacity(0.35), lineWidth: 1))
+            Image(systemName: "medal.fill")
+                .font(.system(size: rankBadgeSize * 0.45, weight: .semibold))
+                .foregroundStyle(tint)
                 .accessibilityHidden(true)
         }
         .frame(width: rankBadgeSize, height: rankBadgeSize)
@@ -363,8 +362,8 @@ private struct LeaderboardRow: View {
                     // avatar — there's no value in showing a broken-
                     // image placeholder.
                     Text(initials(item.display_name))
-                        .font(.system(.callout, design: .rounded, weight: .bold))
-                        .foregroundStyle(.white)
+                        .font(.system(.callout, design: .default, weight: .bold))
+                        .foregroundStyle(DSColor.textOnAccent)
                 }
             }
         }
@@ -376,9 +375,9 @@ private struct LeaderboardRow: View {
 
     private var borderColor: Color {
         switch item.rank {
-        case 1: return Color(hex: 0xFACC15).opacity(0.55)
-        case 2: return Color(hex: 0x9CA3AF).opacity(0.55)
-        case 3: return Color(hex: 0xFB923C).opacity(0.55)
+        case 1: return DSColor.medalGold.opacity(0.55)
+        case 2: return DSColor.medalSilver.opacity(0.55)
+        case 3: return DSColor.medalBronze.opacity(0.55)
         default: return DSColor.border
         }
     }

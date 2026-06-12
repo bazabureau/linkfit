@@ -21,12 +21,12 @@ struct SegmentedPicker<T: Hashable>: View {
                         if let icon = seg.systemImage {
                             Image(systemName: icon)
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(active ? DSColor.accent : DSColor.textSecondary)
+                                .foregroundStyle(active ? DSColor.textOnAccent : DSColor.textSecondary)
                         }
                         Text(seg.label)
                             .font(.system(size: 13, weight: .heavy))
                             .lineLimit(1)
-                            .foregroundStyle(active ? DSColor.textPrimary : DSColor.textSecondary)
+                            .foregroundStyle(active ? DSColor.textOnAccent : DSColor.textSecondary)
                     }
                     .frame(maxWidth: .infinity, minHeight: 32)
                     .padding(.vertical, 6)
@@ -34,8 +34,8 @@ struct SegmentedPicker<T: Hashable>: View {
                     .background {
                         if active {
                             RoundedRectangle(cornerRadius: 11, style: .continuous)
-                                .fill(Color(light: Color(hex: 0xFFFFFF), dark: Color(hex: 0x2A3548)))
-                                .shadow(color: Color.black.opacity(0.08), radius: 3.5, x: 0, y: 1.5)
+                                .fill(DSColor.accent)
+                                .shadow(color: DSColor.accent.opacity(0.25), radius: 3.5, x: 0, y: 1.5)
                                 .matchedGeometryEffect(id: "activeSegmentCapsule", in: pickerNamespace)
                         }
                     }
@@ -45,7 +45,7 @@ struct SegmentedPicker<T: Hashable>: View {
                 .accessibilityAddTraits(active ? [.isButton, .isSelected] : .isButton)
             }
         }
-        .padding(3)
+        .padding(4)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous).fill(DSColor.surfaceElevated)
         )

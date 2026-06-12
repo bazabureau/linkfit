@@ -188,6 +188,8 @@ struct HomeView: View {
                     // when SwiftUI finishes the dismissal animation.
                     showCreate = false
                 }
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
                 .presentationBackground(.ultraThinMaterial)
             }
             .sheet(item: $postCreateInviteFor) { payload in
@@ -895,7 +897,9 @@ struct HomeView: View {
                         
                         HStack(spacing: 4) {
                             Circle().fill(DSColor.accent).frame(width: 6, height: 6)
-                            Text(game.status == .full ? "Dolu" : "Açıq")
+                            Text(game.status == .full
+                                 ? String(localized: "game.status.full")
+                                 : String(localized: "game.status.open"))
                                 .font(.system(size: 11, weight: .bold))
                                 .foregroundStyle(DSColor.textSecondary)
                         }
@@ -965,7 +969,7 @@ struct HomeView: View {
             } label: {
                 HStack(spacing: 14) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Linkfit Live")
+                        Text(String(localized: "home.hero.live_badge", defaultValue: "Linkfit Live"))
                             .font(.system(size: 11, weight: .heavy))
                             .foregroundStyle(DSColor.accent)
                             .padding(.horizontal, 8)
@@ -1024,7 +1028,7 @@ struct HomeView: View {
             showSearch = true
         } label: {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .bold))
+                .fontWeight(.semibold)
         }
         .buttonStyle(BounceButtonStyle())
         .accessibilityLabel(Text("home.action.search"))
@@ -1036,7 +1040,7 @@ struct HomeView: View {
             homePath.append(HomeRoute.players)
         } label: {
             Image(systemName: "person.2")
-                .font(.system(size: 16, weight: .bold))
+                .fontWeight(.semibold)
         }
         .buttonStyle(BounceButtonStyle())
         .accessibilityLabel(Text("home.players"))
@@ -1048,7 +1052,7 @@ struct HomeView: View {
             showChat = true
         } label: {
             Image(systemName: "bubble.left")
-                .font(.system(size: 16, weight: .bold))
+                .fontWeight(.semibold)
                 .overlay(alignment: .topTrailing) {
                     if shell.unreadCount > 0 { unreadDot }
                 }
@@ -1063,7 +1067,7 @@ struct HomeView: View {
             showNotifications = true
         } label: {
             Image(systemName: "bell")
-                .font(.system(size: 16, weight: .bold))
+                .fontWeight(.semibold)
                 .overlay(alignment: .topTrailing) {
                     if shell.unreadCount > 0 { unreadDot }
                 }
@@ -1216,7 +1220,7 @@ struct HomeView: View {
                                onSeeAll: @escaping () -> Void) -> some View {
         HStack {
             Text(titleKey)
-                .font(.system(size: 18, weight: .bold))
+                .font(.system(size: 18, weight: .heavy))
                 .foregroundStyle(DSColor.textPrimary)
             Spacer()
             Button(action: onSeeAll) {
@@ -1262,7 +1266,7 @@ struct HomeView: View {
                 .font(.system(size: 28))
                 .foregroundStyle(DSColor.accent) // Royal Blue
             Text(titleKey)
-                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .font(.system(.subheadline, design: .default, weight: .semibold))
                 .foregroundStyle(DSColor.textPrimary)
             Text(messageKey)
                 .font(DSType.footnote)
@@ -1281,10 +1285,10 @@ struct HomeView: View {
                         Text(ctaKey)
                             .font(.system(size: 13, weight: .heavy))
                     }
-                    .foregroundStyle(Color(hex: 0x0F1419)) // Near-black for contrast on Lime
+                    .foregroundStyle(DSColor.textOnAccent)
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
-                    .background(Capsule().fill(DSColor.secondary)) // Lime-Yellow
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(DSColor.accent))
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 4)
@@ -1294,11 +1298,11 @@ struct HomeView: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
-                .fill(DSColor.accentMuted) // Soft Royal Blue wash (#F0F2FB)
+                .fill(.ultraThinMaterial) // Matches the glass treatment of every other home card
         )
         .overlay(
             RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
-                .strokeBorder(DSColor.accent.opacity(0.16), lineWidth: 1) // Royal Blue stroke
+                .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
         )
     }
 
@@ -1449,6 +1453,8 @@ private struct ShimmerEffect: ViewModifier {
             )
             .mask(content)
             .onAppear {
+                // Decorative loop — skip entirely under Reduce Motion.
+                guard !UIAccessibility.isReduceMotionEnabled else { return }
                 withAnimation(.linear(duration: 1.8).repeatForever(autoreverses: false)) {
                     phase = 1.0
                 }

@@ -32,7 +32,7 @@ struct LoginView: View {
             PremiumAuthBackground()
 
             ScrollView {
-                VStack(spacing: 26) {
+                VStack(spacing: 24) {
                     topBar
                     hero
                     socialBlock
@@ -76,7 +76,7 @@ struct LoginView: View {
 
             VStack(spacing: 6) {
                 Text("auth.login.title")
-                    .font(.system(size: 30, weight: .heavy, design: .default))
+                    .font(.system(size: 28, weight: .heavy, design: .default))
                     .foregroundStyle(DSColor.textPrimary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -116,7 +116,6 @@ struct LoginView: View {
             Text("auth.or_email")
                 .font(.system(size: 12, weight: .semibold, design: .default))
                 .foregroundStyle(DSColor.textTertiary)
-                .tracking(0.6)
             Rectangle()
                 .fill(DSColor.border.opacity(0.55))
                 .frame(height: 1)
@@ -151,7 +150,7 @@ struct LoginView: View {
                 Button { showForgotPassword = true } label: {
                     Text("auth.forgot_password")
                         .font(.system(size: 13, weight: .semibold, design: .default))
-                        .foregroundStyle(DSColor.secondary)
+                        .foregroundStyle(DSColor.accent)
                 }
                 .buttonStyle(.plain)
             }
@@ -176,7 +175,7 @@ struct LoginView: View {
     }
 
     private var footerLink: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 6) {
             Text("auth.no_account")
                 .foregroundStyle(DSColor.textSecondary)
             Button(action: {
@@ -185,7 +184,7 @@ struct LoginView: View {
             }) {
                 Text("auth.signup")
                     .fontWeight(.bold)
-                    .foregroundStyle(DSColor.secondary)
+                    .foregroundStyle(DSColor.accent)
             }
             .buttonStyle(.plain)
         }

@@ -30,7 +30,7 @@ struct HomePrimaryActionHero: View {
     var onFind: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 16) {
             // Header: medallion + title/subtitle column
             HStack(alignment: .top, spacing: 14) {
                 medallion

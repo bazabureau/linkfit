@@ -78,6 +78,7 @@ struct ShareCardPreviewSheet: View {
                 }
             }
         }
+        .presentationDragIndicator(.visible)
     }
 
     // MARK: - Pieces
@@ -118,7 +119,7 @@ struct ShareCardPreviewSheet: View {
             }
         } label: {
             Text(labelKey)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(active ? DSColor.textOnAccent : DSColor.textSecondary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
@@ -167,7 +168,7 @@ struct ShareCardPreviewSheet: View {
                 }
                 Text("share_card.share_button")
             }
-            .font(.system(size: 16, weight: .heavy, design: .rounded))
+            .font(.system(size: 15, weight: .heavy))
             .foregroundStyle(DSColor.textOnAccent)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
@@ -187,22 +188,22 @@ struct ShareCardPreviewSheet: View {
         } label: {
             HStack(spacing: DSSpacing.xs) {
                 if isSharingToStories {
-                    ProgressView().tint(.white)
+                    ProgressView().tint(DSColor.textPrimary)
                 } else {
                     Image(systemName: "plus.circle.fill")
                 }
-                Text("Hekayədə Paylaş")
+                Text("game.action.share_to_story")
             }
-            .font(.system(size: 16, weight: .heavy, design: .rounded))
-            .foregroundStyle(.white)
+            .font(.system(size: 15, weight: .heavy))
+            .foregroundStyle(DSColor.textPrimary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .background(
-                Capsule()
-                    .strokeBorder(Color.white.opacity(0.15), lineWidth: 1.5)
-                    .background(Color.white.opacity(0.08))
+                Capsule().fill(DSColor.surfaceElevated)
             )
-            .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+            .overlay(
+                Capsule().strokeBorder(DSColor.border, lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
         .disabled(isSharingToStories || isRendering)

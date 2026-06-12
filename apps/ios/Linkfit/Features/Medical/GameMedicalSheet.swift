@@ -44,6 +44,7 @@ struct GameMedicalSheet: View {
             }
             .task { await viewModel.load(gameId: gameId) }
         }
+        .presentationDragIndicator(.visible)
     }
 
     private var header: some View {
@@ -53,7 +54,7 @@ struct GameMedicalSheet: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(DSColor.accent)
                 Text("medical.host_sheet.kicker")
-                    .font(.system(.caption, design: .rounded, weight: .semibold))
+                    .font(.system(.caption, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textSecondary)
             }
             Text("medical.host_sheet.body")
@@ -84,7 +85,7 @@ struct GameMedicalSheet: View {
                     .font(.system(size: 36, weight: .semibold))
                     .foregroundStyle(DSColor.textTertiary)
                 Text("medical.host_sheet.empty.title")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
                 Text("medical.host_sheet.empty.body")
                     .font(.system(.footnote))
@@ -103,7 +104,7 @@ struct GameMedicalSheet: View {
     private func participantCard(_ p: GameMedicalParticipant) -> some View {
         VStack(alignment: .leading, spacing: DSSpacing.xs) {
             Text(p.display_name)
-                .font(.system(.headline, design: .rounded, weight: .semibold))
+                .font(.system(.headline, design: .default, weight: .semibold))
                 .foregroundStyle(DSColor.textPrimary)
             if let phone = p.emergency_contact_phone, !phone.isEmpty {
                 infoRow(icon: "phone.fill",
@@ -145,7 +146,7 @@ struct GameMedicalSheet: View {
                 .frame(width: 22, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(DSColor.textTertiary)
                 if let url = tappable {
                     Link(destination: url) {

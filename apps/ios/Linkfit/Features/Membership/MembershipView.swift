@@ -96,10 +96,10 @@ struct MembershipView: View {
     private func header(state: MembershipState) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("membership.header.title")
-                .font(.system(size: 26, weight: .heavy, design: .rounded))
+                .font(DSType.heroTitle)
                 .foregroundStyle(DSColor.textPrimary)
             Text("membership.header.subtitle")
-                .font(.system(.subheadline, design: .rounded))
+                .font(.system(.subheadline, design: .default))
                 .foregroundStyle(DSColor.textSecondary)
             if state.cancel_at_period_end, let end = state.current_period_end {
                 Text(
@@ -108,7 +108,7 @@ struct MembershipView: View {
                         formatDate(end),
                     ),
                 )
-                .font(.system(.footnote, design: .rounded))
+                .font(DSType.footnote)
                 .foregroundStyle(DSColor.warning)
                 .padding(.top, 4)
             }
@@ -121,7 +121,7 @@ struct MembershipView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(DSColor.danger)
             Text(message)
-                .font(.system(.footnote, design: .rounded))
+                .font(DSType.footnote)
                 .foregroundStyle(DSColor.textPrimary)
             Spacer(minLength: 0)
             Button { viewModel.lastErrorMessage = nil } label: {
@@ -130,6 +130,7 @@ struct MembershipView: View {
                     .foregroundStyle(DSColor.textSecondary)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(Text("common.close"))
         }
         .padding(DSSpacing.sm)
         .background(
@@ -153,7 +154,7 @@ struct MembershipView: View {
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(isCurrent ? DSColor.accent : DSColor.textSecondary)
                 Text(LocalizedStringKey(card.titleKey))
-                    .font(.system(size: 18, weight: .heavy, design: .rounded))
+                    .font(DSType.sectionTitle)
                     .foregroundStyle(DSColor.textPrimary)
                 Spacer(minLength: 0)
                 if isCurrent {
@@ -162,7 +163,7 @@ struct MembershipView: View {
             }
 
             Text(LocalizedStringKey(card.subtitleKey))
-                .font(.system(.footnote, design: .rounded))
+                .font(DSType.footnote)
                 .foregroundStyle(DSColor.textSecondary)
 
             priceRow(minor: card.priceMinor, currency: card.currency)
@@ -205,7 +206,7 @@ struct MembershipView: View {
 
     private func activePill() -> some View {
         Text("membership.badge.active")
-            .font(.system(size: 11, weight: .bold, design: .rounded))
+            .font(DSType.badge)
             .foregroundStyle(DSColor.textOnAccent)
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
@@ -218,14 +219,14 @@ struct MembershipView: View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
             if minor == 0 {
                 Text("membership.price.free")
-                    .font(.system(size: 28, weight: .heavy, design: .rounded))
+                    .font(.system(size: 28, weight: .heavy, design: .default))
                     .foregroundStyle(DSColor.textPrimary)
             } else {
                 Text(formatPrice(minor: minor, currency: currency))
-                    .font(.system(size: 28, weight: .heavy, design: .rounded))
+                    .font(.system(size: 28, weight: .heavy, design: .default))
                     .foregroundStyle(DSColor.textPrimary)
                 Text("membership.price.per_month")
-                    .font(.system(.subheadline, design: .rounded))
+                    .font(.system(.subheadline, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
             }
         }
@@ -276,7 +277,7 @@ struct MembershipView: View {
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(DSColor.accent)
             Text(message)
-                .font(.system(.footnote, design: .rounded))
+                .font(DSType.footnote)
                 .foregroundStyle(DSColor.textPrimary)
         }
         .padding(.horizontal, DSSpacing.md)

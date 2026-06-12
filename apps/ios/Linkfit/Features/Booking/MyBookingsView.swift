@@ -96,9 +96,8 @@ struct MyBookingsView: View {
     private func section(title: LocalizedStringKey, bookings: [Booking], isUpcoming: Bool) -> some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             Text(title)
-                .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                .font(.system(.subheadline, design: .default, weight: .heavy))
                 .foregroundStyle(DSColor.textSecondary)
-                .textCase(.uppercase)
                 .accessibilityAddTraits(.isHeader)
             ForEach(bookings) { b in
                 BookingRow(
@@ -125,10 +124,10 @@ private struct BookingRow: View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(booking.venue_name)
-                        .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                        .font(.system(.subheadline, design: .default, weight: .heavy))
                         .foregroundStyle(DSColor.textPrimary)
                     Text(booking.court_name)
-                        .font(.system(.caption, design: .rounded))
+                        .font(.system(.caption, design: .default))
                         .foregroundStyle(DSColor.textSecondary)
                 }
                 Spacer()
@@ -138,21 +137,21 @@ private struct BookingRow: View {
             HStack(spacing: DSSpacing.md) {
                 Label {
                     Text(formatStart(booking.starts_at))
-                        .font(.system(.footnote, design: .rounded))
+                        .font(.system(.footnote, design: .default))
                 } icon: {
                     Image(systemName: "calendar")
                         .foregroundStyle(DSColor.accent)
                 }
                 Label {
-                    Text("\(booking.duration_minutes) min")
-                        .font(.system(.footnote, design: .rounded))
+                    Text(String(format: String(localized: "game.detail.duration_minutes_format"), booking.duration_minutes))
+                        .font(.system(.footnote, design: .default))
                 } icon: {
                     Image(systemName: "clock")
                         .foregroundStyle(DSColor.accent)
                 }
                 Spacer()
                 Text(BookingPriceFormatter.format(minor: booking.total_minor, currency: booking.currency))
-                    .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                    .font(.system(.subheadline, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.accent)
             }
             .foregroundStyle(DSColor.textSecondary)
@@ -167,7 +166,7 @@ private struct BookingRow: View {
                             Text("bookings.cancel")
                         }
                     }
-                    .font(.system(.footnote, design: .rounded, weight: .bold))
+                    .font(.system(.footnote, design: .default, weight: .bold))
                     .foregroundStyle(DSColor.danger)
                     .frame(maxWidth: .infinity, minHeight: 40)
                     .background(
@@ -205,8 +204,7 @@ private struct BookingRow: View {
             }
         }()
         return Text(key)
-            .font(.system(.caption2, design: .rounded, weight: .heavy))
-            .textCase(.uppercase)
+            .font(.system(.caption2, design: .default, weight: .heavy))
             .foregroundStyle(color)
             .padding(.horizontal, DSSpacing.xs)
             .padding(.vertical, 4)

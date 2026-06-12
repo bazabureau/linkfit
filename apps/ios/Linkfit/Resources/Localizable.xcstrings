@@ -1,6 +1,5 @@
 {
   "sourceLanguage": "az",
-  "version": "1.0",
   "strings": {
     "// === Achievements agent ===": {
       "comment": "Section divider for achievements / badges feature strings",
@@ -1525,6 +1524,96 @@
         }
       }
     },
+    "americano.hero.subtitle": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oyunçuları və meydançaları əlavə edərək raundları avtomatik qurun."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add players and courts to build the rounds automatically."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавьте игроков и корты — раунды составятся автоматически."
+          }
+        }
+      }
+    },
+    "americano.hero.title": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Americano turniri"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Americano tournament"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Турнир Американо"
+          }
+        }
+      }
+    },
+    "announcements.cta.default": {
+      "comment": "W10-12. Default label for the announcement banner CTA chevron pill when the admin did not ship a per-locale label.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bax"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть"
+          }
+        }
+      }
+    },
+    "announcements.dismiss.a11y": {
+      "comment": "W10-12. VoiceOver label for the X dismiss button on the top-of-Home announcement banner.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bağla"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dismiss"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть"
+          }
+        }
+      }
+    },
     "api.error.decoding": {
       "localizations": {
         "az": {
@@ -1815,6 +1904,50 @@
         }
       }
     },
+    "auth.a11y.hide_password": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şifrəni gizlət"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide password"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть пароль"
+          }
+        }
+      }
+    },
+    "auth.a11y.show_password": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şifrəni göstər"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show password"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать пароль"
+          }
+        }
+      }
+    },
     "auth.apple.revoked.message": {
       "comment": "Toast body shown when launch credential-state check returns .revoked or .notFound",
       "localizations": {
@@ -2037,6 +2170,28 @@
         }
       }
     },
+    "auth.error.apple_no_token": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple kimlik tokeni qaytarmadı — yenidən cəhd edin."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple didn't return an identity token — please try again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple не вернул токен идентификации — попробуйте ещё раз."
+          }
+        }
+      }
+    },
     "auth.error.generic": {
       "localizations": {
         "az": {
@@ -2055,6 +2210,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Что-то пошло не так. Попробуй ещё раз."
+          }
+        }
+      }
+    },
+    "auth.error.google_no_token": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google ID tokeni qaytarmadı — yenidən cəhd edin."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google didn't return an ID token — please try again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google не вернул ID-токен — попробуйте ещё раз."
           }
         }
       }
@@ -2143,6 +2320,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Пароль должен содержать минимум 12 символов"
+          }
+        }
+      }
+    },
+    "auth.error.signin_cancelled": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giriş ləğv edildi."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign-in was cancelled."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вход был отменён."
           }
         }
       }
@@ -4306,6 +4505,28 @@
         }
       }
     },
+    "card.format.default": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2v2 · Açıq"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2v2 · Open"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2v2 · Открытая"
+          }
+        }
+      }
+    },
     "card.game_accessibility_format": {
       "comment": "Accessibility label for a game card. %1$@=sport, %2$@=host, %3$@=time",
       "localizations": {
@@ -5723,6 +5944,28 @@
         }
       }
     },
+    "create_game.section.advanced": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Əlavə seçimlər"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More options"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дополнительные параметры"
+          }
+        }
+      }
+    },
     "create_game.section.capacity": {
       "localizations": {
         "az": {
@@ -5763,6 +6006,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Заметки (по желанию)"
+          }
+        }
+      }
+    },
+    "create_game.section.skill": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Səviyyə Həddi"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skill Limit"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уровень Игры"
           }
         }
       }
@@ -5811,6 +6076,28 @@
         }
       }
     },
+    "create_game.section.visibility": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Görünürlük"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visibility"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Видимость"
+          }
+        }
+      }
+    },
     "create_game.section.when": {
       "localizations": {
         "az": {
@@ -5829,6 +6116,94 @@
           "stringUnit": {
             "state": "translated",
             "value": "Когда"
+          }
+        }
+      }
+    },
+    "create_game.skill.advanced": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güclü (1500+ ELO)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Advanced (1500+ ELO)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продвинутый (1500+ ELO)"
+          }
+        }
+      }
+    },
+    "create_game.skill.any": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hər hansı səviyyə"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Any skill"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Любой уровень"
+          }
+        }
+      }
+    },
+    "create_game.skill.beginner": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başlanğıc (800-1200 ELO)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beginner (800-1200 ELO)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новичок (800-1200 ELO)"
+          }
+        }
+      }
+    },
+    "create_game.skill.intermediate": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orta (1200-1500 ELO)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Intermediate (1200-1500 ELO)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Средний (1200-1500 ELO)"
           }
         }
       }
@@ -6137,6 +6512,94 @@
           "stringUnit": {
             "state": "translated",
             "value": "Поиск по названию или адресу"
+          }
+        }
+      }
+    },
+    "create_game.visibility.invite": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gizli"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрытая"
+          }
+        }
+      }
+    },
+    "create_game.visibility.invite.sub": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yalnız linki olan oyunçular qoşula bilər"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only players with the link can join"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только по ссылке"
+          }
+        }
+      }
+    },
+    "create_game.visibility.public": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Açıq"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Public"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открытая"
+          }
+        }
+      }
+    },
+    "create_game.visibility.public.sub": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hər kəs bu oyunu tapa və qoşula bilər"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anyone can find and join this game"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Любой может найти и присоединиться"
           }
         }
       }
@@ -6696,6 +7159,7 @@
       }
     },
     "email.banner.enter_token": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -6715,10 +7179,10 @@
             "value": "Ввести код"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.banner.resend": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -6738,10 +7202,10 @@
             "value": "Отправить ещё"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.banner.title": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -6761,10 +7225,10 @@
             "value": "Подтвердите почту"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.forgot.footnote": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -6784,10 +7248,10 @@
             "value": "Если аккаунт найдётся, мы пришлём письмо."
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.forgot.heading": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -6807,10 +7271,10 @@
             "value": "Отправим ссылку для сброса"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.forgot.subheading": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -6830,10 +7294,10 @@
             "value": "Введите email вашего аккаунта."
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.forgot.submit": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -6853,10 +7317,10 @@
             "value": "Отправить ссылку"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.forgot.title": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -6876,10 +7340,10 @@
             "value": "Забыли пароль"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.forgot.toast.error.message": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -6899,10 +7363,10 @@
             "value": "Попробуйте ещё раз."
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.forgot.toast.error.title": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -6922,10 +7386,10 @@
             "value": "Не отправлено"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.forgot.toast.message": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -6945,10 +7409,10 @@
             "value": "Когда придёт письмо, вставьте код."
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.forgot.toast.title": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -6968,10 +7432,10 @@
             "value": "Проверьте почту"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.confirm": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -6991,10 +7455,10 @@
             "value": "Повторите пароль"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.confirm.placeholder": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7014,10 +7478,10 @@
             "value": "введите ещё раз"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.error.mismatch": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7037,10 +7501,10 @@
             "value": "Пароли не совпадают."
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.heading": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7060,10 +7524,10 @@
             "value": "Задайте новый пароль"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.new_password": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7083,10 +7547,10 @@
             "value": "Новый пароль"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.new_password.placeholder": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7106,10 +7570,10 @@
             "value": "минимум 12 символов"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.strength.empty": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7129,10 +7593,10 @@
             "value": "Надёжность пароля"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.strength.fair": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7152,10 +7616,10 @@
             "value": "Средний"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.strength.good": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7175,10 +7639,10 @@
             "value": "Хороший"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.strength.strong": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7198,10 +7662,10 @@
             "value": "Сильный"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.strength.weak": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7221,10 +7685,10 @@
             "value": "Слабый"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.subheading": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7244,10 +7708,10 @@
             "value": "Вставьте код из письма и выберите новый пароль."
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.submit": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7267,10 +7731,10 @@
             "value": "Обновить пароль"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.title": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7290,10 +7754,10 @@
             "value": "Сброс пароля"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.toast.error.message": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7313,10 +7777,10 @@
             "value": "Ссылка просрочена или неверна."
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.toast.error.title": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7336,10 +7800,10 @@
             "value": "Не удалось сбросить"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.toast.success.message": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7359,10 +7823,10 @@
             "value": "Войдите, используя новый пароль."
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.reset.toast.success.title": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7382,10 +7846,10 @@
             "value": "Готово!"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.sheet.cancel": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7405,10 +7869,10 @@
             "value": "Отмена"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.sheet.heading": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7428,10 +7892,10 @@
             "value": "Вставьте ссылку или код"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.sheet.paste": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7451,10 +7915,10 @@
             "value": "Вставить из буфера"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.sheet.subheading": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7474,10 +7938,10 @@
             "value": "Вставьте код или полную ссылку из письма."
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.sheet.submit": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7497,10 +7961,10 @@
             "value": "Подтвердить"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.sheet.title": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7520,10 +7984,10 @@
             "value": "Подтверждение почты"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.sheet.token_label": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7543,10 +8007,10 @@
             "value": "Токен"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.sheet.token_placeholder": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7566,10 +8030,10 @@
             "value": "токен или ссылка"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.toast.already_verified.message": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7589,10 +8053,10 @@
             "value": "Этот аккаунт уже подтверждён."
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.toast.already_verified.title": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7612,10 +8076,10 @@
             "value": "Уже подтверждено"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.toast.invalid_token.message": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7635,10 +8099,10 @@
             "value": "Ссылка просрочена или неверна."
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.toast.invalid_token.title": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7658,10 +8122,10 @@
             "value": "Неверный токен"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.toast.resend_cooldown.message": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7681,10 +8145,10 @@
             "value": "Подождите 60 секунд перед повторной отправкой."
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.toast.resend_cooldown.title": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7704,10 +8168,10 @@
             "value": "Подождите"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.toast.resend_failed.message": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7727,10 +8191,10 @@
             "value": "Попробуйте ещё раз."
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.toast.resend_failed.title": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7750,10 +8214,10 @@
             "value": "Не отправлено"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.toast.resend_success.message": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7773,10 +8237,10 @@
             "value": "Мы повторно отправили ссылку."
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.toast.resend_success.title": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7796,10 +8260,10 @@
             "value": "Отправлено"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.toast.verified.message": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7819,10 +8283,10 @@
             "value": "Ваша почта подтверждена."
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "email.toast.verified.title": {
+      "comment": "=== Email agent ===",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -7842,8 +8306,7 @@
             "value": "Готово!"
           }
         }
-      },
-      "comment": "=== Email agent ==="
+      }
     },
     "empty.follows.body": {
       "comment": "Wave-10. FollowListView empty supporting copy. Identical across both followers and following tabs.",
@@ -9932,14 +10395,6 @@
         }
       }
     },
-    "game.error.reschedule": {
-      "comment": "Wave-11. Fallback error string for the reschedule flow — used when the API returns an opaque/non-localized message. Distinct from `game.error.cancel` because the user needs to know which action failed.",
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Yenidən planlaşdırmaq alınmadı" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Could not reschedule" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось перенести игру" } }
-      }
-    },
     "game.error.join": {
       "localizations": {
         "az": {
@@ -10024,6 +10479,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удалось отметить как не пришедшего"
+          }
+        }
+      }
+    },
+    "game.error.reschedule": {
+      "comment": "Wave-11. Fallback error string for the reschedule flow — used when the API returns an opaque/non-localized message. Distinct from `game.error.cancel` because the user needs to know which action failed.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yenidən planlaşdırmaq alınmadı"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not reschedule"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось перенести игру"
           }
         }
       }
@@ -10337,6 +10815,28 @@
         }
       }
     },
+    "game.success.joined": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oyuna qoşuldunuz!"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You joined the game!"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы присоединились к игре!"
+          }
+        }
+      }
+    },
     "game.title": {
       "localizations": {
         "az": {
@@ -10355,6 +10855,213 @@
           "stringUnit": {
             "state": "translated",
             "value": "Игра"
+          }
+        }
+      }
+    },
+    "games.action.cancel": {
+      "comment": "Wave-11. Host-only overflow menu item that opens the cancel-with-reason confirmation dialog. Distinct from `game.action.cancel` which still labels the inline secondary button on the action bar.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ləğv et"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить"
+          }
+        }
+      }
+    },
+    "games.action.reschedule": {
+      "comment": "Wave-11. Host-only overflow menu item that opens the reschedule sheet (date + time picker).",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yenidən planlaşdır"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reschedule"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенести"
+          }
+        }
+      }
+    },
+    "games.cancel.confirm": {
+      "comment": "Wave-11. Destructive confirmation button inside the cancel sheet. Fires `POST /api/v1/games/:id/cancel { reason }`.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ləğv et"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel game"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить игру"
+          }
+        }
+      }
+    },
+    "games.cancel.reason.placeholder": {
+      "comment": "Wave-11. Placeholder for the optional reason TextField inside the cancel sheet. The body fans into push notifications sent to confirmed participants.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Səbəb (məcburi deyil)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reason (optional)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Причина (по желанию)"
+          }
+        }
+      }
+    },
+    "games.cancel.success": {
+      "comment": "Wave-11. Toast shown after the host successfully cancels. Confirmed participants receive a push notification carrying the reason.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oyun ləğv edildi"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Game cancelled"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Игра отменена"
+          }
+        }
+      }
+    },
+    "games.cancel.title": {
+      "comment": "Wave-11. Title of the cancel-with-reason confirmation dialog presented from the host overflow menu.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oyunu ləğv et"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel game"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить игру"
+          }
+        }
+      }
+    },
+    "games.reschedule.submit": {
+      "comment": "Wave-11. Primary action button at the bottom of the RescheduleGameSheet. Fires `PATCH /api/v1/games/:id/reschedule`.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni vaxtı təsdiqlə"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm new time"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подтвердить время"
+          }
+        }
+      }
+    },
+    "games.reschedule.success": {
+      "comment": "Wave-11. Toast shown after the host successfully reschedules. Confirmed participants receive a push notification with the new time.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oyun yeni vaxta keçirildi"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Game rescheduled"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Игра перенесена"
+          }
+        }
+      }
+    },
+    "games.reschedule.title": {
+      "comment": "Wave-11. Navigation title of the RescheduleGameSheet date/time picker.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yenidən planlaşdır"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reschedule game"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенести игру"
           }
         }
       }
@@ -10620,6 +11327,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Участники"
+          }
+        }
+      }
+    },
+    "group_chat.remove_participant": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İştirakçını sil"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove participant"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить участника"
           }
         }
       }
@@ -11418,6 +12147,116 @@
         }
       }
     },
+    "home.hero.book_now_subtitle": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İstədiyin vaxt padel oyna"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play padel anytime"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Играй в падел когда угодно"
+          }
+        }
+      }
+    },
+    "home.hero.book_now_title": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kort bron et"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book a court"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Забронируй корт"
+          }
+        }
+      }
+    },
+    "home.hero.live_badge": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linkfit Live"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linkfit Live"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linkfit Live"
+          }
+        }
+      }
+    },
+    "home.hero.next_match": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Növbəti oyunun"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your next match"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Твоя следующая игра"
+          }
+        }
+      }
+    },
+    "home.hero.view_details": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ətraflı bax"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View details"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подробнее"
+          }
+        }
+      }
+    },
     "home.host_a_game": {
       "localizations": {
         "az": {
@@ -11462,6 +12301,28 @@
         }
       }
     },
+    "home.match.full": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dolu"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мест нет"
+          }
+        }
+      }
+    },
     "home.match.join": {
       "localizations": {
         "az": {
@@ -11480,6 +12341,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Присоединиться"
+          }
+        }
+      }
+    },
+    "home.match.joined": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qoşulmusan"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Joined"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ты участвуешь"
           }
         }
       }
@@ -14531,12 +15414,6 @@
         "ru": {
           "variations": {
             "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld матч"
-                }
-              },
               "few": {
                 "stringUnit": {
                   "state": "translated",
@@ -14547,6 +15424,12 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld матчей"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld матч"
                 }
               },
               "other": {
@@ -14869,6 +15752,29 @@
         }
       }
     },
+    "matches.filter.label": {
+      "comment": "Label for filter screens or buttons.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtrlər"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filters"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Фильтры"
+          }
+        }
+      }
+    },
     "matches.filter.period.active": {
       "comment": "Period chip — default selection: upcoming + ongoing games.",
       "localizations": {
@@ -14911,29 +15817,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Все"
-          }
-        }
-      }
-    },
-    "matches.filter.label": {
-      "comment": "Label for filter screens or buttons.",
-      "localizations": {
-        "az": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Filtrlər"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Filters"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Фильтры"
           }
         }
       }
@@ -15209,12 +16092,6 @@
         "ru": {
           "variations": {
             "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "Сбросить %lld фильтр"
-                }
-              },
               "few": {
                 "stringUnit": {
                   "state": "translated",
@@ -15225,6 +16102,12 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Сбросить %lld фильтров"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Сбросить %lld фильтр"
                 }
               },
               "other": {
@@ -19198,6 +20081,28 @@
         }
       }
     },
+    "onboard.illustration.match": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matç"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Match"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Матч"
+          }
+        }
+      }
+    },
     "onboard.next": {
       "localizations": {
         "az": {
@@ -20545,12 +21450,6 @@
         "ru": {
           "variations": {
             "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld игрок"
-                }
-              },
               "few": {
                 "stringUnit": {
                   "state": "translated",
@@ -20561,6 +21460,12 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld игроков"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld игрок"
                 }
               },
               "other": {
@@ -21034,12 +21939,6 @@
         "ru": {
           "variations": {
             "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "Сбросить %lld фильтр"
-                }
-              },
               "few": {
                 "stringUnit": {
                   "state": "translated",
@@ -21050,6 +21949,12 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Сбросить %lld фильтров"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Сбросить %lld фильтр"
                 }
               },
               "other": {
@@ -22658,28 +23563,6 @@
         }
       }
     },
-    "profile.section.sport_stats": {
-      "localizations": {
-        "az": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "İdman statistikası"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sport stats"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Статистика по спорту"
-          }
-        }
-      }
-    },
     "profile.section.activity": {
       "localizations": {
         "az": {
@@ -22746,6 +23629,28 @@
         }
       }
     },
+    "profile.section.sport_stats": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İdman statistikası"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sport stats"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Статистика по спорту"
+          }
+        }
+      }
+    },
     "profile.section.sports": {
       "localizations": {
         "az": {
@@ -22764,6 +23669,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Виды спорта"
+          }
+        }
+      }
+    },
+    "profile.share.text_format": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Linkfit-də · %2$d oyun · %3$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ on Linkfit · %2$d games · %3$@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ в Linkfit · %2$d игр · %3$@"
           }
         }
       }
@@ -23917,6 +24844,7 @@
       }
     },
     "recurring.capacity.players_format": {
+      "comment": "Format string for selected capacity. Integer argument.",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -23936,8 +24864,7 @@
             "value": "%d игроков"
           }
         }
-      },
-      "comment": "Format string for selected capacity. Integer argument."
+      }
     },
     "recurring.duration": {
       "localizations": {
@@ -23962,6 +24889,7 @@
       }
     },
     "recurring.duration.minutes_format": {
+      "comment": "Format string for duration in minutes. Integer argument.",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -23981,8 +24909,7 @@
             "value": "%d мин"
           }
         }
-      },
-      "comment": "Format string for duration in minutes. Integer argument."
+      }
     },
     "recurring.error.generic": {
       "localizations": {
@@ -24161,6 +25088,7 @@
       }
     },
     "recurring.success.and_more_format": {
+      "comment": "Format string for the additional-games hint. Integer argument is the remaining count.",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -24180,10 +25108,10 @@
             "value": "и ещё %d…"
           }
         }
-      },
-      "comment": "Format string for the additional-games hint. Integer argument is the remaining count."
+      }
     },
     "recurring.success.count_format": {
+      "comment": "Format string for success header — count of scheduled games. Integer argument.",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -24203,8 +25131,7 @@
             "value": "Запланировано игр: %d"
           }
         }
-      },
-      "comment": "Format string for success header — count of scheduled games. Integer argument."
+      }
     },
     "recurring.success.dismiss": {
       "localizations": {
@@ -24317,6 +25244,7 @@
       }
     },
     "recurring.weeks.count_format": {
+      "comment": "Format string for number of weeks. Integer argument.",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -24336,8 +25264,7 @@
             "value": "%d недель"
           }
         }
-      },
-      "comment": "Format string for number of weeks. Integer argument."
+      }
     },
     "recurring.weeks.helper": {
       "localizations": {
@@ -28144,6 +29071,7 @@
       }
     },
     "share_card.error.write_format": {
+      "comment": "Format string: file name. Argument is a String.",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -28163,10 +29091,10 @@
             "value": "Не удалось сохранить %@."
           }
         }
-      },
-      "comment": "Format string: file name. Argument is a String."
+      }
     },
     "share_card.footer.tagline": {
+      "comment": "Footer kicker above the URL/QR",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -28186,8 +29114,7 @@
             "value": "ИГРАЙ В LINKFIT"
           }
         }
-      },
-      "comment": "Footer kicker above the URL/QR"
+      }
     },
     "share_card.join.banner": {
       "comment": "Wave-10 — yellow banner chip above the GameJoinedCard headline.",
@@ -28397,6 +29324,7 @@
       }
     },
     "share_card.kicker": {
+      "comment": "Top-right kicker on the share card, all caps",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -28416,8 +29344,7 @@
             "value": "ИТОГ МАТЧА"
           }
         }
-      },
-      "comment": "Top-right kicker on the share card, all caps"
+      }
     },
     "share_card.milestone.after_games_format": {
       "comment": "Wave-10 — microline beneath the MilestoneCard badge. Argument is an Int (games played).",
@@ -28666,6 +29593,7 @@
       }
     },
     "share_card.you_badge": {
+      "comment": "Small lime tag under the signed-in user's avatar",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -28685,8 +29613,7 @@
             "value": "ТЫ"
           }
         }
-      },
-      "comment": "Small lime tag under the signed-in user's avatar"
+      }
     },
     "skill.advanced": {
       "localizations": {
@@ -30465,49 +31392,139 @@
     "stories.draw.cancel": {
       "comment": "W13 drawing tool. VoiceOver/aria label on the ✕ cancel button at the top-left of the drawing canvas modal — exits without saving the current sketch.",
       "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Ləğv et" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Cancel" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Отмена" } }
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ləğv et"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отмена"
+          }
+        }
       }
     },
     "stories.draw.done": {
       "comment": "W13 drawing tool. VoiceOver/aria label on the ✓ confirm button at the top-right of the drawing canvas modal — commits the sketch and dismisses the modal.",
       "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Tamam" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Done" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Готово" } }
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamam"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово"
+          }
+        }
       }
     },
     "stories.draw.eraser": {
       "comment": "W13 drawing tool. VoiceOver/aria label on the eraser toggle button in the bottom toolbar of the drawing canvas — flips the PencilKit tool between an inking pen and a bitmap eraser.",
       "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Pozmaq" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Eraser" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Ластик" } }
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozmaq"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eraser"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ластик"
+          }
+        }
       }
     },
     "stories.draw.remove": {
       "comment": "W13 drawing tool. Accessibility hint announced for a drawing overlay placed on the editor canvas — tells VoiceOver users they can double-tap to remove the sketch.",
       "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Rəsmi sil" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Remove drawing" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Удалить рисунок" } }
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rəsmi sil"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove drawing"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить рисунок"
+          }
+        }
       }
     },
     "stories.draw.tool.label": {
       "comment": "W13 drawing tool. Accessibility label (VoiceOver) for the pen/scribble tool button in the story editor toolbar — the on-screen glyph is an SF Symbol so screen-reader users need this prose label to identify the control.",
       "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Çək" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Draw" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Рисовать" } }
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çək"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Draw"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рисовать"
+          }
+        }
       }
     },
     "stories.draw.undo": {
       "comment": "W13 drawing tool. VoiceOver/aria label on the undo (curved arrow) button in the bottom toolbar of the drawing canvas — pops the most recent stroke off the PencilKit undo stack.",
       "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Geri" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Undo" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Назад" } }
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Назад"
+          }
+        }
       }
     },
     "stories.editor.close": {
@@ -30993,6 +32010,75 @@
         }
       }
     },
+    "stories.relative_time_format_h": {
+      "comment": "Relative time label for stories created N hours ago — %d is the hour count",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%dh"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%dh"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%dч"
+          }
+        }
+      }
+    },
+    "stories.relative_time_format_m": {
+      "comment": "Relative time label for stories created N minutes ago — %d is the minute count",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%dd"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%dm"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%dм"
+          }
+        }
+      }
+    },
+    "stories.relative_time_now": {
+      "comment": "Relative time label shown on stories created less than a minute ago",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "indi"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "now"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сейчас"
+          }
+        }
+      }
+    },
     "stories.reply.placeholder_format": {
       "comment": "Wave-13 story reply composer — placeholder text for the TextField. %@ is the story author's display name.",
       "localizations": {
@@ -31085,71 +32171,94 @@
         }
       }
     },
-    "stories.relative_time_format_h": {
-      "comment": "Relative time label for stories created N hours ago — %d is the hour count",
+    "stories.sticker.picker.search": {
+      "comment": "W12-5 stickers. Placeholder text in the search field at the top of the emoji sticker picker sheet.",
       "localizations": {
         "az": {
           "stringUnit": {
             "state": "translated",
-            "value": "%dh"
+            "value": "Axtar"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%dh"
+            "value": "Search"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "%dч"
+            "value": "Поиск"
           }
         }
       }
     },
-    "stories.relative_time_format_m": {
-      "comment": "Relative time label for stories created N minutes ago — %d is the minute count",
+    "stories.sticker.picker.title": {
+      "comment": "W12-5 stickers. Navigation-bar title shown above the curated emoji grid in the sticker picker sheet.",
       "localizations": {
         "az": {
           "stringUnit": {
             "state": "translated",
-            "value": "%dd"
+            "value": "Sticker seç"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%dm"
+            "value": "Choose sticker"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "%dм"
+            "value": "Выбрать стикер"
           }
         }
       }
     },
-    "stories.relative_time_now": {
-      "comment": "Relative time label shown on stories created less than a minute ago",
+    "stories.sticker.remove": {
+      "comment": "W12-5 stickers. Destructive action shown when the user long-presses (or taps the trash handle) on an active sticker overlay in the editor canvas.",
       "localizations": {
         "az": {
           "stringUnit": {
             "state": "translated",
-            "value": "indi"
+            "value": "Sticker-i sil"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "now"
+            "value": "Remove sticker"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "сейчас"
+            "value": "Удалить стикер"
+          }
+        }
+      }
+    },
+    "stories.sticker.tool.label": {
+      "comment": "W12-5 stickers. Accessibility label (VoiceOver) for the emoji sticker tool button in the story editor toolbar — the on-screen glyph is just an emoji, so screen-reader users need this prose label to identify the control.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sticker"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sticker"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стикер"
           }
         }
       }
@@ -31269,57 +32378,25 @@
         }
       }
     },
-    "stories.sticker.picker.search": {
-      "comment": "W12-5 stickers. Placeholder text in the search field at the top of the emoji sticker picker sheet.",
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Axtar" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Search" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Поиск" } }
-      }
-    },
-    "stories.sticker.picker.title": {
-      "comment": "W12-5 stickers. Navigation-bar title shown above the curated emoji grid in the sticker picker sheet.",
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Sticker seç" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Choose sticker" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Выбрать стикер" } }
-      }
-    },
-    "stories.sticker.remove": {
-      "comment": "W12-5 stickers. Destructive action shown when the user long-presses (or taps the trash handle) on an active sticker overlay in the editor canvas.",
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Sticker-i sil" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Remove sticker" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Удалить стикер" } }
-      }
-    },
-    "stories.sticker.tool.label": {
-      "comment": "W12-5 stickers. Accessibility label (VoiceOver) for the emoji sticker tool button in the story editor toolbar — the on-screen glyph is just an emoji, so screen-reader users need this prose label to identify the control.",
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Sticker" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Sticker" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Стикер" } }
-      }
-    },
-    "stories.viewer.action.delete": {
-      "comment": "Delete button in the story viewer footer (owner only)",
+    "stories.viewer.a11y.dismiss": {
+      "comment": "W13-13 VoiceOver. Accessibility action label — closes the viewer (sighted-user equivalent: swipe-down dismiss).",
       "localizations": {
         "az": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sil"
+            "value": "Bağla"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete"
+            "value": "Dismiss"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Удалить"
+            "value": "Закрыть"
           }
         }
       }
@@ -31347,29 +32424,6 @@
         }
       }
     },
-    "stories.viewer.a11y.previous": {
-      "comment": "W13-13 VoiceOver. Accessibility action label exposed on the story viewer root — invoking it steps back to the previous frame (or previous user's last frame).",
-      "localizations": {
-        "az": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Əvvəlki"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Previous"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Предыдущее"
-          }
-        }
-      }
-    },
     "stories.viewer.a11y.next_user": {
       "comment": "W13-13 VoiceOver. Accessibility action label — jumps to the next user's stack (sighted-user equivalent: horizontal swipe left).",
       "localizations": {
@@ -31389,6 +32443,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Следующий пользователь"
+          }
+        }
+      }
+    },
+    "stories.viewer.a11y.previous": {
+      "comment": "W13-13 VoiceOver. Accessibility action label exposed on the story viewer root — invoking it steps back to the previous frame (or previous user's last frame).",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Əvvəlki"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предыдущее"
           }
         }
       }
@@ -31416,25 +32493,25 @@
         }
       }
     },
-    "stories.viewer.a11y.dismiss": {
-      "comment": "W13-13 VoiceOver. Accessibility action label — closes the viewer (sighted-user equivalent: swipe-down dismiss).",
+    "stories.viewer.action.delete": {
+      "comment": "Delete button in the story viewer footer (owner only)",
       "localizations": {
         "az": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bağla"
+            "value": "Sil"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dismiss"
+            "value": "Delete"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Закрыть"
+            "value": "Удалить"
           }
         }
       }
@@ -31527,12 +32604,6 @@
         "ru": {
           "variations": {
             "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld просмотр"
-                }
-              },
               "few": {
                 "stringUnit": {
                   "state": "translated",
@@ -31543,6 +32614,12 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld просмотров"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld просмотр"
                 }
               },
               "other": {
@@ -31667,6 +32744,94 @@
           "stringUnit": {
             "state": "translated",
             "value": "Твоя история"
+          }
+        }
+      }
+    },
+    "story_share.action.linkfit_story": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linkfit hekayəsində paylaş"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share to Linkfit story"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поделиться в истории Linkfit"
+          }
+        }
+      }
+    },
+    "story_share.action.system_share": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Digər tətbiqlərdə paylaş"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share to other apps"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поделиться в других приложениях"
+          }
+        }
+      }
+    },
+    "story_share.sheet.subtitle": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dostlarınla uğurlarını bölüşmək üçün format seç"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick a format to share your wins with friends"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите формат, чтобы поделиться успехами с друзьями"
+          }
+        }
+      }
+    },
+    "story_share.sheet.title": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hekayəni paylaş"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share your story"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поделиться историей"
           }
         }
       }
@@ -32521,6 +33686,72 @@
         }
       }
     },
+    "toast.a11y.error": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xəta"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибка"
+          }
+        }
+      }
+    },
+    "toast.a11y.info": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Məlumat"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Info"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Информация"
+          }
+        }
+      }
+    },
+    "toast.a11y.success": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uğurlu"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Success"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Успешно"
+          }
+        }
+      }
+    },
     "tournament.status.cancelled": {
       "localizations": {
         "az": {
@@ -33089,6 +34320,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Когда объявят местные кубки, они появятся здесь. Потяни вниз, чтобы обновить."
+          }
+        }
+      }
+    },
+    "tournaments.empty.refresh": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turnirləri yenilə"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh tournaments"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновить турниры"
           }
         }
       }
@@ -36120,164 +37373,7 @@
           }
         }
       }
-    },
-    "games.action.cancel": {
-      "comment": "Wave-11. Host-only overflow menu item that opens the cancel-with-reason confirmation dialog. Distinct from `game.action.cancel` which still labels the inline secondary button on the action bar.",
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Ləğv et" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Cancel" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Отменить" } }
-      }
-    },
-    "games.action.reschedule": {
-      "comment": "Wave-11. Host-only overflow menu item that opens the reschedule sheet (date + time picker).",
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Yenidən planlaşdır" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Reschedule" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Перенести" } }
-      }
-    },
-    "games.cancel.title": {
-      "comment": "Wave-11. Title of the cancel-with-reason confirmation dialog presented from the host overflow menu.",
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Oyunu ləğv et" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Cancel game" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Отменить игру" } }
-      }
-    },
-    "games.cancel.reason.placeholder": {
-      "comment": "Wave-11. Placeholder for the optional reason TextField inside the cancel sheet. The body fans into push notifications sent to confirmed participants.",
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Səbəb (məcburi deyil)" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Reason (optional)" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Причина (по желанию)" } }
-      }
-    },
-    "games.cancel.confirm": {
-      "comment": "Wave-11. Destructive confirmation button inside the cancel sheet. Fires `POST /api/v1/games/:id/cancel { reason }`.",
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Ləğv et" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Cancel game" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Отменить игру" } }
-      }
-    },
-    "games.cancel.success": {
-      "comment": "Wave-11. Toast shown after the host successfully cancels. Confirmed participants receive a push notification carrying the reason.",
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Oyun ləğv edildi" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Game cancelled" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Игра отменена" } }
-      }
-    },
-    "games.reschedule.title": {
-      "comment": "Wave-11. Navigation title of the RescheduleGameSheet date/time picker.",
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Yenidən planlaşdır" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Reschedule game" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Перенести игру" } }
-      }
-    },
-    "games.reschedule.submit": {
-      "comment": "Wave-11. Primary action button at the bottom of the RescheduleGameSheet. Fires `PATCH /api/v1/games/:id/reschedule`.",
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Yeni vaxtı təsdiqlə" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Confirm new time" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Подтвердить время" } }
-      }
-    },
-    "games.reschedule.success": {
-      "comment": "Wave-11. Toast shown after the host successfully reschedules. Confirmed participants receive a push notification with the new time.",
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Oyun yeni vaxta keçirildi" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Game rescheduled" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Игра перенесена" } }
-      }
-    },
-    "announcements.dismiss.a11y": {
-      "comment": "W10-12. VoiceOver label for the X dismiss button on the top-of-Home announcement banner.",
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Bağla" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Dismiss" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Закрыть" } }
-      }
-    },
-    "announcements.cta.default": {
-      "comment": "W10-12. Default label for the announcement banner CTA chevron pill when the admin did not ship a per-locale label.",
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Bax" } },
-        "en": { "stringUnit": { "state": "translated", "value": "View" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Открыть" } }
-      }
-    },
-    "create_game.skill.any": {
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Hər hansı səviyyə" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Any skill" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Любой уровень" } }
-      }
-    },
-    "create_game.skill.beginner": {
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Başlanğıc (800-1200 ELO)" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Beginner (800-1200 ELO)" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Новичок (800-1200 ELO)" } }
-      }
-    },
-    "create_game.skill.intermediate": {
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Orta (1200-1500 ELO)" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Intermediate (1200-1500 ELO)" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Средний (1200-1500 ELO)" } }
-      }
-    },
-    "create_game.skill.advanced": {
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Güclü (1500+ ELO)" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Advanced (1500+ ELO)" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Продвинутый (1500+ ELO)" } }
-      }
-    },
-    "create_game.visibility.public": {
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Açıq" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Public" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Открытая" } }
-      }
-    },
-    "create_game.visibility.public.sub": {
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Hər kəs bu oyunu tapa və qoşula bilər" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Anyone can find and join this game" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Любой может найти и присоединиться" } }
-      }
-    },
-    "create_game.visibility.invite": {
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Gizli" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Private" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Закрытая" } }
-      }
-    },
-    "create_game.visibility.invite.sub": {
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Yalnız linki olan oyunçular qoşula bilər" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Only players with the link can join" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Только по ссылке" } }
-      }
-    },
-    "create_game.section.skill": {
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Səviyyə Həddi" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Skill Limit" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Уровень Игры" } }
-      }
-    },
-    "create_game.section.visibility": {
-      "localizations": {
-        "az": { "stringUnit": { "state": "translated", "value": "Görünürlük" } },
-        "en": { "stringUnit": { "state": "translated", "value": "Visibility" } },
-        "ru": { "stringUnit": { "state": "translated", "value": "Видимость" } }
-      }
     }
-  }
+  },
+  "version": "1.0"
 }

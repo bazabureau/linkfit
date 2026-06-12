@@ -15,7 +15,7 @@ struct HomeStatsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             HStack(alignment: .center, spacing: DSSpacing.sm) {
-                VStack(alignment: .leading, spacing: 5) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("stats.skill_level")
                         .font(.system(.caption, design: .default, weight: .medium))
                         .foregroundStyle(DSColor.textSecondary)
@@ -29,7 +29,7 @@ struct HomeStatsCard: View {
                             .font(.system(.subheadline, design: .default, weight: .semibold))
                             .foregroundStyle(DSColor.accent)
                             .monospacedDigit()
-                            .padding(.horizontal, 9)
+                            .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .background(Capsule().fill(DSColor.accentMuted))
                     }

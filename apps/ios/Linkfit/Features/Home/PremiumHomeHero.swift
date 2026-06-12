@@ -31,7 +31,6 @@ struct PremiumHomeHero: View {
                 Text(greetingKey)
                     .font(.system(size: 13, weight: .semibold, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
-                    .tracking(0.4)
 
                 Text(welcomeLine)
                     .font(.system(size: 24, weight: .heavy, design: .default))
@@ -89,7 +88,6 @@ struct PremiumHomeHero: View {
                 Text(skillTitleKey)
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(DSColor.textTertiary)
-                    .tracking(0.3)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }

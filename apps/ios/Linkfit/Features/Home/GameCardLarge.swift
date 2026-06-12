@@ -64,9 +64,9 @@ struct GameCardLarge: View {
     private var topBadge: some View {
         HStack {
             HStack(spacing: 6) {
-                Circle().fill(DSColor.lime).frame(width: 8, height: 8)
+                Circle().fill(DSColor.success).frame(width: 8, height: 8)
                 Text(statusLabel)
-                    .font(.system(.caption2, design: .rounded, weight: .semibold))
+                    .font(.system(.caption2, design: .default, weight: .semibold))
                     .foregroundStyle(.white)
             }
             .padding(.horizontal, DSSpacing.sm)
@@ -76,28 +76,28 @@ struct GameCardLarge: View {
             Spacer()
 
             Text(sportLabel)
-                .font(.system(.caption2, design: .rounded, weight: .bold))
-                .foregroundStyle(.black)
+                .font(.system(.caption2, design: .default, weight: .bold))
+                .foregroundStyle(DSColor.textOnAccent)
                 .padding(.horizontal, DSSpacing.sm)
                 .padding(.vertical, 6)
-                .background(Capsule().fill(DSColor.lime))
+                .background(Capsule().fill(DSColor.accent))
         }
     }
 
     private var infoOverlay: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(game.venue_name ?? String(localized: "card.open_invite"))
-                .font(.system(.callout, design: .rounded, weight: .bold))
+                .font(.system(.callout, design: .default, weight: .bold))
                 .foregroundStyle(.white)
                 .lineLimit(1)
 
             HStack(spacing: DSSpacing.sm) {
                 Label(timeRelative, systemImage: "calendar")
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(.white.opacity(0.88))
                 Spacer()
                 Label("\(game.participants_count)/\(game.capacity)", systemImage: "person.2.fill")
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(.white.opacity(0.88))
             }
         }
@@ -114,14 +114,11 @@ struct GameCardLarge: View {
     private var sportColors: [Color] {
         switch game.sport_slug {
         case "padel":
-            return [Color(red: 0.05, green: 0.36, blue: 0.22),
-                    Color(red: 0.09, green: 0.55, blue: 0.32)]
+            return [DSColor.success.opacity(0.85), DSColor.success]
         case "football_5":
-            return [Color(red: 0.08, green: 0.28, blue: 0.48),
-                    Color(red: 0.16, green: 0.45, blue: 0.65)]
+            return [DSColor.info.opacity(0.85), DSColor.info]
         default:
-            return [Color(red: 0.18, green: 0.20, blue: 0.28),
-                    Color(red: 0.32, green: 0.30, blue: 0.42)]
+            return [DSColor.accent.opacity(0.85), DSColor.accent]
         }
     }
 

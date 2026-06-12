@@ -90,10 +90,10 @@ private struct AdaptiveSplitEmptyState: View {
                 // Verbatim strings — keeps the helper out of the xcstrings
                 // catalog (localization is owned by feature views, not Core).
                 Text(verbatim: "Select an item from the left")
-                    .font(.system(.title3, design: .rounded, weight: .heavy))
+                    .font(.system(.title3, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.accent)
                 Text(verbatim: "Tap a row to see its details here.")
-                    .font(.system(.subheadline, design: .rounded))
+                    .font(.system(.subheadline, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, DSSpacing.lg)

@@ -8,9 +8,10 @@ import SwiftUI
 /// we append a new `StoryStickerOverlay` centred on the canvas at the
 /// default scale + zero rotation, and dismiss the sheet.
 ///
-/// The button is a bare `Button("😀")` (no label localization) because
-/// the glyph itself is the affordance — matching Instagram, Snapchat,
-/// and every other story editor where the emoji icon doubles as a verb.
+/// The button renders the SF `face.smiling` symbol (emoji glyphs are
+/// banned as UI chrome per the design guidelines — emoji stays reserved
+/// for user-selected sticker *content*). Styled to match the other story
+/// tool buttons (white glyph on a dimmed disc over the media canvas).
 /// VoiceOver users get a localized accessibility label from
 /// `stories.sticker.tool.label`.
 ///
@@ -30,10 +31,17 @@ struct StickerToolButton: View {
         Button {
             showPicker = true
         } label: {
-            Text("\u{1F600}")
-                .font(.system(size: 24))
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
+            Image(systemName: "face.smiling")
+                .font(.system(size: 20, weight: .heavy))
+                .foregroundStyle(.white)
+                .frame(width: 40, height: 40)
+                .background(
+                    Circle().fill(Color.black.opacity(0.35))
+                )
+                .overlay(
+                    Circle().strokeBorder(.white.opacity(0.18), lineWidth: 1)
+                )
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("stories.sticker.tool.label"))

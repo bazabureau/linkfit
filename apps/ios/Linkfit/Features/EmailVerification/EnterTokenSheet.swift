@@ -70,10 +70,10 @@ struct EnterTokenSheet: View {
     private var headerCopy: some View {
         VStack(alignment: .leading, spacing: DSSpacing.xxs) {
             Text("email.sheet.heading")
-                .font(.system(.title3, design: .rounded, weight: .bold))
+                .font(.system(.title3, design: .default, weight: .bold))
                 .foregroundStyle(DSColor.textPrimary)
             Text("email.sheet.subheading")
-                .font(.system(.subheadline, design: .rounded))
+                .font(.system(.subheadline, design: .default))
                 .foregroundStyle(DSColor.textSecondary)
         }
     }
@@ -125,7 +125,7 @@ struct EnterTokenSheet: View {
     private var pasteFromClipboard: some View {
         Button(action: pasteFromClipboardAction) {
             Label("email.sheet.paste", systemImage: "doc.on.clipboard")
-                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .font(.system(.subheadline, design: .default, weight: .semibold))
                 .foregroundStyle(DSColor.accent)
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .overlay(

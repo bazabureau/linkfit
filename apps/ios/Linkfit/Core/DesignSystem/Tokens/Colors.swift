@@ -141,6 +141,26 @@ enum DSColor {
         dark:  Color(hex: 0x3B82F6)
     )
 
+    // MARK: - Rank medals
+
+    /// Gold rank (1st place). Use `.opacity` washes for fills.
+    static let medalGold = Color(
+        light: Color(hex: 0xCA8A04),
+        dark:  Color(hex: 0xFACC15)
+    )
+
+    /// Silver rank (2nd place).
+    static let medalSilver = Color(
+        light: Color(hex: 0x4B5563),
+        dark:  Color(hex: 0x9CA3AF)
+    )
+
+    /// Bronze rank (3rd place).
+    static let medalBronze = Color(
+        light: Color(hex: 0xC2410C),
+        dark:  Color(hex: 0xFB923C)
+    )
+
     // MARK: - Legacy aliases
 
     /// Legacy aliases — older view files still reference these. They

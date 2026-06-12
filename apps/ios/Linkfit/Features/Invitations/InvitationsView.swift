@@ -25,7 +25,7 @@ struct InvitationsView: View {
         .overlay(alignment: .bottom) {
             if let err = viewModel.actionError {
                 Text(err)
-                    .font(.system(.footnote, design: .rounded, weight: .bold))
+                    .font(.system(.footnote, design: .default, weight: .bold))
                     .foregroundStyle(DSColor.textOnAccent)
                     .padding(.horizontal, DSSpacing.md)
                     .padding(.vertical, DSSpacing.sm)
@@ -38,7 +38,7 @@ struct InvitationsView: View {
 
     private var header: some View {
         Text("invitations.subtitle")
-            .font(.system(.footnote, design: .rounded, weight: .bold))
+            .font(.system(.footnote, design: .default, weight: .bold))
             .foregroundStyle(DSColor.textSecondary)
     }
 
@@ -118,10 +118,10 @@ struct InvitationRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(String(format: String(localized: "invitations.invited_by_format"),
                             invitation.inviter_display_name))
-                    .font(.system(.footnote, design: .rounded, weight: .bold))
+                    .font(.system(.footnote, design: .default, weight: .bold))
                     .foregroundStyle(DSColor.textPrimary)
                 Text(InvitationFormatting.timeAgo(invitation.created_at))
-                    .font(.system(.caption, design: .rounded, weight: .bold))
+                    .font(.system(.caption, design: .default, weight: .bold))
                     .foregroundStyle(DSColor.textTertiary)
             }
             Spacer()
@@ -146,15 +146,15 @@ struct InvitationRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(invitation.game.sport_slug.capitalized)
-                    .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                    .font(.system(.subheadline, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.textPrimary)
                 Label(InvitationFormatting.dateAndTime(invitation.game.starts_at),
                       systemImage: "calendar")
-                    .font(.system(.caption, design: .rounded, weight: .bold))
+                    .font(.system(.caption, design: .default, weight: .bold))
                     .foregroundStyle(DSColor.textSecondary)
                 if let venue = invitation.game.venue_name {
                     Label(venue, systemImage: "mappin.and.ellipse")
-                        .font(.system(.caption, design: .rounded, weight: .bold))
+                        .font(.system(.caption, design: .default, weight: .bold))
                         .foregroundStyle(DSColor.textTertiary)
                         .lineLimit(1)
                 }
@@ -162,22 +162,20 @@ struct InvitationRow: View {
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(invitation.game.participants_count)/\(invitation.game.capacity)")
-                    .font(.system(.footnote, design: .rounded, weight: .heavy))
+                    .font(.system(.footnote, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.textPrimary)
                 Text("invitations.seats_short")
-                    .font(.system(.caption2, design: .rounded, weight: .bold))
+                    .font(.system(.caption2, design: .default, weight: .bold))
                     .foregroundStyle(DSColor.textTertiary)
             }
         }
-        .padding(DSSpacing.sm)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(DSColor.surface)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.3), lineWidth: 1)
-        )
+        // Flattened: previously a surface-filled inner card, which nested a
+        // card background inside the outer row card (banned). Plain row +
+        // divider keeps the grouping without the double-card look.
+        .padding(.vertical, DSSpacing.xs)
+        .overlay(alignment: .bottom) {
+            Divider().overlay(DSColor.border.opacity(0.3))
+        }
     }
 
     private var actionRow: some View {
@@ -188,7 +186,7 @@ struct InvitationRow: View {
                         .font(.system(size: 13, weight: .bold))
                     Text("invitations.action.decline")
                 }
-                .font(.system(size: 14, weight: .heavy, design: .rounded))
+                .font(.system(size: 14, weight: .heavy, design: .default))
                 .foregroundStyle(DSColor.textSecondary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
@@ -211,7 +209,7 @@ struct InvitationRow: View {
                     }
                     Text("invitations.action.accept")
                 }
-                .font(.system(size: 14, weight: .heavy, design: .rounded))
+                .font(.system(size: 14, weight: .heavy, design: .default))
                 .foregroundStyle(DSColor.textOnAccent)
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)

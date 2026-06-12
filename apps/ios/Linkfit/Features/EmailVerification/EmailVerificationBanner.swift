@@ -53,6 +53,7 @@ struct EmailVerificationBanner: View {
                         },
                     )
                     .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
                 }
                 .overlay(alignment: .top) {
                     if let toast {
@@ -78,10 +79,10 @@ struct EmailVerificationBanner: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("email.banner.title")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textOnAccent)
                 Text(verbatim: user.email)
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(DSColor.textOnAccent.opacity(0.75))
                     .lineLimit(1)
             }
@@ -96,7 +97,7 @@ struct EmailVerificationBanner: View {
                             .tint(DSColor.textOnAccent)
                     } else {
                         Text("email.banner.resend")
-                            .font(.system(.footnote, design: .rounded, weight: .semibold))
+                            .font(.system(.footnote, design: .default, weight: .semibold))
                     }
                 }
                 .padding(.horizontal, DSSpacing.sm)
@@ -112,7 +113,7 @@ struct EmailVerificationBanner: View {
 
             Button(action: { showsEnterTokenSheet = true }) {
                 Text("email.banner.enter_token")
-                    .font(.system(.footnote, design: .rounded, weight: .bold))
+                    .font(.system(.footnote, design: .default, weight: .bold))
                     .padding(.horizontal, DSSpacing.sm)
                     .frame(height: 32)
                     .foregroundStyle(DSColor.accent)

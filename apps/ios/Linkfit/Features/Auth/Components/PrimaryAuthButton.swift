@@ -23,7 +23,7 @@ struct PrimaryAuthButton: View {
                         .tint(DSColor.textOnAccent)
                 } else {
                     Text(titleKey)
-                        .font(.system(size: 17, weight: .bold, design: .default))
+                        .font(DSType.button)
                     Image(systemName: "arrow.right")
                         .font(.system(size: 15, weight: .heavy))
                 }

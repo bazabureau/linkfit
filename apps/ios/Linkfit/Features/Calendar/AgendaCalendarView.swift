@@ -92,7 +92,7 @@ struct AgendaCalendarView: View {
             .accessibilityLabel(Text("calendar.previous_month"))
 
             Text(monthTitle)
-                .font(.system(.title2, design: .rounded, weight: .heavy))
+                .font(.system(.title2, design: .default, weight: .heavy))
                 .foregroundStyle(DSColor.textPrimary)
                 .frame(maxWidth: .infinity)
 
@@ -103,7 +103,7 @@ struct AgendaCalendarView: View {
 
             Button { Task { await viewModel.jumpToToday() } } label: {
                 Text("calendar.today")
-                    .font(.system(.footnote, design: .rounded, weight: .heavy))
+                    .font(.system(.footnote, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.textOnAccent)
                     .padding(.horizontal, DSSpacing.sm)
                     .padding(.vertical, 6)
@@ -132,7 +132,7 @@ struct AgendaCalendarView: View {
             ForEach(Array(symbols.enumerated()), id: \.offset) { _, s in
                 // FAZA 45 §13.1: no uppercase + no tracking. Weight + size carry hierarchy.
                 Text(s)
-                    .font(.system(.caption2, design: .rounded, weight: .heavy))
+                    .font(.system(.caption2, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.textSecondary)
                     .frame(maxWidth: .infinity)
             }
@@ -368,7 +368,7 @@ private struct DayCell: View {
                         .frame(width: 32, height: 32)
                 }
                 Text(dayNumber)
-                    .font(.system(.callout, design: .rounded, weight: isToday ? .heavy : .semibold))
+                    .font(.system(.callout, design: .default, weight: isToday ? .heavy : .semibold))
                     .foregroundStyle(numberColor)
                     .frame(width: 32, height: 32)
             }

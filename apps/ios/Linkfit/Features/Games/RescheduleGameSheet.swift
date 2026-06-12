@@ -113,10 +113,8 @@ struct RescheduleGameSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .heavy))
+                            .fontWeight(.semibold)
                             .foregroundStyle(DSColor.textPrimary)
-                            .frame(width: 32, height: 32)
-                            .background(Circle().fill(.ultraThinMaterial))
                     }
                     .accessibilityLabel(Text("common.close"))
                 }
@@ -140,7 +138,7 @@ struct RescheduleGameSheet: View {
             HStack {
                 Label {
                     Text(formattedStart)
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .font(.system(.subheadline, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.textPrimary)
                 } icon: {
                     Image(systemName: "calendar")
@@ -180,11 +178,11 @@ struct RescheduleGameSheet: View {
                             UISelectionFeedbackGenerator().selectionChanged()
                         } label: {
                             Text(String(format: String(localized: "create_game.duration.minutes_format"), mins))
-                                .font(.system(.footnote, design: .rounded, weight: .semibold))
-                                .foregroundStyle(selected ? DSColor.limeInk : DSColor.textPrimary)
+                                .font(.system(.footnote, design: .default, weight: .semibold))
+                                .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(Capsule().fill(selected ? DSColor.lime : DSColor.surfaceElevated))
+                                .background(Capsule().fill(selected ? DSColor.accent : DSColor.surfaceElevated))
                                 .overlay(Capsule().strokeBorder(DSColor.border, lineWidth: selected ? 0 : 1))
                         }
                         .buttonStyle(.plain)

@@ -32,6 +32,7 @@ struct TournamentDetailView: View {
                         showShareSheet = true
                     } label: {
                         Image(systemName: "square.and.arrow.up")
+                            .fontWeight(.semibold)
                             .foregroundStyle(DSColor.accent)
                     }
                     .accessibilityLabel(Text("tournaments.share"))
@@ -115,15 +116,12 @@ struct TournamentDetailView: View {
     private func hero(detail: TournamentDetail) -> some View {
         ZStack(alignment: .bottomLeading) {
             LinearGradient(
-                colors: [
-                    Color(red: 0.04, green: 0.32, blue: 0.20),
-                    Color(red: 0.08, green: 0.55, blue: 0.32),
-                ],
+                colors: [DSColor.accent, DSColor.accentSoft],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
             Image(systemName: TournamentSportIcon.forSlug(detail.sport_slug))
                 .font(.system(size: 130, weight: .bold))
-                .foregroundStyle(.white.opacity(0.10))
+                .foregroundStyle(DSColor.textOnAccent.opacity(0.10))
                 .rotationEffect(.degrees(-8))
                 .offset(x: 140, y: -20)
 
@@ -133,8 +131,8 @@ struct TournamentDetailView: View {
                     SportPill(slug: detail.sport_slug)
                 }
                 Text(detail.name)
-                    .font(.system(.title2, design: .rounded, weight: .heavy))
-                    .foregroundStyle(.white)
+                    .font(.system(.title2, design: .default, weight: .heavy))
+                    .foregroundStyle(DSColor.textOnAccent)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -191,11 +189,11 @@ struct TournamentDetailView: View {
                 .foregroundStyle(DSColor.accent)
                 .frame(width: 22)
             Text(title)
-                .font(.system(.footnote, design: .rounded))
+                .font(.system(.footnote, design: .default))
                 .foregroundStyle(DSColor.textSecondary)
             Spacer()
             Text(value)
-                .font(.system(.footnote, design: .rounded, weight: .semibold))
+                .font(.system(.footnote, design: .default, weight: .semibold))
                 .foregroundStyle(DSColor.textPrimary)
                 .lineLimit(2)
                 .multilineTextAlignment(.trailing)
@@ -212,7 +210,7 @@ struct TournamentDetailView: View {
             HStack(spacing: 8) {
                 Image(systemName: "lock.fill")
                 Text("tournaments.cta.sign_in_required")
-                    .font(.system(.footnote, design: .rounded, weight: .semibold))
+                    .font(.system(.footnote, design: .default, weight: .semibold))
             }
             .foregroundStyle(DSColor.textSecondary)
             .padding(DSSpacing.md)
@@ -232,7 +230,7 @@ struct TournamentDetailView: View {
                             HStack(spacing: 8) {
                                 Image(systemName: "bubble.left.and.bubble.right.fill")
                                 Text("group_chat.open_for_tournament")
-                                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                                    .font(.system(.subheadline, design: .default, weight: .semibold))
                             }
                             .foregroundStyle(DSColor.accent)
                             .padding(.horizontal, DSSpacing.md)
@@ -244,7 +242,7 @@ struct TournamentDetailView: View {
                         HStack(spacing: 8) {
                             ProgressView().controlSize(.small).tint(DSColor.accent)
                             Text("group_chat.open_for_tournament")
-                                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                                .font(.system(.subheadline, design: .default, weight: .semibold))
                         }
                         .foregroundStyle(DSColor.accent)
                         .padding(.horizontal, DSSpacing.md)
@@ -281,7 +279,7 @@ struct TournamentDetailView: View {
             HStack(spacing: 8) {
                 Image(systemName: "info.circle.fill")
                 Text(blockedReasonText(detail.registration_blocked_reason))
-                    .font(.system(.footnote, design: .rounded, weight: .semibold))
+                    .font(.system(.footnote, design: .default, weight: .semibold))
             }
             .foregroundStyle(DSColor.textSecondary)
             .padding(DSSpacing.md)
@@ -298,10 +296,10 @@ struct TournamentDetailView: View {
                 .foregroundStyle(DSColor.accent)
             VStack(alignment: .leading, spacing: 2) {
                 Text("tournaments.cta.registered.title")
-                    .font(.system(.footnote, design: .rounded, weight: .heavy))
+                    .font(.system(.footnote, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.textPrimary)
                 Text(entry.squad_name)
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
             }
             Spacer()
@@ -315,7 +313,7 @@ struct TournamentDetailView: View {
     private func descriptionSection(text: String) -> some View {
         VStack(alignment: .leading, spacing: DSSpacing.xs) {
             Text("tournaments.detail.about")
-                .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                .font(.system(.subheadline, design: .default, weight: .heavy))
                 .foregroundStyle(DSColor.textPrimary)
             Text(text)
                 .font(.system(.body))
@@ -334,18 +332,18 @@ struct TournamentDetailView: View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             HStack {
                 Text("tournaments.detail.squads")
-                    .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                    .font(.system(.subheadline, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.textPrimary)
                 Spacer()
                 Text(String(format: String(localized: "tournaments.squads_format"),
                             detail.entries_count, detail.max_squads))
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
             }
 
             if detail.entries.isEmpty {
                 Text("tournaments.detail.no_squads")
-                    .font(.system(.footnote, design: .rounded))
+                    .font(.system(.footnote, design: .default))
                     .foregroundStyle(DSColor.textTertiary)
                     .padding(.vertical, DSSpacing.sm)
                     .frame(maxWidth: .infinity)
@@ -403,7 +401,7 @@ private struct SquadRow: View {
                 Circle()
                     .fill(isMine ? DSColor.accent : DSColor.surfaceElevated)
                 Text(initials(from: entry.captain_display_name))
-                    .font(.system(.caption, design: .rounded, weight: .heavy))
+                    .font(.system(.caption, design: .default, weight: .heavy))
                     .foregroundStyle(isMine ? DSColor.textOnAccent : DSColor.textPrimary)
             }
             .frame(width: 38, height: 38)
@@ -411,11 +409,11 @@ private struct SquadRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(entry.squad_name)
-                        .font(.system(.footnote, design: .rounded, weight: .heavy))
+                        .font(.system(.footnote, design: .default, weight: .heavy))
                         .foregroundStyle(DSColor.textPrimary)
                     if isMine {
                         Text("tournaments.detail.squad.yours")
-                            .font(.system(.caption2, design: .rounded, weight: .heavy))
+                            .font(.system(.caption2, design: .default, weight: .heavy))
                             .foregroundStyle(DSColor.textOnAccent)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -424,11 +422,11 @@ private struct SquadRow: View {
                 }
                 Text(String(format: String(localized: "tournaments.detail.squad.captain_format"),
                             entry.captain_display_name))
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
                 if !entry.player_names.isEmpty {
                     Text(entry.player_names.joined(separator: ", "))
-                        .font(.system(.caption2, design: .rounded))
+                        .font(.system(.caption2, design: .default))
                         .foregroundStyle(DSColor.textTertiary)
                         .lineLimit(2)
                 }

@@ -90,8 +90,7 @@ struct GameJoinedCard: View {
             LogoWordmark(size: .custom(24))
             Spacer(minLength: 0)
             Text("share_card.join.kicker")
-                .font(.system(size: 11, weight: .heavy, design: .rounded))
-                .tracking(2.5)
+                .font(.system(size: 11, weight: .heavy, design: .default))
                 .foregroundStyle(DSColor.textTertiary)
         }
     }
@@ -104,8 +103,7 @@ struct GameJoinedCard: View {
             HStack(spacing: 6) {
                 Circle().fill(DSColor.accent).frame(width: 8, height: 8)
                 Text("share_card.join.banner")
-                    .font(.system(size: 13, weight: .heavy, design: .rounded))
-                    .tracking(3)
+                    .font(.system(size: 13, weight: .heavy, design: .default))
                     .foregroundStyle(DSColor.accent)
             }
             .padding(.horizontal, 12)
@@ -114,9 +112,8 @@ struct GameJoinedCard: View {
             .overlay(Capsule().strokeBorder(DSColor.accent.opacity(0.5), lineWidth: 1))
 
             Text("share_card.join.headline")
-                .font(.system(size: 56, weight: .black, design: .rounded))
+                .font(.system(size: 56, weight: .black, design: .default))
                 .foregroundStyle(DSColor.textPrimary)
-                .tracking(-1.5)
                 .minimumScaleFactor(0.5)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
@@ -162,12 +159,11 @@ struct GameJoinedCard: View {
                 .foregroundStyle(DSColor.accent)
                 .frame(width: 18)
             Text(labelKey)
-                .font(.system(size: 12, weight: .heavy, design: .rounded))
-                .tracking(2)
+                .font(.system(size: 12, weight: .heavy, design: .default))
                 .foregroundStyle(DSColor.textTertiary)
             Spacer(minLength: 0)
             Text(value)
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .font(.system(size: 15, weight: .semibold, design: .default))
                 .foregroundStyle(highlightValue ? DSColor.accent : DSColor.textPrimary)
                 .lineLimit(1)
         }
@@ -180,12 +176,11 @@ struct GameJoinedCard: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("share_card.join.players.title")
-                    .font(.system(size: 14, weight: .heavy, design: .rounded))
-                    .tracking(2)
+                    .font(.system(size: 14, weight: .heavy, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
                 Spacer()
                 Text("\(data.filledSlots.count)/\(data.capacity)")
-                    .font(.system(size: 13, weight: .heavy, design: .rounded))
+                    .font(.system(size: 13, weight: .heavy, design: .default))
                     .foregroundStyle(DSColor.accent)
                     .monospacedDigit()
             }
@@ -216,18 +211,16 @@ struct GameJoinedCard: View {
                 ShareAvatar(name: player.displayName, size: 38, highlighted: player.isSelf)
                 VStack(alignment: .leading, spacing: 0) {
                     Text(player.displayName)
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(.system(size: 13, weight: .semibold, design: .default))
                         .foregroundStyle(DSColor.textPrimary)
                         .lineLimit(1)
                     if player.isSelf {
                         Text("share_card.you_badge")
-                            .font(.system(size: 9, weight: .heavy, design: .rounded))
-                            .tracking(1.5)
+                            .font(.system(size: 9, weight: .heavy, design: .default))
                             .foregroundStyle(DSColor.accent)
                     } else if player.isHost {
                         Text("share_card.join.host_badge")
-                            .font(.system(size: 9, weight: .heavy, design: .rounded))
-                            .tracking(1.5)
+                            .font(.system(size: 9, weight: .heavy, design: .default))
                             .foregroundStyle(DSColor.textTertiary)
                     }
                 }
@@ -260,7 +253,7 @@ struct GameJoinedCard: View {
                             .foregroundStyle(DSColor.textTertiary)
                     )
                 Text("share_card.join.empty_slot")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(.system(size: 13, weight: .semibold, design: .default))
                     .foregroundStyle(DSColor.textTertiary)
                     .lineLimit(1)
                 Spacer(minLength: 0)

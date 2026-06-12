@@ -204,11 +204,11 @@ struct GroupConversationView: View {
                 groupAvatar
                 VStack(alignment: .leading, spacing: 2) {
                     Text(headerTitle)
-                        .font(.system(.headline, design: .rounded, weight: .semibold))
+                        .font(.system(.headline, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.textPrimary)
                         .lineLimit(1)
                     Text(participantCountLabel)
-                        .font(.system(.caption, design: .rounded))
+                        .font(.system(.caption, design: .default))
                         .foregroundStyle(DSColor.textSecondary)
                 }
                 Spacer()
@@ -245,7 +245,7 @@ struct GroupConversationView: View {
                 .frame(width: 40, height: 40)
             Image(systemName: "person.3.fill")
                 .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(DSColor.textOnAccent)
         }
     }
 
@@ -325,7 +325,7 @@ struct GroupConversationView: View {
                 ZStack {
                     Circle().fill(DSColor.accent).frame(width: 44, height: 44)
                     if viewModel.isSending {
-                        ProgressView().tint(.white).controlSize(.small)
+                        ProgressView().tint(DSColor.textOnAccent).controlSize(.small)
                     } else {
                         Image(systemName: "arrow.up")
                             .font(.system(size: 17, weight: .bold))
@@ -367,12 +367,15 @@ struct GroupParticipantsSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
+                            .fontWeight(.semibold)
                             .foregroundStyle(DSColor.textSecondary)
                     }
+                    .accessibilityLabel(Text("common.close"))
                 }
             }
         }
         .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 
     @ViewBuilder
@@ -418,7 +421,7 @@ struct GroupParticipantsSheet: View {
                             .font(.system(size: 22))
                             .foregroundStyle(DSColor.accent)
                         Text("group_chat.add_participant")
-                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                            .font(.system(.subheadline, design: .default, weight: .semibold))
                             .foregroundStyle(DSColor.textPrimary)
                         Spacer()
                     }
@@ -452,16 +455,16 @@ private struct GroupParticipantRow: View {
                             startPoint: .topLeading, endPoint: .bottomTrailing))
                         .frame(width: 40, height: 40)
                     Text(initials(participant.display_name))
-                        .font(.system(.footnote, design: .rounded, weight: .bold))
-                        .foregroundStyle(.white)
+                        .font(.system(.footnote, design: .default, weight: .bold))
+                        .foregroundStyle(DSColor.textOnAccent)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(participant.display_name)
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .font(.system(.subheadline, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.textPrimary)
                     if participant.is_owner {
                         Text("group_chat.owner_badge")
-                            .font(.system(.caption2, design: .rounded, weight: .bold))
+                            .font(.system(.caption2, design: .default, weight: .bold))
                             .foregroundStyle(DSColor.accent)
                     }
                 }
@@ -470,9 +473,10 @@ private struct GroupParticipantRow: View {
                     Button(action: onKick) {
                         Image(systemName: "minus.circle.fill")
                             .foregroundStyle(DSColor.textTertiary)
-                            .font(.system(size: 20))
+                            .font(.system(size: 20, weight: .semibold))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(Text("group_chat.remove_participant"))
                 }
             }
             .padding(.horizontal, DSSpacing.md)
@@ -509,7 +513,7 @@ private struct GroupMessageBubble: View {
             VStack(alignment: isMine ? .trailing : .leading, spacing: 4) {
                 if !isMine, let name = senderName, !name.isEmpty {
                     Text(name)
-                        .font(.system(.caption2, design: .rounded, weight: .semibold))
+                        .font(.system(.caption2, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.textTertiary)
                         .padding(.leading, 4)
                 }
@@ -524,7 +528,7 @@ private struct GroupMessageBubble: View {
                                 .fill(isMine ? DSColor.accent : DSColor.surface))
                 }
                 Text(timeLabel(message.created_at))
-                    .font(.system(.caption2, design: .rounded))
+                    .font(.system(.caption2, design: .default))
                     .foregroundStyle(DSColor.textTertiary)
                     .padding(.horizontal, 4)
             }

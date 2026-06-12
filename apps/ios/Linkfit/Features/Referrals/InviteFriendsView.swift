@@ -109,6 +109,8 @@ struct InviteFriendsView: View {
                         URL(string: resp.share_url) as Any
                     ].compactMap { $0 is NSNull ? nil : $0 }
                 )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
             }
         }
         .overlay(alignment: .top) {
@@ -166,12 +168,12 @@ struct InviteFriendsView: View {
             .padding(.bottom, DSSpacing.xs)
 
             Text("referrals.hero.title")
-                .font(.system(size: 28, weight: .heavy, design: .rounded))
+                .font(DSType.heroTitle)
                 .foregroundStyle(DSColor.textPrimary)
                 .multilineTextAlignment(.center)
 
             Text("referrals.hero.subtitle")
-                .font(.system(.subheadline, design: .rounded, weight: .regular))
+                .font(.system(.subheadline, design: .default, weight: .regular))
                 .foregroundStyle(DSColor.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, DSSpacing.md)
@@ -188,7 +190,7 @@ struct InviteFriendsView: View {
         VStack(spacing: DSSpacing.sm) {
             // FAZA 45 §13.1: badge is sentence case, no tracking. Weight carries hierarchy.
             Text("referrals.your_code")
-                .font(.system(.caption, design: .rounded, weight: .heavy))
+                .font(DSType.badge)
                 .foregroundStyle(DSColor.textSecondary)
 
             Button {
@@ -197,7 +199,6 @@ struct InviteFriendsView: View {
             } label: {
                 Text(code)
                     .font(.system(size: 36, weight: .black, design: .monospaced))
-                    .tracking(6)
                     .foregroundStyle(DSColor.accent)
                     .padding(.vertical, DSSpacing.md)
                     .padding(.horizontal, DSSpacing.lg)
@@ -245,25 +246,22 @@ struct InviteFriendsView: View {
     private var howItWorks: some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             Text("referrals.how.title")
-                .font(.system(.headline, design: .rounded, weight: .heavy))
+                .font(DSType.sectionTitle)
                 .foregroundStyle(DSColor.textPrimary)
 
             VStack(spacing: DSSpacing.xs) {
-                howStep(number: 1,
-                        icon: "paperplane.fill",
+                howStep(icon: "paperplane.fill",
                         textKey: "referrals.how.step1")
-                howStep(number: 2,
-                        icon: "person.fill.badge.plus",
+                howStep(icon: "person.fill.badge.plus",
                         textKey: "referrals.how.step2")
-                howStep(number: 3,
-                        icon: "star.circle.fill",
+                howStep(icon: "star.circle.fill",
                         textKey: "referrals.how.step3")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func howStep(number: Int, icon: String, textKey: LocalizedStringKey)
+    private func howStep(icon: String, textKey: LocalizedStringKey)
         -> some View {
         HStack(spacing: DSSpacing.sm) {
             ZStack {
@@ -276,15 +274,8 @@ struct InviteFriendsView: View {
             }
             .accessibilityHidden(true)
 
-            Text("\(number)")
-                .font(.system(.caption, design: .rounded, weight: .heavy))
-                .foregroundStyle(DSColor.textOnAccent)
-                .frame(width: 22, height: 22)
-                .background(Circle().fill(DSColor.accent))
-                .accessibilityHidden(true)
-
             Text(textKey)
-                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .font(.system(.subheadline, design: .default, weight: .semibold))
                 .foregroundStyle(DSColor.textPrimary)
                 .multilineTextAlignment(.leading)
 
@@ -322,7 +313,7 @@ struct InviteFriendsView: View {
 
     private var copiedBanner: some View {
         Text("referrals.copied")
-            .font(.system(.footnote, design: .rounded, weight: .heavy))
+            .font(.system(.footnote, design: .default, weight: .heavy))
             .foregroundStyle(DSColor.textOnAccent)
             .padding(.horizontal, DSSpacing.md)
             .padding(.vertical, DSSpacing.sm)

@@ -186,7 +186,7 @@ struct PhotoViewer: View {
         VStack {
             Spacer().frame(height: 80)
             Text("photo_viewer.saved")
-                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                .font(.system(.subheadline, design: .default).weight(.semibold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, DSSpacing.md)
                 .padding(.vertical, 10)

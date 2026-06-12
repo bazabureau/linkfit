@@ -65,11 +65,11 @@ struct TutorialOverlay: View {
     // MARK: - Bottom bar
 
     private var bottomBar: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             ProgressPills(
                 count: cards.count,
                 active: index,
-                spacing: 7,
+                spacing: 8,
                 height: 5,
                 inactiveWidth: 18,
                 activeWidth: 40

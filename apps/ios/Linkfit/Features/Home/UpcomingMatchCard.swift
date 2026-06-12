@@ -9,7 +9,7 @@ import SwiftUI
 /// viewer-owned games.
 struct UpcomingMatchCard: View {
     let game: GameSummary
-    var format: String = "2v2 · Open"
+    var format: String = String(localized: "card.format.default")
     let isJoined: Bool
     let onTapCard: () -> Void
     let onJoin: () -> Void
@@ -54,13 +54,7 @@ struct UpcomingMatchCard: View {
             if isHost {
                 HStack {
                     Rectangle()
-                        .fill(
-                            LinearGradient(
-                                colors: [DSColor.secondary, Color(hex: 0xADFF2F)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .fill(DSColor.secondary)
                         .frame(width: 4)
                     Spacer()
                 }
@@ -87,7 +81,7 @@ struct UpcomingMatchCard: View {
             // Top row: Sport badge on the left, "Sənin oyunun" badge on the right
             HStack {
                 Text(format)
-                    .font(.system(.caption2, design: .rounded, weight: .bold))
+                    .font(.system(.caption2, design: .default, weight: .bold))
                     .foregroundStyle(DSColor.textOnAccent) // Pure white
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -97,8 +91,8 @@ struct UpcomingMatchCard: View {
                 
                 if isHost {
                     Text("match.host_badge.you")
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .foregroundStyle(DSColor.accent) // Royal Blue text
+                        .font(.system(size: 9, weight: .bold, design: .default))
+                        .foregroundStyle(DSColor.limeInk) // Ink on lime fill
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
                         .background(Capsule().fill(DSColor.secondary)) // Lime-Yellow background
@@ -110,7 +104,7 @@ struct UpcomingMatchCard: View {
             
             // Bold Main Title (Venue Name)
             Text(game.venue_name ?? String(localized: "card.open_invite"))
-                .font(.system(.body, design: .default, weight: .black))
+                .font(.system(.body, design: .default, weight: .heavy))
                 .foregroundStyle(.white)
                 .lineLimit(1)
             
@@ -137,7 +131,7 @@ struct UpcomingMatchCard: View {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 11, weight: .bold))
                             Text(String(localized: "home.match.joined", defaultValue: "Qoşulmusan"))
-                                .font(.system(.footnote, design: .rounded, weight: .bold))
+                                .font(.system(.footnote, design: .default, weight: .bold))
                         }
                         .foregroundStyle(.white)
                         .padding(.horizontal, 16)
@@ -145,7 +139,7 @@ struct UpcomingMatchCard: View {
                         .background(Capsule().fill(Color.white.opacity(0.2)))
                     } else if game.participants_count >= game.capacity || game.status == .full {
                         Text(String(localized: "home.match.full", defaultValue: "Dolu"))
-                            .font(.system(.footnote, design: .rounded, weight: .bold))
+                            .font(.system(.footnote, design: .default, weight: .bold))
                             .foregroundStyle(.white.opacity(0.6))
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
@@ -153,7 +147,7 @@ struct UpcomingMatchCard: View {
                     } else {
                         Button(action: onJoin) {
                             Text("home.match.join")
-                                .font(.system(.footnote, design: .rounded, weight: .bold))
+                                .font(.system(.footnote, design: .default, weight: .bold))
                                 .foregroundStyle(DSColor.textOnAccent)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
@@ -174,7 +168,7 @@ struct UpcomingMatchCard: View {
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.8))
             Text(text)
-                .font(.system(.caption, design: .rounded))
+                .font(.system(.caption, design: .default))
                 .foregroundStyle(.white.opacity(0.8))
                 .lineLimit(1)
         }
@@ -197,7 +191,7 @@ struct UpcomingMatchCard: View {
                 // High-end brand gradient fallback for games with no venue photo
                 ZStack {
                     LinearGradient(
-                        colors: [Color(hex: 0x1E40AF), Color(hex: 0x3B82F6)],
+                        colors: [DSColor.accent, DSColor.info],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )

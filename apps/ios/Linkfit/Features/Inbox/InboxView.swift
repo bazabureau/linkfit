@@ -77,8 +77,12 @@ struct InboxView: View {
                     .background {
                         if isActive {
                             RoundedRectangle(cornerRadius: 11, style: .continuous)
-                                .fill(Color(light: Color(hex: 0xFFFFFF), dark: Color(hex: 0x2A3548)))
+                                .fill(DSColor.surface)
                                 .shadow(color: Color.black.opacity(0.08), radius: 3.5, x: 0, y: 1.5)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                        .strokeBorder(DSColor.border, lineWidth: 1)
+                                )
                                 .matchedGeometryEffect(id: "activeTabCapsule", in: pickerNamespace)
                         }
                     }
@@ -87,7 +91,7 @@ struct InboxView: View {
                 .accessibilityAddTraits(isActive ? .isSelected : [])
             }
         }
-        .padding(3)
+        .padding(4)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(DSColor.surfaceElevated)

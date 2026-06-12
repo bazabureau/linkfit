@@ -146,7 +146,7 @@ struct StoryMentionOverlayView: View {
 
     private var initialsLabel: some View {
         Text(initials(overlay.display_name))
-            .font(.system(size: 9, weight: .heavy, design: .rounded))
+            .font(.system(size: 9, weight: .heavy, design: .default))
             .foregroundStyle(DSColor.textOnAccent)
     }
 

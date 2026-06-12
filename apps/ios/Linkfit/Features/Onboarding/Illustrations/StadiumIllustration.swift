@@ -66,8 +66,8 @@ struct StadiumIllustration: View {
                     HStack(spacing: 6) {
                         Image(systemName: "bolt.fill")
                             .font(.system(size: 14, weight: .heavy))
-                        Text("MATCH")
-                            .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                        Text("onboard.illustration.match")
+                            .font(.system(.subheadline, design: .default, weight: .heavy))
                     }
                     .foregroundStyle(DSColor.textOnAccent)
                 }
@@ -111,14 +111,14 @@ struct StadiumIllustration: View {
                     .overlay(Circle().strokeBorder(accent.opacity(0.6), lineWidth: 1.5))
                     .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
                 Text(initials)
-                    .font(.system(size: 30, weight: .heavy, design: .rounded))
+                    .font(.system(size: 30, weight: .heavy, design: .default))
                     .foregroundStyle(DSColor.textPrimary)
             }
             HStack(spacing: 4) {
                 Image(systemName: "rosette")
                     .font(.system(size: 10, weight: .bold))
                 Text("\(elo) ELO")
-                    .font(.system(.caption, design: .rounded, weight: .heavy))
+                    .font(.system(.caption, design: .default, weight: .heavy))
             }
             .foregroundStyle(DSColor.textOnAccent)
             .padding(.horizontal, 10)

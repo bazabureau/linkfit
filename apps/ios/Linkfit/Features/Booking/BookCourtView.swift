@@ -108,7 +108,7 @@ struct BookCourtView: View {
                         stepper
                         
                         Divider()
-                            .overlay(Color.white.opacity(0.08))
+                            .overlay(DSColor.border)
                             .padding(.top, 4)
                         
                         content
@@ -309,7 +309,7 @@ struct BookCourtView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(DSColor.warning)
                     Text(String(format: "%.1f", v.rating_avg ?? 4.8))
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(DSColor.textSecondary)
@@ -442,7 +442,7 @@ struct BookCourtView: View {
             
             VStack(alignment: .trailing, spacing: 4) {
                 Text(priceLabel(c))
-                    .font(.system(size: 18, weight: .black))
+                    .font(.system(size: 18, weight: .heavy))
                     .foregroundStyle(DSColor.textPrimary)
                 Text("book.per_hour")
                     .font(.system(size: 11, weight: .bold))
@@ -884,7 +884,7 @@ struct BookCourtView: View {
             
             VStack(alignment: .trailing, spacing: 4) {
                 Text(priceLabel(c))
-                    .font(.system(size: 16, weight: .black))
+                    .font(.system(size: 16, weight: .heavy))
                     .foregroundStyle(DSColor.accent)
                 Text("book.per_hour")
                     .font(.system(size: 10, weight: .bold))
@@ -957,13 +957,13 @@ struct BookCourtView: View {
         } label: {
             HStack {
                 if isConfirming {
-                    ProgressView().tint(DSColor.inkSurface)
+                    ProgressView().tint(DSColor.textOnAccent)
                 } else {
                     Text(confirmTitle)
                         .font(.system(size: 16, weight: .bold))
                 }
             }
-            .foregroundStyle(DSColor.inkSurface)
+            .foregroundStyle(DSColor.textOnAccent)
             .frame(maxWidth: .infinity, minHeight: 56)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -1025,12 +1025,12 @@ struct BookCourtView: View {
                 VStack(spacing: 12) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .fill(Color.white.opacity(0.02))
+                            .fill(DSColor.surface.opacity(0.02))
                             .background(.ultraThinMaterial)
                             .frame(width: 236, height: 236)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                                    .strokeBorder(DSColor.border, lineWidth: 1)
                             )
                         
                         BookingQRCodeView(content: "linkfit://booking/\(booking.id)", size: 196)
@@ -1060,7 +1060,7 @@ struct BookCourtView: View {
                 } label: {
                     Text("book.see_my_bookings")
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(DSColor.inkSurface)
+                        .foregroundStyle(DSColor.textOnAccent)
                         .frame(maxWidth: .infinity, minHeight: 56)
                         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.accent))
                 }
@@ -1091,20 +1091,20 @@ struct BookCourtView: View {
         case .venue: dismiss()
         case .court:
             if presetVenueId != nil { dismiss(); return }
-            withAnimation(.spring(response: 0.36, dampingFraction: 0.8)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.8)) {
                 step = .venue
                 court = nil
             }
         case .slot:
             if presetCourtId != nil {
                 if presetVenueId != nil { dismiss(); return }
-                withAnimation(.spring(response: 0.36, dampingFraction: 0.8)) {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.8)) {
                     step = .venue
                     court = nil
                 }
                 return
             }
-            withAnimation(.spring(response: 0.36, dampingFraction: 0.8)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.8)) {
                 step = .court
             }
         }
@@ -1117,7 +1117,7 @@ struct BookCourtView: View {
                 let d = try await container.apiClient.send(.venue(id: v.id))
                 detail = d
                 court = d.courts.count == 1 ? d.courts.first : nil
-                withAnimation(.spring(response: 0.36, dampingFraction: 0.8)) {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.8)) {
                     step = .court
                 }
             } catch let e as APIError {
@@ -1130,7 +1130,7 @@ struct BookCourtView: View {
 
     private func select(court c: Court) {
         court = c
-        withAnimation(.spring(response: 0.36, dampingFraction: 0.8)) {
+        withAnimation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.8)) {
             step = .slot
         }
     }

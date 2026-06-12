@@ -249,7 +249,7 @@ struct StoryRailCell: View {
                     endPoint: .bottomTrailing
                 ))
             Text(initials(from: name))
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .font(.system(size: 20, weight: .bold, design: .default))
                 .foregroundStyle(DSColor.textPrimary)
         }
     }

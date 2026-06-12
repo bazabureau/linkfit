@@ -36,6 +36,8 @@ struct ReferralsView: View {
         .sheet(isPresented: $showShareSheet) {
             if case .loaded(let resp) = viewModel.state {
                 ReferralsShareSheet(items: [shareText(code: resp.code)])
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
             }
         }
         .sheet(isPresented: $showRedeemSheet) {
@@ -64,7 +66,7 @@ struct ReferralsView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: DSSpacing.xxs) {
             Text("referrals.title")
-                .font(.system(size: 32, weight: .heavy, design: .rounded))
+                .font(DSType.heroTitle)
                 .foregroundStyle(DSColor.textPrimary)
             Text("referrals.subtitle")
                 .font(DSType.footnote)
@@ -111,7 +113,7 @@ struct ReferralsView: View {
         VStack(spacing: DSSpacing.md) {
             // FAZA 45 §13.1: badge is sentence case, no tracking. Weight carries hierarchy.
             Text("referrals.hero.kicker")
-                .font(.system(.caption, design: .rounded, weight: .heavy))
+                .font(DSType.badge)
                 .foregroundStyle(DSColor.textOnAccent.opacity(0.85))
 
             Button {
@@ -125,7 +127,6 @@ struct ReferralsView: View {
             } label: {
                 Text(code)
                     .font(.system(size: 36, weight: .black, design: .monospaced))
-                    .tracking(6)
                     .foregroundStyle(DSColor.textOnAccent)
                     .padding(.vertical, DSSpacing.md)
                     .padding(.horizontal, DSSpacing.xl)
@@ -142,7 +143,7 @@ struct ReferralsView: View {
             .accessibilityValue(Text(code))
 
             Text("referrals.tap_to_copy")
-                .font(.system(.footnote, design: .rounded, weight: .semibold))
+                .font(.system(.footnote, design: .default, weight: .semibold))
                 .foregroundStyle(DSColor.textOnAccent.opacity(0.75))
 
             // Two side-by-side action buttons sit beneath the code pill —
@@ -164,7 +165,7 @@ struct ReferralsView: View {
                         Image(systemName: "doc.on.doc.fill")
                         Text("referrals.cta.copy")
                     }
-                    .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                    .font(DSType.cardTitle)
                     .foregroundStyle(DSColor.textOnAccent)
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .background(
@@ -184,7 +185,7 @@ struct ReferralsView: View {
                         Image(systemName: "square.and.arrow.up.fill")
                         Text("referrals.cta.share")
                     }
-                    .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                    .font(DSType.cardTitle)
                     .foregroundStyle(DSColor.accent)
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .background(RoundedRectangle(cornerRadius: 14).fill(DSColor.textOnAccent))
@@ -230,11 +231,11 @@ struct ReferralsView: View {
                 .font(.system(size: 18, weight: .heavy))
                 .foregroundStyle(DSColor.accent)
             Text(value)
-                .font(.system(.title2, design: .rounded, weight: .black))
+                .font(DSType.statValue)
                 .foregroundStyle(DSColor.textPrimary)
                 .lineLimit(1).minimumScaleFactor(0.7)
             Text(title)
-                .font(.system(.caption, design: .rounded))
+                .font(DSType.caption)
                 .foregroundStyle(DSColor.textTertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -251,7 +252,7 @@ struct ReferralsView: View {
     /// non-numeric, conversational read of their progress.
     private func invitedCountTagline(_ count: Int) -> some View {
         Text(String(format: String(localized: "referrals.stats.invited_count_format"), count))
-            .font(.system(.subheadline, design: .rounded, weight: .heavy))
+            .font(DSType.cardTitle)
             .foregroundStyle(DSColor.textPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, DSSpacing.xs)
@@ -268,25 +269,21 @@ struct ReferralsView: View {
     private var howItWorks: some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             Text("referrals.how.title")
-                .font(.system(.headline, design: .rounded, weight: .heavy))
+                .font(DSType.sectionTitle)
                 .foregroundStyle(DSColor.textPrimary)
 
             VStack(spacing: DSSpacing.xs) {
-                howStep(number: 1,
-                        icon: "paperplane.fill",
+                howStep(icon: "paperplane.fill",
                         textKey: "referrals.how.step1")
-                howStep(number: 2,
-                        icon: "person.fill.badge.plus",
+                howStep(icon: "person.fill.badge.plus",
                         textKey: "referrals.how.step2")
-                howStep(number: 3,
-                        icon: "star.circle.fill",
+                howStep(icon: "star.circle.fill",
                         textKey: "referrals.how.step3")
             }
         }
     }
 
-    private func howStep(number: Int,
-                         icon: String,
+    private func howStep(icon: String,
                          textKey: LocalizedStringKey) -> some View {
         HStack(spacing: DSSpacing.sm) {
             ZStack {
@@ -299,15 +296,8 @@ struct ReferralsView: View {
             }
             .accessibilityHidden(true)
 
-            Text("\(number)")
-                .font(.system(.caption, design: .rounded, weight: .heavy))
-                .foregroundStyle(DSColor.textOnAccent)
-                .frame(width: 22, height: 22)
-                .background(Circle().fill(DSColor.accent))
-                .accessibilityHidden(true)
-
             Text(textKey)
-                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .font(.system(.subheadline, design: .default, weight: .semibold))
                 .foregroundStyle(DSColor.textPrimary)
                 .multilineTextAlignment(.leading)
 
@@ -338,10 +328,10 @@ struct ReferralsView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("referrals.redeem.row_title")
-                        .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                        .font(DSType.cardTitle)
                         .foregroundStyle(DSColor.textPrimary)
                     Text("referrals.redeem.row_subtitle")
-                        .font(.system(.caption, design: .rounded))
+                        .font(DSType.caption)
                         .foregroundStyle(DSColor.textSecondary)
                 }
                 Spacer()
@@ -362,11 +352,11 @@ struct ReferralsView: View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             HStack {
                 Text("referrals.list.title")
-                    .font(.system(.headline, design: .rounded, weight: .heavy))
+                    .font(DSType.sectionTitle)
                     .foregroundStyle(DSColor.textPrimary)
                 Spacer()
                 Text("\(resp.referred_count)")
-                    .font(.system(.footnote, design: .rounded, weight: .semibold))
+                    .font(.system(.footnote, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textSecondary)
             }
             if resp.referred_users.isEmpty {
@@ -385,10 +375,10 @@ struct ReferralsView: View {
                 .font(.system(size: 28))
                 .foregroundStyle(DSColor.accent)
             Text("referrals.list.empty.title")
-                .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                .font(DSType.cardTitle)
                 .foregroundStyle(DSColor.textPrimary)
             Text("referrals.list.empty.message")
-                .font(.system(.footnote, design: .rounded))
+                .font(DSType.footnote)
                 .foregroundStyle(DSColor.textSecondary)
                 .multilineTextAlignment(.center)
         }
@@ -418,7 +408,7 @@ struct ReferralsView: View {
 
     private func redeemBanner(success: Bool, text: String) -> some View {
         Text(text)
-            .font(.system(.footnote, design: .rounded, weight: .heavy))
+            .font(.system(.footnote, design: .default, weight: .heavy))
             .foregroundStyle(DSColor.textOnAccent)
             .padding(.horizontal, DSSpacing.md)
             .padding(.vertical, DSSpacing.sm)
@@ -437,10 +427,10 @@ struct ReferredFriendRow: View {
             avatar
             VStack(alignment: .leading, spacing: 2) {
                 Text(friend.display_name)
-                    .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                    .font(DSType.cardTitle)
                     .foregroundStyle(DSColor.textPrimary)
                 Text(ReferralFormatting.timeAgo(friend.referred_at))
-                    .font(.system(.caption, design: .rounded))
+                    .font(DSType.caption)
                     .foregroundStyle(DSColor.textTertiary)
             }
             Spacer()
@@ -458,7 +448,7 @@ struct ReferredFriendRow: View {
         ZStack {
             Circle().fill(DSColor.accentMuted)
             Text(initial)
-                .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                .font(DSType.cardTitle)
                 .foregroundStyle(DSColor.accent)
         }
         .frame(width: 40, height: 40)

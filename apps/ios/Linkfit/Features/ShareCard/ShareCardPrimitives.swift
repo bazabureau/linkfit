@@ -37,7 +37,7 @@ struct ShareAvatar: View {
                 )
             Text(initials(name))
                 .font(.system(size: size * 0.38,
-                              weight: .black, design: .rounded))
+                              weight: .black, design: .default))
                 .foregroundStyle(highlighted ? DSColor.textOnAccent : DSColor.textPrimary)
         }
         .frame(width: size, height: size)
@@ -120,8 +120,7 @@ struct ShareCardFooter: View {
                 LogoWordmark(size: .custom(20))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(ctaKey)
-                        .font(.system(size: 13, weight: .heavy, design: .rounded))
-                        .tracking(1.5)
+                        .font(.system(size: 13, weight: .heavy, design: .default))
                         .foregroundStyle(DSColor.textPrimary)
                         .lineLimit(1)
                     if let code = referralCode, !code.isEmpty {

@@ -240,12 +240,12 @@ struct PlayersView: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.white.opacity(0.02))
+                .fill(DSColor.textPrimary.opacity(0.02))
                 .background(.ultraThinMaterial)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.04), lineWidth: 1)
+                .strokeBorder(DSColor.textPrimary.opacity(0.04), lineWidth: 1)
         )
         .padding(.top, 12)
     }
@@ -254,11 +254,11 @@ struct PlayersView: View {
         VStack(spacing: 12) {
             ForEach(0..<4, id: \.self) { _ in
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.white.opacity(0.02))
+                    .fill(DSColor.textPrimary.opacity(0.02))
                     .frame(height: 108)
                     .overlay(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.04), lineWidth: 1)
+                            .strokeBorder(DSColor.textPrimary.opacity(0.04), lineWidth: 1)
                     )
             }
         }
@@ -327,13 +327,13 @@ struct PlayersView: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(0.02))
+                .fill(DSColor.textPrimary.opacity(0.02))
                 .background(.ultraThinMaterial)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(
-                    searchFocused ? DSColor.accent.opacity(0.4) : Color.white.opacity(0.06),
+                    searchFocused ? DSColor.accent.opacity(0.4) : DSColor.textPrimary.opacity(0.06),
                     lineWidth: 1
                 )
         )
@@ -414,7 +414,7 @@ struct PlayersView: View {
             .padding(.vertical, 8)
             .background {
                 Capsule()
-                    .fill(selected ? DSColor.accent.opacity(0.10) : Color.white.opacity(0.03))
+                    .fill(selected ? DSColor.accent.opacity(0.10) : DSColor.textPrimary.opacity(0.03))
                     .background {
                         if !selected {
                             Capsule().fill(.ultraThinMaterial)
@@ -423,7 +423,7 @@ struct PlayersView: View {
             }
             .overlay(
                 Capsule().strokeBorder(
-                    selected ? DSColor.accent.opacity(0.4) : Color.white.opacity(0.06),
+                    selected ? DSColor.accent.opacity(0.4) : DSColor.textPrimary.opacity(0.06),
                     lineWidth: 1
                 )
             )
@@ -540,12 +540,12 @@ struct PlayersView: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.white.opacity(0.02))
+                .fill(DSColor.textPrimary.opacity(0.02))
                 .background(.ultraThinMaterial)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.04), lineWidth: 1)
+                .strokeBorder(DSColor.textPrimary.opacity(0.04), lineWidth: 1)
         )
         .padding(.top, 8)
     }
@@ -638,7 +638,7 @@ private struct PlayerRowCard: View {
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.white.opacity(0.015))
+                    .fill(DSColor.textPrimary.opacity(0.015))
                     .background(
                         RadialGradient(
                             colors: [
@@ -656,7 +656,7 @@ private struct PlayerRowCard: View {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .strokeBorder(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.08), Color.white.opacity(0.02)],
+                            colors: [DSColor.textPrimary.opacity(0.08), DSColor.textPrimary.opacity(0.02)],
                             startPoint: .topLeading, endPoint: .bottomTrailing
                         ),
                         lineWidth: 1
@@ -706,7 +706,7 @@ private struct PlayerRowCard: View {
                         value: isSpinning
                     )
             )
-            .padding(2.5)
+            .padding(2)
             
             if isActiveNow {
                 Circle()
@@ -733,16 +733,16 @@ private struct PlayerRowCard: View {
                 ))
             Text(initials)
                 .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(DSColor.textOnAccent)
         }
     }
 
     private var metaPillsRow: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 6) {
             let eloLevel = SkillLevel.from(elo: player.primary_elo)
             
             // ELO Pill
-            HStack(spacing: 3) {
+            HStack(spacing: 4) {
                 Image(systemName: eloLevel.systemImage)
                     .font(.system(size: 8, weight: .bold))
                 Text(eloLevel.localizedName)
@@ -750,7 +750,7 @@ private struct PlayerRowCard: View {
             }
             .foregroundStyle(eloLevel.accent)
             .padding(.horizontal, 6)
-            .padding(.vertical, 3)
+            .padding(.vertical, 4)
             .background(eloLevel.accent.opacity(0.06))
             .overlay(
                 Capsule()
@@ -768,11 +768,11 @@ private struct PlayerRowCard: View {
                 }
                 .foregroundStyle(DSColor.textSecondary)
                 .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(Color.white.opacity(0.03))
+                .padding(.vertical, 4)
+                .background(DSColor.textPrimary.opacity(0.03))
                 .overlay(
                     Capsule()
-                        .strokeBorder(Color.white.opacity(0.06), lineWidth: 0.6)
+                        .strokeBorder(DSColor.textPrimary.opacity(0.06), lineWidth: 0.6)
                 )
                 .clipShape(Capsule())
                 .monospacedDigit()
@@ -788,11 +788,11 @@ private struct PlayerRowCard: View {
                 }
                 .foregroundStyle(r >= 90 ? DSColor.success : DSColor.textSecondary)
                 .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(r >= 90 ? DSColor.success.opacity(0.06) : Color.white.opacity(0.03))
+                .padding(.vertical, 4)
+                .background(r >= 90 ? DSColor.success.opacity(0.06) : DSColor.textPrimary.opacity(0.03))
                 .overlay(
                     Capsule()
-                        .strokeBorder(r >= 90 ? DSColor.success.opacity(0.15) : Color.white.opacity(0.06), lineWidth: 0.6)
+                        .strokeBorder(r >= 90 ? DSColor.success.opacity(0.15) : DSColor.textPrimary.opacity(0.06), lineWidth: 0.6)
                 )
                 .clipShape(Capsule())
                 .monospacedDigit()
@@ -806,7 +806,7 @@ private struct PlayerRowCard: View {
             UISelectionFeedbackGenerator().selectionChanged()
             onFollowChange(!isFollowing)
         } label: {
-            HStack(spacing: 3) {
+            HStack(spacing: 4) {
                 if isFollowing {
                     Image(systemName: "checkmark")
                         .font(.system(size: 8, weight: .bold))
@@ -820,13 +820,13 @@ private struct PlayerRowCard: View {
             .background(
                 Capsule().fill(
                     isFollowing
-                        ? Color.white.opacity(0.03)
-                        : Color.white.opacity(0.05)
+                        ? DSColor.textPrimary.opacity(0.03)
+                        : DSColor.textPrimary.opacity(0.05)
                 )
             )
             .overlay(
                 Capsule().strokeBorder(
-                    isFollowing ? Color.white.opacity(0.08) : Color.white.opacity(0.12),
+                    isFollowing ? DSColor.textPrimary.opacity(0.08) : DSColor.textPrimary.opacity(0.12),
                     lineWidth: 1
                 )
             )
@@ -878,7 +878,7 @@ private struct MatchmakerPlayerCard: View {
                     avatar
                     
                     VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 5) {
+                        HStack(spacing: 6) {
                             Text(player.display_name)
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundStyle(DSColor.textPrimary)
@@ -889,14 +889,14 @@ private struct MatchmakerPlayerCard: View {
                                 Image(systemName: "sparkles")
                                     .font(.system(size: 7, weight: .bold))
                                     .foregroundStyle(DSColor.accent)
-                                Text("vip")
+                                Text(verbatim: "VIP")
                                     .font(.system(size: 8, weight: .bold))
                                     .foregroundStyle(DSColor.textPrimary)
                             }
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1.5)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
                             .background(
-                                Capsule().fill(Color.white.opacity(0.04))
+                                Capsule().fill(DSColor.textPrimary.opacity(0.04))
                             )
                             .overlay(
                                 Capsule().strokeBorder(DSColor.accent.opacity(0.25), lineWidth: 0.6)
@@ -917,14 +917,14 @@ private struct MatchmakerPlayerCard: View {
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.white.opacity(0.015))
+                    .fill(DSColor.textPrimary.opacity(0.015))
                     .background(.ultraThinMaterial)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .strokeBorder(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.08), Color.white.opacity(0.02)],
+                            colors: [DSColor.textPrimary.opacity(0.08), DSColor.textPrimary.opacity(0.02)],
                             startPoint: .topLeading, endPoint: .bottomTrailing
                         ),
                         lineWidth: 1
@@ -937,9 +937,9 @@ private struct MatchmakerPlayerCard: View {
 
     private var skillLine: some View {
         let level = SkillLevel.from(elo: player.elo_rating)
-        return HStack(spacing: 5) {
+        return HStack(spacing: 6) {
             // ELO Pill
-            HStack(spacing: 3) {
+            HStack(spacing: 4) {
                 Image(systemName: level.systemImage)
                     .font(.system(size: 8, weight: .bold))
                 Text(level.labelKey)
@@ -947,7 +947,7 @@ private struct MatchmakerPlayerCard: View {
             }
             .foregroundStyle(level.accent)
             .padding(.horizontal, 6)
-            .padding(.vertical, 3)
+            .padding(.vertical, 4)
             .background(level.accent.opacity(0.06))
             .overlay(
                 Capsule().strokeBorder(level.accent.opacity(0.15), lineWidth: 0.6)
@@ -963,10 +963,10 @@ private struct MatchmakerPlayerCard: View {
                 }
                 .foregroundStyle(DSColor.textSecondary)
                 .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(Color.white.opacity(0.03))
+                .padding(.vertical, 4)
+                .background(DSColor.textPrimary.opacity(0.03))
                 .overlay(
-                    Capsule().strokeBorder(Color.white.opacity(0.06), lineWidth: 0.6)
+                    Capsule().strokeBorder(DSColor.textPrimary.opacity(0.06), lineWidth: 0.6)
                 )
                 .clipShape(Capsule())
                 .monospacedDigit()
@@ -1010,7 +1010,7 @@ private struct MatchmakerPlayerCard: View {
                     value: isSpinning
                 )
         )
-        .padding(2.5)
+        .padding(2)
         .onAppear {
             isSpinning = true
         }
@@ -1026,7 +1026,7 @@ private struct MatchmakerPlayerCard: View {
             )
             Text(initials)
                 .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(DSColor.textOnAccent)
         }
     }
 
@@ -1045,7 +1045,7 @@ private struct MatchmakerPlayerCard: View {
         let visible = Array(decodedReasons.prefix(3))
         return HStack(spacing: 6) {
             ForEach(Array(visible.enumerated()), id: \.offset) { _, reason in
-                HStack(spacing: 3) {
+                HStack(spacing: 4) {
                     Circle()
                         .fill(reason.accent)
                         .frame(width: 4, height: 4)
@@ -1073,7 +1073,7 @@ private struct MatchmakerPlayerCard: View {
             UISelectionFeedbackGenerator().selectionChanged()
             onFollow()
         } label: {
-            HStack(spacing: 3) {
+            HStack(spacing: 4) {
                 if isFollowing {
                     Image(systemName: "checkmark")
                         .font(.system(size: 8, weight: .bold))
@@ -1087,13 +1087,13 @@ private struct MatchmakerPlayerCard: View {
             .background(
                 Capsule().fill(
                     isFollowing
-                        ? Color.white.opacity(0.03)
-                        : Color.white.opacity(0.05)
+                        ? DSColor.textPrimary.opacity(0.03)
+                        : DSColor.textPrimary.opacity(0.05)
                 )
             )
             .overlay(
                 Capsule().strokeBorder(
-                    isFollowing ? Color.white.opacity(0.08) : Color.white.opacity(0.12),
+                    isFollowing ? DSColor.textPrimary.opacity(0.08) : DSColor.textPrimary.opacity(0.12),
                     lineWidth: 1
                 )
             )

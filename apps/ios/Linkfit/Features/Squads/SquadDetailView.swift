@@ -590,7 +590,6 @@ private struct EditSquadSheet: View {
             Text("squads.field.name")
                 .font(.system(size: 12, weight: .heavy))
                 .foregroundStyle(DSColor.textTertiary)
-                .textCase(.uppercase)
             TextField(text: $name) {
                 Text("squads.field.name.placeholder")
             }
@@ -612,7 +611,6 @@ private struct EditSquadSheet: View {
             Text("squads.field.description")
                 .font(.system(size: 12, weight: .heavy))
                 .foregroundStyle(DSColor.textTertiary)
-                .textCase(.uppercase)
             ZStack(alignment: .topLeading) {
                 if description.isEmpty {
                     Text("squads.field.description.placeholder")

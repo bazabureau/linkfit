@@ -31,7 +31,7 @@ struct SessionsView: View {
                         confirmRevokeAll = true
                     } label: {
                         Text("sessions.action.revoke_all")
-                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                            .font(.system(.subheadline, weight: .semibold))
                             .foregroundStyle(DSColor.danger)
                     }
                     .disabled(viewModel.isRevokingAll)
@@ -144,7 +144,7 @@ private struct SessionRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: DSSpacing.xs) {
                     Text(deviceLabel)
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .font(.system(.subheadline, weight: .semibold))
                         .foregroundStyle(DSColor.textPrimary)
                     if session.is_current {
                         CurrentDeviceBadge()
@@ -235,7 +235,7 @@ private enum DeviceKind {
 private struct CurrentDeviceBadge: View {
     var body: some View {
         Text("sessions.current")
-            .font(.system(.caption2, design: .rounded, weight: .semibold))
+            .font(.system(.caption2, weight: .semibold))
             .foregroundStyle(DSColor.textOnAccent)
             .padding(.horizontal, DSSpacing.xs)
             .padding(.vertical, 2)

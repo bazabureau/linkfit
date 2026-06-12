@@ -264,7 +264,7 @@ struct SquadInviteSheet: View {
                 startPoint: .topLeading, endPoint: .bottomTrailing
             ))
             Text(initials(name))
-                .font(.system(.footnote, design: .rounded, weight: .bold))
+                .font(.system(.footnote, weight: .bold))
                 .foregroundStyle(DSColor.textOnAccent)
         }
     }

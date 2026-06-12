@@ -24,7 +24,6 @@ struct InsightsView: View {
         .navigationTitle(Text("insights.title"))
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(DSColor.background, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
     }
 
     @ViewBuilder
@@ -119,11 +118,11 @@ struct InsightsView: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(DSColor.accent)
                 Text(titleKey)
-                    .font(.system(.caption, design: .rounded))
+                    .font(DSType.caption)
                     .foregroundStyle(DSColor.textSecondary)
             }
             Text(value)
-                .font(.system(size: 20, weight: .heavy, design: .rounded))
+                .font(.system(size: 20, weight: .heavy, design: .default))
                 .foregroundStyle(DSColor.textPrimary)
         }
         .padding(DSSpacing.md)
@@ -254,11 +253,11 @@ struct InsightsView: View {
     private func opponentsCard(_ resp: InsightsResponse) -> some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             Text("insights.chart.opponents.title")
-                .font(.system(.headline, design: .rounded, weight: .heavy))
+                .font(DSType.sectionTitle)
                 .foregroundStyle(DSColor.textPrimary)
             if resp.opponents.isEmpty {
                 Text("insights.chart.opponents.empty")
-                    .font(.system(.subheadline, design: .rounded))
+                    .font(.system(.subheadline, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
                     .padding(.vertical, DSSpacing.sm)
             } else {
@@ -288,26 +287,26 @@ struct InsightsView: View {
             ZStack {
                 Circle().fill(DSColor.accent.opacity(0.16)).frame(width: 38, height: 38)
                 Text(initials(opp.display_name))
-                    .font(.system(size: 13, weight: .heavy, design: .rounded))
+                    .font(.system(size: 13, weight: .heavy, design: .default))
                     .foregroundStyle(DSColor.accent)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: opp.display_name)
-                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    .font(.system(.subheadline, design: .default, weight: .bold))
                     .foregroundStyle(DSColor.textPrimary)
                     .lineLimit(1)
                 Text(String(format: String(localized: "insights.opponents.games_format"),
                             opp.games_count, opp.wins, opp.losses))
-                    .font(.system(.caption, design: .rounded))
+                    .font(DSType.caption)
                     .foregroundStyle(DSColor.textSecondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(Int(opp.win_rate.rounded()))%")
-                    .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                    .font(DSType.cardTitle)
                     .foregroundStyle(opp.win_rate >= 50 ? DSColor.success : DSColor.warning)
                 Text("insights.opponents.win_rate_label")
-                    .font(.system(.caption2, design: .rounded))
+                    .font(.system(.caption2, design: .default))
                     .foregroundStyle(DSColor.textTertiary)
             }
         }
@@ -405,11 +404,11 @@ struct InsightsView: View {
                 .font(.system(size: 28, weight: .semibold))
                 .foregroundStyle(DSColor.accent)
             Text("insights.threshold.title")
-                .font(.system(.headline, design: .rounded, weight: .heavy))
+                .font(DSType.sectionTitle)
                 .foregroundStyle(DSColor.textPrimary)
             Text(String(format: String(localized: "insights.threshold.message_format"),
                         InsightsViewModel.minGamesForCharts - resp.total_games))
-                .font(.system(.subheadline, design: .rounded))
+                .font(.system(.subheadline, design: .default))
                 .foregroundStyle(DSColor.textSecondary)
                 .multilineTextAlignment(.center)
         }
@@ -435,10 +434,10 @@ struct InsightsView: View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(titleKey)
-                    .font(.system(.headline, design: .rounded, weight: .heavy))
+                    .font(DSType.sectionTitle)
                     .foregroundStyle(DSColor.textPrimary)
                 Text(subtitleKey)
-                    .font(.system(.caption, design: .rounded))
+                    .font(DSType.caption)
                     .foregroundStyle(DSColor.textSecondary)
             }
             content()

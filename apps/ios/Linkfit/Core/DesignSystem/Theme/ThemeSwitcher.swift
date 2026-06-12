@@ -25,7 +25,7 @@ struct ThemeSwitcher: View {
                         Image(systemName: mode.symbolName)
                             .font(.system(size: 13, weight: .semibold))
                         Text(mode.displayKey)
-                            .font(.system(.footnote, design: .rounded, weight: .semibold))
+                            .font(.system(.footnote, design: .default, weight: .semibold))
                     }
                     .foregroundStyle(
                         theme.mode == mode

@@ -107,7 +107,7 @@ struct AchievementsView: View {
     private func summary(_ res: AchievementsResponse) -> some View {
         VStack(alignment: .leading, spacing: DSSpacing.xs) {
             Text(String(localized: "achievements.summary.title"))
-                .font(.system(.title3, design: .rounded, weight: .bold))
+                .font(DSType.sectionTitle)
                 .foregroundStyle(DSColor.textPrimary)
             Text(
                 String.localizedStringWithFormat(
@@ -115,7 +115,7 @@ struct AchievementsView: View {
                     res.unlocked_count, res.total_count
                 )
             )
-            .font(.system(.subheadline, design: .rounded))
+            .font(.system(.subheadline, design: .default))
             .foregroundStyle(DSColor.textSecondary)
             ProgressView(value: Double(res.unlocked_count),
                          total: max(Double(res.total_count), 1))
@@ -147,7 +147,7 @@ struct AchievementsView: View {
         VStack(spacing: 8) {
             BadgeBubble(iconName: item.icon_name, unlocked: item.unlocked)
             Text(item.name)
-                .font(.system(.caption, design: .rounded, weight: .semibold))
+                .font(DSType.metaCaption)
                 .foregroundStyle(item.unlocked ? DSColor.textPrimary : DSColor.textTertiary)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
@@ -173,14 +173,14 @@ struct AchievementDetailSheet: View {
                     .padding(.top, DSSpacing.lg)
                 VStack(spacing: DSSpacing.xs) {
                     Text(achievement.name)
-                        .font(.system(.title2, design: .rounded, weight: .bold))
+                        .font(.system(.title2, design: .default, weight: .bold))
                         .foregroundStyle(DSColor.textPrimary)
                     Text(statusLabel)
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .font(.system(.subheadline, design: .default, weight: .semibold))
                         .foregroundStyle(achievement.unlocked ? DSColor.accent : DSColor.textTertiary)
                 }
                 Text(achievement.description)
-                    .font(.system(.body, design: .rounded))
+                    .font(DSType.body)
                     .foregroundStyle(DSColor.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, DSSpacing.lg)
@@ -206,15 +206,15 @@ struct AchievementDetailSheet: View {
     private func progressCard(_ progress: AchievementProgress) -> some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             Text(String(localized: "achievements.how_to_unlock"))
-                .font(.system(.headline, design: .rounded, weight: .bold))
+                .font(DSType.sectionTitle)
                 .foregroundStyle(DSColor.textPrimary)
             HStack {
                 Text(formatProgressLabel(progress))
-                    .font(.system(.subheadline, design: .rounded))
+                    .font(.system(.subheadline, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
                 Spacer()
                 Text("\(Int(progress.ratio * 100))%")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
             }
             ProgressView(value: progress.ratio).tint(DSColor.accent)

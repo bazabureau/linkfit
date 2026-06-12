@@ -12,33 +12,24 @@ struct StorySharePreviewSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Sleek premium dark gradient background
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.1, green: 0.11, blue: 0.15),
-                        Color(red: 0.05, green: 0.05, blue: 0.07)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
-                
+                DSColor.background.ignoresSafeArea()
+
                 ScrollView {
                     VStack(spacing: 24) {
                         // Title header
                         VStack(spacing: 6) {
-                            Text("Hekayəni Paylaş")
-                                .font(.system(size: 22, weight: .black, design: .rounded))
-                                .foregroundStyle(.white)
-                            Text("Dostlarınla uğurlarını bölüşmək üçün format seç")
+                            Text("story_share.sheet.title")
+                                .font(.system(size: 22, weight: .heavy))
+                                .foregroundStyle(DSColor.textPrimary)
+                            Text("story_share.sheet.subtitle")
                                 .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.6))
+                                .foregroundStyle(DSColor.textSecondary)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 20)
                         }
                         .padding(.top, 16)
-                        
-                        // Gorgeous pre-rendered card preview
+
+                        // Pre-rendered card preview
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFit()
@@ -46,9 +37,9 @@ struct StorySharePreviewSheet: View {
                             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 1.5)
+                                    .strokeBorder(DSColor.border, lineWidth: 1)
                             )
-                            .shadow(color: .black.opacity(0.45), radius: 20, x: 0, y: 12)
+                            .shadow(color: .black.opacity(0.25), radius: 20, x: 0, y: 12)
                             .padding(.horizontal, 28)
                         
                         // Interaction CTAs
@@ -60,9 +51,9 @@ struct StorySharePreviewSheet: View {
                             } label: {
                                 HStack(spacing: 8) {
                                     Image(systemName: "plus.circle.fill")
-                                    Text("Linkfit Hekayədə Paylaş")
+                                    Text("story_share.action.linkfit_story")
                                 }
-                                .font(.system(size: 16, weight: .heavy, design: .rounded))
+                                .font(.system(size: 15, weight: .heavy))
                                 .foregroundStyle(DSColor.textOnAccent)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 52)
@@ -80,19 +71,19 @@ struct StorySharePreviewSheet: View {
                                 systemSharePayload = SystemSharePayload(image: image)
                             } label: {
                                 HStack(spacing: 8) {
-                                    Image(systemName: "square.and.arrow.up.fill")
-                                    Text("Digər Tətbiqlərdə Paylaş")
+                                    Image(systemName: "square.and.arrow.up")
+                                    Text("story_share.action.system_share")
                                 }
-                                .font(.system(size: 16, weight: .heavy, design: .rounded))
-                                .foregroundStyle(.white)
+                                .font(.system(size: 15, weight: .heavy))
+                                .foregroundStyle(DSColor.textPrimary)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 52)
                                 .background(
-                                    Capsule()
-                                        .strokeBorder(Color.white.opacity(0.15), lineWidth: 1.5)
-                                        .background(Color.white.opacity(0.06))
+                                    Capsule().fill(DSColor.surfaceElevated)
                                 )
-                                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+                                .overlay(
+                                    Capsule().strokeBorder(DSColor.border, lineWidth: 1)
+                                )
                             }
                             .buttonStyle(.plain)
                         }
@@ -109,12 +100,8 @@ struct StorySharePreviewSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 30, height: 30)
-                            .background(Color.white.opacity(0.08), in: Circle())
+                            .fontWeight(.semibold)
                     }
-                    .buttonStyle(.plain)
                     .accessibilityLabel(Text("common.close"))
                 }
             }
@@ -136,6 +123,7 @@ struct StorySharePreviewSheet: View {
                 )
             }
         }
+        .presentationDragIndicator(.visible)
     }
 }
 

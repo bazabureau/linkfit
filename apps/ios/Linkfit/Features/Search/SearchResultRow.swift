@@ -132,12 +132,12 @@ private struct SearchRowShell: View {
                 iconBubble
                 VStack(alignment: .leading, spacing: 4) {
                     Text(primary)
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .font(.system(.subheadline, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.textPrimary)
                         .lineLimit(1)
                     if let secondary, !secondary.isEmpty {
                         Text(secondary)
-                            .font(.system(.caption, design: .rounded))
+                            .font(.system(.caption, design: .default))
                             .foregroundStyle(DSColor.textSecondary)
                             .lineLimit(1)
                     }
@@ -145,7 +145,7 @@ private struct SearchRowShell: View {
                 Spacer(minLength: DSSpacing.xs)
                 if let trailingBadgeKey {
                     Text(trailingBadgeKey)
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .font(.system(size: 10, weight: .bold, design: .default))
                         .foregroundStyle(DSColor.textOnAccent)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
@@ -166,14 +166,14 @@ private struct SearchRowShell: View {
             .padding(DSSpacing.md)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white.opacity(0.02))
+                    .fill(DSColor.textPrimary.opacity(0.02))
                     .background(.ultraThinMaterial)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .strokeBorder(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.12), Color.white.opacity(0.03)],
+                            colors: [DSColor.textPrimary.opacity(0.12), DSColor.textPrimary.opacity(0.03)],
                             startPoint: .topLeading, endPoint: .bottomTrailing
                         ),
                         lineWidth: 1

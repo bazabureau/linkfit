@@ -39,11 +39,10 @@
 //               }
 //           } label: {
 //               Image(systemName: "plus")
-//                   .font(.system(size: 18, weight: .bold))
-//                   .foregroundStyle(DSColor.limeInk)
-//                   .padding(12)
-//                   .background(Circle().fill(DSColor.lime))
+//                   .fontWeight(.semibold)
+//                   .foregroundStyle(DSColor.accent)
 //           }
+//           .accessibilityLabel(Text("matches.create"))
 //           .sheet(isPresented: $showCreateOneOff) {
 //               // Existing flow — unchanged.
 //               CreateGameView(

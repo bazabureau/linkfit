@@ -104,7 +104,7 @@ struct FeedEventCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     summaryLine
                     Text(relativeCreatedAt)
-                        .font(.system(.caption2, design: .rounded))
+                        .font(.system(.caption2, design: .default))
                         .foregroundStyle(DSColor.textTertiary)
                 }
                 Spacer(minLength: DSSpacing.xs)
@@ -136,7 +136,7 @@ struct FeedEventCard: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(DSColor.textSecondary)
                 Text(commentsLabel)
-                    .font(.system(.footnote, design: .rounded, weight: .medium))
+                    .font(.system(.footnote, design: .default, weight: .medium))
                     .foregroundStyle(DSColor.textSecondary)
                 Spacer(minLength: DSSpacing.xs)
                 Image(systemName: "chevron.right")
@@ -180,8 +180,8 @@ struct FeedEventCard: View {
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )).frame(width: 44, height: 44)
             Text(initials(event.actor.display_name))
-                .font(.system(.footnote, design: .rounded, weight: .bold))
-                .foregroundStyle(.white)
+                .font(.system(.footnote, design: .default, weight: .bold))
+                .foregroundStyle(DSColor.textOnAccent)
         }
     }
 
@@ -192,10 +192,10 @@ struct FeedEventCard: View {
         let name = event.actor.display_name
         let rest = templateBody
         var attributed = AttributedString(name + " ")
-        attributed.font = .system(.subheadline, design: .rounded, weight: .semibold)
+        attributed.font = .system(.subheadline, design: .default, weight: .semibold)
         attributed.foregroundColor = DSColor.textPrimary
         var restAttr = AttributedString(rest)
-        restAttr.font = .system(.subheadline, design: .rounded)
+        restAttr.font = .system(.subheadline, design: .default)
         restAttr.foregroundColor = DSColor.textPrimary
         attributed.append(restAttr)
         return Text(attributed).lineLimit(3).fixedSize(horizontal: false, vertical: true)

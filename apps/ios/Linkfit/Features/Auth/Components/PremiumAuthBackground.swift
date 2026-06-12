@@ -23,11 +23,9 @@ struct PremiumAuthBackground: View {
     private var vignetteOpacityTop: Double { colorScheme == .dark ? 0.18 : 0.04 }
     private var vignetteOpacityBottom: Double { colorScheme == .dark ? 0.30 : 0.06 }
 
-    /// The vignette tint inverts: dark mode darkens corners with black ink,
-    /// light mode darkens corners with a soft cool gray for the same effect.
-    private var vignetteColor: Color {
-        colorScheme == .dark ? .black : Color(hex: 0x1E2530)
-    }
+    /// The vignette tint: deepest ink token, adaptive per scheme — darkens
+    /// corners on OLED, soft cool gray on light for the same effect.
+    private var vignetteColor: Color { DSColor.inkSurface }
 
     var body: some View {
         ZStack {

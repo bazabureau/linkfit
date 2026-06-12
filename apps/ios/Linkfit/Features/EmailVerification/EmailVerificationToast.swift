@@ -48,11 +48,11 @@ struct EmailVerificationToastView: View {
                 .font(.system(size: 18, weight: .semibold))
             VStack(alignment: .leading, spacing: 2) {
                 Text(toast.title)
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
                 if let message = toast.message {
                     Text(message)
-                        .font(.system(.footnote, design: .rounded))
+                        .font(.system(.footnote, design: .default))
                         .foregroundStyle(DSColor.textSecondary)
                 }
             }

@@ -56,7 +56,7 @@ struct InviteHostActionButton: View {
                 Image(systemName: "person.crop.circle.badge.plus")
                 Text("invitations.cta.invite_player")
             }
-            .font(.system(.subheadline, design: .rounded, weight: .heavy))
+            .font(.system(.subheadline, design: .default, weight: .heavy))
             .foregroundStyle(DSColor.textOnAccent)
             .padding(.horizontal, DSSpacing.md)
             .padding(.vertical, 10)

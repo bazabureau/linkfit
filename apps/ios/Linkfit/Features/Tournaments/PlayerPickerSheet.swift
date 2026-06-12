@@ -122,23 +122,23 @@ struct PlayerPickerSheet: View {
             ZStack {
                 Circle().fill(DSColor.surfaceElevated)
                 Text(initials(p.display_name))
-                    .font(.system(.caption, design: .rounded, weight: .heavy))
+                    .font(.system(.caption, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.textPrimary)
             }
             .frame(width: 40, height: 40)
             VStack(alignment: .leading, spacing: 2) {
                 Text(p.display_name)
-                    .font(.system(.footnote, design: .rounded, weight: .semibold))
+                    .font(.system(.footnote, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
                 if let sport = p.primary_sport, p.primary_elo != nil {
                     // Word-based skill bucket instead of raw "ELO 1450".
                     let levelLabel = SkillLevel.from(elo: p.primary_elo).localizedName
-                    Text("\(sport.uppercased()) · \(levelLabel)")
-                        .font(.system(.caption2, design: .rounded))
+                    Text("\(sport.capitalized) · \(levelLabel)")
+                        .font(.system(.caption2, design: .default))
                         .foregroundStyle(DSColor.textSecondary)
                 } else if let sport = p.primary_sport {
-                    Text(sport.uppercased())
-                        .font(.system(.caption2, design: .rounded))
+                    Text(sport.capitalized)
+                        .font(.system(.caption2, design: .default))
                         .foregroundStyle(DSColor.textSecondary)
                 }
             }

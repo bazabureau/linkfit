@@ -85,8 +85,7 @@ struct MilestoneCard: View {
             LogoWordmark(size: .custom(24))
             Spacer(minLength: 0)
             Text("share_card.milestone.kicker")
-                .font(.system(size: 11, weight: .heavy, design: .rounded))
-                .tracking(2.5)
+                .font(.system(size: 11, weight: .heavy, design: .default))
                 .foregroundStyle(DSColor.textTertiary)
         }
     }
@@ -96,8 +95,7 @@ struct MilestoneCard: View {
             HStack(spacing: 6) {
                 Circle().fill(DSColor.accent).frame(width: 8, height: 8)
                 Text("share_card.milestone.banner")
-                    .font(.system(size: 13, weight: .heavy, design: .rounded))
-                    .tracking(3)
+                    .font(.system(size: 13, weight: .heavy, design: .default))
                     .foregroundStyle(DSColor.accent)
             }
             .padding(.horizontal, 12)
@@ -106,9 +104,8 @@ struct MilestoneCard: View {
             .overlay(Capsule().strokeBorder(DSColor.accent.opacity(0.5), lineWidth: 1))
 
             Text("share_card.milestone.headline")
-                .font(.system(size: 56, weight: .black, design: .rounded))
+                .font(.system(size: 56, weight: .black, design: .default))
                 .foregroundStyle(DSColor.textPrimary)
-                .tracking(-1.5)
                 .minimumScaleFactor(0.5)
                 .lineLimit(2)
                 .shadow(color: DSColor.accent.opacity(0.20), radius: 30, y: 8)
@@ -163,7 +160,7 @@ struct MilestoneCard: View {
                         .font(.system(size: 64, weight: .heavy))
                         .foregroundStyle(DSColor.accent)
                     Text(data.currentLevel.labelKey)
-                        .font(.system(size: 22, weight: .black, design: .rounded))
+                        .font(.system(size: 22, weight: .black, design: .default))
                         .foregroundStyle(DSColor.textPrimary)
                         .multilineTextAlignment(.center)
                 }
@@ -177,7 +174,7 @@ struct MilestoneCard: View {
             Image(systemName: level.systemImage)
                 .font(.system(size: 11, weight: .heavy))
             Text(level.labelKey)
-                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .font(.system(size: 13, weight: .heavy, design: .default))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
@@ -202,7 +199,7 @@ struct MilestoneCard: View {
             if data.gamesPlayed > 0 {
                 Text(String(format: String(localized: "share_card.milestone.after_games_format"),
                             data.gamesPlayed))
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(.system(size: 15, weight: .semibold, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, alignment: .center)

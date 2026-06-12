@@ -35,9 +35,9 @@ struct HomeHeroBanner: View {
         ZStack {
             LinearGradient(
                 colors: [
-                    Color(red: 0.05, green: 0.40, blue: 0.24),
-                    Color(red: 0.08, green: 0.55, blue: 0.32),
-                    Color(red: 0.11, green: 0.66, blue: 0.40),
+                    DSColor.accent.opacity(0.95),
+                    DSColor.accent,
+                    DSColor.info,
                 ],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
@@ -67,7 +67,7 @@ struct HomeHeroBanner: View {
                     Circle().fill(Color.white.opacity(0.22))
                         .frame(width: 42, height: 42)
                     Text(initials(firstName))
-                        .font(.system(.footnote, design: .rounded, weight: .bold))
+                        .font(.system(.footnote, design: .default, weight: .bold))
                         .foregroundStyle(.white)
                 }
             }
@@ -76,14 +76,11 @@ struct HomeHeroBanner: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("home.greeting")
-                    .font(.system(.footnote, design: .rounded))
+                    .font(.system(.footnote, design: .default))
                     .foregroundStyle(.white.opacity(0.75))
-                HStack(spacing: 4) {
-                    Text(firstName.isEmpty ? String(localized: "home.placeholder.player") : firstName)
-                        .font(.system(.callout, design: .rounded, weight: .semibold))
-                        .foregroundStyle(.white)
-                    Text("👋").font(.callout)
-                }
+                Text(firstName.isEmpty ? String(localized: "home.placeholder.player") : firstName)
+                    .font(.system(.callout, design: .default, weight: .semibold))
+                    .foregroundStyle(.white)
             }
 
             Spacer()
@@ -99,9 +96,9 @@ struct HomeHeroBanner: View {
                     }
                     if unreadCount > 0 {
                         Text(unreadCount > 9 ? "9+" : "\(unreadCount)")
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .font(.system(size: 10, weight: .bold, design: .default))
                             .foregroundStyle(.white)
-                            .padding(.horizontal, 5)
+                            .padding(.horizontal, 4)
                             .frame(minWidth: 16, minHeight: 16)
                             .background(Capsule().fill(DSColor.danger))
                             .overlay(Capsule().strokeBorder(Color.white, lineWidth: 1.5))
@@ -118,7 +115,7 @@ struct HomeHeroBanner: View {
 
     private var title: some View {
         Text("home.title")
-            .font(.system(size: 32, weight: .heavy, design: .rounded))
+            .font(.system(size: 32, weight: .heavy, design: .default))
             .foregroundStyle(.white)
             .lineSpacing(1)
             .fixedSize(horizontal: false, vertical: true)

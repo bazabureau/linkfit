@@ -113,7 +113,7 @@ private struct PlayerCarouselCard: View {
                 ))
             Text(initials)
                 .font(.system(size: 22, weight: .heavy, design: .default))
-                .foregroundStyle(.white)
+                .foregroundStyle(DSColor.textOnAccent)
         }
     }
 

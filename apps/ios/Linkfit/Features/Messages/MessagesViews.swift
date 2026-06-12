@@ -323,7 +323,7 @@ private struct PremiumConversationRow: View {
     var body: some View {
         HStack(spacing: 12) {
             avatar
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Text(conversation.other_display_name)
                         .font(.system(size: 15, weight: .heavy, design: .default))
@@ -386,11 +386,11 @@ private struct PremiumConversationRow: View {
                 .frame(width: 46, height: 46)
             Text(initials(conversation.other_display_name))
                 .font(.system(size: 15, weight: .heavy, design: .default))
-                .foregroundStyle(.white)
+                .foregroundStyle(DSColor.textOnAccent)
         }
         .overlay(
             Circle()
-                .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+                .strokeBorder(DSColor.textOnAccent.opacity(0.10), lineWidth: 1)
         )
     }
 
@@ -454,6 +454,7 @@ private struct ConversationRowSkeleton: View {
             .allowsHitTesting(false)
         )
         .onAppear {
+            guard !UIAccessibility.isReduceMotionEnabled else { return }
             withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
                 phase = 1
             }
@@ -1303,11 +1304,11 @@ struct ConversationThreadView: View {
                         startPoint: .topLeading, endPoint: .bottomTrailing
                     )).frame(width: 40, height: 40)
                     Text(initials(t.other_display_name))
-                        .font(.system(.footnote, design: .rounded, weight: .bold))
-                        .foregroundStyle(.white)
+                        .font(.system(.footnote, design: .default, weight: .bold))
+                        .foregroundStyle(DSColor.textOnAccent)
                 }
                 Text(t.other_display_name)
-                    .font(.system(.headline, design: .rounded, weight: .semibold))
+                    .font(.system(.headline, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
             }
             Spacer()
@@ -1635,7 +1636,7 @@ struct ConversationThreadView: View {
             ZStack {
                 Circle().fill(DSColor.accent).frame(width: 44, height: 44)
                 if viewModel.isSending || viewModel.isUploading {
-                    ProgressView().tint(.white).controlSize(.small)
+                    ProgressView().tint(DSColor.textOnAccent).controlSize(.small)
                 } else {
                     Image(systemName: "arrow.up")
                         .font(.system(size: 17, weight: .bold))
@@ -1708,18 +1709,22 @@ struct ConversationThreadView: View {
         return HStack(spacing: DSSpacing.sm) {
             ZStack {
                 Circle()
-                    .fill(willCancel ? DSColor.textTertiary : Color.red)
+                    .fill(willCancel ? DSColor.textTertiary : DSColor.danger)
                     .frame(width: 10, height: 10)
                 Circle()
-                    .stroke(willCancel ? DSColor.textTertiary : Color.red, lineWidth: 1)
+                    .stroke(willCancel ? DSColor.textTertiary : DSColor.danger, lineWidth: 1)
                     .frame(width: 18, height: 18)
                     .opacity(willCancel ? 0 : 0.4)
                     .scaleEffect(willCancel ? 1 : 1.4)
-                    .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true),
-                               value: recorder.isRecording)
+                    .animation(
+                        UIAccessibility.isReduceMotionEnabled
+                            ? nil
+                            : .easeInOut(duration: 0.9).repeatForever(autoreverses: true),
+                        value: recorder.isRecording
+                    )
             }
             Text("messages.voice.recording")
-                .font(.system(.footnote, design: .rounded, weight: .semibold))
+                .font(.system(.footnote, design: .default, weight: .semibold))
                 .foregroundStyle(DSColor.textPrimary)
             Text(timerLabel(recorder.elapsed))
                 .font(.system(.footnote, design: .monospaced))
@@ -1730,9 +1735,9 @@ struct ConversationThreadView: View {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 11, weight: .bold))
                 Text("messages.voice.slide_to_cancel")
-                    .font(.system(.caption2, design: .rounded))
+                    .font(.system(.caption2, design: .default))
             }
-            .foregroundStyle(willCancel ? Color.red : DSColor.textTertiary)
+            .foregroundStyle(willCancel ? DSColor.danger : DSColor.textTertiary)
             .opacity(max(0.3, 1.0 + Double(dragOffset / 200)))
             .offset(x: dragOffset / 4)
         }
@@ -1867,10 +1872,10 @@ private struct DayDivider: View {
     let label: String
     var body: some View {
         Text(label)
-            .font(.system(.caption2, design: .rounded, weight: .semibold))
+            .font(.system(.caption2, design: .default, weight: .semibold))
             .foregroundStyle(DSColor.textSecondary)
             .padding(.horizontal, 12)
-            .padding(.vertical, 5)
+            .padding(.vertical, 4)
             .background(
                 Capsule()
                     .fill(DSColor.surface)
@@ -1888,7 +1893,7 @@ private struct UnreadSeparator: View {
         HStack(spacing: DSSpacing.xs) {
             Rectangle().fill(DSColor.accent.opacity(0.4)).frame(height: 1)
             Text("messages.unread")
-                .font(.system(.caption2, design: .rounded, weight: .bold))
+                .font(.system(.caption2, design: .default, weight: .bold))
                 .foregroundStyle(DSColor.accent)
             Rectangle().fill(DSColor.accent.opacity(0.4)).frame(height: 1)
         }
@@ -1908,7 +1913,7 @@ private struct TypingIndicator: View {
                     .frame(width: 6, height: 6)
             }
             Text(String(format: String(localized: "messages.typing"), name))
-                .font(.system(.caption2, design: .rounded))
+                .font(.system(.caption2, design: .default))
                 .foregroundStyle(DSColor.textTertiary)
         }
         .padding(.horizontal, DSSpacing.md)
@@ -1979,7 +1984,7 @@ private struct MessageBubble: View {
                 // rows visually tight.
                 if isLastInGroup {
                     Text(timeLabel(message.created_at))
-                        .font(.system(.caption2, design: .rounded))
+                        .font(.system(.caption2, design: .default))
                         .foregroundStyle(DSColor.textTertiary)
                         .padding(.horizontal, 4)
                 }
@@ -1989,7 +1994,7 @@ private struct MessageBubble: View {
                 if isLastOwnMessage, let readReceipt {
                     ReadReceiptLabel(receipt: readReceipt)
                         .padding(.horizontal, 4)
-                        .padding(.top, 1)
+                        .padding(.top, 2)
                 }
             }
             if !isMine { Spacer(minLength: 60) }
@@ -2013,12 +2018,12 @@ private struct MessageBubble: View {
 private struct ReadReceiptLabel: View {
     let receipt: ChatReadReceipt
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 4) {
             Image(systemName: iconName)
                 .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(tint)
             Text(receipt == .seen ? "chat.status.seen" : "chat.status.sent")
-                .font(.system(.caption2, design: .rounded, weight: .medium))
+                .font(.system(.caption2, design: .default, weight: .medium))
                 .foregroundStyle(tint)
         }
         .accessibilityElement(children: .combine)
@@ -2064,11 +2069,11 @@ private struct NewMessagesPill: View {
             Image(systemName: "arrow.down")
                 .font(.system(size: 10, weight: .bold))
             Text(label)
-                .font(.system(.footnote, design: .rounded, weight: .semibold))
+                .font(.system(.footnote, design: .default, weight: .semibold))
         }
         .foregroundStyle(DSColor.textOnAccent)
         .padding(.horizontal, 12)
-        .padding(.vertical, 7)
+        .padding(.vertical, 8)
         .background(
             Capsule()
                 .fill(DSColor.accent)
@@ -2153,7 +2158,7 @@ private struct PendingMessageBubble: View {
     private var statusFooter: some View {
         HStack(spacing: 6) {
             Text(timeLabel(pending.createdAt))
-                .font(.system(.caption2, design: .rounded))
+                .font(.system(.caption2, design: .default))
                 .foregroundStyle(DSColor.textTertiary)
             switch pending.status {
             case .sending:
@@ -2173,14 +2178,14 @@ private struct PendingMessageBubble: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(DSColor.danger)
                     Text("messages.status.failed")
-                        .font(.system(.caption2, design: .rounded, weight: .semibold))
+                        .font(.system(.caption2, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.danger)
                     Button(action: onRetry) {
                         Text("messages.action.retry")
-                            .font(.system(.caption2, design: .rounded, weight: .bold))
+                            .font(.system(.caption2, design: .default, weight: .bold))
                             .foregroundStyle(DSColor.accent)
                             .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
+                            .padding(.vertical, 4)
                             .background(
                                 Capsule()
                                     .strokeBorder(DSColor.accent.opacity(0.6), lineWidth: 1)
@@ -2373,7 +2378,7 @@ private struct VoiceAttachmentBubble: View {
     /// the shape looks like a real waveform but stays stable across renders.
     private var waveform: some View {
         let progress: Double = duration > 0 ? min(1, elapsed / duration) : 0
-        return HStack(alignment: .center, spacing: 3) {
+        return HStack(alignment: .center, spacing: 4) {
             ForEach(0..<14, id: \.self) { i in
                 let frac = Double(i) / 13
                 let active = frac <= progress

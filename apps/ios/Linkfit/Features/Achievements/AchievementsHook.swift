@@ -84,11 +84,11 @@ struct RecentlyUnlockedCarousel: View {
             VStack(alignment: .leading, spacing: DSSpacing.sm) {
                 HStack {
                     Text(String(localized: "achievements.recently_unlocked"))
-                        .font(.system(.headline, design: .rounded, weight: .bold))
+                        .font(DSType.sectionTitle)
                         .foregroundStyle(DSColor.textPrimary)
                     Spacer()
                     Button(String(localized: "achievements.see_all"), action: onSeeAll)
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .font(.system(.subheadline, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.accent)
                 }
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -102,7 +102,7 @@ struct RecentlyUnlockedCarousel: View {
                                                 unlocked: true,
                                                 size: 56)
                                     Text(item.name)
-                                        .font(.system(.caption2, design: .rounded, weight: .semibold))
+                                        .font(DSType.caption2)
                                         .foregroundStyle(DSColor.textSecondary)
                                         .lineLimit(1)
                                         .frame(maxWidth: 64)

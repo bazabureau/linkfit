@@ -287,7 +287,7 @@ private struct ReviewRow: View {
                                      startPoint: .topLeading, endPoint: .bottomTrailing))
                 .frame(width: 36, height: 36)
             Text(initials)
-                .font(.system(.footnote, design: .rounded, weight: .bold))
+                .font(.system(.footnote, design: .default, weight: .bold))
                 .foregroundStyle(DSColor.textOnAccent)
         }
     }

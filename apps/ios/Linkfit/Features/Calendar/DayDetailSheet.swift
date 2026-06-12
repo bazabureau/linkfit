@@ -26,15 +26,16 @@ struct DayDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { dismiss() } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(DSColor.textSecondary)
+                        Image(systemName: "xmark")
+                            .fontWeight(.semibold)
                     }
                     .accessibilityLabel(Text("calendar.day_sheet.close"))
                 }
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationBackground(DSColor.background)
+        .presentationDragIndicator(.visible)
+        .presentationBackground(.ultraThinMaterial)
     }
 
     @ViewBuilder
@@ -94,22 +95,22 @@ private struct AgendaRow: View {
                 HStack(spacing: DSSpacing.xs) {
                     // FAZA 45 §13.1: badge is sentence case, no uppercase.
                     Text(kindLabel)
-                        .font(.system(.caption2, design: .rounded, weight: .heavy))
+                        .font(.system(.caption2, design: .default, weight: .heavy))
                         .foregroundStyle(DSColor.accent)
                         .padding(.horizontal, DSSpacing.xs)
                         .padding(.vertical, 2)
                         .background(Capsule().fill(DSColor.accentMuted))
                     Text(timeLabel)
-                        .font(.system(.caption, design: .rounded))
+                        .font(.system(.caption, design: .default))
                         .foregroundStyle(DSColor.textSecondary)
                 }
                 Text(item.title)
-                    .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                    .font(.system(.subheadline, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.textPrimary)
                     .lineLimit(1)
                 if let venue = item.venue_name, !venue.isEmpty {
                     Text(venue)
-                        .font(.system(.caption, design: .rounded))
+                        .font(.system(.caption, design: .default))
                         .foregroundStyle(DSColor.textSecondary)
                         .lineLimit(1)
                 }

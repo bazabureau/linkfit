@@ -69,7 +69,7 @@ struct FloatingTextField: View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(isFocused ? DSColor.secondary : DSColor.textTertiary)
+                .foregroundStyle(isFocused ? DSColor.accent : DSColor.textTertiary)
                 .frame(width: 22)
                 .animation(.easeInOut(duration: 0.2), value: isFocused)
 
@@ -92,7 +92,7 @@ struct FloatingTextField: View {
                 .autocorrectionDisabled(true)
                 .font(.system(size: 16, weight: .regular, design: .default))
                 .foregroundStyle(DSColor.textPrimary)
-                .tint(DSColor.secondary)
+                .tint(DSColor.accent)
                 // Push content down to make room for the floated label so
                 // text doesn't crash into it. When the label is in
                 // placeholder position the offset is harmless because the
@@ -123,7 +123,9 @@ struct FloatingTextField: View {
                         .foregroundStyle(DSColor.textTertiary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(revealSecure ? "Hide password" : "Show password")
+                .accessibilityLabel(revealSecure
+                    ? Text("auth.a11y.hide_password")
+                    : Text("auth.a11y.show_password"))
             }
             trailing
         }
@@ -138,12 +140,12 @@ struct FloatingTextField: View {
     private var fieldBorder: some View {
         let borderColor: Color = {
             if hasError { return DSColor.danger }
-            if isFocused { return DSColor.secondary }
+            if isFocused { return DSColor.accent }
             return DSColor.border.opacity(0.5)
         }()
         RoundedRectangle(cornerRadius: 14, style: .continuous)
             .strokeBorder(borderColor, lineWidth: isFocused || hasError ? 1.5 : 1)
-            .shadow(color: isFocused ? DSColor.secondary.opacity(0.22) : .clear,
+            .shadow(color: isFocused ? DSColor.accent.opacity(0.22) : .clear,
                     radius: 10, y: 0)
     }
 }

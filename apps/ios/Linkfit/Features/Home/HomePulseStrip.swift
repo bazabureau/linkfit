@@ -76,10 +76,8 @@ struct HomePulseStrip: View {
                 if let accessory { accessory }
             }
             Text(labelKey)
-                .font(.system(size: 10, weight: .semibold, design: .default))
-                .tracking(0.6)
+                .font(.system(size: 11, weight: .semibold, design: .default))
                 .foregroundStyle(DSColor.textTertiary)
-                .textCase(.uppercase)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
         }

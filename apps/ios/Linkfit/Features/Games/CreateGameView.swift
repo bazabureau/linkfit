@@ -56,7 +56,7 @@ struct CreateGameView: View {
 
             submitBar
         }
-        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: showAdvanced)
+        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85), value: showAdvanced)
         .task {
             await viewModel.onAppear()
             if let padel = viewModel.sports.first(where: { $0.slug == "padel" }) {
@@ -122,7 +122,7 @@ struct CreateGameView: View {
                 HStack {
                     Label {
                         Text(formattedStart)
-                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .font(.system(size: 14, weight: .bold, design: .default))
                             .foregroundStyle(DSColor.textPrimary)
                     } icon: {
                         Image(systemName: "calendar")
@@ -154,17 +154,17 @@ struct CreateGameView: View {
                 ForEach(quickStarts, id: \.label) { item in
                     let selected = closeTo(item.date, viewModel.startsAt)
                     Button {
-                        withAnimation(.spring(response: 0.4)) {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.4)) {
                             viewModel.startsAt = item.date
                         }
                     } label: {
                         Text(item.label)
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundStyle(selected ? DSColor.limeInk : DSColor.textPrimary)
+                            .font(.system(size: 12, weight: .bold, design: .default))
+                            .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
-                            .background(Capsule().fill(selected ? DSColor.lime : Color.white.opacity(0.06)))
-                            .overlay(Capsule().strokeBorder(selected ? DSColor.lime : DSColor.border.opacity(0.35), lineWidth: 1))
+                            .background(Capsule().fill(selected ? DSColor.accent : DSColor.surfaceElevated.opacity(0.6)))
+                            .overlay(Capsule().strokeBorder(selected ? DSColor.accent : DSColor.border.opacity(0.35), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 }
@@ -176,7 +176,7 @@ struct CreateGameView: View {
     private var durationChipRow: some View {
         HStack(spacing: 12) {
             Text("create_game.duration")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(.system(size: 13, weight: .semibold, design: .default))
                 .foregroundStyle(DSColor.textSecondary)
             Spacer()
             HStack(spacing: 6) {
@@ -187,12 +187,12 @@ struct CreateGameView: View {
                         UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
                         Text(String(format: String(localized: "create_game.duration.minutes_format"), mins))
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundStyle(selected ? DSColor.limeInk : DSColor.textPrimary)
+                            .font(.system(size: 11, weight: .bold, design: .default))
+                            .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(Capsule().fill(selected ? DSColor.lime : Color.white.opacity(0.06)))
-                            .overlay(Capsule().strokeBorder(selected ? DSColor.lime : DSColor.border.opacity(0.35), lineWidth: 1))
+                            .background(Capsule().fill(selected ? DSColor.accent : DSColor.surfaceElevated.opacity(0.6)))
+                            .overlay(Capsule().strokeBorder(selected ? DSColor.accent : DSColor.border.opacity(0.35), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 }
@@ -258,7 +258,7 @@ struct CreateGameView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text(String(format: String(localized: "create_game.capacity.players_format"), viewModel.capacity))
-                        .font(.system(size: 16, weight: .heavy, design: .rounded))
+                        .font(.system(size: 16, weight: .heavy, design: .default))
                         .foregroundStyle(DSColor.textPrimary)
                     Spacer()
                     premiumStepper
@@ -266,7 +266,7 @@ struct CreateGameView: View {
                 slotRow
                 if let sport = viewModel.selectedSport {
                     Text(String(format: String(localized: "create_game.capacity.range_format"), sport.name, sport.min_players, sport.max_players))
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .font(.system(size: 11, weight: .semibold, design: .default))
                         .foregroundStyle(DSColor.textSecondary)
                 }
             }
@@ -323,7 +323,7 @@ struct CreateGameView: View {
                     .frame(width: 16, height: 16)
                     .overlay(Circle().strokeBorder(filled ? DSColor.accent : DSColor.border.opacity(0.5), lineWidth: 1))
                     .scaleEffect(filled ? 1.0 : 0.85)
-                    .animation(.spring(response: 0.35, dampingFraction: 0.7), value: viewModel.capacity)
+                    .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.7), value: viewModel.capacity)
             }
             Spacer()
         }
@@ -334,12 +334,12 @@ struct CreateGameView: View {
     private var advancedSettingsAccordion: some View {
         Button {
             UISelectionFeedbackGenerator().selectionChanged()
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85)) {
                 showAdvanced.toggle()
             }
         } label: {
             HStack {
-                Text(String(localized: "matches.filter.label") + " / Əlavə seçimlər")
+                Text("create_game.section.advanced")
                     .font(.system(size: 14, weight: .heavy))
                     .foregroundStyle(DSColor.textSecondary)
                 Spacer()
@@ -349,7 +349,7 @@ struct CreateGameView: View {
                     .rotationEffect(.degrees(showAdvanced ? 90 : 0))
             }
             .padding(14)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.04)))
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surfaceElevated.opacity(0.4)))
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(DSColor.border.opacity(0.25), lineWidth: 1))
         }
         .buttonStyle(.plain)
@@ -368,13 +368,13 @@ struct CreateGameView: View {
                         UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
                         Text(skillBandLabel(band))
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundStyle(selected ? DSColor.limeInk : DSColor.textPrimary)
+                            .font(.system(size: 11, weight: .bold, design: .default))
+                            .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
                             .padding(.vertical, 10)
                             .frame(maxWidth: .infinity)
-                            .background(selected ? DSColor.lime : Color.white.opacity(0.06))
+                            .background(selected ? DSColor.accent : DSColor.surfaceElevated.opacity(0.6))
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(selected ? DSColor.lime : DSColor.border.opacity(0.35), lineWidth: 1))
+                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(selected ? DSColor.accent : DSColor.border.opacity(0.35), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 }
@@ -390,7 +390,7 @@ struct CreateGameView: View {
                 ForEach(CreateGameViewModel.Visibility.allCases) { vis in
                     let selected = viewModel.visibility == vis
                     Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8)) {
                             viewModel.visibility = vis
                         }
                         UISelectionFeedbackGenerator().selectionChanged()
@@ -398,7 +398,7 @@ struct CreateGameView: View {
                         HStack(spacing: 12) {
                             ZStack {
                                 Circle()
-                                    .fill(selected ? DSColor.accent.opacity(0.18) : Color.white.opacity(0.06))
+                                    .fill(selected ? DSColor.accent.opacity(0.18) : DSColor.surfaceElevated.opacity(0.6))
                                     .frame(width: 36, height: 36)
                                 Image(systemName: vis.icon)
                                     .font(.system(size: 13, weight: .bold))
@@ -450,7 +450,7 @@ struct CreateGameView: View {
                     .frame(minHeight: 80)
             }
             .padding(10)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.04)))
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surfaceElevated.opacity(0.4)))
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(DSColor.border.opacity(0.35), lineWidth: 1))
         }
     }

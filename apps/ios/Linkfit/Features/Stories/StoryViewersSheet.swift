@@ -163,11 +163,11 @@ struct StoryViewersSheet: View {
                 avatar(for: viewer)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(viewer.display_name)
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .font(.system(.subheadline, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.textPrimary)
                         .lineLimit(1)
                     Text(relativeViewedAt(viewer.viewed_at))
-                        .font(.system(.caption2, design: .rounded))
+                        .font(.system(.caption2, design: .default))
                         .foregroundStyle(DSColor.textTertiary)
                 }
                 Spacer(minLength: DSSpacing.xs)
@@ -244,8 +244,8 @@ struct StoryViewersSheet: View {
                 )
             )
             Text(initials(name))
-                .font(.system(.caption, design: .rounded, weight: .bold))
-                .foregroundStyle(.white)
+                .font(.system(.caption, design: .default, weight: .bold))
+                .foregroundStyle(DSColor.textOnAccent)
         }
     }
 

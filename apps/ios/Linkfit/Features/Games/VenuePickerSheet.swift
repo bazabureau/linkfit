@@ -45,10 +45,8 @@ struct VenuePickerSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .heavy))
+                            .fontWeight(.semibold)
                             .foregroundStyle(DSColor.textPrimary)
-                            .frame(width: 32, height: 32)
-                            .background(Circle().fill(.ultraThinMaterial))
                     }
                     .accessibilityLabel(Text("common.close"))
                 }
@@ -181,8 +179,7 @@ struct VenuePickerSheet: View {
                         if venue.is_partner {
                             Text("create_game.venue.partner_badge")
                                 .font(.system(size: 9, weight: .heavy, design: .default))
-                                .tracking(0.5)
-                                .padding(.horizontal, 5)
+                                .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
                                 .foregroundStyle(DSColor.accent)
                                 .background(

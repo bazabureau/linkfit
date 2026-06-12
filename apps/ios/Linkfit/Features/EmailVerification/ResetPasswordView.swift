@@ -36,7 +36,7 @@ struct ResetPasswordView: View {
             PremiumAuthBackground()
 
             ScrollView {
-                VStack(spacing: 22) {
+                VStack(spacing: 24) {
                     hero
                     tokenInput
                     passwordInput
@@ -92,7 +92,7 @@ struct ResetPasswordView: View {
 
             VStack(spacing: 6) {
                 Text("email.reset.heading")
-                    .font(.system(size: 24, weight: .heavy, design: .default))
+                    .font(.system(size: 28, weight: .heavy, design: .default))
                     .foregroundStyle(DSColor.textPrimary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -178,7 +178,7 @@ struct ResetPasswordView: View {
     private var strengthMeter: some View {
         let strength = PasswordStrength.evaluate(password)
         return VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 5) {
+            HStack(spacing: 6) {
                 ForEach(0..<4, id: \.self) { idx in
                     Capsule(style: .continuous)
                         .fill(idx < strength.bars ? strength.color : DSColor.border.opacity(0.5))

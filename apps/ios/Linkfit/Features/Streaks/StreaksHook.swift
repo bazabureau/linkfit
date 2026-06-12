@@ -62,13 +62,13 @@ struct StreaksEmbed: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(DSColor.accent)
                 Text("streaks.embed.title")
-                    .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                    .font(DSType.cardTitle)
                     .foregroundStyle(DSColor.textPrimary)
                 Spacer()
                 if case let .loaded(resp) = viewModel.state {
                     Text(String(format: String(localized: "streaks.embed.summary_format"),
                                 resp.current_streak_weeks, resp.longest_streak_weeks))
-                        .font(.system(.caption, design: .rounded))
+                        .font(DSType.caption)
                         .foregroundStyle(DSColor.textSecondary)
                 }
             }
@@ -98,7 +98,7 @@ struct StreaksEmbed: View {
             StreaksHeatmap(weeks: resp.weeks, cellSize: 14, cellSpacing: 3)
         case .empty, .error:
             Text("streaks.embed.error_caption")
-                .font(.system(.caption, design: .rounded))
+                .font(DSType.caption)
                 .foregroundStyle(DSColor.textTertiary)
         }
     }

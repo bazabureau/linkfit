@@ -54,7 +54,7 @@ struct PremiumSocialButton: View {
         case .apple:
             Image(systemName: "apple.logo")
                 .font(.system(size: 19, weight: .medium))
-                .foregroundStyle(.white)
+                .foregroundStyle(DSColor.textOnAccent)
         case .google:
             Image("GoogleG")
                 .resizable()
@@ -70,10 +70,13 @@ struct PremiumSocialButton: View {
         }
     }
 
+    // Brand-mandated constants (Apple = black fill / white mark,
+    // Google = white fill / dark ink) expressed through the design
+    // system's non-adaptive ink/contrast tokens.
     private var textColor: Color {
         switch provider {
-        case .apple:  return .white
-        case .google: return Color(red: 0.13, green: 0.13, blue: 0.13)
+        case .apple:  return DSColor.textOnAccent
+        case .google: return DSColor.limeInk
         }
     }
 
@@ -82,17 +85,17 @@ struct PremiumSocialButton: View {
         switch provider {
         case .apple:
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.black)
+                .fill(DSColor.limeInk)
         case .google:
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white)
+                .fill(DSColor.textOnAccent)
         }
     }
 
     private var borderColor: Color {
         switch provider {
-        case .apple:  return Color.white.opacity(0.10)
-        case .google: return Color.black.opacity(0.10)
+        case .apple:  return DSColor.textOnAccent.opacity(0.10)
+        case .google: return DSColor.limeInk.opacity(0.10)
         }
     }
 }

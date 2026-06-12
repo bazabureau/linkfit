@@ -291,7 +291,7 @@ struct StoryCameraView: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(.white.opacity(0.75))
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 36)
+                    .padding(.horizontal, 32)
                 Button {
                     // Deep-link to the app's permission screen.
                     // `UIApplication.openSettingsURLString` always
@@ -304,7 +304,7 @@ struct StoryCameraView: View {
                     Text("stories.camera.permission.cta")
                         .font(.system(size: 15, weight: .heavy))
                         .foregroundStyle(DSColor.textOnAccent)
-                        .padding(.horizontal, 22)
+                        .padding(.horizontal, 20)
                         .padding(.vertical, 12)
                         .background(Capsule().fill(DSColor.accent))
                 }
@@ -785,7 +785,7 @@ struct SimulatorViewfinder: View {
                 
                 VStack(spacing: 8) {
                     Text("Padel Story Simulator")
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .font(.system(size: 22, weight: .bold, design: .default))
                         .foregroundStyle(.white)
                     
                     Text("Capture a simulated photo or choose one from your library to begin editing.")

@@ -303,7 +303,7 @@ private struct SuggestedFollowCard: View {
         .frame(width: 56, height: 56)
         .clipShape(Circle())
         .overlay(
-            Circle().strokeBorder(.white.opacity(0.18), lineWidth: 1)
+            Circle().strokeBorder(DSColor.border, lineWidth: 1)
         )
     }
 
@@ -316,7 +316,7 @@ private struct SuggestedFollowCard: View {
                 ))
             Text(initials)
                 .font(.system(size: 20, weight: .heavy))
-                .foregroundStyle(.white)
+                .foregroundStyle(DSColor.textOnAccent)
         }
     }
 
@@ -368,8 +368,8 @@ private struct SuggestedFollowCard: View {
                 .font(.system(size: 10, weight: .heavy, design: .default))
         }
         .foregroundStyle(level.accent)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 3)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
         .background(Capsule().fill(level.accent.opacity(0.12)))
         .overlay(Capsule().strokeBorder(level.accent.opacity(0.35), lineWidth: 0.5))
     }
@@ -385,9 +385,9 @@ private struct SuggestedFollowCard: View {
                 .font(DSType.badge)
                 .foregroundStyle(DSColor.textPrimary)
                 .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(Capsule().fill(Color.white.opacity(0.05)))
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+                .padding(.vertical, 6)
+                .background(Capsule().fill(DSColor.surfaceElevated))
+                .overlay(Capsule().strokeBorder(DSColor.border, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }

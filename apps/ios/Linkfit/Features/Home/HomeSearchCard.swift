@@ -21,15 +21,15 @@ struct HomeSearchCard: View {
             Button(action: onSubmit) {
                 HStack(spacing: DSSpacing.xs) {
                     Text("home.find_game")
-                        .font(.system(.body, design: .rounded, weight: .semibold))
-                        .foregroundStyle(DSColor.limeInk)
+                        .font(.system(.body, design: .default, weight: .semibold))
+                        .foregroundStyle(DSColor.textOnAccent)
                     Image(systemName: "arrow.right")
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(DSColor.limeInk)
+                        .foregroundStyle(DSColor.textOnAccent)
                 }
                 .frame(maxWidth: .infinity, minHeight: 54)
                 .background(
-                    Capsule().fill(DSColor.lime)
+                    Capsule().fill(DSColor.accent)
                 )
             }
             .buttonStyle(.plain)

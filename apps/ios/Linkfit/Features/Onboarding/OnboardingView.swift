@@ -51,7 +51,7 @@ struct OnboardingView: View {
                         .font(.system(.subheadline, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.textPrimary.opacity(0.86))
                         .padding(.horizontal, 14)
-                        .padding(.vertical, 9)
+                        .padding(.vertical, 10)
                         .background(
                             Capsule().fill(.ultraThinMaterial)
                         )
@@ -74,7 +74,7 @@ struct OnboardingView: View {
 
     private var bottomBar: some View {
         VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 9) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(currentPage.kickerKey)
                     .font(DSType.badge)
                     .foregroundStyle(DSColor.accent)
@@ -97,7 +97,7 @@ struct OnboardingView: View {
             ProgressPills(
                 count: pages.count,
                 active: index,
-                spacing: 7,
+                spacing: 8,
                 height: 5,
                 inactiveWidth: 18,
                 activeWidth: 40

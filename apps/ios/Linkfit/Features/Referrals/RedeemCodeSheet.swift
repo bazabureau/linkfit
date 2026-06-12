@@ -25,7 +25,6 @@ struct RedeemCodeSheet: View {
         ZStack {
             DSColor.background.ignoresSafeArea()
             VStack(spacing: DSSpacing.lg) {
-                grabber
                 header
                 input
                 if let err = viewModel.redeemError {
@@ -39,17 +38,10 @@ struct RedeemCodeSheet: View {
             .padding(.top, DSSpacing.sm)
         }
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.hidden)
+        .presentationDragIndicator(.visible)
     }
 
     // MARK: - Subviews
-
-    private var grabber: some View {
-        Capsule()
-            .fill(DSColor.textTertiary.opacity(0.4))
-            .frame(width: 40, height: 4)
-            .padding(.top, DSSpacing.xs)
-    }
 
     private var header: some View {
         VStack(spacing: DSSpacing.xs) {
@@ -62,10 +54,10 @@ struct RedeemCodeSheet: View {
             .frame(width: 72, height: 72)
 
             Text("referrals.redeem.sheet.title")
-                .font(.system(.title2, design: .rounded, weight: .black))
+                .font(.system(.title2, design: .default, weight: .black))
                 .foregroundStyle(DSColor.textPrimary)
             Text("referrals.redeem.sheet.message")
-                .font(.system(.subheadline, design: .rounded))
+                .font(.system(.subheadline, design: .default))
                 .foregroundStyle(DSColor.textSecondary)
                 .multilineTextAlignment(.center)
         }
@@ -77,7 +69,6 @@ struct RedeemCodeSheet: View {
             .textInputAutocapitalization(.characters)
             .autocorrectionDisabled()
             .font(.system(size: 28, weight: .black, design: .monospaced))
-            .tracking(8)
             .multilineTextAlignment(.center)
             .foregroundStyle(DSColor.textPrimary)
             .padding(.vertical, DSSpacing.md)
@@ -111,7 +102,7 @@ struct RedeemCodeSheet: View {
                 if submitting { ProgressView().controlSize(.small) }
                 Text("referrals.redeem.cta")
             }
-            .font(.system(.headline, design: .rounded, weight: .heavy))
+            .font(DSType.button)
             .foregroundStyle(DSColor.textOnAccent)
             .frame(maxWidth: .infinity, minHeight: 52)
             .background(
@@ -128,7 +119,7 @@ struct RedeemCodeSheet: View {
             Image(systemName: "exclamationmark.circle.fill")
                 .foregroundStyle(DSColor.danger)
             Text(message)
-                .font(.system(.footnote, design: .rounded, weight: .semibold))
+                .font(.system(.footnote, design: .default, weight: .semibold))
                 .foregroundStyle(DSColor.textPrimary)
             Spacer()
         }
@@ -138,7 +129,7 @@ struct RedeemCodeSheet: View {
 
     private var footerNote: some View {
         Text("referrals.redeem.footer")
-            .font(.system(.caption2, design: .rounded))
+            .font(.system(.caption2, design: .default))
             .foregroundStyle(DSColor.textTertiary)
             .multilineTextAlignment(.center)
             .padding(.bottom, DSSpacing.md)

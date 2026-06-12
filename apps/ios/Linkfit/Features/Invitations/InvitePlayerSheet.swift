@@ -50,6 +50,7 @@ struct InvitePlayerSheet: View {
                 }
             }
         }
+        .presentationDragIndicator(.visible)
     }
 
     @ViewBuilder
@@ -87,9 +88,11 @@ struct InvitePlayerSheet: View {
             if !query.isEmpty {
                 Button { query = "" } label: {
                     Image(systemName: "xmark.circle.fill")
+                        .fontWeight(.semibold)
                         .foregroundStyle(DSColor.textTertiary)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(Text("common.clear"))
             }
         }
         .padding(.horizontal, DSSpacing.md)
@@ -108,17 +111,17 @@ struct InvitePlayerSheet: View {
                 ZStack {
                     Circle().fill(DSColor.surfaceElevated)
                     Text(initials(p.display_name))
-                        .font(.system(.caption, design: .rounded, weight: .heavy))
+                        .font(.system(.caption, design: .default, weight: .heavy))
                         .foregroundStyle(DSColor.textPrimary)
                 }
                 .frame(width: 40, height: 40)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(p.display_name)
-                        .font(.system(.footnote, design: .rounded, weight: .semibold))
+                        .font(.system(.footnote, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.textPrimary)
                     if let sport = p.primary_sport, let elo = p.primary_elo {
-                        Text("\(sport.uppercased()) · ELO \(elo)")
-                            .font(.system(.caption2, design: .rounded))
+                        Text("\(sport.capitalized) · ELO \(elo)")
+                            .font(.system(.caption2, design: .default))
                             .foregroundStyle(DSColor.textSecondary)
                     }
                 }
@@ -140,7 +143,7 @@ struct InvitePlayerSheet: View {
         VStack(spacing: DSSpacing.xxs) {
             if let errorMessage {
                 Text(errorMessage)
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(DSColor.danger)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, DSSpacing.md)
@@ -156,7 +159,7 @@ struct InvitePlayerSheet: View {
                     }
                     Text("invitations.invite_sheet.send")
                 }
-                .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                .font(.system(.subheadline, design: .default, weight: .heavy))
                 .foregroundStyle(DSColor.textOnAccent)
                 .frame(maxWidth: .infinity, minHeight: 52)
                 .background(RoundedRectangle(cornerRadius: 16)

@@ -20,7 +20,7 @@ struct LanguagePicker: View {
                 Image(systemName: "globe")
                     .font(.system(size: 12, weight: .semibold))
                 Text(language.current.displayKey)
-                    .font(.system(.footnote, design: .rounded, weight: .semibold))
+                    .font(.system(.footnote, design: .default, weight: .semibold))
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .bold))
             }

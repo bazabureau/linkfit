@@ -85,7 +85,7 @@ struct DailyChallengesCard: View {
             Spacer()
             if case let .loaded(payload) = viewModel.state {
                 Text(progressLabel(payload.challenges))
-                    .font(.system(.caption, design: .rounded, weight: .semibold))
+                    .font(.system(.caption, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textSecondary)
             }
         }
@@ -161,7 +161,7 @@ struct ChallengeRow: View {
                         .strikethrough(item.isCompleted, color: DSColor.textTertiary)
                     if !item.isCompleted {
                         Text(bodyKey)
-                            .font(.system(.caption, design: .rounded))
+                            .font(.system(.caption, design: .default))
                             .foregroundStyle(DSColor.textTertiary)
                     }
                 }

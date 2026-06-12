@@ -26,8 +26,7 @@ struct MyGamesView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: DSSpacing.xxs) {
             Text("mygames.title")
-                .font(.system(size: 32, weight: .heavy, design: .rounded))
-
+                .font(.system(size: 32, weight: .heavy, design: .default))
                 .foregroundStyle(DSColor.textPrimary)
             Text("mygames.subtitle")
                 .font(DSType.footnote)

@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Signature CTA: green pill with a dark badge on the left holding the brand
-/// mark and a subtle white-tint badge on the right with the arrow. Brand
-/// green is the dominant action color throughout the app.
+/// Signature CTA: accent pill with a dark badge on the left holding the brand
+/// mark and a subtle tinted badge on the right with the arrow. The royal-blue
+/// accent is the dominant action color throughout the app.
 struct PillCTA: View {
     let title: String
     var trailingSystemImage: String = "arrow.right"
@@ -14,7 +14,7 @@ struct PillCTA: View {
         Button(action: { if isEnabled && !isLoading { action() } }) {
             ZStack {
                 Text(title)
-                    .font(.system(.body, design: .rounded, weight: .semibold))
+                    .font(.system(.body, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textOnAccent)
 
                 HStack {
@@ -51,8 +51,8 @@ struct PillCTA: View {
     private var trailingBadge: some View {
         ZStack {
             Circle()
-                .strokeBorder(Color.white.opacity(0.20), lineWidth: 1.4)
-                .background(Circle().fill(Color.white.opacity(0.10)))
+                .strokeBorder(DSColor.textOnAccent.opacity(0.20), lineWidth: 1.4)
+                .background(Circle().fill(DSColor.textOnAccent.opacity(0.10)))
                 .frame(width: 52, height: 52)
             if isLoading {
                 ProgressView().tint(DSColor.textOnAccent).controlSize(.small)

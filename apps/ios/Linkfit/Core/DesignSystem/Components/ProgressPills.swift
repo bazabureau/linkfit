@@ -11,6 +11,8 @@ struct ProgressPills: View {
     var inactiveWidth: CGFloat = 14
     var activeWidth: CGFloat = 32
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         HStack(spacing: spacing) {
             ForEach(0..<count, id: \.self) { i in
@@ -19,7 +21,10 @@ struct ProgressPills: View {
                     .frame(width: i == active ? activeWidth : inactiveWidth, height: height)
             }
         }
-        .animation(.spring(response: 0.45, dampingFraction: 0.78), value: active)
+        // Reduce Motion: skip the springy width morph; the active pill still
+        // updates, just without the decorative animation.
+        .animation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.78),
+                   value: active)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(String(format: String(localized: "progress.page_voice_format"), active + 1, count))
     }

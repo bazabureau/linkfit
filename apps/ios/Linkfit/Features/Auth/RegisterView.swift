@@ -34,7 +34,7 @@ struct RegisterView: View {
             PremiumAuthBackground()
 
             ScrollView {
-                VStack(spacing: 26) {
+                VStack(spacing: 24) {
                     topBar
                     hero
                     socialBlock
@@ -71,7 +71,7 @@ struct RegisterView: View {
 
             VStack(spacing: 6) {
                 Text("auth.register.title")
-                    .font(.system(size: 30, weight: .heavy, design: .default))
+                    .font(.system(size: 28, weight: .heavy, design: .default))
                     .foregroundStyle(DSColor.textPrimary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -111,7 +111,6 @@ struct RegisterView: View {
             Text("auth.or_email")
                 .font(.system(size: 12, weight: .semibold, design: .default))
                 .foregroundStyle(DSColor.textTertiary)
-                .tracking(0.6)
             Rectangle()
                 .fill(DSColor.border.opacity(0.55))
                 .frame(height: 1)
@@ -184,7 +183,6 @@ struct RegisterView: View {
                 displayedComponents: [.date]
             )
             .labelsHidden()
-            .colorScheme(.dark)
             .tint(DSColor.accent)
             .accessibilityLabel(Text("auth.birth_date"))
         }
@@ -211,7 +209,7 @@ struct RegisterView: View {
     private var passwordStrength: some View {
         let level = passwordStrengthLevel
         return VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 5) {
+            HStack(spacing: 6) {
                 ForEach(0..<3) { i in
                     Capsule(style: .continuous)
                         .fill(i < level ? strengthColor(level) : DSColor.border.opacity(0.5))
@@ -244,7 +242,7 @@ struct RegisterView: View {
     }
 
     private var footerLink: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 6) {
             Text("auth.have_account")
                 .foregroundStyle(DSColor.textSecondary)
             Button(action: {
@@ -253,7 +251,7 @@ struct RegisterView: View {
             }) {
                 Text("auth.signin")
                     .fontWeight(.bold)
-                    .foregroundStyle(DSColor.secondary)
+                    .foregroundStyle(DSColor.accent)
             }
             .buttonStyle(.plain)
         }

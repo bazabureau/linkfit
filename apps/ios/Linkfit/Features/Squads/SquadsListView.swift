@@ -289,7 +289,7 @@ private struct SquadCard: View {
     /// a full row.
     private var ownerPill: some View {
         Text("squads.role.owner")
-            .font(.system(size: 9, weight: .heavy, design: .rounded))
+            .font(.system(size: 9, weight: .heavy))
             .foregroundStyle(DSColor.accent)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)

@@ -75,6 +75,7 @@ struct StoryMentionPickerSheet: View {
             }
         }
         .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
         .task {
             await viewModel.loadIfNeeded(container: container)
         }
@@ -139,7 +140,7 @@ struct StoryMentionPickerSheet: View {
             avatar(for: user)
             VStack(alignment: .leading, spacing: 2) {
                 Text(user.display_name)
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
                     .lineLimit(1)
                 // Skill chip — only renders when we have an ELO. Helps the
@@ -180,14 +181,14 @@ struct StoryMentionPickerSheet: View {
                     image.resizable().scaledToFill()
                 } placeholder: {
                     Text(initials(user.display_name))
-                        .font(.system(.footnote, design: .rounded, weight: .bold))
-                        .foregroundStyle(.white)
+                        .font(.system(.footnote, design: .default, weight: .bold))
+                        .foregroundStyle(DSColor.textOnAccent)
                 }
                 .clipShape(Circle())
             } else {
                 Text(initials(user.display_name))
-                    .font(.system(.footnote, design: .rounded, weight: .bold))
-                    .foregroundStyle(.white)
+                    .font(.system(.footnote, design: .default, weight: .bold))
+                    .foregroundStyle(DSColor.textOnAccent)
             }
         }
         .frame(width: 44, height: 44)
@@ -207,7 +208,7 @@ struct StoryMentionPickerSheet: View {
                 .font(.system(size: 44, weight: .light))
                 .foregroundStyle(DSColor.textTertiary)
             Text("stories.mention.empty")
-                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .font(.system(.subheadline, design: .default, weight: .semibold))
                 .foregroundStyle(DSColor.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, DSSpacing.lg)

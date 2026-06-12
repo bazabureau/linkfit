@@ -109,11 +109,11 @@ struct CommunityIllustration: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(club.name)
-                    .font(.system(.footnote, design: .rounded, weight: .heavy))
+                    .font(.system(.footnote, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.textPrimary)
                     .lineLimit(1)
                 Text(club.badge)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .font(.system(size: 11, weight: .semibold, design: .default))
                     .foregroundStyle(DSColor.accent)
             }
         }

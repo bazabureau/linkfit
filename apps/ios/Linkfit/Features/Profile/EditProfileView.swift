@@ -61,7 +61,7 @@ struct EditProfileView: View {
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(DSColor.textSecondary)
                             .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
+                            .padding(.vertical, 6)
                             .background(
                                 Capsule().fill(DSColor.surfaceElevated)
                             )
@@ -324,7 +324,7 @@ struct EditProfileView: View {
                         Circle()
                             .fill(DSColor.accent)
                             .frame(width: 16, height: 16)
-                            .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                            .overlay(Circle().strokeBorder(DSColor.textOnAccent, lineWidth: 2))
                     }
                 }
             }

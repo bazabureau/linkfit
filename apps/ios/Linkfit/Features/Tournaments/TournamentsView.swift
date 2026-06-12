@@ -242,16 +242,17 @@ private struct TournamentEmptyStateView: View {
                     .animation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: isAnimating)
             }
             .onAppear {
-                isAnimating = true
+                // Decorative looping animation — skipped under Reduce Motion.
+                isAnimating = !UIAccessibility.isReduceMotionEnabled
             }
             
             VStack(spacing: 8) {
-                Text("Aktiv Turnir Yoxdur")
-                    .font(.system(.title3, design: .rounded, weight: .heavy))
+                Text("tournaments.empty.title")
+                    .font(.system(.title3, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.textPrimary)
                     .multilineTextAlignment(.center)
-                
-                Text("Tezliklə yeni həyəcanlı turnirlər və çempionatlar elan olunacaq! İndidən hazırlaş, reytinqini yüksəlt və kubok uğrunda mübarizəyə qoşul.")
+
+                Text("tournaments.empty.message")
                     .font(.system(.subheadline, design: .default, weight: .regular))
                     .foregroundStyle(DSColor.textSecondary)
                     .multilineTextAlignment(.center)
@@ -266,8 +267,8 @@ private struct TournamentEmptyStateView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 13, weight: .bold))
-                    Text("Turnirləri Yenilə")
-                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    Text("tournaments.empty.refresh")
+                        .font(.system(.subheadline, design: .default, weight: .bold))
                 }
                 .foregroundStyle(DSColor.textOnAccent)
                 .padding(.horizontal, 24)
@@ -380,7 +381,7 @@ private struct TournamentsListFeaturedCard: View {
                     }
                     
                     Text(tournament.name)
-                        .font(.system(.title3, design: .rounded, weight: .heavy))
+                        .font(.system(.title3, design: .default, weight: .heavy))
                         .foregroundStyle(DSColor.textPrimary)
                         .lineLimit(2)
 
@@ -391,7 +392,7 @@ private struct TournamentsListFeaturedCard: View {
                             Image(systemName: "calendar")
                                 .font(.system(size: 9, weight: .bold))
                             Text(formattedDateRange(tournament: tournament))
-                                .font(.system(.caption2, design: .rounded, weight: .bold))
+                                .font(.system(.caption2, design: .default, weight: .bold))
                         }
                         .foregroundStyle(DSColor.textSecondary)
                         .padding(.horizontal, 10)
@@ -408,7 +409,7 @@ private struct TournamentsListFeaturedCard: View {
                                 .font(.system(size: 9, weight: .bold))
                             Text(String(format: String(localized: "tournaments.squads_format"),
                                          tournament.entries_count, tournament.max_squads))
-                                .font(.system(.caption2, design: .rounded, weight: .bold))
+                                .font(.system(.caption2, design: .default, weight: .bold))
                         }
                         .foregroundStyle(DSColor.textSecondary)
                         .padding(.horizontal, 10)
@@ -426,7 +427,7 @@ private struct TournamentsListFeaturedCard: View {
                                 .font(.system(size: 10))
                                 .foregroundStyle(DSColor.accent)
                             Text(venue)
-                                .font(.system(.caption, design: .rounded, weight: .semibold))
+                                .font(.system(.caption, design: .default, weight: .semibold))
                         }
                         .foregroundStyle(DSColor.textTertiary)
                         .padding(.horizontal, 2)
@@ -454,12 +455,12 @@ private struct TournamentsListFeaturedCard: View {
             
             Image(systemName: TournamentSportIcon.forSlug(tournament.sport_slug))
                 .font(.system(size: 100, weight: .bold))
-                .foregroundStyle(.white.opacity(0.1))
+                .foregroundStyle(DSColor.textOnAccent.opacity(0.1))
                 .rotationEffect(.degrees(-8))
                 .offset(x: 160, y: -10)
-            
+
             Text("tournaments.featured.kicker")
-                .font(.system(size: 10, weight: .black, design: .rounded))
+                .font(.system(size: 10, weight: .heavy, design: .default))
                 .foregroundStyle(DSColor.textOnAccent)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
@@ -517,7 +518,7 @@ private struct TournamentRow: View {
                         Image(systemName: "calendar")
                             .font(.system(size: 9))
                         Text(formattedDateRange(tournament: tournament))
-                            .font(.system(.caption2, design: .rounded, weight: .bold))
+                            .font(.system(.caption2, design: .default, weight: .bold))
                     }
                     .foregroundStyle(DSColor.textSecondary)
                     .padding(.horizontal, 8)
@@ -533,10 +534,10 @@ private struct TournamentRow: View {
             
             VStack(alignment: .trailing, spacing: 3) {
                 Text("\(tournament.entries_count)/\(tournament.max_squads)")
-                    .font(.system(.footnote, design: .rounded, weight: .heavy))
+                    .font(.system(.footnote, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.accent) // Highlighted in brand accent
                 Text("tournaments.squads_short")
-                    .font(.system(.caption2, design: .rounded, weight: .bold))
+                    .font(.system(.caption2, design: .default, weight: .bold))
                     .foregroundStyle(DSColor.textTertiary)
             }
         }
@@ -574,7 +575,7 @@ struct TournamentStatusChip: View {
             Circle().fill(color).frame(width: 5, height: 5)
                 .shadow(color: color, radius: 2)
             Text(label)
-                .font(.system(size: 9, weight: .heavy, design: .rounded))
+                .font(.system(size: 9, weight: .heavy, design: .default))
                 .foregroundStyle(color)
         }
         .padding(.horizontal, 8)
@@ -612,8 +613,8 @@ struct SportPill: View {
     let slug: String
 
     var body: some View {
-        Text(label.uppercased())
-            .font(.system(size: 9, weight: .black, design: .rounded))
+        Text(label)
+            .font(.system(size: 9, weight: .heavy, design: .default))
             .foregroundStyle(DSColor.accent)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
@@ -645,7 +646,7 @@ struct TournamentMoneyPill: View {
             Image(systemName: iconName)
                 .font(.system(size: 8, weight: .bold))
             Text(text)
-                .font(.system(size: 9, weight: .heavy, design: .rounded))
+                .font(.system(size: 9, weight: .heavy, design: .default))
         }
         .foregroundStyle(foreground)
         .padding(.horizontal, 8)

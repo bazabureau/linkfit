@@ -45,7 +45,7 @@ struct SplashView: View {
                 .opacity(markVisible ? 1 : 0)
 
                 Text("linkfit.brand_tagline")
-                    .font(.system(.subheadline, design: .rounded, weight: .medium))
+                    .font(.system(.subheadline, design: .default, weight: .medium))
                     .foregroundStyle(DSColor.textSecondary)
                     .opacity(taglineVisible ? 1 : 0)
                     .offset(y: taglineVisible ? 0 : 4)

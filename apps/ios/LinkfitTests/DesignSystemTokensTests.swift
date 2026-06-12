@@ -45,13 +45,21 @@ final class DesignSystemTokensTests: XCTestCase {
                              "Dark elevated controls must be brighter than cards.")
     }
 
-    func testAccentIsHighlyChromaticLime() {
+    func testAccentIsRoyalBlue() {
         let resolved = UIColor(DSColor.accent).resolvedColor(with: UITraitCollection())
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         resolved.getRed(&r, green: &g, blue: &b, alpha: &a)
-        XCTAssertGreaterThan(g, 0.7, "Accent green channel must be vivid.")
-        XCTAssertGreaterThan(g, b + 0.3, "Accent must be dominantly green over blue.")
-        XCTAssertLessThan(b, 0.5, "Accent blue channel must stay low (lime).")
+        XCTAssertGreaterThan(b, 0.7, "Accent blue channel must be vivid.")
+        XCTAssertGreaterThan(b, g + 0.3, "Accent must be dominantly blue over green.")
+        XCTAssertLessThan(r, 0.5, "Accent red channel must stay low (royal blue, not purple).")
+    }
+
+    func testSecondaryIsLimeYellow() {
+        let resolved = UIColor(DSColor.secondary).resolvedColor(with: UITraitCollection())
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        resolved.getRed(&r, green: &g, blue: &b, alpha: &a)
+        XCTAssertGreaterThan(g, 0.8, "Secondary green channel must be vivid.")
+        XCTAssertGreaterThan(g, b + 0.3, "Secondary must be dominantly green over blue (lime).")
     }
 
     private func brightness(_ c: UIColor) -> CGFloat {

@@ -50,7 +50,7 @@ struct VenuesView: View {
                 get: { mode },
                 set: { newMode in
                     UISelectionFeedbackGenerator().selectionChanged()
-                    withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                    withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : .spring(response: 0.30, dampingFraction: 0.78)) {
                         mode = newMode
                     }
                 }
@@ -88,7 +88,7 @@ struct VenuesView: View {
                 .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(Capsule().fill(selected ? DSColor.accent : Color.white.opacity(0.06)))
+                .background(Capsule().fill(selected ? DSColor.accent : DSColor.surfaceElevated))
                 .overlay(Capsule().strokeBorder(
                     selected ? DSColor.accent : DSColor.border.opacity(0.35),
                     lineWidth: 1
@@ -211,8 +211,8 @@ struct VenuesView: View {
                     Text("venues.empty.filter.clear")
                         .font(.system(size: 13, weight: .heavy))
                         .foregroundStyle(DSColor.textOnAccent)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 11)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
                         .background(Capsule().fill(DSColor.accent))
                 }
                 .buttonStyle(.plain)
@@ -438,6 +438,7 @@ struct VenueDetailView: View {
                 presetVenueId: viewModel.loadedVenue?.id,
                 presetCourtId: viewModel.loadedVenue?.courts.first?.id
             )
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -807,6 +808,8 @@ struct VenueDetailView: View {
                     .font(.system(.subheadline, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
             } else {
+                // Plain rows + dividers — no inner card backgrounds inside
+                // this card (nested cards are banned by the guidelines).
                 ForEach(venue.courts) { court in
                     HStack(spacing: DSSpacing.sm) {
                         Image(systemName: court.sport_slug == "padel" ? "figure.tennis" : "sportscourt")
@@ -822,14 +825,16 @@ struct VenueDetailView: View {
                         }
                         Spacer()
                     }
-                    .padding(DSSpacing.sm)
-                    .background(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous).fill(DSColor.surfaceElevated))
+                    .padding(.vertical, DSSpacing.xs)
+                    if court.id != venue.courts.last?.id {
+                        Divider()
+                    }
                 }
             }
         }
         .padding(DSSpacing.md)
-        .background(RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous).fill(DSColor.surface))
-        .overlay(RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous).strokeBorder(DSColor.border, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous).fill(.ultraThinMaterial))
+        .overlay(RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous).strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1))
     }
 
     private func mapCard(_ venue: VenueDetail) -> some View {
@@ -841,7 +846,7 @@ struct VenueDetailView: View {
                 Circle()
                     .fill(DSColor.accent)
                     .frame(width: 18, height: 18)
-                    .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                    .overlay(Circle().strokeBorder(DSColor.textOnAccent, lineWidth: 2))
             }
         }
         .frame(height: 180)

@@ -32,11 +32,11 @@ enum GoogleSignInError: LocalizedError {
         case .missingClientID:
             return "Google sign-in isn't configured for this build (missing GIDClientID)."
         case .canceled:
-            return "Sign-in was cancelled."
+            return String(localized: "auth.error.signin_cancelled")
         case .networkOffline:
             return String(localized: "error.network_offline")
         case .noIDToken:
-            return "Google didn't return an ID token — please try again."
+            return String(localized: "auth.error.google_no_token")
         case .noPresenter:
             return "Couldn't find a presenting view controller for Google sign-in."
         case .backendRejected(let message):

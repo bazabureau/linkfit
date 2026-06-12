@@ -118,14 +118,14 @@ struct SearchView: View {
                 Image(systemName: icon)
                     .font(.system(size: 11, weight: .bold))
                 Text(titleKey)
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .font(.system(size: 12, weight: .bold, design: .default))
             }
             .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
             .padding(.horizontal, 14)
-            .padding(.vertical, 9)
+            .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(selected ? DSColor.accent : Color.white.opacity(0.04))
+                    .fill(selected ? DSColor.accent : DSColor.textPrimary.opacity(0.04))
                     .background {
                         if !selected {
                             Capsule().fill(.ultraThinMaterial)
@@ -134,7 +134,7 @@ struct SearchView: View {
             )
             .overlay(
                 Capsule().strokeBorder(
-                    selected ? DSColor.accent : Color.white.opacity(0.08),
+                    selected ? DSColor.accent : DSColor.textPrimary.opacity(0.08),
                     lineWidth: 1
                 )
             )
@@ -186,13 +186,13 @@ struct SearchView: View {
             if !viewModel.recents.isEmpty {
                 HStack {
                     Text("search.recents.title")
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .font(.system(.subheadline, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.textPrimary)
                     Spacer()
                     Button("search.recents.clear") {
                         viewModel.clearRecents()
                     }
-                    .font(.system(.footnote, design: .rounded, weight: .semibold))
+                    .font(.system(.footnote, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.accent)
                 }
                 FlowChips(items: viewModel.recents) { q in
@@ -201,7 +201,7 @@ struct SearchView: View {
             }
 
             Text("search.samples.title")
-                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .font(.system(.subheadline, design: .default, weight: .semibold))
                 .foregroundStyle(DSColor.textPrimary)
             FlowChips(items: viewModel.sampleQueries) { q in
                 viewModel.runQueryImmediately(q)
@@ -271,7 +271,7 @@ struct SearchView: View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             HStack {
                 Text(titleKey)
-                    .font(.system(.headline, design: .rounded, weight: .bold))
+                    .font(.system(.headline, design: .default, weight: .bold))
                     .foregroundStyle(DSColor.textPrimary)
                 Spacer()
                 if count > 5 {
@@ -279,7 +279,7 @@ struct SearchView: View {
                         seeAllType = type
                     } label: {
                         Text("search.see_all")
-                            .font(.system(.footnote, design: .rounded, weight: .semibold))
+                            .font(.system(.footnote, design: .default, weight: .semibold))
                             .foregroundStyle(DSColor.accent)
                     }
                     .buttonStyle(.plain)
@@ -312,7 +312,7 @@ private struct FlowChips: View {
                     onTap(item)
                 } label: {
                     Text(item)
-                        .font(.system(.footnote, design: .rounded, weight: .semibold))
+                        .font(.system(.footnote, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.textPrimary)
                         .padding(.horizontal, DSSpacing.md)
                         .padding(.vertical, 8)

@@ -59,12 +59,12 @@ struct DiscoverShell: View {
             // FAZA 45 §13.1: hero is 28pt heavy default design, no mixing rounded + default.
             Text(sub.heroTitleKey)
                 .font(DSType.heroTitle)
-                .foregroundStyle(.white)
+                .foregroundStyle(DSColor.textOnAccent)
                 .lineSpacing(1)
                 .fixedSize(horizontal: false, vertical: true)
             Text(sub.heroSubtitleKey)
                 .font(DSType.bodyMedium)
-                .foregroundStyle(.white.opacity(0.78))
+                .foregroundStyle(DSColor.textOnAccent.opacity(0.78))
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer().frame(height: DSSpacing.md)
@@ -75,8 +75,8 @@ struct DiscoverShell: View {
         .background(
             LinearGradient(
                 colors: [
-                    Color(red: 0.04, green: 0.32, blue: 0.20),
-                    Color(red: 0.08, green: 0.55, blue: 0.32),
+                    DSColor.success,
+                    DSColor.success.opacity(0.85),
                 ],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
@@ -85,7 +85,7 @@ struct DiscoverShell: View {
         .overlay(alignment: .topTrailing) {
             Image(systemName: sub.icon)
                 .font(.system(size: 84, weight: .bold))
-                .foregroundStyle(.white.opacity(0.12))
+                .foregroundStyle(DSColor.textOnAccent.opacity(0.12))
                 .rotationEffect(.degrees(-10))
                 .padding(.trailing, DSSpacing.md)
                 .padding(.top, DSSpacing.sm)

@@ -60,7 +60,9 @@ struct StarRow: View {
         if let selection {
             Button {
                 Haptics.soft()
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.55)) {
+                withAnimation(UIAccessibility.isReduceMotionEnabled
+                              ? nil
+                              : .spring(response: 0.28, dampingFraction: 0.55)) {
                     selection.wrappedValue = index
                 }
             } label: {

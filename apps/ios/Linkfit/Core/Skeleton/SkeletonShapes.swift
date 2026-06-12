@@ -60,7 +60,7 @@ struct SkeletonRow: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text("Loading"))
+        .accessibilityLabel(String(localized: "loading.default"))
     }
 }
 
@@ -82,7 +82,7 @@ struct SkeletonCard: View {
             .frame(height: height)
             .skeleton(true)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text("Loading"))
+            .accessibilityLabel(String(localized: "loading.default"))
     }
 }
 
@@ -121,6 +121,6 @@ struct SkeletonGrid: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text("Loading"))
+        .accessibilityLabel(String(localized: "loading.default"))
     }
 }

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Reusable premium hero block for full-screen flows (Create Game,
-/// Matches, Tournaments, Profile…). Pairs a lime-tinted icon medallion
+/// Matches, Tournaments, Profile…). Pairs an accent-tinted icon medallion
 /// with a heavy title and supporting subtitle. Renders flush to the
 /// page padding so callers don't need to wrap it in extra HStacks.
 ///

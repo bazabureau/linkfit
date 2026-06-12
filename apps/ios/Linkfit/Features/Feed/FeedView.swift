@@ -72,7 +72,7 @@ struct FeedView: View {
                     onFindPlayers()
                 } label: {
                     Text("feed.empty.cta")
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .font(.system(.subheadline, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.textOnAccent)
                         .padding(.horizontal, DSSpacing.lg)
                         .padding(.vertical, DSSpacing.sm)

@@ -36,7 +36,7 @@ struct MentionToolButton: View {
             // typographic weight of the other tool buttons ("Aa", emoji,
             // etc.).
             Text(verbatim: "@")
-                .font(.system(size: 22, weight: .heavy, design: .rounded))
+                .font(.system(size: 22, weight: .heavy, design: .default))
                 .foregroundStyle(.white)
                 .frame(width: 40, height: 40)
                 .background(

@@ -17,13 +17,13 @@ struct ClubCard: View {
                                 .font(.system(.caption2, design: .default, weight: .semibold))
                                 .foregroundStyle(DSColor.textOnAccent)
                                 .padding(.horizontal, 8)
-                                .padding(.vertical, 5)
+                                .padding(.vertical, 4)
                                 .background(Capsule().fill(DSColor.accent))
                                 .padding(10)
                         }
                     }
 
-                VStack(alignment: .leading, spacing: 7) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text(venue.name)
                         .font(.system(.subheadline, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.textPrimary)

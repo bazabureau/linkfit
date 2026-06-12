@@ -92,7 +92,7 @@ struct ForgotPasswordView: View {
 
             VStack(spacing: 6) {
                 Text("email.forgot.heading")
-                    .font(.system(size: 26, weight: .heavy, design: .default))
+                    .font(.system(size: 28, weight: .heavy, design: .default))
                     .foregroundStyle(DSColor.textPrimary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)

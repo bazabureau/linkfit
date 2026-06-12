@@ -63,26 +63,26 @@ struct MatchmakingView: View {
         VStack(alignment: .leading, spacing: DSSpacing.xs) {
             HStack(alignment: .top, spacing: DSSpacing.xs) {
                 Text(verbatim: sportLabel(g.sport_slug))
-                    .font(.system(.caption2, design: .rounded, weight: .heavy))
+                    .font(.system(.caption2, design: .default, weight: .heavy))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(DSColor.accent)
-                    .foregroundStyle(DSColor.textOnAccent)
+                    .background(DSColor.accentMuted)
+                    .foregroundStyle(DSColor.accent)
                     .clipShape(Capsule())
                 Spacer()
                 scoreBadge(g.score)
             }
             Text(verbatim: g.venue_name ?? String(localized: "matchmaking.card.no_venue"))
-                .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                .font(.system(.subheadline, design: .default, weight: .heavy))
                 .foregroundStyle(DSColor.textPrimary)
                 .lineLimit(1)
             Text(formatStart(g.starts_at))
-                .font(.system(.caption, design: .rounded))
+                .font(.system(.caption, design: .default))
                 .foregroundStyle(DSColor.textSecondary)
                 .lineLimit(1)
             Text(String(format: String(localized: "matchmaking.card.host_format"),
                         g.host_display_name))
-                .font(.system(.caption2, design: .rounded))
+                .font(.system(.caption2, design: .default))
                 .foregroundStyle(DSColor.textTertiary)
                 .lineLimit(1)
 
@@ -135,14 +135,14 @@ struct MatchmakingView: View {
                     Circle().fill(DSColor.accent.opacity(0.16))
                         .frame(width: 44, height: 44)
                     Text(initials(p.display_name))
-                        .font(.system(size: 14, weight: .heavy, design: .rounded))
+                        .font(.system(size: 14, weight: .heavy, design: .default))
                         .foregroundStyle(DSColor.accent)
                 }
                 Spacer()
                 scoreBadge(p.score)
             }
             Text(verbatim: p.display_name)
-                .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                .font(.system(.subheadline, design: .default, weight: .heavy))
                 .foregroundStyle(DSColor.textPrimary)
                 .lineLimit(1)
             if p.elo_rating != nil {
@@ -152,12 +152,12 @@ struct MatchmakingView: View {
                 // referenced from here.
                 let level = SkillLevel.from(elo: p.elo_rating)
                 Text(level.labelKey)
-                    .font(.system(.caption, design: .rounded, weight: .semibold))
+                    .font(.system(.caption, design: .default, weight: .semibold))
                     .foregroundStyle(level.accent)
                     .lineLimit(1)
             } else {
                 Text("matchmaking.card.new_player")
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
             }
 
@@ -183,10 +183,10 @@ struct MatchmakingView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(titleKey)
-                .font(.system(.title3, design: .rounded, weight: .heavy))
+                .font(.system(.title3, design: .default, weight: .heavy))
                 .foregroundStyle(DSColor.textPrimary)
             Text(subtitleKey)
-                .font(.system(.caption, design: .rounded))
+                .font(.system(.caption, design: .default))
                 .foregroundStyle(DSColor.textSecondary)
         }
         .padding(.horizontal, DSSpacing.md)
@@ -196,9 +196,9 @@ struct MatchmakingView: View {
         // Score is 0..1 — render as a 0..100 number that's easier to grok.
         let pct = Int((score * 100).rounded())
         return Text("\(pct)")
-            .font(.system(.caption2, design: .rounded, weight: .heavy))
+            .font(.system(.caption2, design: .default, weight: .heavy))
             .padding(.horizontal, 6)
-            .padding(.vertical, 3)
+            .padding(.vertical, 4)
             .background(DSColor.accentMuted)
             .foregroundStyle(DSColor.accent)
             .clipShape(Capsule())
@@ -214,9 +214,9 @@ struct MatchmakingView: View {
         return VStack(alignment: .leading, spacing: 4) {
             ForEach(Array(visible.enumerated()), id: \.offset) { _, reason in
                 Text(verbatim: reason)
-                    .font(.system(.caption2, design: .rounded, weight: .semibold))
+                    .font(.system(.caption2, design: .default, weight: .semibold))
                     .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
+                    .padding(.vertical, 4)
                     .background(DSColor.accent.opacity(0.18))
                     .foregroundStyle(DSColor.accent)
                     .clipShape(Capsule())
@@ -245,7 +245,7 @@ struct MatchmakingView: View {
 
     private func emptyChip(messageKey: LocalizedStringKey) -> some View {
         Text(messageKey)
-            .font(.system(.subheadline, design: .rounded))
+            .font(.system(.subheadline, design: .default))
             .foregroundStyle(DSColor.textSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, DSSpacing.md)
@@ -256,7 +256,7 @@ struct MatchmakingView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(DSColor.warning)
             Text(verbatim: message)
-                .font(.system(.caption, design: .rounded))
+                .font(.system(.caption, design: .default))
                 .foregroundStyle(DSColor.textSecondary)
                 .lineLimit(2)
         }

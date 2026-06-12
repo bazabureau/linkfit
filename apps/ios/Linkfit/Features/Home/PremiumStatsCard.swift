@@ -111,7 +111,6 @@ struct PremiumStatsCard: View {
             Text(labelKey)
                 .font(.system(size: 11, weight: .semibold, design: .default))
                 .foregroundStyle(DSColor.textTertiary)
-                .tracking(0.4)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
@@ -143,7 +142,6 @@ struct PremiumStatsCard: View {
             Text("stats.win_rate")
                 .font(.system(size: 11, weight: .semibold, design: .default))
                 .foregroundStyle(DSColor.textTertiary)
-                .tracking(0.4)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }

@@ -29,7 +29,9 @@ struct RecurringGameSheet: View {
             }
         }
         .task { await viewModel.onAppear() }
-        .animation(.spring(response: 0.45, dampingFraction: 0.85),
+        .animation(UIAccessibility.isReduceMotionEnabled
+                       ? nil
+                       : .spring(response: 0.45, dampingFraction: 0.85),
                    value: viewModel.createdSeries?.id)
     }
 
@@ -59,17 +61,18 @@ struct RecurringGameSheet: View {
         VStack(alignment: .leading, spacing: DSSpacing.xs) {
             HStack {
                 Text("recurring.title")
-                    .font(.system(size: 28, weight: .heavy, design: .rounded))
+                    .font(DSType.heroTitle)
                     .foregroundStyle(DSColor.textPrimary)
                 Spacer()
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(DSColor.textPrimary)
-                        .frame(width: 38, height: 38)
+                        .frame(width: 40, height: 40)
                         .background(Circle().fill(DSColor.surfaceElevated))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(Text("common.close"))
             }
             Text("recurring.subtitle")
                 .font(DSType.bodyEmphasis)
@@ -101,14 +104,14 @@ struct RecurringGameSheet: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: sport.slug == "padel" ? "figure.tennis" : "sportscourt")
-                    .foregroundStyle(selected ? DSColor.limeInk : DSColor.textPrimary)
+                    .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
                 Text(sport.name)
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                    .foregroundStyle(selected ? DSColor.limeInk : DSColor.textPrimary)
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
+                    .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
             }
             .padding(.horizontal, DSSpacing.md)
             .padding(.vertical, 10)
-            .background(Capsule().fill(selected ? DSColor.lime : DSColor.surface))
+            .background(Capsule().fill(selected ? DSColor.accent : DSColor.surface))
             .overlay(Capsule().strokeBorder(DSColor.border, lineWidth: selected ? 0 : 1))
         }
         .buttonStyle(.plain)
@@ -132,13 +135,13 @@ struct RecurringGameSheet: View {
                     UISelectionFeedbackGenerator().selectionChanged()
                 } label: {
                     Text(weekdayShortLabel(day))
-                        .font(.system(.footnote, design: .rounded, weight: .bold))
-                        .foregroundStyle(selected ? DSColor.limeInk : DSColor.textPrimary)
+                        .font(.system(.footnote, design: .default, weight: .bold))
+                        .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(selected ? DSColor.lime : DSColor.surface)
+                                .fill(selected ? DSColor.accent : DSColor.surface)
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -154,7 +157,7 @@ struct RecurringGameSheet: View {
         HStack {
             Label {
                 Text("recurring.time_of_day")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
             } icon: {
                 Image(systemName: "clock")
@@ -183,7 +186,7 @@ struct RecurringGameSheet: View {
     private var durationRow: some View {
         HStack {
             Text("recurring.duration")
-                .font(.system(.subheadline, design: .rounded))
+                .font(.system(.subheadline, design: .default))
                 .foregroundStyle(DSColor.textSecondary)
             Spacer()
             HStack(spacing: 6) {
@@ -193,11 +196,11 @@ struct RecurringGameSheet: View {
                         viewModel.durationMinutes = mins
                     } label: {
                         Text(String(format: String(localized: "recurring.duration.minutes_format"), mins))
-                            .font(.system(.footnote, design: .rounded, weight: .semibold))
-                            .foregroundStyle(selected ? DSColor.limeInk : DSColor.textPrimary)
+                            .font(.system(.footnote, design: .default, weight: .semibold))
+                            .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(Capsule().fill(selected ? DSColor.lime : DSColor.surface))
+                            .background(Capsule().fill(selected ? DSColor.accent : DSColor.surface))
                             .overlay(Capsule().strokeBorder(DSColor.border, lineWidth: selected ? 0 : 1))
                     }
                     .buttonStyle(.plain)
@@ -212,11 +215,11 @@ struct RecurringGameSheet: View {
     private var capacityRow: some View {
         HStack {
             Text("recurring.capacity")
-                .font(.system(.subheadline, design: .rounded))
+                .font(.system(.subheadline, design: .default))
                 .foregroundStyle(DSColor.textSecondary)
             Spacer()
             Text(String(format: String(localized: "recurring.capacity.players_format"), viewModel.capacity))
-                .font(.system(.title3, design: .rounded, weight: .heavy))
+                .font(.system(.title3, design: .default, weight: .heavy))
                 .foregroundStyle(DSColor.textPrimary)
             Stepper("", value: $viewModel.capacity,
                     in: (viewModel.selectedSport?.min_players ?? 2)...(viewModel.selectedSport?.max_players ?? 12))
@@ -232,14 +235,14 @@ struct RecurringGameSheet: View {
             VStack(alignment: .leading, spacing: DSSpacing.sm) {
                 HStack {
                     Text(String(format: String(localized: "recurring.weeks.count_format"), viewModel.weeks))
-                        .font(.system(.title3, design: .rounded, weight: .heavy))
+                        .font(.system(.title3, design: .default, weight: .heavy))
                         .foregroundStyle(DSColor.textPrimary)
                     Spacer()
                     Stepper("", value: $viewModel.weeks, in: 1...12)
                         .labelsHidden()
                 }
                 // Visual week-pill row so the host sees "8 dots" at a glance.
-                HStack(spacing: 5) {
+                HStack(spacing: 6) {
                     ForEach(0..<12, id: \.self) { i in
                         let filled = i < viewModel.weeks
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
@@ -248,7 +251,7 @@ struct RecurringGameSheet: View {
                     }
                 }
                 Text("recurring.weeks.helper")
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
             }
             .padding(DSSpacing.md)
@@ -292,7 +295,7 @@ struct RecurringGameSheet: View {
             Spacer()
             ZStack {
                 Circle()
-                    .fill(DSColor.lime.opacity(0.18))
+                    .fill(DSColor.accentMuted)
                     .frame(width: 130, height: 130)
                 Image(systemName: "calendar.badge.checkmark")
                     .font(.system(size: 56, weight: .bold))
@@ -300,7 +303,7 @@ struct RecurringGameSheet: View {
             }
             VStack(spacing: DSSpacing.xs) {
                 Text(String(format: String(localized: "recurring.success.count_format"), series.games.count))
-                    .font(.system(size: 32, weight: .heavy, design: .rounded))
+                    .font(DSType.statValueLarge)
                     .foregroundStyle(DSColor.textPrimary)
                 Text("recurring.success.subtitle")
                     .font(DSType.bodyEmphasis)
@@ -315,14 +318,14 @@ struct RecurringGameSheet: View {
                         Image(systemName: "calendar")
                             .foregroundStyle(DSColor.accent)
                         Text(formatted(starts_at: g.starts_at))
-                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                            .font(.system(.subheadline, design: .default, weight: .semibold))
                             .foregroundStyle(DSColor.textPrimary)
                     }
                 }
                 if series.games.count > 3 {
                     Text(String(format: String(localized: "recurring.success.and_more_format"),
                                 series.games.count - 3))
-                        .font(.system(.caption, design: .rounded))
+                        .font(.system(.caption, design: .default))
                         .foregroundStyle(DSColor.textSecondary)
                 }
             }
@@ -347,7 +350,7 @@ struct RecurringGameSheet: View {
                     dismiss()
                 } label: {
                     Text("recurring.success.dismiss")
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .font(.system(.subheadline, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.textSecondary)
                 }
                 .buttonStyle(.plain)
@@ -362,8 +365,8 @@ struct RecurringGameSheet: View {
     private func section<C: View>(title: String,
                                   @ViewBuilder content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
-            Text(title.uppercased())
-                .font(.system(.caption, design: .rounded, weight: .semibold))
+            Text(title)
+                .font(.system(.caption, design: .default, weight: .semibold))
                 .foregroundStyle(DSColor.textSecondary)
             content()
         }
@@ -376,7 +379,7 @@ struct RecurringGameSheet: View {
         let cal = Calendar.current
         let symbols = cal.shortWeekdaySymbols
         let safe = max(0, min(symbols.count - 1, day))
-        return symbols[safe].uppercased()
+        return symbols[safe]
     }
 
     private func formatted(starts_at: String) -> String {

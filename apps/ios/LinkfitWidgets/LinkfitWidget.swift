@@ -29,13 +29,16 @@ import SwiftUI
 // MARK: - Brand palette (widget-local)
 
 private enum WidgetPalette {
-    /// Deep canvas matching `DSColor.background` (dark variant). Hard-coded
-    /// because widgets render in a separate process and cannot share the
-    /// app's resolved Color tokens.
+    /// Deep canvas matching `DSColor.background` (dark variant, #0A0E14).
+    /// Hard-coded because widgets render in a separate process and cannot
+    /// share the app's resolved Color tokens — values mirror the brand
+    /// tokens in `Linkfit/Core/DesignSystem/Tokens/Colors.swift`.
     static let canvas = Color(red: 0x0A / 255.0, green: 0x0E / 255.0, blue: 0x14 / 255.0)
-    /// Brand lime accent.
-    static let lime = Color(red: 0xC8 / 255.0, green: 0xFF / 255.0, blue: 0x3D / 255.0)
-    static let limeDim = Color(red: 0x9F / 255.0, green: 0xCB / 255.0, blue: 0x2C / 255.0)
+    /// Mirrors `DSColor.surface` (dark variant, #121721).
+    static let surface = Color(red: 0x12 / 255.0, green: 0x17 / 255.0, blue: 0x21 / 255.0)
+    /// Mirrors `DSColor.secondary` — brand lime-yellow (#DCF166).
+    static let lime = Color(red: 0xDC / 255.0, green: 0xF1 / 255.0, blue: 0x66 / 255.0)
+    /// Mirrors `DSColor.textPrimary` (dark variant).
     static let ink = Color.white
     static let inkMuted = Color.white.opacity(0.65)
 }
@@ -144,12 +147,11 @@ private struct SmallView: View {
             Spacer(minLength: 0)
             if let game = entry.game {
                 Text(game.startsAt, style: .time)
-                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                    .font(.system(size: 26, weight: .heavy, design: .default))
                     .foregroundStyle(WidgetPalette.lime)
-                Text(game.sport.uppercased())
+                Text(game.sport)
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(WidgetPalette.limeDim)
-                    .tracking(0.8)
+                    .foregroundStyle(WidgetPalette.inkMuted)
                 Text(game.venueName)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(WidgetPalette.inkMuted)
@@ -166,9 +168,8 @@ private struct SmallView: View {
             Circle()
                 .fill(WidgetPalette.lime)
                 .frame(width: 6, height: 6)
-            Text(entry.game == nil ? "LINKFIT" : "NEXT UP")
+            (entry.game == nil ? Text("Linkfit") : Text("Next up"))
                 .font(.system(size: 10, weight: .heavy))
-                .tracking(1.2)
                 .foregroundStyle(WidgetPalette.inkMuted)
         }
     }
@@ -184,14 +185,13 @@ private struct MediumView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 4) {
                     Circle().fill(WidgetPalette.lime).frame(width: 6, height: 6)
-                    Text("NEXT UP")
+                    Text("Next up")
                         .font(.system(size: 10, weight: .heavy))
-                        .tracking(1.2)
                         .foregroundStyle(WidgetPalette.inkMuted)
                 }
                 if let game = entry.game {
                     Text(game.startsAt, style: .time)
-                        .font(.system(size: 28, weight: .heavy, design: .rounded))
+                        .font(.system(size: 28, weight: .heavy, design: .default))
                         .foregroundStyle(WidgetPalette.lime)
                     Text(game.sport)
                         .font(.system(size: 13, weight: .semibold))
@@ -215,22 +215,21 @@ private struct StreakBadge: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            Text("STREAK")
+            Text("Streak")
                 .font(.system(size: 9, weight: .heavy))
-                .tracking(1.0)
-                .foregroundStyle(WidgetPalette.canvas.opacity(0.7))
+                .foregroundStyle(WidgetPalette.inkMuted)
             Text("\(streak)")
-                .font(.system(size: 30, weight: .black, design: .rounded))
-                .foregroundStyle(WidgetPalette.canvas)
-            Text(streak == 1 ? "week" : "weeks")
+                .font(.system(size: 30, weight: .heavy, design: .default))
+                .foregroundStyle(WidgetPalette.ink)
+            (streak == 1 ? Text("week") : Text("weeks"))
                 .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(WidgetPalette.canvas.opacity(0.7))
+                .foregroundStyle(WidgetPalette.inkMuted)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(WidgetPalette.lime)
+                .fill(WidgetPalette.surface)
         )
     }
 }
@@ -250,12 +249,12 @@ private struct LockView: View {
                         .font(.system(size: 12, weight: .heavy))
                 }
                 Text(game.startsAt, style: .time)
-                    .font(.system(size: 16, weight: .heavy, design: .rounded))
+                    .font(.system(size: 16, weight: .heavy, design: .default))
                 Text(game.venueName)
                     .font(.system(size: 11))
                     .lineLimit(1)
             } else {
-                Text("LINKFIT")
+                Text("Linkfit")
                     .font(.system(size: 11, weight: .heavy))
                 Text("No games scheduled")
                     .font(.system(size: 12, weight: .semibold))

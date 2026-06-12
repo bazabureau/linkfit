@@ -66,13 +66,14 @@ struct AmericanoTournamentView: View {
                 HStack {
                     Button { dismiss() } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(DSColor.textPrimary)
                             .frame(width: 36, height: 36)
                             .background(Circle().fill(.ultraThinMaterial))
                             .overlay(Circle().strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(Text("common.close"))
                     Spacer()
                 }
                 .padding(.horizontal, 16)
@@ -81,8 +82,8 @@ struct AmericanoTournamentView: View {
                 // Header Hero
                 PremiumPageHero(
                     icon: "sportscourt.fill",
-                    titleKey: "Americano turniri",
-                    subtitleKey: "Oyunçuları və meydançaları əlavə edərək raundları avtomatik qurun.",
+                    titleKey: "americano.hero.title",
+                    subtitleKey: "americano.hero.subtitle",
                     alignment: .center
                 )
                 .padding(.horizontal, 16)
@@ -158,7 +159,7 @@ struct AmericanoTournamentView: View {
                                 } label: {
                                     Text(localizedString("add"))
                                         .font(.system(size: 14, weight: .bold))
-                                        .foregroundStyle(DSColor.textPrimary)
+                                        .foregroundStyle(DSColor.textOnAccent)
                                         .padding(.horizontal, 16)
                                         .padding(.vertical, 12)
                                         .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(DSColor.accent))
@@ -170,7 +171,7 @@ struct AmericanoTournamentView: View {
                             if players.count < 4 || players.count > 12 {
                                 Text(localizedString("participants_warning"))
                                     .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(.yellow)
+                                    .foregroundStyle(DSColor.warning)
                                     .padding(.top, 2)
                             }
 
@@ -190,6 +191,7 @@ struct AmericanoTournamentView: View {
                                                 .foregroundStyle(DSColor.textSecondary)
                                         }
                                         .buttonStyle(.plain)
+                                        .accessibilityLabel(Text("common.remove"))
                                     }
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
@@ -229,12 +231,12 @@ struct AmericanoTournamentView: View {
                         HStack {
                             if isSubmitting {
                                 ProgressView()
-                                    .tint(DSColor.textPrimary)
+                                    .tint(DSColor.textOnAccent)
                                     .padding(.trailing, 8)
                             }
                             Text(localizedString("start_game"))
                                 .font(.system(size: 15, weight: .black))
-                                .foregroundStyle(DSColor.textPrimary)
+                                .foregroundStyle(DSColor.textOnAccent)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -265,7 +267,6 @@ struct AmericanoTournamentView: View {
                         Text("Americano • \(tournamentFormat)")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(DSColor.textSecondary)
-                            .textCase(.uppercase)
                     }
                     Spacer()
                     
@@ -274,10 +275,10 @@ struct AmericanoTournamentView: View {
                     } label: {
                         Text(localizedString("reset"))
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(.red)
+                            .foregroundStyle(DSColor.danger)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.red.opacity(0.12)))
+                            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(DSColor.danger.opacity(0.12)))
                     }
                     .buttonStyle(.plain)
                 }
@@ -290,7 +291,7 @@ struct AmericanoTournamentView: View {
                         HStack {
                             Text(localizedString("sponsor_reward"))
                                 .font(.system(size: 10, weight: .black))
-                                .foregroundStyle(DSColor.textPrimary)
+                                .foregroundStyle(DSColor.textOnAccent)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
                                 .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(DSColor.accent))
@@ -312,7 +313,7 @@ struct AmericanoTournamentView: View {
                                 .foregroundStyle(DSColor.accent)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
-                                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.black.opacity(0.4)))
+                                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(DSColor.inkSurface))
                             
                             Spacer()
                             
@@ -321,7 +322,7 @@ struct AmericanoTournamentView: View {
                             } label: {
                                 Text(copiedCoupon ? localizedString("copied") : localizedString("copy"))
                                     .font(.system(size: 12, weight: .black))
-                                    .foregroundStyle(DSColor.textPrimary)
+                                    .foregroundStyle(DSColor.textOnAccent)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 8)
                                     .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(DSColor.accent))
@@ -352,7 +353,7 @@ struct AmericanoTournamentView: View {
                                     } label: {
                                         Text("\(round)")
                                             .font(.system(size: 13, weight: .black))
-                                            .foregroundStyle(activeRound == round ? DSColor.textPrimary : DSColor.textSecondary)
+                                            .foregroundStyle(activeRound == round ? DSColor.textOnAccent : DSColor.textSecondary)
                                             .frame(width: 36, height: 36)
                                             .background(Circle().fill(activeRound == round ? DSColor.accent : DSColor.surfaceElevated.opacity(0.4)))
                                             .overlay(Circle().strokeBorder(activeRound == round ? .clear : DSColor.border.opacity(0.2), lineWidth: 1))
@@ -362,11 +363,13 @@ struct AmericanoTournamentView: View {
                             }
                         }
                         .padding(.horizontal, 16)
-                               VStack(spacing: 12) {
+                    }
+
+                    VStack(spacing: 12) {
                         ForEach(matches.filter { $0.round_number == activeRound }) { match in
                             matchRow(match)
                         }
-                    }           }
+                    }
                     .padding(.horizontal, 16)
                 }
 
@@ -381,12 +384,10 @@ struct AmericanoTournamentView: View {
                         ForEach(Array(leaderboard.enumerated()), id: \.element.id) { index, item in
                             let place = index + 1
                             let isGold = place == 1
-                            let medal = place == 1 ? "🥇" : place == 2 ? "🥈" : place == 3 ? "🥉" : "\(place)"
-                            
+
                             HStack {
                                 HStack(spacing: 12) {
-                                    Text(medal)
-                                        .font(.system(size: 14, weight: .black))
+                                    rankBadge(place)
                                         .frame(width: 24, alignment: .center)
                                     
                                     VStack(alignment: .leading, spacing: 2) {
@@ -439,7 +440,6 @@ struct AmericanoTournamentView: View {
                     Text(match.court_name)
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(DSColor.textSecondary)
-                        .textCase(.uppercase)
 
                     HStack(spacing: 16) {
                         // Team A
@@ -453,7 +453,7 @@ struct AmericanoTournamentView: View {
                             TextField("0", text: $scoreAInput)
                                 .keyboardType(.numberPad)
                                 .textFieldStyle(.plain)
-                                .font(.system(size: 24, weight: .black, design: .rounded))
+                                .font(.system(size: 24, weight: .black, design: .default))
                                 .multilineTextAlignment(.center)
                                 .padding(12)
                                 .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(DSColor.surfaceElevated.opacity(0.5)))
@@ -476,7 +476,7 @@ struct AmericanoTournamentView: View {
                             TextField("0", text: $scoreBInput)
                                 .keyboardType(.numberPad)
                                 .textFieldStyle(.plain)
-                                .font(.system(size: 24, weight: .black, design: .rounded))
+                                .font(.system(size: 24, weight: .black, design: .default))
                                 .multilineTextAlignment(.center)
                                 .padding(12)
                                 .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(DSColor.surfaceElevated.opacity(0.5)))
@@ -504,7 +504,7 @@ struct AmericanoTournamentView: View {
                         } label: {
                             Text(localizedString("save"))
                                 .font(.system(size: 13, weight: .black))
-                                .foregroundStyle(DSColor.textPrimary)
+                                .foregroundStyle(DSColor.textOnAccent)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                                 .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(DSColor.accent))
@@ -520,6 +520,30 @@ struct AmericanoTournamentView: View {
                 .frame(maxWidth: 320)
                 .padding(.horizontal, 24)
             }
+        }
+    }
+
+    /// Rank indicator for the leaderboard — SF Symbol medals tinted with
+    /// the medal tokens for the podium, plain number for everyone else.
+    @ViewBuilder
+    private func rankBadge(_ place: Int) -> some View {
+        switch place {
+        case 1:
+            Image(systemName: "medal.fill")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(DSColor.medalGold)
+        case 2:
+            Image(systemName: "medal.fill")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(DSColor.medalSilver)
+        case 3:
+            Image(systemName: "medal.fill")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(DSColor.medalBronze)
+        default:
+            Text("\(place)")
+                .font(.system(size: 14, weight: .black))
+                .foregroundStyle(DSColor.textSecondary)
         }
     }
 
@@ -969,9 +993,9 @@ struct AmericanoTournamentView: View {
                         .font(.system(size: 13, weight: .black, design: .monospaced))
                         .foregroundStyle(DSColor.accent)
                         .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.black.opacity(0.35)))
-                    
+                        .padding(.vertical, 6)
+                        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(DSColor.inkSurface))
+
                     Button {
                         openScoreRecord(match)
                     } label: {
@@ -982,6 +1006,7 @@ struct AmericanoTournamentView: View {
                             .background(Circle().fill(DSColor.surfaceElevated.opacity(0.4)))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(Text(verbatim: localizedString("record")))
                 }
             } else {
                 Button {

@@ -55,7 +55,7 @@ struct TournamentFeaturedCard: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Text(tournament.name)
-                    .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                    .font(.system(.subheadline, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.textPrimary)
                     .lineLimit(1)
                 statusBadge
@@ -65,7 +65,7 @@ struct TournamentFeaturedCard: View {
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(DSColor.textSecondary)
                 Text(dateRange)
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
                     .lineLimit(1)
             }
@@ -75,7 +75,7 @@ struct TournamentFeaturedCard: View {
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(DSColor.textSecondary)
                     Text(v)
-                        .font(.system(.caption, design: .rounded))
+                        .font(.system(.caption, design: .default))
                         .foregroundStyle(DSColor.textSecondary)
                         .lineLimit(1)
                 }
@@ -85,20 +85,20 @@ struct TournamentFeaturedCard: View {
 
     private var statusBadge: some View {
         Text(statusLabel)
-            .font(.system(size: 9, weight: .bold, design: .rounded))
+            .font(.system(size: 9, weight: .bold, design: .default))
             .foregroundStyle(DSColor.accent)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
             .background(Capsule().strokeBorder(DSColor.accent, lineWidth: 1))
     }
 
     private var registeredCount: some View {
         VStack(alignment: .trailing, spacing: 0) {
             Text("\(tournament.entries_count) / \(tournament.max_squads)")
-                .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                .font(.system(.subheadline, design: .default, weight: .heavy))
                 .foregroundStyle(DSColor.textPrimary)
             Text("home.tournament.registered")
-                .font(.system(.caption2, design: .rounded))
+                .font(.system(.caption2, design: .default))
                 .foregroundStyle(DSColor.textSecondary)
         }
     }

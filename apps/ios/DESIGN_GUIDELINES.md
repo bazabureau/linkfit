@@ -7,7 +7,7 @@
 > follow the components and rules below. Deviations need explicit
 > justification in the PR description.
 
-Linkfit feels like a real sports product: practical, fast, premium, restrained. We avoid generic "AI app" styling. We do embrace the modern **glass + lime accent** language that emerged during the Premium pass — see `Premium Pattern` below.
+Linkfit feels like a real sports product: practical, fast, premium, restrained. We avoid generic "AI app" styling (near-black canvas + neon lime washes + glass everywhere). The current brand language is **adaptive light/dark surfaces + royal-blue accent (#5662D9) + lime-yellow secondary (#DCF166)** — see `Premium Pattern` below. The lime-yellow is reserved for the brand mark and small highlights; royal blue carries interactive meaning.
 
 ---
 
@@ -88,17 +88,24 @@ Always honor Reduce Motion (`UIAccessibility.isReduceMotionEnabled`).
 
 Use **only** semantic tokens. Never raw `Color(red:green:blue:)` outside the design system.
 
+All tokens are **adaptive** (light/dark via `Color(light:dark:)`). Never assume dark mode.
+
 | Token | Use |
 |-------|-----|
-| `DSColor.background` | Page background (#0A0E14) |
+| `DSColor.background` | Page background (#FFFFFF light / #0A0E14 dark) |
 | `DSColor.surface` | Card fill |
 | `DSColor.surfaceElevated` | Field / pressed-card fill |
-| `DSColor.accent` | Brand lime (#B2F00E). State + priority only, never a wash. |
+| `DSColor.inkSurface` | Bottom bar / hero overlay anchor |
+| `DSColor.accent` | Brand royal blue (#5662D9). Interactive priority only, never a wash. |
+| `DSColor.accentSoft / accentMuted` | Pressed state / tinted accent wash |
+| `DSColor.secondary / secondaryMuted` | Brand lime-yellow (#DCF166). Brand mark + small highlights only. |
 | `DSColor.textPrimary` | Body + headlines |
 | `DSColor.textSecondary` | Supporting copy |
 | `DSColor.textTertiary` | Hints, placeholders |
+| `DSColor.textOnAccent` | Text/icons sitting on accent fills |
 | `DSColor.border` | Strokes |
 | `DSColor.danger / warning / success / info` | State only |
+| `DSColor.medalGold / medalSilver / medalBronze` | Rank 1/2/3 styling only |
 
 ### 3.2 Typography
 
@@ -118,30 +125,21 @@ Use **default San Francisco** for product surfaces. **Rounded** only for small b
 - Card radius: **18pt** continuous (was DSRadius.lg). Buttons: **16pt** continuous.
 - Page horizontal padding: **20pt**
 
-### 3.4 Quick-action accent palette
+### 3.4 Quick-action accents
 
-When a 2×2 grid of actions needs per-card identity (see `PremiumQuickActions`):
-
-| Action | Accent |
-|--------|--------|
-| Create | `DSColor.accent` (lime) |
-| Find / Search | `#5BC6FC` (sky blue) |
-| Book / Schedule | `#FCA64C` (warm amber) |
-| Tournaments / Compete | `#F2729D` (rose) |
-
-These four are the **only** approved non-brand accents. Don't invent a 5th.
+All quick-action tiles share the single brand accent (`DSColor.accent`). We tried four per-tile colours and reverted — on a busy background they read as noise. Iconography differentiates the tiles; colour does not. **Do not introduce per-card accent colours.** The only approved non-brand hues are the semantic state tokens and the medal tokens.
 
 ---
 
 ## 4. Navigation Chrome
 
-Set once globally in `configureNativeNavigationChrome()`:
+Set once globally in `AppearanceBootstrap` (UIKit appearance proxies):
 
-- **Tab bar**: `systemThinMaterialDark` + 55% black tint + lime hairline shadow
-- **Selected tab**: `iconFilled` SF Symbol + lime tint + heavy 11pt
-- **Unselected**: outline icon + white 55% + semibold 11pt
+- **Tab bar**: system material blur, adaptive to light/dark
+- **Selected tab**: filled SF Symbol + accent tint + heavy 11pt
+- **Unselected**: outline icon + secondary text colour + semibold 11pt
 - **Nav bar**: same blur + heavy title (17pt small, 32pt large)
-- **Tint color**: lime accent — auto-tints back chevron + bar items
+- **Tint color**: `DSColor.accent` — auto-tints back chevron + bar items
 
 ---
 
@@ -389,11 +387,13 @@ a *feed* — let it be a feed. Greeting → sections → done.
 - Pick reasonable `.presentationDetents([.medium, .large])` —
   never `.fraction(...)` numbers that don't snap.
 
-### 13.7 Lime accent budget
+### 13.7 Accent budget
 
-Limit lime to **at most 3 visible surfaces per screen** — primary
-CTA + one accent stroke + one micro-detail. More than that and the
-brand colour becomes background noise instead of meaning.
+Limit `DSColor.accent` to **at most 3 visible surfaces per screen** —
+primary CTA + one accent stroke + one micro-detail. More than that and
+the brand colour becomes background noise instead of meaning.
+`DSColor.secondary` (lime-yellow) is even scarcer: brand mark + at most
+one highlight per screen.
 
 ---
 

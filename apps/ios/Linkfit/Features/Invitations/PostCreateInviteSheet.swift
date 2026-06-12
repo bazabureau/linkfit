@@ -151,11 +151,12 @@ struct PostCreateInviteSheet: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("invitations.post_create.title")
-                        .font(.system(.headline, design: .rounded, weight: .heavy))
+                        .font(.system(.headline, design: .default, weight: .heavy))
                         .foregroundStyle(DSColor.textPrimary)
                 }
             }
         }
+        .presentationDragIndicator(.visible)
         .task {
             // Single fetch on appear. If the user has 0 followers we
             // auto-dismiss after a beat so we don't leave them
@@ -169,7 +170,7 @@ struct PostCreateInviteSheet: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: DSSpacing.xs) {
             Text("invitations.post_create.heading")
-                .font(.system(size: 24, weight: .heavy, design: .rounded))
+                .font(.system(size: 24, weight: .heavy, design: .default))
                 .foregroundStyle(DSColor.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text("invitations.post_create.subtitle")
@@ -194,9 +195,11 @@ struct PostCreateInviteSheet: View {
             if !query.isEmpty {
                 Button { query = "" } label: {
                     Image(systemName: "xmark.circle.fill")
+                        .fontWeight(.semibold)
                         .foregroundStyle(DSColor.textTertiary)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(Text("common.clear"))
             }
         }
         .padding(.horizontal, DSSpacing.md)
@@ -252,13 +255,13 @@ struct PostCreateInviteSheet: View {
                 ZStack {
                     Circle().fill(DSColor.surfaceElevated)
                     Text(initials(f.display_name))
-                        .font(.system(.caption, design: .rounded, weight: .heavy))
+                        .font(.system(.caption, design: .default, weight: .heavy))
                         .foregroundStyle(DSColor.textPrimary)
                 }
                 .frame(width: 40, height: 40)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(f.display_name)
-                        .font(.system(.footnote, design: .rounded, weight: .semibold))
+                        .font(.system(.footnote, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.textPrimary)
                 }
                 Spacer()
@@ -281,7 +284,7 @@ struct PostCreateInviteSheet: View {
         VStack(spacing: DSSpacing.xxs) {
             if let err = viewModel.sendError {
                 Text(err)
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(DSColor.danger)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, DSSpacing.md)
@@ -303,7 +306,7 @@ struct PostCreateInviteSheet: View {
                     }
                     Text(sendCTAText)
                 }
-                .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                .font(.system(.subheadline, design: .default, weight: .heavy))
                 .foregroundStyle(DSColor.textOnAccent)
                 .frame(maxWidth: .infinity, minHeight: 52)
                 .background(RoundedRectangle(cornerRadius: 16)
@@ -319,7 +322,7 @@ struct PostCreateInviteSheet: View {
                 onDone()
             } label: {
                 Text("invitations.post_create.later")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textSecondary)
                     .frame(maxWidth: .infinity, minHeight: 44)
             }

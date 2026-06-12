@@ -65,6 +65,7 @@ struct WriteReviewSheet: View {
                 Task { await handlePicked(newItem) }
             }
         }
+        .presentationDragIndicator(.visible)
     }
 
     // MARK: - Sections

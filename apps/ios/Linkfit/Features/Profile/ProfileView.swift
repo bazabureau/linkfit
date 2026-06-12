@@ -358,7 +358,7 @@ struct ProfileView: View {
             
             VStack(spacing: 4) {
                 Text(profile.display_name)
-                    .font(.system(size: 26, weight: .black, design: .rounded))
+                    .font(.system(size: 26, weight: .black))
                     .foregroundStyle(DSColor.textPrimary)
                     .multilineTextAlignment(.center)
                 
@@ -428,7 +428,7 @@ struct ProfileView: View {
         } label: {
             HStack(spacing: 4) {
                 Text("\(displayedCount)")
-                    .font(.system(size: 13, weight: .black, design: .rounded))
+                    .font(.system(size: 13, weight: .black))
                     .foregroundStyle(DSColor.textPrimary)
                     .monospacedDigit()
                 Text(labelKey)
@@ -445,10 +445,11 @@ struct ProfileView: View {
             showStreaksSheet = true
         } label: {
             HStack(spacing: 4) {
-                Text(verbatim: "🔥")
-                    .font(.system(size: 12))
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(DSColor.accent)
                 Text(String(format: String(localized: "profile.streak.chip_format"), n))
-                    .font(.system(size: 11, weight: .black, design: .rounded))
+                    .font(.system(size: 11, weight: .black))
                     .foregroundStyle(DSColor.accent)
                     .monospacedDigit()
                 Image(systemName: "chevron.right")
@@ -482,7 +483,7 @@ struct ProfileView: View {
                     Image(systemName: viewModel.isFollowing ? "checkmark" : "plus")
                         .font(.system(size: 12, weight: .black))
                     Text(followTitleKey)
-                        .font(.system(size: 13, weight: .black, design: .rounded))
+                        .font(.system(size: 13, weight: .black))
                 }
                 .foregroundStyle(viewModel.isFollowing ? DSColor.textPrimary : DSColor.textOnAccent)
                 .frame(maxWidth: .infinity)
@@ -518,7 +519,7 @@ struct ProfileView: View {
                             .font(.system(size: 12, weight: .bold))
                     }
                     Text("profile.action.message")
-                        .font(.system(size: 13, weight: .black, design: .rounded))
+                        .font(.system(size: 13, weight: .black))
                 }
                 .foregroundStyle(DSColor.textPrimary)
                 .frame(maxWidth: .infinity)
@@ -540,12 +541,11 @@ struct ProfileView: View {
             // Stat 1: Skill Badge
             VStack(spacing: 6) {
                 Text(level.localizedName)
-                    .font(.system(size: 13, weight: .black, design: .rounded))
+                    .font(.system(size: 13, weight: .black))
                     .foregroundStyle(level.accent)
                 Text("skill.label")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(DSColor.textSecondary)
-                    .textCase(.uppercase)
             }
             .frame(maxWidth: .infinity)
             
@@ -554,12 +554,11 @@ struct ProfileView: View {
             // Stat 2: Games Played
             VStack(spacing: 6) {
                 Text("\(s.games)")
-                    .font(.system(size: 16, weight: .black, design: .rounded))
+                    .font(.system(size: 16, weight: .black))
                     .foregroundStyle(DSColor.textPrimary)
                 Text("profile.kpi.games")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(DSColor.textSecondary)
-                    .textCase(.uppercase)
             }
             .frame(maxWidth: .infinity)
             
@@ -568,12 +567,11 @@ struct ProfileView: View {
             // Stat 3: Win Rate
             VStack(spacing: 6) {
                 Text("\(s.winRate)%")
-                    .font(.system(size: 16, weight: .black, design: .rounded))
+                    .font(.system(size: 16, weight: .black))
                     .foregroundStyle(DSColor.textPrimary)
                 Text("profile.win_rate")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(DSColor.textSecondary)
-                    .textCase(.uppercase)
             }
             .frame(maxWidth: .infinity)
         }
@@ -602,7 +600,6 @@ struct ProfileView: View {
             Text("profile.section.activity")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(DSColor.textSecondary)
-                .textCase(.uppercase)
                 .padding(.leading, 8)
             
             VStack(spacing: 0) {
@@ -631,7 +628,6 @@ struct ProfileView: View {
             Text("profile.section.settings")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(DSColor.textSecondary)
-                .textCase(.uppercase)
                 .padding(.leading, 8)
             
             VStack(spacing: 0) {
@@ -816,7 +812,10 @@ struct ProfileView: View {
     private func profileShareText(_ profile: PublicProfile) -> String {
         let summary = profileSummary(profile)
         let level = SkillLevel.from(elo: summary.topElo).localizedName
-        return "\(profile.display_name) on Linkfit · \(summary.games) games · \(level)"
+        return String(
+            format: String(localized: "profile.share.text_format"),
+            profile.display_name, summary.games, level
+        )
     }
 
     private func renderMilestoneAndPresent(_ profile: PublicProfile) async {
@@ -855,7 +854,7 @@ private struct MonogramView: View {
     let text: String
     var body: some View {
         Text(text)
-            .font(.system(size: 28, weight: .bold, design: .rounded))
+            .font(.system(size: 28, weight: .bold))
             .foregroundStyle(DSColor.accent)
     }
 }
@@ -974,7 +973,7 @@ private struct ProfileFollowsSheetWithRoute: View {
                                     Button(role: .destructive) {
                                         Task { await performRemoval(of: edge) }
                                     } label: {
-                                        Label("Remove", systemImage: "person.crop.circle.badge.xmark")
+                                        Label("common.remove", systemImage: "person.crop.circle.badge.xmark")
                                     }
                                 }
                             }
@@ -1075,7 +1074,7 @@ private struct ProfileFollowsSheetWithRoute: View {
             ))
             Text(initials(name))
                 .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(DSColor.textOnAccent)
         }
     }
 

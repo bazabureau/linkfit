@@ -64,7 +64,7 @@ struct MedicalProfileView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(DSColor.accent)
                 Text("medical.privacy.title")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
             }
             Text("medical.privacy.body")
@@ -139,7 +139,7 @@ struct MedicalProfileView: View {
                 Toggle(isOn: $viewModel.shareWithHosts) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("medical.sharing.toggle")
-                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                            .font(.system(.subheadline, design: .default, weight: .semibold))
                             .foregroundStyle(DSColor.textPrimary)
                         Text("medical.sharing.helper")
                             .font(.system(.caption, design: .default))
@@ -212,11 +212,12 @@ struct MedicalProfileView: View {
                 Task {
                     let ok = await viewModel.save()
                     if ok {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                        let reduceMotion = UIAccessibility.isReduceMotionEnabled
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.85)) {
                             savedToastVisible = true
                         }
                         try? await Task.sleep(nanoseconds: 1_400_000_000)
-                        withAnimation { savedToastVisible = false }
+                        withAnimation(reduceMotion ? nil : .default) { savedToastVisible = false }
                     }
                 }
             }
@@ -240,7 +241,7 @@ struct MedicalProfileView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             Text(title)
-                .font(.system(.caption, design: .rounded, weight: .semibold))
+                .font(.system(.caption, design: .default, weight: .semibold))
                 .foregroundStyle(DSColor.textSecondary)
                 .padding(.leading, 4)
             content()
@@ -261,7 +262,7 @@ private struct ErrorBanner: View {
                 .foregroundStyle(DSColor.danger)
             Button(action: retry) {
                 Text("common.retry")
-                    .font(.system(.footnote, design: .rounded, weight: .semibold))
+                    .font(.system(.footnote, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.accent)
             }
         }
@@ -280,7 +281,7 @@ private struct SavedToast: View {
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(DSColor.accent)
             Text("medical.saved")
-                .font(.system(.footnote, design: .rounded, weight: .semibold))
+                .font(.system(.footnote, design: .default, weight: .semibold))
                 .foregroundStyle(DSColor.textPrimary)
         }
         .padding(.horizontal, DSSpacing.md)

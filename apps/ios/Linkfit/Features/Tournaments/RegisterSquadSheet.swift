@@ -33,7 +33,7 @@ struct RegisterSquadSheet: View {
                             errorBanner(errorMessage)
                         }
                         submitButton
-                        Spacer().frame(height: 60)
+                        Spacer().frame(height: 56)
                     }
                     .padding(.horizontal, DSSpacing.md)
                     .padding(.top, DSSpacing.md)
@@ -58,9 +58,11 @@ struct RegisterSquadSheet: View {
                     }
                 }
                 .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
             }
         }
         .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
     }
 
     // MARK: - Sections
@@ -68,10 +70,10 @@ struct RegisterSquadSheet: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(tournament.name)
-                .font(.system(.headline, design: .rounded, weight: .heavy))
+                .font(.system(.headline, design: .default, weight: .heavy))
                 .foregroundStyle(DSColor.textPrimary)
             Text("tournaments.register.subtitle")
-                .font(.system(.footnote, design: .rounded))
+                .font(.system(.footnote, design: .default))
                 .foregroundStyle(DSColor.textSecondary)
         }
     }
@@ -79,7 +81,7 @@ struct RegisterSquadSheet: View {
     private var nameField: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("tournaments.register.squad_name")
-                .font(.system(.caption, design: .rounded, weight: .heavy))
+                .font(.system(.caption, design: .default, weight: .heavy))
                 .foregroundStyle(DSColor.textSecondary)
             TextField("", text: $squadName, prompt: Text("tournaments.register.squad_name.placeholder")
                 .foregroundStyle(DSColor.textTertiary))
@@ -97,12 +99,12 @@ struct RegisterSquadSheet: View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             HStack {
                 Text("tournaments.register.players")
-                    .font(.system(.caption, design: .rounded, weight: .heavy))
+                    .font(.system(.caption, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.textSecondary)
                 Spacer()
                 Text(String(format: String(localized: "tournaments.register.players.count_format"),
                             picked.count + 1, tournament.squad_size))
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(DSColor.textTertiary)
             }
 
@@ -117,7 +119,7 @@ struct RegisterSquadSheet: View {
                 addPlayerButton
             } else if maxInvitees == 0 {
                 Text("tournaments.register.solo_only")
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(DSColor.textTertiary)
                     .padding(.top, 4)
             }
@@ -132,17 +134,17 @@ struct RegisterSquadSheet: View {
             ZStack {
                 Circle().fill(DSColor.accent)
                 Text(initials(container.currentUser?.display_name ?? "?"))
-                    .font(.system(.caption, design: .rounded, weight: .heavy))
+                    .font(.system(.caption, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.textOnAccent)
             }
             .frame(width: 36, height: 36)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(container.currentUser?.display_name ?? "—")
-                    .font(.system(.footnote, design: .rounded, weight: .heavy))
+                    .font(.system(.footnote, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.textPrimary)
                 Text("tournaments.register.you_captain")
-                    .font(.system(.caption2, design: .rounded))
+                    .font(.system(.caption2, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
             }
             Spacer()
@@ -154,17 +156,17 @@ struct RegisterSquadSheet: View {
             ZStack {
                 Circle().fill(DSColor.surfaceElevated)
                 Text(initials(p.display_name))
-                    .font(.system(.caption, design: .rounded, weight: .heavy))
+                    .font(.system(.caption, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.textPrimary)
             }
             .frame(width: 36, height: 36)
             VStack(alignment: .leading, spacing: 2) {
                 Text(p.display_name)
-                    .font(.system(.footnote, design: .rounded, weight: .semibold))
+                    .font(.system(.footnote, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
                 if let sport = p.primary_sport {
-                    Text(sport.uppercased())
-                        .font(.system(.caption2, design: .rounded, weight: .heavy))
+                    Text(sport.capitalized)
+                        .font(.system(.caption2, design: .default, weight: .heavy))
                         .foregroundStyle(DSColor.accent)
                 }
             }
@@ -189,7 +191,7 @@ struct RegisterSquadSheet: View {
                 Image(systemName: "plus.circle.fill")
                 Text("tournaments.register.add_player")
             }
-            .font(.system(.footnote, design: .rounded, weight: .heavy))
+            .font(.system(.footnote, design: .default, weight: .heavy))
             .foregroundStyle(DSColor.accent)
             .padding(.vertical, 8)
             .padding(.horizontal, DSSpacing.md)
@@ -201,7 +203,7 @@ struct RegisterSquadSheet: View {
     private func errorBanner(_ msg: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
-            Text(msg).font(.system(.caption, design: .rounded, weight: .semibold))
+            Text(msg).font(.system(.caption, design: .default, weight: .semibold))
         }
         .foregroundStyle(DSColor.danger)
         .padding(DSSpacing.sm)

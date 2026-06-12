@@ -33,7 +33,7 @@ struct AuthHero: View {
             DSColor.background
             // Subtle stadium-light bloom from the right
             RadialGradient(
-                colors: [Color(red: 0.10, green: 0.20, blue: 0.35).opacity(0.55), .clear],
+                colors: [DSColor.accent.opacity(0.30), .clear],
                 center: .init(x: 0.85, y: 0.30),
                 startRadius: 8, endRadius: 280
             )
@@ -48,18 +48,18 @@ struct AuthHero: View {
             // The hero on auth screens shows the brand wordmark at a
             // larger size — designers ship one PNG, we just resize.
             LogoWordmark(size: .l)
-            Text("PLAY PADEL · CONNECT")
-                .font(.system(size: 11, weight: .heavy, design: .rounded))
-                .foregroundStyle(.white.opacity(0.65))
+            Text("linkfit.brand_tagline")
+                .font(.system(size: 11, weight: .heavy, design: .default))
+                .foregroundStyle(DSColor.textSecondary)
                 .padding(.top, -DSSpacing.md)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(title)
-                    .font(.system(size: 32, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 28, weight: .heavy, design: .default))
+                    .foregroundStyle(DSColor.textPrimary)
                 Text(subtitle)
                     .font(.system(.body, design: .default))
-                    .foregroundStyle(.white.opacity(0.65))
+                    .foregroundStyle(DSColor.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -72,8 +72,8 @@ struct AuthHero: View {
             // Court floor: deep blue gradient
             LinearGradient(
                 colors: [
-                    Color(red: 0.10, green: 0.25, blue: 0.45),
-                    Color(red: 0.04, green: 0.11, blue: 0.22),
+                    DSColor.accent,
+                    DSColor.accentSoft,
                 ],
                 startPoint: .topTrailing, endPoint: .bottomLeading
             )
@@ -82,7 +82,7 @@ struct AuthHero: View {
 
             // White court lines (perspective)
             CourtLinesArtwork()
-                .stroke(Color.white.opacity(0.40), lineWidth: 1.2)
+                .stroke(DSColor.textOnAccent.opacity(0.40), lineWidth: 1.2)
                 .padding(.leading, 20)
                 .padding(.top, 80)
 
@@ -97,7 +97,7 @@ struct AuthHero: View {
             // Light bloom
             Circle()
                 .fill(RadialGradient(
-                    colors: [Color.white.opacity(0.25), .clear],
+                    colors: [DSColor.textOnAccent.opacity(0.25), .clear],
                     center: .center, startRadius: 0, endRadius: 90
                 ))
                 .frame(width: 200, height: 200)
@@ -106,14 +106,14 @@ struct AuthHero: View {
             // Player silhouette
             Image(systemName: "figure.tennis")
                 .font(.system(size: 130, weight: .bold))
-                .foregroundStyle(.white.opacity(0.92))
+                .foregroundStyle(DSColor.textOnAccent.opacity(0.92))
                 .offset(x: 10, y: 20)
 
             // Yellow ball arcing toward player
             Circle()
-                .fill(DSColor.accent)
+                .fill(DSColor.secondary)
                 .frame(width: 10, height: 10)
-                .shadow(color: DSColor.accent.opacity(0.7), radius: 6)
+                .shadow(color: DSColor.secondary.opacity(0.7), radius: 6)
                 .offset(x: -10, y: -90)
         }
     }
@@ -147,16 +147,16 @@ private struct StadiumLight: View {
             ZStack {
                 Circle()
                     .fill(RadialGradient(
-                        colors: [.white, .white.opacity(0.05)],
+                        colors: [DSColor.textOnAccent, DSColor.textOnAccent.opacity(0.05)],
                         center: .center, startRadius: 0, endRadius: 10
                     ))
                     .frame(width: 12, height: 12)
             }
             // Pole
             Rectangle()
-                .fill(Color.white.opacity(0.3))
+                .fill(DSColor.textOnAccent.opacity(0.3))
                 .frame(width: 1, height: 16)
         }
-        .shadow(color: .white.opacity(0.6), radius: 6)
+        .shadow(color: DSColor.textOnAccent.opacity(0.6), radius: 6)
     }
 }

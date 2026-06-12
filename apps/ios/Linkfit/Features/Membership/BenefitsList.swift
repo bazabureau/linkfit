@@ -25,7 +25,7 @@ struct BenefitsList: View {
                         .foregroundStyle(tint)
                         .frame(width: 18)
                     Text(benefit.label)
-                        .font(.system(.subheadline, design: .rounded))
+                        .font(.system(.subheadline, design: .default))
                         .foregroundStyle(DSColor.textPrimary)
                     Spacer(minLength: 0)
                 }

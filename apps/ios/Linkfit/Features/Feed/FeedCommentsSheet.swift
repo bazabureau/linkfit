@@ -48,12 +48,14 @@ struct FeedCommentsSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
+                            .fontWeight(.semibold)
                             .foregroundStyle(DSColor.textSecondary)
                     }
                     .accessibilityLabel(Text("common.cancel"))
                 }
             }
         }
+        .presentationDragIndicator(.visible)
         .task { await viewModel.onAppear() }
         // Long-press → action sheet → confirm. We use a confirmation
         // dialog (not a plain in-row swipe) because the thread renders
@@ -277,15 +279,15 @@ struct FeedCommentRow: View {
                     Text(item.displayName.isEmpty
                          ? String(localized: "feed.comments.unknown_user")
                          : item.displayName)
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .font(.system(.subheadline, design: .default, weight: .semibold))
                         .foregroundStyle(DSColor.textPrimary)
                         .lineLimit(1)
                     Text(relativeCreatedAt)
-                        .font(.system(.caption2, design: .rounded))
+                        .font(.system(.caption2, design: .default))
                         .foregroundStyle(DSColor.textTertiary)
                 }
                 Text(item.body)
-                    .font(.system(.subheadline, design: .rounded))
+                    .font(.system(.subheadline, design: .default))
                     .foregroundStyle(DSColor.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -346,8 +348,8 @@ struct FeedCommentRow: View {
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )).frame(width: 36, height: 36)
             Text(initials(item.displayName))
-                .font(.system(.footnote, design: .rounded, weight: .bold))
-                .foregroundStyle(.white)
+                .font(.system(.footnote, design: .default, weight: .bold))
+                .foregroundStyle(DSColor.textOnAccent)
         }
     }
 

@@ -22,7 +22,6 @@ struct StreaksView: View {
         .navigationTitle(Text("streaks.title"))
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(DSColor.background, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
     }
 
     @ViewBuilder
@@ -132,15 +131,15 @@ struct StreaksView: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(accent)
                 Text(titleKey)
-                    .font(.system(.caption, design: .rounded))
+                    .font(DSType.caption)
                     .foregroundStyle(DSColor.textSecondary)
             }
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(value)
-                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                    .font(DSType.statValue)
                     .foregroundStyle(DSColor.textPrimary)
                 Text(unitKey)
-                    .font(.system(.caption, design: .rounded))
+                    .font(DSType.caption)
                     .foregroundStyle(DSColor.textTertiary)
             }
         }
@@ -161,10 +160,10 @@ struct StreaksView: View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("streaks.heatmap.title")
-                    .font(.system(.headline, design: .rounded, weight: .heavy))
+                    .font(DSType.sectionTitle)
                     .foregroundStyle(DSColor.textPrimary)
                 Text("streaks.heatmap.subtitle")
-                    .font(.system(.caption, design: .rounded))
+                    .font(DSType.caption)
                     .foregroundStyle(DSColor.textSecondary)
             }
 
@@ -189,7 +188,7 @@ struct StreaksView: View {
                     .transition(.opacity.combined(with: .scale))
             } else {
                 Text("streaks.heatmap.tap_hint")
-                    .font(.system(.caption2, design: .rounded))
+                    .font(.system(.caption2, design: .default))
                     .foregroundStyle(DSColor.textTertiary)
             }
         }
@@ -215,11 +214,11 @@ struct StreaksView: View {
                 .foregroundStyle(week.games_count > 0 ? DSColor.accent : DSColor.textTertiary)
             VStack(alignment: .leading, spacing: 1) {
                 Text(weekRangeLabel(week.week_start))
-                    .font(.system(.caption, design: .rounded, weight: .semibold))
+                    .font(DSType.metaCaption)
                     .foregroundStyle(DSColor.textPrimary)
                 Text(String(format: String(localized: "streaks.heatmap.games_count_format"),
                             week.games_count))
-                    .font(.system(.caption2, design: .rounded))
+                    .font(.system(.caption2, design: .default))
                     .foregroundStyle(DSColor.textSecondary)
             }
             Spacer()
@@ -236,7 +235,7 @@ struct StreaksView: View {
     private var legendCard: some View {
         HStack(spacing: DSSpacing.sm) {
             Text("streaks.legend.less")
-                .font(.system(.caption2, design: .rounded))
+                .font(.system(.caption2, design: .default))
                 .foregroundStyle(DSColor.textTertiary)
             ForEach([0, 1, 2, 3, 4], id: \.self) { tier in
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
@@ -248,7 +247,7 @@ struct StreaksView: View {
                     )
             }
             Text("streaks.legend.more")
-                .font(.system(.caption2, design: .rounded))
+                .font(.system(.caption2, design: .default))
                 .foregroundStyle(DSColor.textTertiary)
             Spacer()
         }

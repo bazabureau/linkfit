@@ -69,7 +69,7 @@ struct LiveScoringView: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .bold))
+                    .fontWeight(.semibold)
                     .foregroundStyle(DSColor.textPrimary)
             }
             .accessibilityLabel(Text("common.close"))
@@ -214,13 +214,16 @@ struct LiveScoringView: View {
                 .minimumScaleFactor(0.6)
                 .padding(.top, 12)
             Text(score.pointLabel(for: team))
-                .font(.system(size: 96, weight: .black, design: .rounded))
+                .font(.system(size: 96, weight: .black, design: .default))
                 .foregroundStyle(
                     isWinner ? DSColor.accent
                         : isLeading ? DSColor.textPrimary : DSColor.textSecondary,
                 )
                 .scaleEffect(setFlashTeam == team ? setFlashScale : 1)
-                .animation(.spring(response: 0.4, dampingFraction: 0.6), value: setFlashScale)
+                .animation(UIAccessibility.isReduceMotionEnabled
+                               ? nil
+                               : .spring(response: 0.4, dampingFraction: 0.6),
+                           value: setFlashScale)
             Text("scoring.games \(games)")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(DSColor.textTertiary)
@@ -305,7 +308,7 @@ struct LiveScoringView: View {
     private func setWonBanner(team: ScoreTeam) -> some View {
         VStack(spacing: 8) {
             Text(team == .a ? "scoring.flash.team_a_set" : "scoring.flash.team_b_set")
-                .font(.system(size: 28, weight: .black, design: .rounded))
+                .font(.system(size: 28, weight: .black, design: .default))
                 .foregroundStyle(DSColor.textOnAccent)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -322,14 +325,15 @@ struct LiveScoringView: View {
               index >= 0, index < s.sets.count else { return }
         let row = s.sets[index]
         let team: ScoreTeam = row.a > row.b ? .a : .b
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+        let reduceMotion = UIAccessibility.isReduceMotionEnabled
+        withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.5)) {
             setFlashTeam = team
-            setFlashScale = 1.25
+            setFlashScale = reduceMotion ? 1 : 1.25
         }
         Task {
             try? await Task.sleep(nanoseconds: 1_200_000_000)
             await MainActor.run {
-                withAnimation(.easeOut(duration: 0.3)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
                     setFlashTeam = nil
                     setFlashScale = 1
                 }

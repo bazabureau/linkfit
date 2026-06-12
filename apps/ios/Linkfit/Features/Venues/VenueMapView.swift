@@ -30,6 +30,7 @@ struct VenueMapView: View {
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                             mapVM.select(venue)
                         }
+                        .accessibilityLabel(Text(venue.name))
                 }
                 .tag(venue.id)
                 // Cluster identifier — MapKit groups annotations sharing this
@@ -51,7 +52,7 @@ struct VenueMapView: View {
                 distanceKm: mapVM.distanceKm(to: venue),
                 onDirections: { openDirections(to: venue) }
             )
-            .presentationDetents([.height(220), .medium])
+            .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
             .presentationBackground(DSColor.surface)
         }

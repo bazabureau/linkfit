@@ -60,7 +60,7 @@ enum GroupChatHook {
                             Image(systemName: "person.3.fill")
                         }
                         Text("group_chat.open_for_game")
-                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                            .font(.system(.subheadline, design: .default, weight: .semibold))
                     }
                     .foregroundStyle(DSColor.accent)
                     .padding(.horizontal, DSSpacing.md)
@@ -112,7 +112,7 @@ enum GroupChatHook {
                             Image(systemName: "person.3.fill")
                         }
                         Text("group_chat.open_for_tournament")
-                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                            .font(.system(.subheadline, design: .default, weight: .semibold))
                     }
                     .foregroundStyle(DSColor.accent)
                     .padding(.horizontal, DSSpacing.md)

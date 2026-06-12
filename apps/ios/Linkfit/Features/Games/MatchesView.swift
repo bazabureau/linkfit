@@ -131,7 +131,7 @@ struct MatchesView: View {
                     if viewModel.activeFilterCount > 0 {
                         Text("\(viewModel.activeFilterCount)")
                             .font(.system(size: 10, weight: .heavy))
-                            .foregroundStyle(DSColor.inkSurface)
+                            .foregroundStyle(DSColor.textOnAccent)
                             .frame(width: 18, height: 18)
                             .background(Circle().fill(DSColor.accent))
                     }
@@ -174,7 +174,7 @@ struct MatchesView: View {
     private func activeFilterChip(label: String, onClear: @escaping () -> Void) -> some View {
         HStack(spacing: 6) {
             Text(label)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .font(.system(size: 12, weight: .bold, design: .default))
                 .foregroundStyle(DSColor.accent)
             Button(action: onClear) {
                 Image(systemName: "xmark")
@@ -255,7 +255,7 @@ struct MatchesView: View {
                         .transition(.opacity.combined(with: .move(edge: .leading)))
                     }
                 }
-                .animation(.spring(response: 0.4, dampingFraction: 0.85), value: filteredGames.map(\.id))
+                .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85), value: filteredGames.map(\.id))
             }
         }
     }
@@ -364,20 +364,21 @@ private struct FilterSheetView: View {
             // Premium Header with custom minimalist xmark
             HStack {
                 Text("matches.filter.label")
-                    .font(.system(size: 20, weight: .black, design: .rounded))
+                    .font(.system(size: 20, weight: .black, design: .default))
                     .foregroundStyle(DSColor.textPrimary)
                 Spacer()
                 Button {
                     showFiltersSheet = false
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(DSColor.textSecondary)
                         .frame(width: 32, height: 32)
                         .background(Circle().fill(DSColor.surfaceElevated))
                         .overlay(Circle().strokeBorder(DSColor.border, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(Text("common.close"))
             }
             .padding(.horizontal, 20)
             .padding(.top, 24)
@@ -405,7 +406,7 @@ private struct FilterSheetView: View {
                     }
                 } label: {
                     Text("matches.filter.reset")
-                        .font(.system(size: 14, weight: .black, design: .rounded))
+                        .font(.system(size: 14, weight: .black, design: .default))
                         .foregroundStyle(DSColor.textSecondary)
                         .frame(maxWidth: .infinity, minHeight: 48)
                         .background(Capsule().fill(DSColor.surfaceElevated))
@@ -418,7 +419,7 @@ private struct FilterSheetView: View {
                     showFiltersSheet = false
                 } label: {
                     Text("common.done")
-                        .font(.system(size: 14, weight: .black, design: .rounded))
+                        .font(.system(size: 14, weight: .black, design: .default))
                         .foregroundStyle(DSColor.textOnAccent)
                         .frame(maxWidth: .infinity, minHeight: 48)
                         .background(Capsule().fill(DSColor.accent))
@@ -496,7 +497,7 @@ private struct FilterSheetView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(labelKey)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .font(.system(size: 13, weight: .bold, design: .default))
                 .foregroundStyle(DSColor.textSecondary)
                 .padding(.horizontal, 20)
 
@@ -509,7 +510,7 @@ private struct FilterSheetView: View {
                             onTap(option.0)
                         } label: {
                             Text(option.1)
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .font(.system(size: 13, weight: .semibold, design: .default))
                                 .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
@@ -550,10 +551,10 @@ private struct MatchRowCard: View {
                     
                     if isHost {
                         Text("match.host_badge.you")
-                            .font(.system(size: 9, weight: .heavy, design: .rounded))
+                            .font(.system(size: 9, weight: .heavy, design: .default))
                             .foregroundStyle(DSColor.accent) // Royal Blue
                             .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
+                            .padding(.vertical, 4)
                             .background(Capsule().fill(DSColor.secondary)) // Lime-Yellow
                     }
                 }
@@ -572,7 +573,7 @@ private struct MatchRowCard: View {
                                 .font(.system(size: 10))
                             Text(eloRangeLabel)
                         }
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .font(.system(size: 10, weight: .bold, design: .default))
                         .foregroundStyle(DSColor.accent) // Royal Blue
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -618,17 +619,11 @@ private struct MatchRowCard: View {
                 RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
                     .strokeBorder(DSColor.border, lineWidth: 1)
             )
-            // Glowing left border stripe for the host's own games using brand gradient
+            // Accent left border stripe for the host's own games
             .overlay(alignment: .leading) {
                 if isHost {
                     Rectangle()
-                        .fill(
-                            LinearGradient(
-                                colors: [DSColor.accent, DSColor.secondary],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .fill(DSColor.accent)
                         .frame(width: 4)
                         .padding(.vertical, 1)
                 }
@@ -642,18 +637,18 @@ private struct MatchRowCard: View {
         let (label, symbol, color): (String, String, Color) = {
             switch game.sport_slug {
             case "padel":
-                return (String(localized: "matches.sport.padel"), "🎾", DSColor.accentMuted)
+                return (String(localized: "matches.sport.padel"), "figure.tennis", DSColor.accentMuted)
             case "football_5":
-                return (String(localized: "matches.sport.football_5"), "⚽", DSColor.secondaryMuted)
+                return (String(localized: "matches.sport.football_5"), "soccerball", DSColor.surfaceElevated)
             default:
-                return (game.sport_slug.capitalized, "🏆", DSColor.surfaceElevated)
+                return (game.sport_slug.capitalized, "trophy.fill", DSColor.surfaceElevated)
             }
         }()
         return HStack(spacing: 4) {
-            Text(symbol)
-                .font(.system(size: 10))
+            Image(systemName: symbol)
+                .font(.system(size: 10, weight: .heavy))
             Text(label)
-                .font(.system(size: 9, weight: .heavy, design: .rounded))
+                .font(.system(size: 9, weight: .heavy, design: .default))
         }
         .foregroundStyle(DSColor.textPrimary)
         .padding(.horizontal, 8)
@@ -697,7 +692,7 @@ private struct MatchRowCard: View {
         guard let minElo = game.skill_min_elo, let maxElo = game.skill_max_elo else {
             return String(localized: "matches.skill.any")
         }
-        return "\(minElo) - \(maxElo) ELO"
+        return String(format: String(localized: "card.elo_range_format"), minElo, maxElo)
     }
 
     private var timeHeadline: String {
@@ -732,8 +727,8 @@ private struct AvatarStack: View {
 
     var body: some View {
         HStack(spacing: -6) {
-            // Glowing lime circle for host (incorporating secondary brand color with accent text)
-            avatarCircle(initials(hostName), color: DSColor.secondary, textColor: DSColor.accent)
+            // Accent circle for host — royal blue carries interactive/identity priority
+            avatarCircle(initials(hostName), color: DSColor.accent, textColor: DSColor.textOnAccent)
             
             // Other players (using accentMuted soft blue wash background)
             if count > 1 {
@@ -759,7 +754,7 @@ private struct AvatarStack: View {
 
     private func avatarCircle(_ text: String, color: Color, textColor: Color) -> some View {
         Text(text)
-            .font(.system(size: 9, weight: .heavy, design: .rounded))
+            .font(.system(size: 9, weight: .heavy, design: .default))
             .foregroundStyle(textColor)
             .frame(width: 22, height: 22)
             .background(Circle().fill(color))

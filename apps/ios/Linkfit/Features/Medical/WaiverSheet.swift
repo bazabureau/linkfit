@@ -60,6 +60,7 @@ struct WaiverSheet: View {
                 }
             }
         }
+        .presentationDragIndicator(.visible)
     }
 
     // MARK: - Pieces
@@ -67,10 +68,10 @@ struct WaiverSheet: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("waiver.header.kicker")
-                .font(.system(.caption, design: .rounded, weight: .semibold))
+                .font(.system(.caption, design: .default, weight: .semibold))
                 .foregroundStyle(DSColor.accent)
             Text(tournamentName)
-                .font(.system(.title2, design: .rounded, weight: .heavy))
+                .font(.system(.title2, design: .default, weight: .heavy))
                 .foregroundStyle(DSColor.textPrimary)
             Text("waiver.header.subtitle")
                 .font(.system(.footnote))
@@ -87,7 +88,7 @@ struct WaiverSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: DSSpacing.sm) {
                 Text("waiver.terms.heading_1")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
                 Text("waiver.terms.body_1")
                     .font(.system(.footnote))
@@ -95,7 +96,7 @@ struct WaiverSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text("waiver.terms.heading_2")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
                     .padding(.top, DSSpacing.xs)
                 Text("waiver.terms.body_2")
@@ -104,7 +105,7 @@ struct WaiverSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text("waiver.terms.heading_3")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
                     .padding(.top, DSSpacing.xs)
                 Text("waiver.terms.body_3")
@@ -135,7 +136,7 @@ struct WaiverSheet: View {
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(agreed ? DSColor.accent : DSColor.textTertiary)
                 Text("waiver.agree.label")
-                    .font(.system(.footnote, design: .rounded, weight: .semibold))
+                    .font(.system(.footnote, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
                     .multilineTextAlignment(.leading)
                 Spacer()

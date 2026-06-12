@@ -3,7 +3,7 @@ import SwiftUI
 /// Reusable circular badge chip.
 ///
 /// Two visual states:
-///   * `unlocked == true`  — lime-tinted background, full-color SF Symbol
+///   * `unlocked == true`  — accent-tinted background, full-color SF Symbol
 ///     in `DSColor.accent`, subtle outer glow.
 ///   * `unlocked == false` — desaturated surface background, grey symbol
 ///     at reduced opacity. Lock semantics are conveyed through color/

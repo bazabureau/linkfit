@@ -43,7 +43,7 @@ struct SocialAuthButton: View {
         case .apple:
             Image(systemName: "apple.logo")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(DSColor.textPrimary)
         case .google:
             // Official Google "G" logo per Google Identity branding
             // guidelines. The asset (Assets.xcassets/GoogleG.imageset)
