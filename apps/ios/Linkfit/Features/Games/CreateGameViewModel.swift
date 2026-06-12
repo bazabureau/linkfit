@@ -32,6 +32,12 @@ final class CreateGameViewModel {
 
     private let apiClient: APIClient
 
+    /// Idempotency key for the current form session. One key per logical
+    /// game: it stays stable across retries of a failed submit (so a POST
+    /// that actually landed despite a timeout doesn't create a duplicate)
+    /// and is re-minted only after a successful create.
+    private var idempotencyKey = UUID().uuidString
+
     /// Three "when do you want to play?" presets — computed once at
     /// init and held stable for the life of the view model. The dates
     /// only stale across midnight, an acceptable trade for a sheet that
@@ -202,10 +208,15 @@ final class CreateGameViewModel {
             capacity: capacity,
             skill_min_elo: skillBand.range?.min,
             skill_max_elo: skillBand.range?.max,
-            notes: trimmedNotes.isEmpty ? nil : trimmedNotes
+            notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
+            idempotency_key: idempotencyKey
         )
         do {
-            return try await apiClient.send(.createGame(body))
+            let detail = try await apiClient.send(.createGame(body))
+            // Key consumed — mint a fresh one so the next game created from
+            // this view model isn't deduplicated against this one.
+            idempotencyKey = UUID().uuidString
+            return detail
         } catch let error as APIError {
             formError = error.errorDescription ?? String(localized: "create_game.error.create")
             return nil

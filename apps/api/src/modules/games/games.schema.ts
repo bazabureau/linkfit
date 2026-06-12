@@ -76,6 +76,13 @@ export const CreateGameRequest = z.object({
   skill_max_elo: z.number().int().min(0).max(4000).nullable().optional(),
   visibility: GameVisibilityEnum.optional(),
   notes: z.string().max(500).nullable().optional(),
+  /**
+   * Optional client-minted UUID, reused on retry. When a game with the same
+   * key already exists for the same host, the create endpoint replays the
+   * existing game instead of minting a duplicate — mirrors the bookings
+   * idempotency contract. Omit it and every POST creates a fresh game.
+   */
+  idempotency_key: z.string().uuid().optional(),
 });
 export type CreateGameRequest = z.infer<typeof CreateGameRequest>;
 

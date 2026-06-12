@@ -190,7 +190,10 @@ private struct BookingRow: View {
         let (key, color, bg): (LocalizedStringKey, Color, Color) = {
             switch booking.status {
             case .pending_payment:
-                return ("bookings.status.pending_payment", DSColor.warning, DSColor.warning.opacity(0.15))
+                // Pay-at-venue model: "pending payment" is the normal,
+                // expected state of every fresh booking (the user pays at
+                // the club), so it reads as informational — not as a warning.
+                return ("bookings.status.pay_at_venue", DSColor.info, DSColor.info.opacity(0.12))
             case .partially_paid:
                 return ("bookings.status.partially_paid", DSColor.warning, DSColor.warning.opacity(0.15))
             case .paid:

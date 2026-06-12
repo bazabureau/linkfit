@@ -32,6 +32,25 @@ interface BookingsListBody {
   past: BookingBody[];
 }
 
+interface AvailabilityBody {
+  court_id: string;
+  date: string;
+  open_hour: number;
+  close_hour: number;
+  slots: { start_at: string; end_at: string; status: "free" | "booked"; booking_id: string | null }[];
+}
+
+/** YYYY-MM-DD for `daysFromNow` days ahead, in the court's Asia/Baku timezone. */
+function bakuDateIn(daysFromNow: number): string {
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Baku",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(Date.now() + daysFromNow * 24 * ONE_HOUR_MS));
+}
+
 async function seedCourt(db: DbHandle): Promise<{ courtId: string; venueId: string }> {
   const venue = await db.db
     .insertInto("venues")
@@ -145,7 +164,7 @@ describe("bookings routes — court-window flow", () => {
       idempotency_key: "double-book-key-002",
     });
     expect(overlap.statusCode).toBe(409);
-    expect(overlap.json<{ error: { code: string } }>().error.code).toBe("CONFLICT");
+    expect(overlap.json<{ error: { code: string } }>().error.code).toBe("SLOT_CONFLICT");
 
     // Partial overlap (30 min later) also blocked.
     const partial = await postCreate(app, userB, {
@@ -368,6 +387,137 @@ describe("bookings routes — court-window flow", () => {
 
     const list = await app.inject({ method: "GET", url: "/api/v1/bookings/me" });
     expect(list.statusCode).toBe(401);
+  });
+
+  // ───────────── DB-level overbooking guard (exclusion constraint) ─────────────
+
+  it("the bookings_no_overlap_excl constraint rejects overlapping writes that bypass the service", async () => {
+    const user = await createTestUser(app);
+    const startsAt = isoIn(700);
+    const first = await postCreate(app, user, {
+      court_id: courtId,
+      starts_at: startsAt,
+      duration_minutes: 60,
+      idempotency_key: "excl-api-key-000001",
+    });
+    expect(first.statusCode).toBe(201);
+
+    // A raw INSERT (simulating a code path that skipped the explicit overlap
+    // SELECT — the race the constraint exists to close) must be rejected by
+    // Postgres with 23P01 = exclusion_violation.
+    await expect(
+      db.db
+        .insertInto("bookings")
+        .values({
+          court_id: courtId,
+          user_id: user.id,
+          starts_at: new Date(new Date(startsAt).getTime() + 30 * 60_000),
+          duration_minutes: 60,
+          total_minor: 5000,
+          currency: "AZN",
+          idempotency_key: "excl-direct-key-000001",
+        })
+        .execute(),
+    ).rejects.toMatchObject({ code: "23P01" });
+
+    // Cancelled rows fall outside the constraint's WHERE predicate, so an
+    // overlapping cancelled booking is fine (audit trails keep their rows).
+    await db.db
+      .insertInto("bookings")
+      .values({
+        court_id: courtId,
+        user_id: user.id,
+        starts_at: new Date(new Date(startsAt).getTime() + 30 * 60_000),
+        duration_minutes: 60,
+        total_minor: 5000,
+        currency: "AZN",
+        status: "cancelled",
+        idempotency_key: "excl-cancelled-key-000001",
+      })
+      .execute();
+
+    // Adjacent (back-to-back) is allowed — the range is half-open.
+    await db.db
+      .insertInto("bookings")
+      .values({
+        court_id: courtId,
+        user_id: user.id,
+        starts_at: new Date(new Date(startsAt).getTime() + 60 * 60_000),
+        duration_minutes: 60,
+        total_minor: 5000,
+        currency: "AZN",
+        idempotency_key: "excl-adjacent-key-000001",
+      })
+      .execute();
+  });
+
+  // ─────────────── GET /courts/:id/availability ───────────────
+
+  it("availability marks slots overlapped by an active booking as booked", async () => {
+    const user = await createTestUser(app);
+    const date = bakuDateIn(2);
+    const created = await postCreate(app, user, {
+      court_id: courtId,
+      starts_at: `${date}T10:00:00+04:00`,
+      duration_minutes: 60,
+      idempotency_key: "avail-booked-key-0001",
+    });
+    expect(created.statusCode).toBe(201);
+    const bookingId = created.json<BookingBody>().id;
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/v1/courts/${courtId}/availability?date=${date}`,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json<AvailabilityBody>();
+    expect(body.court_id).toBe(courtId);
+    const byStart = new Map(body.slots.map((s) => [s.start_at, s]));
+
+    // 60-minute booking at 10:00 occupies the 10:00 and 10:30 slots.
+    expect(byStart.get(`${date}T10:00:00+04:00`)!.status).toBe("booked");
+    expect(byStart.get(`${date}T10:00:00+04:00`)!.booking_id).toBe(bookingId);
+    expect(byStart.get(`${date}T10:30:00+04:00`)!.status).toBe("booked");
+    // Neighbouring slots stay free — windows are half-open.
+    expect(byStart.get(`${date}T09:30:00+04:00`)!.status).toBe("free");
+    expect(byStart.get(`${date}T09:30:00+04:00`)!.booking_id).toBeNull();
+    expect(byStart.get(`${date}T11:00:00+04:00`)!.status).toBe("free");
+  });
+
+  it("availability frees the slots again after the booking is cancelled", async () => {
+    const user = await createTestUser(app);
+    const date = bakuDateIn(3);
+    const created = await postCreate(app, user, {
+      court_id: courtId,
+      starts_at: `${date}T12:00:00+04:00`,
+      duration_minutes: 90,
+      idempotency_key: "avail-cancel-key-0001",
+    });
+    expect(created.statusCode).toBe(201);
+    const bookingId = created.json<BookingBody>().id;
+
+    const before = await app.inject({
+      method: "GET",
+      url: `/api/v1/courts/${courtId}/availability?date=${date}`,
+    });
+    const bookedCount = before
+      .json<AvailabilityBody>()
+      .slots.filter((s) => s.status === "booked").length;
+    expect(bookedCount).toBe(3); // 90 min = three 30-min slots
+
+    const cancel = await app.inject({
+      method: "POST",
+      url: `/api/v1/bookings/${bookingId}/cancel`,
+      headers: { authorization: `Bearer ${user.access_token}` },
+    });
+    expect(cancel.statusCode).toBe(200);
+
+    const after = await app.inject({
+      method: "GET",
+      url: `/api/v1/courts/${courtId}/availability?date=${date}`,
+    });
+    expect(after.statusCode).toBe(200);
+    expect(after.json<AvailabilityBody>().slots.every((s) => s.status === "free")).toBe(true);
   });
 });
 

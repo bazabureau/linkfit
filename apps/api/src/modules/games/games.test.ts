@@ -126,6 +126,61 @@ describe("games routes", () => {
       });
       expect(res.statusCode).toBe(401);
     });
+
+    it("replays the same game when the host retries with the same idempotency_key", async () => {
+      const host = await createTestUser(app);
+      const key = "5e0a2f1c-9d3b-4a87-b1e4-2c6f8a9d0e51";
+      const first = await createGame(host, { idempotency_key: key });
+      const second = await createGame(host, { idempotency_key: key });
+      expect(second.id).toBe(first.id);
+      expect(second.participants_count).toBe(1);
+
+      const count = await sql<{ c: string }>`SELECT count(*)::text AS c FROM games`.execute(
+        db.db,
+      );
+      expect(Number(count.rows[0]!.c)).toBe(1);
+    });
+
+    it("different idempotency_keys (or none) still mint distinct games", async () => {
+      const host = await createTestUser(app);
+      const a = await createGame(host, {
+        idempotency_key: "11111111-1111-4111-8111-111111111111",
+      });
+      const b = await createGame(host, {
+        idempotency_key: "22222222-2222-4222-8222-222222222222",
+      });
+      const c = await createGame(host); // no key — legacy clients
+      expect(new Set([a.id, b.id, c.id]).size).toBe(3);
+    });
+
+    it("the same idempotency_key used by two different hosts does not collide", async () => {
+      const key = "33333333-3333-4333-8333-333333333333";
+      const hostA = await createTestUser(app);
+      const hostB = await createTestUser(app);
+      const a = await createGame(hostA, { idempotency_key: key });
+      const b = await createGame(hostB, { idempotency_key: key });
+      expect(a.id).not.toBe(b.id);
+      expect(a.host_user_id).toBe(hostA.id);
+      expect(b.host_user_id).toBe(hostB.id);
+    });
+
+    it("rejects a non-uuid idempotency_key", async () => {
+      const host = await createTestUser(app);
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/v1/games",
+        headers: { authorization: `Bearer ${host.access_token}` },
+        payload: {
+          sport_id: padelId,
+          lat: 40.4093,
+          lng: 49.8671,
+          starts_at: new Date(Date.now() + ONE_HOUR_MS).toISOString(),
+          duration_minutes: 90,
+          idempotency_key: "not-a-uuid",
+        },
+      });
+      expect(res.statusCode).toBe(400);
+    });
   });
 
   // ─────────────────────── GET /games ───────────────────────

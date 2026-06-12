@@ -4,6 +4,7 @@ export type ErrorCode =
   | "FORBIDDEN"
   | "NOT_FOUND"
   | "CONFLICT"
+  | "SLOT_CONFLICT"
   | "PRECONDITION_FAILED"
   | "RATE_LIMITED"
   | "INTERNAL";
@@ -74,6 +75,23 @@ export class ConflictError extends AppError {
   public readonly code = "CONFLICT" as const;
   public readonly httpStatus = 409;
   constructor(message = "Conflict with current state", options: AppErrorOptions = {}) {
+    super(message, options);
+  }
+}
+
+/**
+ * Specialised 409 for court-booking overlaps. Distinct from the generic
+ * `CONFLICT` code so clients can branch on it mechanically — the iOS booking
+ * grid shows a "slot just got taken, pick another time" sheet for this code
+ * instead of the generic conflict toast.
+ */
+export class SlotConflictError extends AppError {
+  public readonly code = "SLOT_CONFLICT" as const;
+  public readonly httpStatus = 409;
+  constructor(
+    message = "The requested time slot is already booked",
+    options: AppErrorOptions = {},
+  ) {
     super(message, options);
   }
 }

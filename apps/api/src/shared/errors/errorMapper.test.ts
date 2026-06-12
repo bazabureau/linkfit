@@ -8,6 +8,7 @@ import {
   NotFoundError,
   PreconditionFailedError,
   RateLimitedError,
+  SlotConflictError,
   UnauthenticatedError,
   ValidationError,
 } from "./AppError.js";
@@ -20,6 +21,7 @@ describe("AppError → http mapping", () => {
     { err: new ForbiddenError(), status: 403, code: "FORBIDDEN" },
     { err: new NotFoundError(), status: 404, code: "NOT_FOUND" },
     { err: new ConflictError(), status: 409, code: "CONFLICT" },
+    { err: new SlotConflictError(), status: 409, code: "SLOT_CONFLICT" },
     { err: new PreconditionFailedError(), status: 422, code: "PRECONDITION_FAILED" },
     { err: new RateLimitedError(), status: 429, code: "RATE_LIMITED" },
     { err: new InternalError(), status: 500, code: "INTERNAL" },

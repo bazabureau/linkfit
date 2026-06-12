@@ -16,6 +16,7 @@ export interface GameInsertParams {
   skill_max_elo: number | null;
   visibility: GameVisibility;
   notes: string | null;
+  idempotency_key: string | null;
 }
 
 export interface GamesSearchParams {
@@ -101,6 +102,7 @@ export const gamesRepository = {
         skill_max_elo: params.skill_max_elo,
         visibility: params.visibility,
         notes: params.notes,
+        idempotency_key: params.idempotency_key,
       })
       .returning("id")
       .executeTakeFirstOrThrow();

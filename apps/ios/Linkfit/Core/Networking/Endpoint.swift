@@ -550,6 +550,10 @@ struct CreateGameBody: Encodable {
     let skill_min_elo: Int?
     let skill_max_elo: Int?
     let notes: String?
+    /// Client-generated UUID, stable across retries of the same form
+    /// session, so a timed-out POST that actually landed doesn't mint a
+    /// duplicate game on re-submit. Optional — older backends ignore it.
+    let idempotency_key: String?
 }
 
 extension Endpoint where Response == GameDetail {
@@ -1033,6 +1037,16 @@ struct CourtAvailabilitySlot: Decodable, Equatable, Hashable {
     let end_time: String
     let status: String
     let minutes_from_midnight: Int
+    /// Additive flag set by newer backends when the slot is overlapped by an
+    /// existing booking. Optional so payloads from older servers (which only
+    /// carry `status`) keep decoding unchanged.
+    let booked: Bool?
+
+    /// True when the slot can't be booked — either the legacy `status`
+    /// string says so or the newer `booked` flag is set.
+    var isBooked: Bool {
+        booked == true || status == "booked" || status == "unavailable"
+    }
 }
 
 struct CourtAvailabilityResponse: Decodable, Equatable {

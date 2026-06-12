@@ -198,6 +198,7 @@ export interface GameTable {
   visibility: Generated<GameVisibility>;
   status: Generated<GameStatus>;
   notes: string | null;
+  idempotency_key: string | null;
   created_at: ColumnType<Date, Date | string | undefined, never>;
   updated_at: ColumnType<Date, Date | string | undefined, never>;
   deleted_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;

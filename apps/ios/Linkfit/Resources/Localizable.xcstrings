@@ -3421,6 +3421,72 @@
         }
       }
     },
+    "book.error.slot_conflict": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu vaxt indicə bron olundu — zəhmət olmasa başqa vaxt seç"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That time was just booked — please pick another slot"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это время только что заняли — выбери другой слот"
+          }
+        }
+      }
+    },
+    "book.pay_at_venue": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ödəniş məkanda"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pay at the venue"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оплата на месте"
+          }
+        }
+      }
+    },
+    "book.pay_at_venue.note": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onlayn ödəniş tələb olunmur — ödənişi klubda et"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No online payment needed — pay at the club"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Онлайн-оплата не нужна — оплати в клубе"
+          }
+        }
+      }
+    },
     "book.per_hour": {
       "localizations": {
         "az": {
@@ -3685,6 +3751,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выбери клуб"
+          }
+        }
+      }
+    },
+    "book.total": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cəmi"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Итого"
           }
         }
       }
@@ -4081,6 +4169,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Частично оплачено"
+          }
+        }
+      }
+    },
+    "bookings.status.pay_at_venue": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Məkanda ödəniləcək"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pay at venue"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оплата на месте"
           }
         }
       }

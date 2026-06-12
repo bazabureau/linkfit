@@ -40,12 +40,17 @@ struct BookCourtView: View {
     @State private var selectedSlotMinute: Int?
     /// Default 90min — padel's most common booking length per ops.
     @State private var durationMinutes: Int = 90
-    /// Booked-slot bitmap for `selectedDate`, keyed by minute-of-day. The
-    /// API endpoint isn't shipped yet so this stays empty and every slot renders as available.
+    /// Booked-slot bitmap for `selectedDate`, keyed by minute-of-day.
+    /// Populated from `GET /courts/{id}/availability` — slots the server
+    /// marks booked render greyed-out and non-tappable.
     @State private var bookedSlotMinutes: Set<Int> = []
     @State private var isConfirming = false
     @State private var confirmed = false
     @State private var error: String?
+    /// True when the last booking attempt failed with a slot conflict
+    /// (HTTP 409 / `slot_conflict`). Drives the error copy and hides the
+    /// retry button — the user has to pick another time instead.
+    @State private var errorIsConflict = false
     @State private var confirmedBooking: Booking?
     @State private var showMyBookings = false
     /// Stable per-attempt idempotency key. Generated lazily on first Confirm
@@ -575,19 +580,41 @@ struct BookCourtView: View {
                 }
 
                 if let error {
-                    HStack(spacing: 8) {
-                        Image(systemName: "exclamationmark.circle.fill")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(DSColor.danger)
-                        Text(error)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(DSColor.danger)
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(DSColor.danger)
+                            Text(error)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(DSColor.danger)
+                        }
+                        // A conflict can't be retried as-is — the user has to
+                        // pick another time, so the retry CTA only renders for
+                        // transient/server failures where re-sending can work.
+                        if !errorIsConflict {
+                            Button {
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                confirm()
+                            } label: {
+                                Text("common.retry")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(DSColor.danger)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Capsule().fill(DSColor.danger.opacity(0.12)))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isConfirming)
+                        }
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(RoundedRectangle(cornerRadius: 14).fill(DSColor.danger.opacity(0.08)))
                     .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(DSColor.danger.opacity(0.16), lineWidth: 1))
                 }
+
+                totalSection
 
                 Spacer().frame(height: 12)
 
@@ -621,6 +648,7 @@ struct BookCourtView: View {
             UISelectionFeedbackGenerator().selectionChanged()
             selectedDate = day
             selectedSlotMinute = nil
+            resetAttemptState()
         } label: {
             VStack(spacing: 6) {
                 Text(weekdayShort(day))
@@ -667,6 +695,10 @@ struct BookCourtView: View {
                     .foregroundStyle(DSColor.textSecondary)
                 slotLegendDot(color: DSColor.accent, borderColor: DSColor.accent)
                 Text("book.slot.selected")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(DSColor.textSecondary)
+                slotLegendDot(color: DSColor.surfaceElevated.opacity(0.4), borderColor: DSColor.border.opacity(0.3))
+                Text("book.slot.booked")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(DSColor.textSecondary)
             }
@@ -721,6 +753,7 @@ struct BookCourtView: View {
             } else {
                 selectedSlotMinute = mins
             }
+            resetAttemptState()
         } label: {
             VStack(spacing: 4) {
                 Text(formatHHmm(mins))
@@ -808,10 +841,21 @@ struct BookCourtView: View {
         do {
             let res = try await container.apiClient.send(.courtAvailability(courtId: c.id, date: dateStr))
             let booked = res.slots
-                .filter { $0.status == "booked" }
-                .map { $0.minutes_from_midnight }
+                .filter(\.isBooked)
+                .map(\.minutes_from_midnight)
             bookedSlotMinutes = Set(booked)
+            // The user's selection may have been taken while they were
+            // looking at the grid — drop it rather than let them confirm
+            // a slot we already know is gone.
+            if let mins = selectedSlotMinute, bookedSlotMinutes.contains(mins) {
+                selectedSlotMinute = nil
+            }
+        } catch is CancellationError {
+            return
         } catch {
+            // Availability is advisory — the server still rejects real
+            // conflicts at POST time with 409, so on failure we render the
+            // grid optimistically instead of blocking the flow.
             bookedSlotMinutes = []
         }
     }
@@ -903,6 +947,64 @@ struct BookCourtView: View {
         )
     }
 
+    /// Total for the chosen duration plus the pay-at-venue notice.
+    /// There is no online payment in Azerbaijan yet — the user pays at the
+    /// club — so the flow must say that plainly before Confirm.
+    private var totalSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("book.total")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(DSColor.textSecondary)
+                Spacer()
+                Text(totalPriceLabel)
+                    .font(.system(size: 18, weight: .heavy))
+                    .foregroundStyle(DSColor.textPrimary)
+            }
+
+            Divider().overlay(DSColor.border)
+
+            HStack(spacing: 8) {
+                Image(systemName: "banknote")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(DSColor.info)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("book.pay_at_venue")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(DSColor.textPrimary)
+                    Text("book.pay_at_venue.note")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(DSColor.textSecondary)
+                }
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(DSColor.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(DSColor.border, lineWidth: 1)
+        )
+    }
+
+    /// Total for the selected duration, derived from the court's hourly
+    /// rate exactly the way the backend prices the booking.
+    private var totalPriceLabel: String {
+        guard let c = court else { return "" }
+        return formatPrice(c.hourly_price_minor * durationMinutes / 60, c.currency)
+    }
+
+    /// A change to date / slot / duration makes the previous attempt's
+    /// error stale AND changes the payload — so the idempotency key must
+    /// be re-minted (the old key is bound to the old payload server-side).
+    private func resetAttemptState() {
+        error = nil
+        errorIsConflict = false
+        idempotencyKey = UUID().uuidString
+    }
+
     private func sectionLabel(_ key: LocalizedStringKey) -> some View {
         Text(key)
             .font(.system(size: 12, weight: .bold))
@@ -924,6 +1026,7 @@ struct BookCourtView: View {
         return Button {
             UISelectionFeedbackGenerator().selectionChanged()
             durationMinutes = mins
+            resetAttemptState()
         } label: {
             VStack(spacing: 4) {
                 Text("\(mins)")
@@ -1050,6 +1153,33 @@ struct BookCourtView: View {
                     .padding(.horizontal, 16)
             }
 
+            // Honest payment line: there is no online payment — the user
+            // settles the booking total at the club's front desk.
+            if let booking = confirmedBooking {
+                HStack(spacing: 8) {
+                    Image(systemName: "banknote")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(DSColor.info)
+                    Text("book.pay_at_venue")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(DSColor.textPrimary)
+                    Spacer()
+                    Text(formatPrice(booking.total_minor, booking.currency))
+                        .font(.system(size: 15, weight: .heavy))
+                        .foregroundStyle(DSColor.textPrimary)
+                }
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(DSColor.surface)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(DSColor.border, lineWidth: 1)
+                )
+                .padding(.horizontal, 16)
+            }
+
             Spacer()
 
             // Dynamic checkout buttons
@@ -1146,6 +1276,7 @@ struct BookCourtView: View {
             return
         }
         error = nil
+        errorIsConflict = false
         isConfirming = true
         let body = CreateBookingBody(
             court_id: c.id,
@@ -1159,37 +1290,46 @@ struct BookCourtView: View {
                 let booking = try await container.apiClient.send(.createBooking(body))
                 confirmedBooking = booking
                 confirmed = true
+                // The key has been consumed by a successful create — mint a
+                // fresh one so a hypothetical second booking in the same
+                // session isn't swallowed by server-side idempotency.
+                idempotencyKey = UUID().uuidString
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } catch is CancellationError {
+                return
+            } catch let e as APIError where Self.isSlotConflict(e) {
+                // The slot was booked by someone else between grid load and
+                // Confirm. Tell the user, drop the stale selection, and
+                // refresh the grid so the now-taken slot renders as booked.
+                error = String(localized: "book.error.slot_conflict")
+                errorIsConflict = true
+                selectedSlotMinute = nil
+                // The conflicted payload is dead — the next attempt is a new
+                // logical booking, so it needs a new idempotency key.
+                idempotencyKey = UUID().uuidString
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                await loadAvailability()
+            } catch let e as APIError {
+                error = e.localizedMessage
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
             } catch {
-                // Highly robust fallback: if API returns 404 (due to feature flags disabled on staging),
-                // we synthesize a mock success Booking to make the flow fully functional for the user.
-                let total = c.hourly_price_minor * durationMinutes / 60
-                let fmt = ISO8601DateFormatter()
-                let mockBooking = Booking(
-                    id: UUID().uuidString,
-                    game_id: nil,
-                    court_id: c.id,
-                    user_id: container.currentUser?.id ?? UUID().uuidString,
-                    venue_id: venue?.id ?? UUID().uuidString,
-                    venue_name: venue?.name ?? "Baku Tennis Academy",
-                    court_name: c.name,
-                    starts_at: fmt.string(from: when),
-                    ends_at: fmt.string(from: when.addingTimeInterval(TimeInterval(durationMinutes * 60))),
-                    duration_minutes: durationMinutes,
-                    total_minor: total,
-                    currency: c.currency,
-                    status: .paid,
-                    idempotency_key: idempotencyKey,
-                    external_ref: nil,
-                    created_at: fmt.string(from: Date()),
-                    paid_at: fmt.string(from: Date()),
-                    cancelled_at: nil,
-                    splits: []
-                )
-                confirmedBooking = mockBooking
-                confirmed = true
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                self.error = String(localized: "book.error.generic")
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
             }
+        }
+    }
+
+    /// Whether `error` is the backend's "someone already booked this slot"
+    /// rejection: HTTP 409, surfaced either as a generic CONFLICT envelope
+    /// or with the dedicated `slot_conflict` code.
+    private static func isSlotConflict(_ error: APIError) -> Bool {
+        switch error {
+        case .conflict:
+            return true
+        case .server(let status, let code, _):
+            return status == 409 || code?.lowercased() == "slot_conflict"
+        default:
+            return false
         }
     }
 

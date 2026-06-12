@@ -93,6 +93,16 @@ export class GamesService {
   }
 
   async create(hostUserId: string, req: CreateGameRequest): Promise<GameDetail> {
+    // Idempotency replay — checked BEFORE any validation so a retried
+    // request that succeeded the first time still replays even if wall-clock
+    // drift would now fail the "starts_at must be in the future" guard.
+    // Scoped to the host: the partial UNIQUE index on
+    // (host_user_id, idempotency_key) guarantees at most one match.
+    if (req.idempotency_key !== undefined) {
+      const replay = await this.findByIdempotencyKey(hostUserId, req.idempotency_key);
+      if (replay) return replay;
+    }
+
     const sport = await this.deps.db.db
       .selectFrom("sports")
       .selectAll()
@@ -133,31 +143,47 @@ export class GamesService {
       }
     }
 
-    const detail = await withTransaction(this.deps.db.db, async (tx) => {
-      const id = await gamesRepository.insert(tx, {
-        sport_id: req.sport_id,
-        court_id: req.court_id ?? null,
-        host_user_id: hostUserId,
-        lat: req.lat,
-        lng: req.lng,
-        starts_at: startsAt,
-        duration_minutes: req.duration_minutes,
-        capacity,
-        skill_min_elo: req.skill_min_elo ?? null,
-        skill_max_elo: req.skill_max_elo ?? null,
-        visibility: req.visibility ?? "public",
-        notes: req.notes ?? null,
-      });
-      await tx
-        .insertInto("game_participants")
-        .values({ game_id: id, user_id: hostUserId, status: "confirmed" })
-        .execute();
+    let detail: GameDetail;
+    try {
+      detail = await withTransaction(this.deps.db.db, async (tx) => {
+        const id = await gamesRepository.insert(tx, {
+          sport_id: req.sport_id,
+          court_id: req.court_id ?? null,
+          host_user_id: hostUserId,
+          lat: req.lat,
+          lng: req.lng,
+          starts_at: startsAt,
+          duration_minutes: req.duration_minutes,
+          capacity,
+          skill_min_elo: req.skill_min_elo ?? null,
+          skill_max_elo: req.skill_max_elo ?? null,
+          visibility: req.visibility ?? "public",
+          notes: req.notes ?? null,
+          idempotency_key: req.idempotency_key ?? null,
+        });
+        await tx
+          .insertInto("game_participants")
+          .values({ game_id: id, user_id: hostUserId, status: "confirmed" })
+          .execute();
 
-      const created = await gamesRepository.findById(tx, id);
-      if (!created) throw new NotFoundError("Game vanished after creation");
-      this.deps.telemetry?.business.gamesCreated.inc({ sport: sport.slug });
-      return created;
-    });
+        const created = await gamesRepository.findById(tx, id);
+        if (!created) throw new NotFoundError("Game vanished after creation");
+        this.deps.telemetry?.business.gamesCreated.inc({ sport: sport.slug });
+        return created;
+      });
+    } catch (err) {
+      // 23505 on the (host_user_id, idempotency_key) partial UNIQUE index —
+      // two concurrent requests raced past the replay check above. The
+      // winner's row is the canonical game; replay it for the loser so both
+      // callers converge on the same id. Skips the feed/analytics emits
+      // below — the winning request already fired them.
+      const code = (err as { code?: string } | null)?.code;
+      if (code === "23505" && req.idempotency_key !== undefined) {
+        const replay = await this.findByIdempotencyKey(hostUserId, req.idempotency_key);
+        if (replay) return replay;
+      }
+      throw err;
+    }
 
     // Fire-and-forget feed emit AFTER the tx commits — never blocks the
     // host on a feed insert hiccup. We share the worker's `sourceKey`
@@ -195,6 +221,27 @@ export class GamesService {
     });
 
     return detail;
+  }
+
+  /**
+   * Look up the game a (host, idempotency_key) pair previously minted.
+   * Soft-deleted games resolve to `null` — same visibility rule as
+   * `findById` — so replaying a key whose game the host has since deleted
+   * does NOT resurrect it; the caller falls through to its error path.
+   */
+  private async findByIdempotencyKey(
+    hostUserId: string,
+    idempotencyKey: string,
+  ): Promise<GameDetail | null> {
+    const existing = await this.deps.db.db
+      .selectFrom("games")
+      .select("id")
+      .where("host_user_id", "=", hostUserId)
+      .where("idempotency_key", "=", idempotencyKey)
+      .where("deleted_at", "is", null)
+      .executeTakeFirst();
+    if (!existing) return null;
+    return gamesRepository.findById(this.deps.db.db, existing.id);
   }
 
   async list(query: GamesListQuery, viewerUserId: string | null = null): Promise<GameListPage> {

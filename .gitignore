@@ -5,3 +5,4 @@ node_modules/
 DerivedData/
 dist/
 .next/
+apps/api/dist/

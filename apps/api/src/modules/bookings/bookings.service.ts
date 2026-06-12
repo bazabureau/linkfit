@@ -2,10 +2,10 @@ import { sql } from "kysely";
 import { type DbHandle } from "../../shared/db/pool.js";
 import { withTransaction, type Executor } from "../../shared/db/withTransaction.js";
 import {
-  ConflictError,
   ForbiddenError,
   NotFoundError,
   PreconditionFailedError,
+  SlotConflictError,
   ValidationError,
 } from "../../shared/errors/AppError.js";
 import { type BookingStatus, type PaymentSplitStatus } from "../../shared/db/types.js";
@@ -215,27 +215,45 @@ export class BookingsService {
          FOR UPDATE
       `.execute(tx);
       if (overlap.rows.length > 0) {
-        throw new ConflictError("Court is already booked for that time window");
+        throw new SlotConflictError("Court is already booked for that time window", {
+          details: { court_id: req.court_id, conflicting_booking_id: overlap.rows[0]?.id },
+        });
       }
 
       // 3. Insert the booking.  Concurrent inserts with the same idempotency
       //    key are squashed by the UNIQUE constraint via onConflict — the
-      //    loser then re-reads in step 4 below.
-      const inserted = await tx
-        .insertInto("bookings")
-        .values({
-          court_id: req.court_id,
-          user_id: userId,
-          game_id: req.game_id ?? null,
-          starts_at: startsAt,
-          duration_minutes: req.duration_minutes,
-          total_minor: totalMinor,
-          currency: resolveCurrency(court.currency),
-          idempotency_key: req.idempotency_key,
-        })
-        .onConflict((oc) => oc.column("idempotency_key").doNothing())
-        .returning("id")
-        .executeTakeFirst();
+      //    loser then re-reads in step 4 below.  A concurrent insert for an
+      //    overlapping window that slipped past the SELECT above (e.g. a
+      //    writer that didn't take the court lock) trips the
+      //    `bookings_no_overlap_excl` exclusion constraint instead —
+      //    23P01 = exclusion_violation, surfaced as the same SLOT_CONFLICT
+      //    the explicit check produces so clients see one consistent code.
+      let inserted: { id: string } | undefined;
+      try {
+        inserted = await tx
+          .insertInto("bookings")
+          .values({
+            court_id: req.court_id,
+            user_id: userId,
+            game_id: req.game_id ?? null,
+            starts_at: startsAt,
+            duration_minutes: req.duration_minutes,
+            total_minor: totalMinor,
+            currency: resolveCurrency(court.currency),
+            idempotency_key: req.idempotency_key,
+          })
+          .onConflict((oc) => oc.column("idempotency_key").doNothing())
+          .returning("id")
+          .executeTakeFirst();
+      } catch (err) {
+        const code = (err as { code?: string } | null)?.code;
+        if (code === "23P01") {
+          throw new SlotConflictError("Court is already booked for that time window", {
+            details: { court_id: req.court_id },
+          });
+        }
+        throw err;
+      }
 
       const bookingId =
         inserted?.id ??
@@ -403,13 +421,17 @@ export class BookingsService {
     if (!court) throw new NotFoundError("Court not found");
 
     // 2. Convert the YYYY-MM-DD into UTC day bounds in the court's timezone.
-    //    Postgres' `<date> AT TIME ZONE <tz>` returns a `timestamptz` anchored
-    //    at midnight in the given zone, which is exactly what we want for the
-    //    overlap query against the `timestamptz` `bookings.starts_at` column.
+    //    The cast MUST go through `::timestamp` (naive midnight), because
+    //    `<naive timestamp> AT TIME ZONE <tz>` interprets the value as
+    //    wall-clock time IN that zone and returns a `timestamptz` — exactly
+    //    what the overlap query against `bookings.starts_at` needs. Casting
+    //    via `::date` instead would first promote to `timestamptz` using the
+    //    *session* timezone and then convert BACK to a naive timestamp,
+    //    shifting the whole grid by the server-vs-Baku offset.
     const bounds = await sql<{ day_start: Date; day_end: Date }>`
       SELECT
-        (${date}::date AT TIME ZONE ${COURT_DEFAULT_TIMEZONE}) AS day_start,
-        ((${date}::date + INTERVAL '1 day') AT TIME ZONE ${COURT_DEFAULT_TIMEZONE}) AS day_end
+        (${date}::timestamp AT TIME ZONE ${COURT_DEFAULT_TIMEZONE}) AS day_start,
+        ((${date}::timestamp + INTERVAL '1 day') AT TIME ZONE ${COURT_DEFAULT_TIMEZONE}) AS day_end
     `.execute(this.deps.db.db);
     const row = bounds.rows[0];
     if (!row) {
