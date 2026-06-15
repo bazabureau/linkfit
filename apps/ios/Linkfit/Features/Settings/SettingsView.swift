@@ -10,6 +10,8 @@ struct SettingsView: View {
     @State private var showEdit = false
     @State private var confirmLogout = false
     @State private var showPrivacy = false
+    @State private var showMembership = false
+    @State private var showSessions = false
 
     @State private var showMyBookings = false
     @State private var showLeaderboards = false
@@ -49,6 +51,10 @@ struct SettingsView: View {
                             settingsRow(icon: "pencil", titleKey: "profile.edit") { showEdit = true }
                             rowDivider
                             settingsRow(icon: "calendar.badge.checkmark", titleKey: "settings.row.my_bookings") { showMyBookings = true }
+                            rowDivider
+                            settingsRow(icon: "crown.fill", titleKey: "settings.row.membership", tint: DSColor.accent) { showMembership = true }
+                            rowDivider
+                            settingsRow(icon: "laptopcomputer.and.iphone", titleKey: "sessions.title") { showSessions = true }
                             rowDivider
                             settingsRow(icon: "person.crop.circle.badge.minus", titleKey: "settings.account.delete", tint: DSColor.danger) { showPrivacy = true }
                         }
@@ -315,6 +321,12 @@ struct SettingsView: View {
             // Replaces the old "coming soon" dead-end (Apple requires an
             // in-app deletion path for apps with account creation).
             PrivacyView()
+        }
+        .navigationDestination(isPresented: $showMembership) {
+            MembershipView(viewModel: MembershipViewModel(apiClient: container.apiClient))
+        }
+        .navigationDestination(isPresented: $showSessions) {
+            SessionsView(viewModel: SessionsViewModel(apiClient: container.apiClient))
         }
         .navigationDestination(isPresented: $showMyBookings) {
             MyBookingsView(
