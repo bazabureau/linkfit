@@ -264,7 +264,7 @@ struct AmericanoTournamentView: View {
                         Text(tournamentName)
                             .font(.system(size: 22, weight: .black))
                             .foregroundStyle(DSColor.textPrimary)
-                        Text("Americano • \(tournamentFormat)")
+                        Text("Americano • \(localizedString(tournamentFormat))")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(DSColor.textSecondary)
                     }
@@ -394,7 +394,7 @@ struct AmericanoTournamentView: View {
                                         Text(item.display_name)
                                             .font(.system(size: 14, weight: .bold))
                                             .foregroundStyle(isGold ? DSColor.accent : DSColor.textPrimary)
-                                        Text("\(item.wins)Q • \(item.draws)H • \(item.losses)M")
+                                        Text("\(item.wins)\(localizedString("win_short")) • \(item.draws)\(localizedString("draw_short")) • \(item.losses)\(localizedString("loss_short"))")
                                             .font(.system(size: 10, weight: .medium))
                                             .foregroundStyle(DSColor.textSecondary)
                                     }
@@ -403,10 +403,10 @@ struct AmericanoTournamentView: View {
                                 Spacer()
                                 
                                 VStack(alignment: .trailing, spacing: 2) {
-                                    Text("\(item.score) Xal")
+                                    Text("\(item.score) \(localizedString("points"))")
                                         .font(.system(size: 14, weight: .black))
                                         .foregroundStyle(DSColor.textPrimary)
-                                    Text("\(item.pointsDifference > 0 ? "+" : "")\(item.pointsDifference) Fərq")
+                                    Text("\(item.pointsDifference > 0 ? "+" : "")\(item.pointsDifference) \(localizedString("diff"))")
                                         .font(.system(size: 10, weight: .semibold))
                                         .foregroundStyle(DSColor.textSecondary)
                                 }
@@ -902,7 +902,12 @@ struct AmericanoTournamentView: View {
             "sponsor_reward": "Sponsor Mükafatı",
             "copy": "Kodu kopyala",
             "copied": "Kopyalandı!",
-            "prize_desc": "Top Padel Baku-da 1 saatlıq pulsuz meydan slotu kuponu"
+            "prize_desc": "Top Padel Baku-da 1 saatlıq pulsuz meydan slotu kuponu",
+            "win_short": "Q",
+            "draw_short": "H",
+            "loss_short": "M",
+            "points": "Xal",
+            "diff": "Fərq"
         ]
 
         let enDict = [
@@ -926,7 +931,12 @@ struct AmericanoTournamentView: View {
             "sponsor_reward": "Sponsor Reward",
             "copy": "Copy code",
             "copied": "Copied!",
-            "prize_desc": "Free 1 Hour Court Slot at Top Padel Baku"
+            "prize_desc": "Free 1 Hour Court Slot at Top Padel Baku",
+            "win_short": "W",
+            "draw_short": "D",
+            "loss_short": "L",
+            "points": "pts",
+            "diff": "Diff"
         ]
 
         let ruDict = [
@@ -950,7 +960,12 @@ struct AmericanoTournamentView: View {
             "sponsor_reward": "Спонсорская награда",
             "copy": "Копировать код",
             "copied": "Скопировано!",
-            "prize_desc": "Купон на 1 час бесплатной игры в Top Padel Baku"
+            "prize_desc": "Купон на 1 час бесплатной игры в Top Padel Baku",
+            "win_short": "В",
+            "draw_short": "Н",
+            "loss_short": "П",
+            "points": "очк.",
+            "diff": "Разн."
         ]
 
         if code.hasPrefix("en") {

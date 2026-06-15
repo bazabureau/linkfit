@@ -31716,6 +31716,52 @@
         }
       }
     },
+    "stories.camera.simulator.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şəkil çək və ya kitabxanadan birini seçərək redaktəyə başla."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capture a simulated photo or choose one from your library to begin editing."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделайте снимок или выберите фото из галереи, чтобы начать редактирование."
+          }
+        }
+      }
+    },
+    "stories.camera.simulator.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Story Simulyatoru"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Padel Story Simulator"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Симулятор Story"
+          }
+        }
+      }
+    },
     "stories.creator.action.camera": {
       "comment": "Story creator — camera-source button label (companion to the library picker)",
       "localizations": {

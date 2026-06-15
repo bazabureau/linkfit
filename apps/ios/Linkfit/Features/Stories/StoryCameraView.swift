@@ -784,11 +784,11 @@ struct SimulatorViewfinder: View {
                 }
                 
                 VStack(spacing: 8) {
-                    Text("Padel Story Simulator")
+                    Text("stories.camera.simulator.title")
                         .font(.system(size: 22, weight: .bold, design: .default))
                         .foregroundStyle(.white)
-                    
-                    Text("Capture a simulated photo or choose one from your library to begin editing.")
+
+                    Text("stories.camera.simulator.subtitle")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(.white.opacity(0.6))
                         .multilineTextAlignment(.center)
