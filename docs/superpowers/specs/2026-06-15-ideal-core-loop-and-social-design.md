@@ -62,5 +62,8 @@ Landed on `ideal/core-loop-and-social` (all build-green, committed):
 - `bb5f7ef` **Batch 7a** — `PrimaryButton` + `FollowButton` press-scale + haptic (root-cause, ~18 CTAs); removed 2 redundant per-site haptics.
 - `6f26663` **Social** — inline-unfollow now uses the overflow menu's confirmation; surfaced Home `friendActivitySection` (fetched but never rendered).
 - `be0553c` **#19** — booking can no longer overflow venue close (9:00–22:00): overflow start-times disabled, selection cleared when duration grows.
+- **3a** — wired orphaned **Membership** paywall + **Sessions** ("logged-in devices") into Settings (views were built + localized, no entry point; no new strings).
+- **3b** — Matches `+` is now a **menu**: New game / **Weekly series** (`RecurringGameSheet`) / **Americano** (`AmericanoTournamentView`) — both were built but unreachable.
+- **8a** — deleted **4 orphaned shell files** (DiscoverShell/InboxShell/RankingsShell/PlayShell — old tab architecture, replaced by AppShell→HomeView). Regenerated project, build green. (The dead/disconnected code was the audit's #1 "AI-churned" cause.)
 
 **Remaining** (high value): orphan entry points needing localized titles (Membership/Sessions rows, Americano/Recurring via Matches `+` menu, host invite, group-chat entries); story-overlay flatten (P0 quality); ELO delta (backend-gated); squad-invite accept; rate-CTA gating; dead-code purge. See the "Remaining" section of the master gap list above.

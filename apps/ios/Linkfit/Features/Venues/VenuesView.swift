@@ -741,7 +741,7 @@ struct VenueDetailView: View {
     private func actionRow(_ venue: VenueDetail) -> some View {
         HStack(spacing: DSSpacing.sm) {
             PrimaryButton(
-                title: String(localized: "book.step.court"),
+                title: String(localized: "actions.book_court"),
                 icon: "calendar.badge.plus"
             ) {
                 showBooking = true
