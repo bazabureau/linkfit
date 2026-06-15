@@ -28,11 +28,14 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>linkfit</string>
+				<string>com.googleusercontent.apps.655337821050-pi74ppu4gjv7b0gs0v417djtndrl7nt2</string>
 			</array>
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>12</string>
+	<key>GIDClientID</key>
+	<string>655337821050-pi74ppu4gjv7b0gs0v417djtndrl7nt2.apps.googleusercontent.com</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSAppTransportSecurity</key>
