@@ -7689,19 +7689,19 @@
         "az": {
           "stringUnit": {
             "state": "translated",
-            "value": "Davam etmək üçün email ünvanını təsdiqlə. Sənə təsdiq linki göndərdik — linki aç və ya kodu daxil et."
+            "value": "Davam etmək üçün email ünvanını təsdiqlə. Sənə 6 rəqəmli təsdiq kodu göndərdik."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Verify your email to continue. We've sent you a confirmation link — open it or enter the code."
+            "value": "Verify your email to continue. We've sent you a 6-digit confirmation code."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Подтвердите почту, чтобы продолжить. Мы отправили ссылку — откройте её или введите код."
+            "value": "Подтвердите почту, чтобы продолжить. Мы отправили 6-значный код подтверждения."
           }
         }
       }
@@ -8144,70 +8144,47 @@
       }
     },
     "email.sheet.heading": {
-      "comment": "=== Email agent ===",
+      "extractionState": "manual",
       "localizations": {
         "az": {
           "stringUnit": {
             "state": "translated",
-            "value": "Linki və ya tokeni daxil et"
+            "value": "6 rəqəmli kodu daxil et"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Paste your link or token"
+            "value": "Enter the 6-digit code"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Вставьте ссылку или код"
-          }
-        }
-      }
-    },
-    "email.sheet.paste": {
-      "comment": "=== Email agent ===",
-      "localizations": {
-        "az": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mübadilədən yapışdır"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Paste from clipboard"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вставить из буфера"
+            "value": "Введите 6-значный код"
           }
         }
       }
     },
     "email.sheet.subheading": {
-      "comment": "=== Email agent ===",
+      "extractionState": "manual",
       "localizations": {
         "az": {
           "stringUnit": {
             "state": "translated",
-            "value": "Emailindəki tokeni və ya tam linki yapışdır."
+            "value": "Email-inə göndərdiyimiz 6 rəqəmli təsdiq kodunu yaz."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Paste the token (or the full link) from your email."
+            "value": "Type the 6-digit code we sent to your email."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Вставьте код или полную ссылку из письма."
+            "value": "Введите 6-значный код, отправленный на вашу почту."
           }
         }
       }
@@ -8259,7 +8236,7 @@
       }
     },
     "email.sheet.token_label": {
-      "comment": "=== Email agent ===",
+      "extractionState": "manual",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -8282,7 +8259,7 @@
       }
     },
     "email.sheet.token_placeholder": {
-      "comment": "=== Email agent ===",
+      "extractionState": "manual",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -8351,47 +8328,47 @@
       }
     },
     "email.toast.invalid_token.message": {
-      "comment": "=== Email agent ===",
+      "extractionState": "manual",
       "localizations": {
         "az": {
           "stringUnit": {
             "state": "translated",
-            "value": "Link köhnəlmiş və ya səhvdir."
+            "value": "Kod yanlış və ya vaxtı keçib. Yenidən yoxla və ya yeni kod istə."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The link is expired or incorrect."
+            "value": "The code is invalid or expired. Check it or request a new one."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ссылка просрочена или неверна."
+            "value": "Код неверный или истёк. Проверьте или запросите новый."
           }
         }
       }
     },
     "email.toast.invalid_token.title": {
-      "comment": "=== Email agent ===",
+      "extractionState": "manual",
       "localizations": {
         "az": {
           "stringUnit": {
             "state": "translated",
-            "value": "Token uyğun deyil"
+            "value": "Kod yanlışdır"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Invalid token"
+            "value": "Wrong code"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Неверный токен"
+            "value": "Неверный код"
           }
         }
       }

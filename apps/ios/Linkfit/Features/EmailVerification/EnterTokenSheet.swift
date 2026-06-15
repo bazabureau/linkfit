@@ -1,9 +1,12 @@
 import SwiftUI
 
-/// Sheet presented when the user taps "Enter code" on the banner. Lets
-/// them paste the magic-link token from their email and submit. We accept
-/// both the bare opaque token AND the full link — if the input looks like
-/// a URL, we extract the `token` query item before forwarding to the API.
+/// Sheet for entering the 6-digit email verification code.
+///
+/// The backend emails a short numeric code; the user types it (or lets iOS
+/// autofill it from Mail via `.oneTimeCode`) into six cells and we submit. When
+/// the sixth digit lands we submit automatically. Replaces the old "paste the
+/// magic-link token / full URL" flow — there's no token or link surfaced to the
+/// user anymore.
 struct EnterTokenSheet: View {
 
     enum CompletionResult { case verified, cancelled }
@@ -11,10 +14,12 @@ struct EnterTokenSheet: View {
     let apiClient: APIClient
     let onComplete: (CompletionResult) -> Void
 
+    private static let codeLength = 6
+
     @State private var viewModel: EmailVerificationViewModel
-    @State private var rawInput: String = ""
+    @State private var code: String = ""
     @State private var toast: EmailVerificationToast?
-    @FocusState private var inputFocused: Bool
+    @FocusState private var codeFocused: Bool
 
     init(apiClient: APIClient,
          onComplete: @escaping (CompletionResult) -> Void) {
@@ -26,11 +31,10 @@ struct EnterTokenSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: DSSpacing.md) {
+                VStack(alignment: .leading, spacing: DSSpacing.lg) {
                     headerCopy
-                    inputField
+                    codeField
                     submitButton
-                    pasteFromClipboard
                 }
                 .padding(.horizontal, DSSpacing.lg)
                 .padding(.top, DSSpacing.md)
@@ -63,7 +67,7 @@ struct EnterTokenSheet: View {
                     kind: feedback.kind,
                 )
             }
-            .task { inputFocused = true }
+            .task { codeFocused = true }
         }
     }
 
@@ -87,32 +91,57 @@ struct EnterTokenSheet: View {
         }
     }
 
-    private var inputField: some View {
-        VStack(alignment: .leading, spacing: DSSpacing.xxs) {
-            Text("email.sheet.token_label")
-                .font(DSType.caption)
-                .foregroundStyle(DSColor.textSecondary)
-            TextField(String(localized: "email.sheet.token_placeholder"),
-                      text: $rawInput,
-                      axis: .vertical)
-                .lineLimit(1...3)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled(true)
-                .focused($inputFocused)
-                .padding(.horizontal, DSSpacing.md)
-                .padding(.vertical, DSSpacing.sm)
-                .background(
-                    RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
-                        .fill(DSColor.surfaceElevated)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
-                        .strokeBorder(inputFocused ? DSColor.accent : DSColor.border,
-                                      lineWidth: inputFocused ? 1.5 : 1)
-                )
-                .font(.system(.body, design: .monospaced))
-                .foregroundStyle(DSColor.textPrimary)
+    // MARK: - 6-digit code field
+
+    /// A real (invisible) text field captures input — keeping `.numberPad` +
+    /// `.oneTimeCode` so iOS offers the code from Mail as a QuickType autofill —
+    /// while six cells render the digits on top. Tapping anywhere focuses it.
+    private var codeField: some View {
+        ZStack {
+            TextField("", text: $code)
+                .keyboardType(.numberPad)
+                .textContentType(.oneTimeCode)
+                .focused($codeFocused)
+                .foregroundStyle(.clear)
+                .tint(.clear)
+                .frame(height: 58)
+                .onChange(of: code) { _, newValue in
+                    let digits = String(newValue.filter(\.isNumber).prefix(Self.codeLength))
+                    if digits != code { code = digits }
+                    if digits.count == Self.codeLength { submit() }
+                }
+
+            HStack(spacing: DSSpacing.xs) {
+                ForEach(0..<Self.codeLength, id: \.self) { index in
+                    digitCell(index)
+                }
+            }
+            .allowsHitTesting(false)
         }
+        .contentShape(Rectangle())
+        .onTapGesture { codeFocused = true }
+    }
+
+    private func digitCell(_ index: Int) -> some View {
+        let chars = Array(code)
+        let filled = index < chars.count
+        let isFocusCell = index == chars.count && codeFocused
+        return RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
+            .fill(DSColor.surfaceElevated)
+            .frame(maxWidth: .infinity)
+            .frame(height: 58)
+            .overlay(
+                RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
+                    .strokeBorder(isFocusCell ? DSColor.accent : DSColor.border,
+                                  lineWidth: isFocusCell ? 2 : 1)
+            )
+            .overlay(
+                Text(filled ? String(chars[index]) : "")
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .foregroundStyle(DSColor.textPrimary)
+                    .contentTransition(.numericText())
+            )
+            .animation(.snappy(duration: 0.18), value: code)
     }
 
     private var submitButton: some View {
@@ -120,49 +149,23 @@ struct EnterTokenSheet: View {
             title: String(localized: "email.sheet.submit"),
             icon: "checkmark.seal",
             isLoading: viewModel.isSubmitting,
-            isEnabled: !rawInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                && !viewModel.isSubmitting,
+            isEnabled: code.count == Self.codeLength && !viewModel.isSubmitting,
         ) {
-            Task {
-                let token = extractToken(from: rawInput)
-                let ok = await viewModel.submitVerification(token: token)
-                if ok { onComplete(.verified) }
+            submit()
+        }
+    }
+
+    private func submit() {
+        guard code.count == Self.codeLength, !viewModel.isSubmitting else { return }
+        Task {
+            let ok = await viewModel.submitVerification(token: code)
+            if ok {
+                onComplete(.verified)
+            } else {
+                // Wrong / expired code — clear so the user can retype fresh.
+                code = ""
+                codeFocused = true
             }
         }
-    }
-
-    private var pasteFromClipboard: some View {
-        Button(action: pasteFromClipboardAction) {
-            Label("email.sheet.paste", systemImage: "doc.on.clipboard")
-                .font(.system(.subheadline, design: .default, weight: .semibold))
-                .foregroundStyle(DSColor.accent)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
-                        .stroke(DSColor.accent.opacity(0.4), lineWidth: 1)
-                )
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func pasteFromClipboardAction() {
-        if let pasted = UIPasteboard.general.string {
-            rawInput = pasted
-        }
-    }
-
-    /// Accept either a bare token or a `linkfit://verify-email?token=…`
-    /// URL pasted from the email. Pulling the query item server-side
-    /// would also work but feels worse: surface the cleaned token here
-    /// so the UI's "Submit" button stays mentally simple.
-    private func extractToken(from raw: String) -> String {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.contains("token=") else { return trimmed }
-        if let url = URL(string: trimmed),
-           let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-           let token = components.queryItems?.first(where: { $0.name == "token" })?.value {
-            return token
-        }
-        return trimmed
     }
 }

@@ -64,11 +64,13 @@ final class EmailVerificationViewModel {
         }
     }
 
-    /// Submit a pasted verification token. On success the view dismisses
-    /// itself and refreshes the user via the `onVerified` callback.
+    /// Submit the 6-digit verification code. On success the view dismisses
+    /// itself and refreshes the user via the `onVerified` callback. (The
+    /// parameter is still named `token` because the API endpoint field is — the
+    /// value is now the numeric code.)
     func submitVerification(token: String) async -> Bool {
         let cleaned = token.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard cleaned.count >= 8 else {
+        guard cleaned.count == 6, cleaned.allSatisfy(\.isNumber) else {
             lastSubmitFeedback = Feedback(kind: .error,
                                           titleKey: "email.toast.invalid_token.title",
                                           messageKey: "email.toast.invalid_token.message")
