@@ -4,16 +4,16 @@ import SwiftUI
 ///
 /// Visual story (~0.9s on a cold launch):
 ///   1. Logo scales `SplashTimings.logoStartScale → .logoEndScale` with a
-///      spring while a lime accent ring pulses softly behind it.
+///      spring; a soft royal-blue brand glow fades in over the canvas (no
+///      shape behind the wordmark).
 ///   2. Tagline fades up underneath one beat later.
 ///   3. We hold long enough for the brand to register, then dissolve the
 ///      whole splash (`.exitFadeDuration` easeInOut) before calling
 ///      `onFinished`. The internal fade gives the parent a true crossfade
 ///      regardless of the transition it wires around us.
 ///
-/// Reduce Motion: all elements appear at full opacity simultaneously, the
-/// pulse ring stays static, and we still hold for `reduceMotionHold` so
-/// the user sees the brand.
+/// Reduce Motion: all elements appear at full opacity simultaneously and we
+/// still hold for `reduceMotionHold` so the user sees the brand.
 ///
 /// All durations live in `SplashTimings` — no magic-number `Task.sleep`
 /// values in this file.
@@ -22,7 +22,6 @@ struct SplashView: View {
 
     @State private var markVisible = false
     @State private var taglineVisible = false
-    @State private var pulseActive = false
     @State private var isLeaving = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -30,19 +29,24 @@ struct SplashView: View {
         ZStack {
             DSColor.background.ignoresSafeArea()
 
+            // Soft brand glow — an ambient royal-blue wash anchored at the top,
+            // matching the "clean canvas + glow" language used across the app.
+            // No shape sits behind the wordmark; the glow just warms the field.
+            RadialGradient(
+                colors: [DSColor.accent.opacity(0.12), .clear],
+                center: .top, startRadius: 8, endRadius: 460
+            )
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+            .opacity(markVisible ? 1 : 0)
+
             VStack(spacing: DSSpacing.md) {
                 Spacer()
 
-                // Logo + lime pulse ring. The ring lives behind the
-                // wordmark so the breathing motion is visible on the
-                // outer edge without competing with the brand.
-                ZStack {
-                    pulseRing
-                    LogoWordmark(size: .custom(40))
-                }
-                .scaleEffect(markVisible ? SplashTimings.logoEndScale
-                                          : SplashTimings.logoStartScale)
-                .opacity(markVisible ? 1 : 0)
+                LogoWordmark(size: .custom(40))
+                    .scaleEffect(markVisible ? SplashTimings.logoEndScale
+                                              : SplashTimings.logoStartScale)
+                    .opacity(markVisible ? 1 : 0)
 
                 Text("linkfit.brand_tagline")
                     .font(.system(.subheadline, design: .default, weight: .medium))
@@ -66,21 +70,6 @@ struct SplashView: View {
         .accessibilityLabel(Text("splash.voice"))
     }
 
-    // MARK: - Pulse ring
-
-    /// Lime accent ring that breathes softly while we wait for auth state.
-    /// Sized generously around the wordmark so the pulse is felt at the
-    /// edges rather than colliding with the letterforms.
-    private var pulseRing: some View {
-        Circle()
-            .stroke(DSColor.accent.opacity(0.35), lineWidth: 1.5)
-            .frame(width: 96, height: 96)
-            .scaleEffect(pulseActive ? SplashTimings.pulseScaleMax
-                                     : SplashTimings.pulseScaleMin)
-            .opacity(pulseActive ? 0.55 : 0.9)
-            .blur(radius: 0.5)
-    }
-
     // MARK: - Sequence
 
     private func sequence() async {
@@ -99,13 +88,6 @@ struct SplashView: View {
         withAnimation(.spring(response: SplashTimings.logoSpringResponse,
                               dampingFraction: SplashTimings.logoSpringDamping)) {
             markVisible = true
-        }
-
-        // Start the lime pulse on the same beat as the logo lands so the
-        // ring feels native to the entrance rather than bolted on.
-        withAnimation(.easeInOut(duration: SplashTimings.pulseDuration)
-                        .repeatForever(autoreverses: true)) {
-            pulseActive = true
         }
 
         // Tagline a beat later.

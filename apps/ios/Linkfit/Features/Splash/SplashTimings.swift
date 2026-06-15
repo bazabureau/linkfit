@@ -28,18 +28,6 @@ enum SplashTimings {
     /// Resting scale once the entrance has settled.
     static let logoEndScale: CGFloat = 1.0
 
-    // MARK: Accent pulse ring
-
-    /// Resting scale of the lime pulse ring (matches the logo footprint).
-    static let pulseScaleMin: CGFloat = 1.0
-
-    /// Peak scale of the pulse ring at the top of each breath.
-    static let pulseScaleMax: CGFloat = 1.05
-
-    /// One half-cycle of the pulse (rest → peak). The full breath is
-    /// `2 × pulseDuration` because we autoreverse.
-    static let pulseDuration: Double = 1.1
-
     // MARK: Tagline cascade
 
     /// Delay between the logo landing and the tagline beginning to fade in.
