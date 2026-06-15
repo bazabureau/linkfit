@@ -65,5 +65,9 @@ Landed on `ideal/core-loop-and-social` (all build-green, committed):
 - **3a** — wired orphaned **Membership** paywall + **Sessions** ("logged-in devices") into Settings (views were built + localized, no entry point; no new strings).
 - **3b** — Matches `+` is now a **menu**: New game / **Weekly series** (`RecurringGameSheet`) / **Americano** (`AmericanoTournamentView`) — both were built but unreachable.
 - **8a** — deleted **4 orphaned shell files** (DiscoverShell/InboxShell/RankingsShell/PlayShell — old tab architecture, replaced by AppShell→HomeView). Regenerated project, build green. (The dead/disconnected code was the audit's #1 "AI-churned" cause.)
+- VenueDetail primary CTA now reads "Book Court" (was the "Choose a court" step label).
+- **Stories P0** (`fc7eb76`) — overlays (text/sticker/mention/drawing) were silently dropped from posted stories; "Next" now flattens photo + overlays into the uploaded bitmap via `ImageRenderer` (WYSIWYG, safe fallback). Runtime story-post verification still recommended; PencilKit drawing flatten may need a follow-up.
+
+**Milestone: all 3 P0s cleared** (email verification, password reset, story overlays) + App Store deletion compliance. **Remaining tiers:** (a) backend-blocked — ELO delta; (b) large features — group-chat parity, squad-invite accept, tournament prize/results; (c) polish sweep — reused auth background on social/Feed, Reduce-Motion fixes, remaining dead code (~250 VenueDetail lines, duplicated quickStarts), drawing-overlay flatten.
 
 **Remaining** (high value): orphan entry points needing localized titles (Membership/Sessions rows, Americano/Recurring via Matches `+` menu, host invite, group-chat entries); story-overlay flatten (P0 quality); ELO delta (backend-gated); squad-invite accept; rate-CTA gating; dead-code purge. See the "Remaining" section of the master gap list above.
