@@ -39,6 +39,7 @@ struct CreateGameView: View {
                     
                     // Main Form Sections
                     whenSection
+                    durationSection
                     venueSection
                     capacitySection
                     
@@ -125,18 +126,18 @@ struct CreateGameView: View {
         sectionShell(title: String(localized: "create_game.section.when")) {
             VStack(spacing: 12) {
                 quickChipRow
-                
-                // Date picker row
-                HStack {
-                    Label {
-                        Text(formattedStart)
-                            .font(.system(size: 14, weight: .bold, design: .default))
-                            .foregroundStyle(DSColor.textPrimary)
-                    } icon: {
-                        Image(systemName: "calendar")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(DSColor.accent)
-                    }
+
+                // Exact date & time. The quick chips above cover the common
+                // cases; this is the clean "or pick exactly" control. We drop
+                // the old relative-summary label — it just duplicated what the
+                // picker already shows on the right.
+                HStack(spacing: 12) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(DSColor.accent)
+                    Text("create_game.when.exact")
+                        .font(.system(size: 14, weight: .semibold, design: .default))
+                        .foregroundStyle(DSColor.textPrimary)
                     Spacer()
                     DatePicker(
                         "",
@@ -150,8 +151,6 @@ struct CreateGameView: View {
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surfaceElevated.opacity(0.6)))
                 .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(DSColor.border.opacity(0.35), lineWidth: 1))
-                
-                durationChipRow
             }
         }
     }
@@ -181,13 +180,12 @@ struct CreateGameView: View {
         }
     }
 
-    private var durationChipRow: some View {
-        HStack(spacing: 12) {
-            Text("create_game.duration")
-                .font(.system(size: 13, weight: .semibold, design: .default))
-                .foregroundStyle(DSColor.textSecondary)
-            Spacer()
-            HStack(spacing: 6) {
+    // Duration is its own section now (it used to be a cramped right-aligned
+    // strip inside "Vaxt"). Full-width equal segments = bigger, calmer tap
+    // targets and a cleaner read.
+    private var durationSection: some View {
+        sectionShell(title: String(localized: "create_game.duration")) {
+            HStack(spacing: 8) {
                 ForEach([60, 75, 90, 120], id: \.self) { mins in
                     let selected = viewModel.durationMinutes == mins
                     Button {
@@ -195,11 +193,12 @@ struct CreateGameView: View {
                         UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
                         Text(String(format: String(localized: "create_game.duration.minutes_format"), mins))
-                            .font(.system(size: 11, weight: .bold, design: .default))
+                            .font(.system(size: 13, weight: .bold, design: .default))
                             .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Capsule().fill(selected ? DSColor.accent : DSColor.surfaceElevated.opacity(0.6)))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 11)
+                            .background(selected ? DSColor.accent : DSColor.surfaceElevated.opacity(0.6))
+                            .clipShape(Capsule())
                             .overlay(Capsule().strokeBorder(selected ? DSColor.accent : DSColor.border.opacity(0.35), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
@@ -541,14 +540,6 @@ struct CreateGameView: View {
         case .public: return "create_game.visibility.public.sub"
         case .invite: return "create_game.visibility.invite.sub"
         }
-    }
-
-    private var formattedStart: String {
-        let f = DateFormatter()
-        f.doesRelativeDateFormatting = true
-        f.dateStyle = .medium
-        f.timeStyle = .short
-        return f.string(from: viewModel.startsAt)
     }
 
     private func closeTo(_ a: Date, _ b: Date) -> Bool {

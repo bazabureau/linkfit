@@ -5901,17 +5901,18 @@
       }
     },
     "create_game.duration.minutes_format": {
+      "extractionState": "manual",
       "localizations": {
         "az": {
           "stringUnit": {
             "state": "translated",
-            "value": "%d d"
+            "value": "%d dəq"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%dm"
+            "value": "%d min"
           }
         },
         "ru": {
@@ -6710,6 +6711,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Любой может найти и присоединиться"
+          }
+        }
+      }
+    },
+    "create_game.when.exact": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarix və saat"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date & time"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дата и время"
           }
         }
       }
