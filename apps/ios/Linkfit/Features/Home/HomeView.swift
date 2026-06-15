@@ -886,8 +886,14 @@ struct HomeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
-            // The greeting header owns the brand identity now, so the nav
-            // bar carries just the action icons.
+            // Brand wordmark pinned top-left; the greeting below personalizes.
+            ToolbarItem(placement: .topBarLeading) {
+                LogoWordmark(size: .custom(28))
+                    .frame(width: 124)
+                    .accessibilityLabel(Text("brand.linkfit"))
+            }
+            .hideSharedBackgroundIfAvailable()
+
             ToolbarItemGroup(placement: .topBarTrailing) {
                 searchToolbarButton
                 playersToolbarButton
