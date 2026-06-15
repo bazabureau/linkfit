@@ -847,9 +847,14 @@ struct HomeView: View {
                     upcomingMatchesSection
                         .homeSectionReveal(enabled: !reduceMotion)
                     
+                    // Friends' recent activity (quickFeed) — self-hides
+                    // when empty. Was fetched on every load but never shown.
+                    friendActivitySection
+                        .homeSectionReveal(enabled: !reduceMotion)
+
                     playersSection
                         .homeSectionReveal(enabled: !reduceMotion)
-                    
+
                     nearbyClubsSection
                         .homeSectionReveal(enabled: !reduceMotion)
 

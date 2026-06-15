@@ -477,7 +477,13 @@ struct ProfileView: View {
         return HStack(spacing: 12) {
             Button {
                 UISelectionFeedbackGenerator().selectionChanged()
-                Task { await viewModel.toggleFollow() }
+                // Unfollow is destructive — route it through the same
+                // confirmation the overflow menu uses. Following is instant.
+                if viewModel.isFollowing {
+                    confirmUnfollow = true
+                } else {
+                    Task { await viewModel.toggleFollow() }
+                }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: viewModel.isFollowing ? "checkmark" : "plus")
