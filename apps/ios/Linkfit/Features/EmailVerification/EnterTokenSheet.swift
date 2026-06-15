@@ -68,13 +68,22 @@ struct EnterTokenSheet: View {
     }
 
     private var headerCopy: some View {
-        VStack(alignment: .leading, spacing: DSSpacing.xxs) {
-            Text("email.sheet.heading")
-                .font(.system(.title3, design: .default, weight: .bold))
-                .foregroundStyle(DSColor.textPrimary)
-            Text("email.sheet.subheading")
-                .font(.system(.subheadline, design: .default))
-                .foregroundStyle(DSColor.textSecondary)
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
+            ZStack {
+                Circle().fill(DSColor.accentMuted).frame(width: 52, height: 52)
+                Image(systemName: "envelope.open.fill")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(DSColor.accent)
+            }
+            VStack(alignment: .leading, spacing: DSSpacing.xxs) {
+                Text("email.sheet.heading")
+                    .font(.system(.title3, design: .default, weight: .bold))
+                    .foregroundStyle(DSColor.textPrimary)
+                Text("email.sheet.subheading")
+                    .font(.system(.subheadline, design: .default))
+                    .foregroundStyle(DSColor.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -86,7 +95,7 @@ struct EnterTokenSheet: View {
             TextField(String(localized: "email.sheet.token_placeholder"),
                       text: $rawInput,
                       axis: .vertical)
-                .lineLimit(2...4)
+                .lineLimit(1...3)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled(true)
                 .focused($inputFocused)

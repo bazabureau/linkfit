@@ -23,6 +23,7 @@
 		0B7B150B9EF6DFB318134C4F /* GameDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E832B939BCA192537D849B1B /* GameDetailView.swift */; };
 		0C7048BF4B35853D19DBA0BC /* AudioHapticsHook.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34860D330BE3B8D13DA7FE81 /* AudioHapticsHook.swift */; };
 		0C8C00358AE97699E9013479 /* ResetPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58229C784D1C56692B5AB536 /* ResetPasswordView.swift */; };
+		0CE440CE0684277BA7E94D57 /* EmailVerificationGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5667B2AA97ECA22D7205539 /* EmailVerificationGateView.swift */; };
 		0D716762C2C7616C0B89E2DD /* light_selection.wav in Resources */ = {isa = PBXBuildFile; fileRef = 9D90D897CF38902BBF665488 /* light_selection.wav */; };
 		0E8B24FB4E3B725AD29A4656 /* ReferralsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 675F8568519DA87B09D4B881 /* ReferralsViewModel.swift */; };
 		0F2DC7598A55800E37F0ED1D /* EmailVerificationBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBF36AE5A6367B1DDB35CE1A /* EmailVerificationBanner.swift */; };
@@ -721,6 +722,7 @@
 		E3F2652539211C245C783CBB /* HomeBookCourtChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeBookCourtChip.swift; sourceTree = "<group>"; };
 		E4483AEC891F88289FFDA63D /* match_lost.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = match_lost.wav; sourceTree = "<group>"; };
 		E542B3F2334C34EAA1C8B95F /* ShareCardRendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCardRendererTests.swift; sourceTree = "<group>"; };
+		E5667B2AA97ECA22D7205539 /* EmailVerificationGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailVerificationGateView.swift; sourceTree = "<group>"; };
 		E5D50DB3A0F5B8C8F363AB4F /* SectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionHeader.swift; sourceTree = "<group>"; };
 		E61E8755697EA0D2910F44A3 /* ResponseCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponseCache.swift; sourceTree = "<group>"; };
 		E6A81188E4399A49DD478462 /* ReachabilityBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReachabilityBanner.swift; sourceTree = "<group>"; };
@@ -1174,6 +1176,7 @@
 			isa = PBXGroup;
 			children = (
 				DBF36AE5A6367B1DDB35CE1A /* EmailVerificationBanner.swift */,
+				E5667B2AA97ECA22D7205539 /* EmailVerificationGateView.swift */,
 				D4B335A0F617F04DF53596F1 /* EmailVerificationHook.swift */,
 				02164A41017CE828B6D25F5E /* EmailVerificationToast.swift */,
 				59474C1D149C48F728FB8DF4 /* EmailVerificationViewModel.swift */,
@@ -2061,6 +2064,7 @@
 				4D554FE54FA89DD9506BE1A1 /* EditProfileView.swift in Sources */,
 				E440557266B6BA3846C8B044 /* EditProfileViewModel.swift in Sources */,
 				0F2DC7598A55800E37F0ED1D /* EmailVerificationBanner.swift in Sources */,
+				0CE440CE0684277BA7E94D57 /* EmailVerificationGateView.swift in Sources */,
 				C21D59D2D1F5E5967A0CBE21 /* EmailVerificationHook.swift in Sources */,
 				4E8940DB3411B98E7561D9CE /* EmailVerificationToast.swift in Sources */,
 				E17D3188696BA1F747BA8AFC /* EmailVerificationViewModel.swift in Sources */,

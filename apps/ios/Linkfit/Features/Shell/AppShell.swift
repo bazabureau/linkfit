@@ -34,6 +34,13 @@ import SwiftUI
 struct AppShell: View {
     @Environment(AppContainer.self) private var container
 
+    /// Email verification is mandatory. While the signed-in user's
+    /// `email_verified_at` is nil we cover the whole app with a blocking gate
+    /// (verify / resend / enter code / sign out). Driven off `currentUser`, so
+    /// it appears the instant a fresh registration lands here and tears down the
+    /// moment `/me` reports the address verified.
+    @State private var showVerificationGate = false
+
     // The W10-8 four-step `OnboardingTourView` (the SF-Symbol tour with
     // headlines "Oyun tap / Squad qur / Səviyyəni yüksəlt / Bildirişlər")
     // used to be presented here as a `.fullScreenCover` after signup. It
@@ -49,6 +56,7 @@ struct AppShell: View {
                 if container.currentUser == nil {
                     await loadMe()
                 }
+                syncVerificationGate()
                 // Soft fallback: if the user denies push permission we
                 // still land here — `start()` returns immediately and
                 // the rest of the app keeps working. The tour's final
@@ -72,6 +80,27 @@ struct AppShell: View {
                       let link = DeepLink.from(url: url) else { return }
                 DeepLinkRouter.shared.route(link)
             }
+            // Re-evaluate the gate whenever the signed-in user changes or the
+            // verification flag flips (after the user verifies, /me refresh
+            // clears `email_verified_at`, which dismisses the cover here).
+            .onChange(of: container.currentUser?.id) { _, _ in syncVerificationGate() }
+            .onChange(of: container.currentUser?.email_verified_at) { _, _ in syncVerificationGate() }
+            .fullScreenCover(isPresented: $showVerificationGate) {
+                EmailVerificationGateView(
+                    email: container.currentUser?.email ?? "",
+                    apiClient: container.apiClient,
+                    onLogout: { container.clearSession() }
+                )
+                .interactiveDismissDisabled(true)
+            }
+    }
+
+    /// Show the gate iff we have a hydrated user whose email isn't verified.
+    /// Nil user (cold-launch hydration in flight) shows nothing rather than
+    /// flashing the gate; sign-out nils the user and closes the cover.
+    private func syncVerificationGate() {
+        showVerificationGate = container.currentUser != nil
+            && container.currentUser?.email_verified_at == nil
     }
 
     /// Mirrors the previous fetch that lived in `RootView` — keeps
