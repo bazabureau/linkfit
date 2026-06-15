@@ -311,16 +311,20 @@ struct BookCourtView: View {
                     .foregroundStyle(DSColor.textSecondary)
                     .lineLimit(1)
                 
-                HStack(spacing: 4) {
-                    Image(systemName: "star.fill")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(DSColor.warning)
-                    Text(String(format: "%.1f", v.rating_avg ?? 4.8))
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(DSColor.textSecondary)
-                    Text("(\(v.rating_count ?? 12))")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(DSColor.textTertiary)
+                // Only show a star rating when the venue actually has
+                // one — never fabricate a 4.8 (12) for unrated venues.
+                if let avg = v.rating_avg, let count = v.rating_count, count > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(DSColor.warning)
+                        Text(String(format: "%.1f", avg))
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(DSColor.textSecondary)
+                        Text("(\(count))")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(DSColor.textTertiary)
+                    }
                 }
             }
             

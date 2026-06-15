@@ -56,7 +56,7 @@ struct ClubCard: View {
                     .strokeBorder(DSColor.border, lineWidth: 1)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SpringPressStyle())
         .accessibilityLabel(Text("\(venue.name), \(venue.address), \(distanceLabel)"))
     }
 

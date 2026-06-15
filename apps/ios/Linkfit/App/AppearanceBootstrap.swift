@@ -77,8 +77,11 @@ enum AppearanceBootstrap {
     private static func configureTabBar() {
         let appearance = UITabBarAppearance()
         appearance.configureWithTransparentBackground()
-        // Glass tab bar à la WhatsApp / Apple stock apps.
-        appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterialLight)
+        // Glass tab bar à la WhatsApp / Apple stock apps. Use the
+        // adaptive material (no Light/Dark suffix) so the blur resolves
+        // correctly in both appearances — the hardcoded *Light variant
+        // read wrong against the dark canvas.
+        appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
         appearance.backgroundColor = UIColor(DSColor.background).withAlphaComponent(0.4)
         // Soft hairline at top
         appearance.shadowColor = UIColor(DSColor.border)

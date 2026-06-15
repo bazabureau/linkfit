@@ -1160,14 +1160,12 @@ struct HomeView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: DSSpacing.md) {
                         ForEach(list.prefix(8)) { v in
-                            Button {
+                            // ClubCard is itself a Button (with its own
+                            // SpringPressStyle); a wrapping Button here
+                            // double-nested two tappable controls.
+                            ClubCard(venue: v) {
                                 homePath.append(HomeRoute.venue(v.id))
-                            } label: {
-                                ClubCard(venue: v) {
-                                    homePath.append(HomeRoute.venue(v.id))
-                                }
                             }
-                            .buttonStyle(BounceButtonStyle())
                         }
                     }
                     .padding(.horizontal, DSSpacing.md)

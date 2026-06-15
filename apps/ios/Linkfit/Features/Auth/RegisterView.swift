@@ -25,7 +25,7 @@ struct RegisterView: View {
     private var canRegister: Bool {
         !viewModel.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !viewModel.email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        viewModel.password.count >= 6 &&
+        viewModel.isValidRegistrationPassword(viewModel.password) &&
         !viewModel.isSubmitting
     }
 
@@ -270,20 +270,21 @@ struct RegisterView: View {
 
     // ── Helpers ──────────────────────────────────────────────────
 
-    /// 0 (empty) → 3 (strong). Each rung corresponds to a real policy
-    /// check on the backend so the UI never misleads the user.
+    /// 0 (empty) → 3 (strong). The meter never shows "medium"/"strong"
+    /// until the password actually satisfies the registration policy
+    /// (>= 12 chars + letter + digit) — i.e. the rung where the CTA
+    /// becomes tappable. Anything below the real minimum reads "weak",
+    /// so the meter and the button can never disagree.
     private var passwordStrengthLevel: Int {
         let p = viewModel.password
         if p.isEmpty { return 0 }
-        var score = 0
-        if p.count >= 8 { score += 1 }
-        let hasLetter = p.range(of: "[A-Za-z]", options: .regularExpression) != nil
-        let hasDigit = p.range(of: "[0-9]", options: .regularExpression) != nil
-        if hasLetter && hasDigit { score += 1 }
+        // Below the real minimum policy → always weak; never imply acceptance.
+        guard viewModel.isValidRegistrationPassword(p) else { return 1 }
         let hasUpper = p.range(of: "[A-Z]", options: .regularExpression) != nil
         let hasLower = p.range(of: "[a-z]", options: .regularExpression) != nil
-        if hasUpper && hasLower && p.count >= 12 { score += 1 }
-        return score
+        let hasSymbol = p.range(of: "[^A-Za-z0-9]", options: .regularExpression) != nil
+        // Valid → at least "medium"; mixed-case + length/symbol → "strong".
+        return (hasUpper && hasLower && (p.count >= 16 || hasSymbol)) ? 3 : 2
     }
 
     private func strengthColor(_ level: Int) -> Color {
