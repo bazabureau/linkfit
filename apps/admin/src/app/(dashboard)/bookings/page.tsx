@@ -33,6 +33,7 @@ import {
   type BookingStatus,
 } from "@/lib/admin-queries";
 import { useVenues, useVenueCourts } from "@/lib/admin-venues";
+import { formatDate, formatDateTime } from "@/lib/date-format";
 
 function RowSkeleton(): React.JSX.Element {
   return (
@@ -344,7 +345,7 @@ export default function BookingsPage(): React.JSX.Element {
               )}
               {!isLoading &&
                 bookings.map((booking) => {
-                  const localStart = new Date(booking.starts_at).toLocaleString();
+                  const localStart = formatDateTime(booking.starts_at);
                   const price = (booking.total_minor / 100).toFixed(2);
 
                   let badgeVariant: "success" | "warning" | "danger" | "neutral" = "neutral";
@@ -388,7 +389,7 @@ export default function BookingsPage(): React.JSX.Element {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-foregroundMuted text-xs">
-                        {new Date(booking.created_at).toLocaleDateString()}
+                        {formatDate(booking.created_at)}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1.5">

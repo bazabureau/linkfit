@@ -10,6 +10,7 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { api } from "./api";
+import { formatDateRange as formatDateRangeValue } from "./date-format";
 
 // ─── Status enums (mirror backend tournament_status enum) ──────────────
 
@@ -283,16 +284,5 @@ export function formatMoney(minor: number, currency: string): string {
 }
 
 export function formatDateRange(starts: string, ends: string): string {
-  const s = new Date(starts);
-  const e = new Date(ends);
-  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return "—";
-  const sameYear = s.getFullYear() === e.getFullYear();
-  const fmt = (d: Date) =>
-    d.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: sameYear ? undefined : "numeric",
-    });
-  if (s.toDateString() === e.toDateString()) return fmt(s);
-  return `${fmt(s)} → ${fmt(e)}`;
+  return formatDateRangeValue(starts, ends);
 }

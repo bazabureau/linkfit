@@ -8,13 +8,12 @@ const __dirname = path.dirname(__filename);
 export default (phase) => {
   const isBuild = phase === PHASE_PRODUCTION_BUILD;
   return {
-    basePath: "/admin",
-    assetPrefix: "/admin",
+    basePath: "/owner",
+    assetPrefix: "/owner",
     reactStrictMode: true,
     env: {
       IS_BUILD_PHASE: isBuild ? "true" : "false",
     },
   };
 };
-
 

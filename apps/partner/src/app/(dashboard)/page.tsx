@@ -27,6 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { usePartnerStats, usePartnerBookings } from "@/lib/partner-queries";
+import { formatDateTime, formatShortDate } from "@/lib/date-format";
 import {
   XAxis,
   YAxis,
@@ -91,13 +92,13 @@ export default function PartnerOverviewPage(): React.JSX.Element {
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const dateStr = d.toLocaleDateString("az-AZ", { weekday: "short", day: "numeric", month: "short" });
+      const dateStr = formatShortDate(d);
       dataMap[dateStr] = 0;
     }
 
     paidBookings.forEach((b) => {
       const bDate = new Date(b.starts_at);
-      const dateStr = bDate.toLocaleDateString("az-AZ", { weekday: "short", day: "numeric", month: "short" });
+      const dateStr = formatShortDate(bDate);
       const currentVal = dataMap[dateStr];
       if (currentVal !== undefined) {
         dataMap[dateStr] = currentVal + b.total_minor / 100;
@@ -366,13 +367,7 @@ export default function PartnerOverviewPage(): React.JSX.Element {
               </TableHeader>
               <TableBody>
                 {recentTransactions.map((booking) => {
-                  const localStart = new Date(booking.starts_at).toLocaleString("az-AZ", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
+                  const localStart = formatDateTime(booking.starts_at);
                   const price = (booking.total_minor / 100).toFixed(2);
 
                   let badgeVariant: "success" | "warning" | "danger" | "neutral" = "neutral";

@@ -31,6 +31,7 @@ import {
   useSportsOptions,
   type Court,
 } from "@/lib/partner-queries";
+import { formatDate } from "@/lib/date-format";
 
 function RowSkeleton(): React.JSX.Element {
   return (
@@ -243,7 +244,7 @@ export default function CourtsPage(): React.JSX.Element {
                       {(court.hourly_price_minor / 100).toFixed(2)} {court.currency}
                     </TableCell>
                     <TableCell className="text-foregroundMuted text-sm">
-                      {new Date(court.created_at).toLocaleDateString()}
+                      {formatDate(court.created_at)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">

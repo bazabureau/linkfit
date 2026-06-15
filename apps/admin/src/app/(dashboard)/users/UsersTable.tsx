@@ -30,6 +30,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
+import { formatDate } from '@/lib/date-format';
 
 // Tiny helper: prefer AZ, fall back to EN (annotated TODO for translators).
 function t(az: string, _en?: string) {
@@ -447,17 +448,4 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
       </Button>
     </div>
   );
-}
-
-function formatDate(iso: string) {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString('az-AZ', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return iso;
-  }
 }

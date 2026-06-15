@@ -43,6 +43,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
+import { formatDateTime } from "@/lib/date-format";
 import {
   CourtForm,
   type SportOption,
@@ -469,7 +470,7 @@ export default function VenueDetailPage(): React.JSX.Element {
                           {booking.court_name}
                         </TableCell>
                         <TableCell className="font-medium text-foreground">
-                          {new Date(booking.starts_at).toLocaleString()}
+                          {formatDateTime(booking.starts_at)}
                         </TableCell>
                         <TableCell className="text-foregroundMuted">
                           {booking.duration_minutes} mins

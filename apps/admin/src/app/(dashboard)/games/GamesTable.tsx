@@ -30,6 +30,7 @@ import {
   type AdminGame,
   type GameStatus,
 } from "@/lib/admin-games";
+import { formatDateTime } from "@/lib/date-format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -667,19 +668,4 @@ function ErrorState({ onRetry }: { onRetry: () => void }): JSX.Element {
       </Button>
     </div>
   );
-}
-
-function formatDateTime(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
 }

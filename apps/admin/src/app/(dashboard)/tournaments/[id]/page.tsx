@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
+import { formatDateTime } from "@/lib/date-format";
 import {
   TOURNAMENT_STATUS_LABEL,
   formatDateRange,
@@ -198,7 +199,7 @@ export default function TournamentDetailPage(): React.JSX.Element {
           </Stat>
           <Stat label="Registration deadline" icon={Hourglass}>
             {tournament.registration_deadline
-              ? new Date(tournament.registration_deadline).toLocaleString()
+              ? formatDateTime(tournament.registration_deadline)
               : "—"}
           </Stat>
         </div>

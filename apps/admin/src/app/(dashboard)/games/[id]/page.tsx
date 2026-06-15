@@ -28,6 +28,7 @@ import {
   type AdminGameAuditEntry,
   type GameStatus,
 } from "@/lib/admin-games";
+import { formatDateTime } from "@/lib/date-format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -493,18 +494,4 @@ function DetailSkeleton(): JSX.Element {
       <div className="h-32 animate-pulse rounded-2xl border border-border bg-surface" />
     </div>
   );
-}
-
-function formatDateTime(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
 }

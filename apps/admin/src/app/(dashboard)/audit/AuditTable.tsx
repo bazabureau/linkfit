@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import {
   Activity,
   AlertTriangle,
@@ -21,6 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { type AuditEntry, useAudit } from "@/lib/admin-audit";
+import { formatDateTime } from "@/lib/date-format";
 
 export function AuditTable() {
   const {
@@ -224,11 +225,7 @@ function ActionBadge({ action }: { action: string }) {
 }
 
 function formatTimestamp(iso: string) {
-  try {
-    return format(new Date(iso), "MMM d, yyyy HH:mm:ss");
-  } catch {
-    return iso;
-  }
+  return formatDateTime(iso);
 }
 
 function formatRelative(iso: string) {

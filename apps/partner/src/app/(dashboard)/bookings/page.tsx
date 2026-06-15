@@ -42,6 +42,7 @@ import {
   type Booking,
   type BookingStatus,
 } from "@/lib/partner-queries";
+import { formatDate, formatDateTime } from "@/lib/date-format";
 
 function RowSkeleton(): React.JSX.Element {
   return (
@@ -765,13 +766,7 @@ export default function ReservationsPage(): React.JSX.Element {
                   )}
                   {!isLoading &&
                     bookings.map((booking) => {
-                      const localStart = new Date(booking.starts_at).toLocaleString("az-AZ", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      });
+                      const localStart = formatDateTime(booking.starts_at);
                       const price = (booking.total_minor / 100).toFixed(2);
 
                       let badgeVariant: "success" | "warning" | "danger" | "neutral" = "neutral";
@@ -839,7 +834,7 @@ export default function ReservationsPage(): React.JSX.Element {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-foregroundMuted text-xs">
-                            {new Date(booking.created_at).toLocaleDateString("az-AZ")}
+                            {formatDate(booking.created_at)}
                           </TableCell>
                           <TableCell className="text-right pr-6">
                             <div className="flex justify-end gap-1.5">
@@ -897,7 +892,7 @@ export default function ReservationsPage(): React.JSX.Element {
               </div>
               <div className="text-sm font-bold text-accent">{createSlot.courtName}</div>
               <div className="text-xs text-foreground font-medium">
-                {createSlot.startsAt.toLocaleDateString("az-AZ", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} saat {createSlot.startsAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {formatDateTime(createSlot.startsAt)}
               </div>
             </div>
           )}

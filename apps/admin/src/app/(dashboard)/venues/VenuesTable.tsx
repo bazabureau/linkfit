@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { api } from "@/lib/api";
 import { venuesKeys, type Venue, type VenueDetail } from "@/lib/admin-venues";
+import { formatDate } from "@/lib/date-format";
 
 interface VenuesTableProps {
   venues: Venue[];
@@ -145,9 +146,7 @@ export function VenuesTable({
                   )}
                 </TableCell>
                 <TableCell className="text-foregroundMuted">
-                  {venue.created_at
-                    ? new Date(venue.created_at).toLocaleDateString()
-                    : "—"}
+                  {formatDate(venue.created_at)}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
@@ -176,4 +175,3 @@ export function VenuesTable({
     </Table>
   );
 }
-
