@@ -195,4 +195,13 @@ final class StoryEditorViewModel {
         let baked = StoryFilterRenderer.apply(filter: selectedFilter, to: image)
         onNext(baked, overlays)
     }
+
+    /// Like `submit()` but the host already flattened photo + overlays into
+    /// one bitmap, so the posted story actually shows the text / stickers /
+    /// mentions / drawings the user placed (previously they were dropped —
+    /// `submit()` baked only the colour filter). Overlays still ride the
+    /// wire array for mention tap-linking + notifications.
+    func submitFlattened(_ flattened: UIImage) {
+        onNext(flattened, overlays)
+    }
 }

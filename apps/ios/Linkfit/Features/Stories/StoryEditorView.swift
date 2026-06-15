@@ -35,6 +35,7 @@ import UIKit
 /// etc. only hold the in-flight delta.
 struct StoryEditorView: View {
     @Bindable var viewModel: StoryEditorViewModel
+    @Environment(\.displayScale) private var displayScale
 
     // Per-overlay in-flight gesture state. We key by the overlay's id so
     // a freshly-tapped overlay doesn't inherit another overlay's pinch
@@ -99,7 +100,7 @@ struct StoryEditorView: View {
                     // 16)`) so the rightmost tile can scroll off-edge
                     // without truncation.
                     StoryFilterStrip(viewModel: viewModel)
-                    bottomBar
+                    bottomBar(canvas: canvas)
                         .padding(.horizontal, 16)
                         .padding(.bottom, 16)
                 }
@@ -201,12 +202,21 @@ struct StoryEditorView: View {
 
     /// Bottom bar: just the "İrəli" (Next) CTA for now. Future tools
     /// (filters, music) will land in this row.
-    private var bottomBar: some View {
+    private func bottomBar(canvas: CGSize) -> some View {
         HStack {
             Spacer()
             Button {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                viewModel.submit()
+                // Burn the overlays into the bitmap so they actually show
+                // up in the posted story. With no overlays we keep the bare
+                // filtered photo (no letterboxing a plain photo onto black).
+                if viewModel.overlays.isEmpty {
+                    viewModel.submit()
+                } else if let flattened = renderFlattened(canvas: canvas) {
+                    viewModel.submitFlattened(flattened)
+                } else {
+                    viewModel.submit()
+                }
             } label: {
                 HStack(spacing: 6) {
                     Text("stories.editor.next")
@@ -225,6 +235,57 @@ struct StoryEditorView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    // MARK: - Flatten for upload
+
+    /// One overlay rendered statically — same payload view + transform as
+    /// the live editor, but with no selection ring and no gestures. Used
+    /// only when compositing the upload bitmap.
+    @ViewBuilder
+    private func staticOverlayView(for overlay: StoryOverlay, canvas: CGSize) -> some View {
+        let position = persistedPosition(for: overlay, canvas: canvas)
+        let scale = persistedScale(for: overlay)
+        let rotation = persistedRotationAngle(for: overlay)
+        Group {
+            switch overlay {
+            case .text(let payload):    StoryTextOverlayView(overlay: payload)
+            case .mention(let payload): StoryMentionOverlayView(overlay: payload, isActive: false)
+            case .sticker(let payload): payload.view(isActive: false)
+            case .drawing(let payload):
+                payload.view(isActive: false)
+                    .frame(width: canvas.width, height: canvas.height)
+            }
+        }
+        .scaleEffect(scale)
+        .rotationEffect(rotation)
+        .position(x: position.x, y: position.y)
+    }
+
+    /// Composite the photo (fitted on black) + every overlay into one
+    /// bitmap at the on-screen canvas aspect, so overlay positions match
+    /// exactly what the user placed. Returns nil if `ImageRenderer` can't
+    /// produce an image, in which case the caller falls back to the
+    /// un-flattened photo.
+    @MainActor
+    private func renderFlattened(canvas: CGSize) -> UIImage? {
+        let content = ZStack {
+            Color.black
+            Image(uiImage: viewModel.filteredImage)
+                .resizable()
+                .scaledToFit()
+                .frame(width: canvas.width, height: canvas.height)
+            ForEach(viewModel.overlays) { overlay in
+                staticOverlayView(for: overlay, canvas: canvas)
+            }
+        }
+        .frame(width: canvas.width, height: canvas.height)
+        .environment(\.colorScheme, .dark)
+
+        let renderer = ImageRenderer(content: content)
+        renderer.scale = max(displayScale, 2)
+        renderer.isOpaque = true
+        return renderer.uiImage
     }
 
     // MARK: - Overlay rendering
