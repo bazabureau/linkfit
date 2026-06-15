@@ -767,6 +767,21 @@ struct HomeView: View {
                 LazyVStack(spacing: 28, pinnedViews: []) { // Uniform 28pt startup spacing
                     homeGreetingHeader
 
+                    // Stories rail at the very top (Instagram-style).
+                    StoriesRail(
+                        viewModel: storiesRail,
+                        viewer: container.currentUser,
+                        onOpenGroup: { group in
+                            presentedStoryGroup = group
+                        },
+                        onCreateStory: {
+                            showStoryCreator = true
+                        },
+                        onOpenOwnStack: { group in
+                            presentedStoryGroup = group
+                        }
+                    )
+
                     // MARK: - Email verification nudge
                     // Self-hides once verified; the outer guard keeps it
                     // out of the stack entirely so there's no phantom gap.
@@ -835,21 +850,6 @@ struct HomeView: View {
                                     presentedStoryGroup = first
                                 }
                             }
-                        }
-                    )
-
-                    // Stories rail with animated glowing gradient profile rings
-                    StoriesRail(
-                        viewModel: storiesRail,
-                        viewer: container.currentUser,
-                        onOpenGroup: { group in
-                            presentedStoryGroup = group
-                        },
-                        onCreateStory: {
-                            showStoryCreator = true
-                        },
-                        onOpenOwnStack: { group in
-                            presentedStoryGroup = group
                         }
                     )
 
@@ -1231,13 +1231,13 @@ struct HomeView: View {
     @ViewBuilder
     private var nearbyClubsSection: some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
-            sectionHeader(titleKey: "home.section.nearby_clubs",
+            sectionHeader(titleKey: "home.section.clubs",
                           onSeeAll: { homePath.append(HomeRoute.venues) })
 
             if case .loaded(let list) = venues.state, !list.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: DSSpacing.md) {
-                        ForEach(list.prefix(8)) { v in
+                        ForEach(list) { v in
                             // ClubCard is itself a Button (with its own
                             // SpringPressStyle); a wrapping Button here
                             // double-nested two tappable controls.

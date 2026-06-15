@@ -51,8 +51,10 @@ final class VenuesViewModel {
         }
         do {
             let res = try await apiClient.send(
+                // Wide radius so ALL clubs surface (home shows "all clubs",
+                // not just nearby) — lat/lng stay so distance is still computed.
                 .venues(lat: center.latitude, lng: center.longitude,
-                        radiusKm: 50, sport: selectedSportSlug ?? "padel")
+                        radiusKm: 20000, sport: selectedSportSlug ?? "padel")
             )
             state = res.items.isEmpty ? .empty : .loaded(res.items)
             // Only persist the default (no sport filter) payload so a

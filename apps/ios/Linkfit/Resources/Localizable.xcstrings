@@ -12987,6 +12987,28 @@
         }
       }
     },
+    "home.section.clubs": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bütün klublar"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All clubs"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все клубы"
+          }
+        }
+      }
+    },
     "home.section.nearby_clubs": {
       "localizations": {
         "az": {
