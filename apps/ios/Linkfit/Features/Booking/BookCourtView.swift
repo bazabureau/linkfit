@@ -802,6 +802,10 @@ struct BookCourtView: View {
             let nowMins = (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
             if mins <= nowMins { return .past }
         }
+        // A start time that can't fit the chosen duration before closing
+        // (slotEndHour) isn't bookable — disable it like a past slot so a
+        // 21:30 + 120min booking can't run past 22:00.
+        if mins + durationMinutes > Self.slotEndHour * 60 { return .past }
         return .available
     }
 
@@ -1030,6 +1034,11 @@ struct BookCourtView: View {
         return Button {
             UISelectionFeedbackGenerator().selectionChanged()
             durationMinutes = mins
+            // Drop an already-picked slot that this longer duration would
+            // push past closing time, so the user re-picks a valid start.
+            if let s = selectedSlotMinute, s + durationMinutes > Self.slotEndHour * 60 {
+                selectedSlotMinute = nil
+            }
             resetAttemptState()
         } label: {
             VStack(spacing: 4) {
