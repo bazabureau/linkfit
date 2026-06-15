@@ -12,6 +12,8 @@ struct MatchesView: View {
 
     @Environment(AppContainer.self) private var container
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var showRecurring = false
+    @State private var showAmericano = false
 
     // SceneStorage to restore the user's last filter choice
     @SceneStorage("matches.period") private var storedPeriod: String = MatchesViewModel.Period.active.rawValue
@@ -61,9 +63,25 @@ struct MatchesView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    onTapCreate()
+                Menu {
+                    Button {
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        onTapCreate()
+                    } label: {
+                        Label("matches.create", systemImage: "figure.tennis")
+                    }
+                    Button {
+                        Haptics.selection()
+                        showRecurring = true
+                    } label: {
+                        Label("recurring.title", systemImage: "repeat")
+                    }
+                    Button {
+                        Haptics.selection()
+                        showAmericano = true
+                    } label: {
+                        Label("americano.hero.title", systemImage: "trophy")
+                    }
                 } label: {
                     Image(systemName: "plus")
                         .fontWeight(.semibold)
@@ -76,6 +94,16 @@ struct MatchesView: View {
                 .presentationDetents([.medium])
                 .presentationBackground(.ultraThinMaterial)
                 .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showRecurring) {
+            // Weekly recurring-game series — was fully built, no entry point.
+            RecurringGameSheet(
+                viewModel: RecurringGameViewModel(apiClient: container.apiClient)
+            ) { _ in Task { await viewModel.load() } }
+        }
+        .sheet(isPresented: $showAmericano) {
+            // Americano tournament — was fully built, no entry point.
+            AmericanoTournamentView()
         }
         .task {
             if let me = container.currentUser, let lat = me.home_lat, let lng = me.home_lng {
