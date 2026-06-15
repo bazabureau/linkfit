@@ -54,4 +54,13 @@ Every change keeps the build green and is verified (build + targeted simulator s
 **Story overlay flatten (P0)** and **Tournaments prize/results** are larger, partly backend-gated efforts tracked separately.
 
 ### Progress log
-_(updated as batches land)_
+
+Landed on `ideal/core-loop-and-social` (all build-green, committed):
+
+- `186c5c0` **Batch 1** — registration password 6→12 CTA mismatch + honest strength meter; tab-bar blur → adaptive (dark mode); un-nest ClubCard double-Button (+ `SpringPressStyle`); stop fabricating 4.8★(12) for unrated venues.
+- `0fdb5ba` **Batch 2 (P0 / compliance)** — password reset chains to `ResetPasswordView` via the existing `PasswordResetFlow` (was a dead-end toast); "Delete account" → real `PrivacyView` (Apple in-app-deletion requirement); mounted `EmailVerificationBanner` on Home (was unreachable — **verified live in simulator**). Removed dead "coming soon" alert + `ComingSoonMessage`.
+- `bb5f7ef` **Batch 7a** — `PrimaryButton` + `FollowButton` press-scale + haptic (root-cause, ~18 CTAs); removed 2 redundant per-site haptics.
+- `6f26663` **Social** — inline-unfollow now uses the overflow menu's confirmation; surfaced Home `friendActivitySection` (fetched but never rendered).
+- `be0553c` **#19** — booking can no longer overflow venue close (9:00–22:00): overflow start-times disabled, selection cleared when duration grows.
+
+**Remaining** (high value): orphan entry points needing localized titles (Membership/Sessions rows, Americano/Recurring via Matches `+` menu, host invite, group-chat entries); story-overlay flatten (P0 quality); ELO delta (backend-gated); squad-invite accept; rate-CTA gating; dead-code purge. See the "Remaining" section of the master gap list above.
