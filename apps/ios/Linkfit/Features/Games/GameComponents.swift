@@ -245,9 +245,9 @@ struct GameFilterChips: View {
         } label: {
             Text(titleKey)
                 .font(DSType.metaCaption)
-                .foregroundStyle(isOn ? DSColor.textOnAccent : DSColor.textSecondary)
+                .foregroundStyle(isOn ? DSColor.textOnAccent : DSColor.textPrimary)
                 .padding(.horizontal, 14).padding(.vertical, 7)
-                .background(Capsule().fill(isOn ? DSColor.accent : DSColor.surfaceElevated))
+                .glassChip(isOn: isOn)
         }
         .buttonStyle(SpringPressStyle())
     }

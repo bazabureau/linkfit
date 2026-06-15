@@ -77,4 +77,17 @@ extension View {
             self
         }
     }
+
+    /// A selectable pill on the floating layer: accent-filled when selected,
+    /// Liquid Glass when not. Keeps the active choice prominent while inactive
+    /// options recede into glass — the iOS 26 segmented-control idiom. Apply to
+    /// an already-padded label.
+    @ViewBuilder
+    func glassChip(isOn: Bool, tint: Color = DSColor.accent) -> some View {
+        if isOn {
+            self.background(Capsule().fill(tint))
+        } else {
+            self.dsGlass(.regular, in: Capsule())
+        }
+    }
 }
