@@ -236,7 +236,6 @@ struct InviteFriendsView: View {
             icon: "square.and.arrow.up.fill",
             isEnabled: enabled,
         ) {
-            Haptics.selection()
             showShareSheet = true
         }
     }

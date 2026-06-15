@@ -72,7 +72,7 @@ struct FollowButton: View {
             .contentShape(Capsule())
             .opacity(isLoading ? 0.85 : 1.0)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SpringPressStyle())
         .disabled(isLoading)
         .accessibilityLabel(Text(titleKey))
         .accessibilityAddTraits(.isButton)
@@ -80,6 +80,7 @@ struct FollowButton: View {
     }
 
     private func tap() {
+        Haptics.soft()   // gentle social-toggle tick (light tier of the ladder)
         // Optimistic flip — the caller's binding is updated immediately so the
         // entire UI (badge counts, etc.) can react in step with the button.
         let previous = isFollowing

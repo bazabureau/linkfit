@@ -283,7 +283,6 @@ struct RatingFlowView: View {
                         isLoading: viewModel.isSubmitting,
                         isEnabled: viewModel.isComplete && !viewModel.isSubmitting
                     ) {
-                        Haptics.selection()
                         Task {
                             if await viewModel.submit() {
                                 Haptics.success()

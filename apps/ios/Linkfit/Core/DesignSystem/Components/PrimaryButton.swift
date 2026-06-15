@@ -8,7 +8,12 @@ struct PrimaryButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: { if !isLoading && isEnabled { action() } }) {
+        Button(action: {
+            if !isLoading && isEnabled {
+                Haptics.medium()   // CTA haptic per the design-system ladder
+                action()
+            }
+        }) {
             HStack(spacing: DSSpacing.xs) {
                 if isLoading {
                     ProgressView()
@@ -28,7 +33,7 @@ struct PrimaryButton: View {
             )
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SpringPressStyle())   // subtle press-scale; was .plain (dead feel)
         .accessibilityLabel(title)
         .accessibilityAddTraits(.isButton)
         .accessibilityHint(isLoading ? String(localized: "loading.button_hint") : "")
