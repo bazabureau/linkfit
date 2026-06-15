@@ -431,6 +431,7 @@ struct ProfileView: View {
                     .font(.system(size: 13, weight: .black))
                     .foregroundStyle(DSColor.textPrimary)
                     .monospacedDigit()
+                    .rollingNumber(displayedCount)   // count rolls on follow/unfollow
                 Text(labelKey)
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(DSColor.textSecondary)

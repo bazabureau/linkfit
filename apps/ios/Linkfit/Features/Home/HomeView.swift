@@ -956,6 +956,7 @@ struct HomeView: View {
     private func statTile(value: String, labelKey: LocalizedStringKey, color: Color) -> some View {
         VStack(spacing: 2) {
             Text(value).font(DSType.statValue).foregroundStyle(color)
+                .rollingNumber(value)   // digits roll when the stat updates
             Text(labelKey).font(DSType.caption2).foregroundStyle(DSColor.textSecondary)
         }
         .frame(maxWidth: .infinity)

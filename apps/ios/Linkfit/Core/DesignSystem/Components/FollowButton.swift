@@ -48,6 +48,7 @@ struct FollowButton: View {
                 } else {
                     Image(systemName: iconName)
                         .font(.system(size: size == .compact ? 11 : 13, weight: .bold))
+                        .contentTransition(.symbolEffect(.replace))   // plus ↔ checkmark morph
                 }
                 Text(titleKey)
                     .font(.system(

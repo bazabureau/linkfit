@@ -143,6 +143,7 @@
 		5CFA4FF464D02E5D2CDE1464 /* VenueReviewsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 259CE03677D918735ACBB613 /* VenueReviewsView.swift */; };
 		5D222F787CD57302D337962B /* LocaleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE06DA376080368FF654A2DF /* LocaleManager.swift */; };
 		5D31F437029DA22BB1CEC2CF /* MentionToolButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64461CEDB495A45243E73E7C /* MentionToolButton.swift */; };
+		5DDC3804FC0703A9CEFBBB0E /* Motion.swift in Sources */ = {isa = PBXBuildFile; fileRef = F594DF2CB95CEDCFD19A52C2 /* Motion.swift */; };
 		5FA5450371822FA04F6D15BE /* UpcomingMatchCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2D3AA0311BD52535FC9524A /* UpcomingMatchCard.swift */; };
 		602525F254E077069CF48E69 /* RankingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1ADBA1417BCE64D385F47F4 /* RankingsView.swift */; };
 		602BBEA28FFD753FB433B039 /* StoryOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C63FD563465A5E63793C8B /* StoryOverlay.swift */; };
@@ -750,6 +751,7 @@
 		F2D3AA0311BD52535FC9524A /* UpcomingMatchCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpcomingMatchCard.swift; sourceTree = "<group>"; };
 		F3EFE0332809AD794B425FDD /* InvitePlayerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvitePlayerSheet.swift; sourceTree = "<group>"; };
 		F421BA996D506C29942AF798 /* BlockedUsersViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockedUsersViewModel.swift; sourceTree = "<group>"; };
+		F594DF2CB95CEDCFD19A52C2 /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
 		F6C122AA9C85B01812647609 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		F82A9094AB3945C1B280CA54 /* MedicalProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicalProfileView.swift; sourceTree = "<group>"; };
 		F9141599F389DAB3736B8047 /* SquadDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SquadDetailView.swift; sourceTree = "<group>"; };
@@ -1488,6 +1490,7 @@
 				95D696919904EF3AB44792A1 /* Components */,
 				D5AD9EA007549C10039EA3F4 /* Theme */,
 				54957BFB69E2BB4F60A5263B /* Tokens */,
+				F594DF2CB95CEDCFD19A52C2 /* Motion.swift */,
 				403815CC8A2BD1B78DDD93D0 /* SpringPressStyle.swift */,
 				EB9491344C7BCDF7F58DA9F3 /* ViewState.swift */,
 			);
@@ -2166,6 +2169,7 @@
 				5D31F437029DA22BB1CEC2CF /* MentionToolButton.swift in Sources */,
 				5A1611DF012DC90574A57AD5 /* MessagesViews.swift in Sources */,
 				A5B42623F4F759992BE39F22 /* MilestoneCard.swift in Sources */,
+				5DDC3804FC0703A9CEFBBB0E /* Motion.swift in Sources */,
 				E9B0E0766573619750FD0812 /* MyBookingsView.swift in Sources */,
 				94B77DA5E2ACD2EC443B2229 /* MyBookingsViewModel.swift in Sources */,
 				2F265FAC7B8B7CD6090AA202 /* MyGamesView.swift in Sources */,

@@ -89,17 +89,19 @@ struct MatchesView: View {
     private func loadedContent(_ hub: GamesHub) -> some View {
         if !hub.openGames.isEmpty {
             section(titleKey: "games.section.open") {
-                ForEach(hub.openGames) { game in
+                ForEach(Array(hub.openGames.enumerated()), id: \.element.id) { index, game in
                     Button { onTapGame(game) } label: { OpenGameCard(game: game) }
                         .buttonStyle(SpringPressStyle())
+                        .appearStagger(index)
                 }
             }
         }
         if !hub.myGames.isEmpty {
             section(titleKey: "games.section.mine") {
-                ForEach(hub.myGames) { game in
+                ForEach(Array(hub.myGames.enumerated()), id: \.element.id) { index, game in
                     Button { onTapGame(game) } label: { MyGameRow(game: game) }
                         .buttonStyle(SpringPressStyle())
+                        .appearStagger(index)
                 }
             }
         }
