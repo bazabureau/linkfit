@@ -765,6 +765,8 @@ struct HomeView: View {
             PremiumAuthBackground()
             ScrollView {
                 LazyVStack(spacing: 28, pinnedViews: []) { // Uniform 28pt startup spacing
+                    homeGreetingHeader
+
                     // MARK: - Email verification nudge
                     // Self-hides once verified; the outer guard keeps it
                     // out of the stack entirely so there's no phantom gap.
@@ -793,6 +795,13 @@ struct HomeView: View {
                         )
                         .transition(.opacity.combined(with: .move(edge: .top)))
                     }
+
+                    // Next game (or a book-court prompt) — the single anchor.
+                    smartHeroCard
+                        .homeSectionReveal(enabled: !reduceMotion)
+
+                    // Your level snapshot (rating / games / win rate).
+                    homeStatsSnapshot
 
                     // Suggested discovery rail
                     if shouldShowSuggestedRail {
@@ -844,9 +853,6 @@ struct HomeView: View {
                         }
                     )
 
-                    upcomingMatchesSection
-                        .homeSectionReveal(enabled: !reduceMotion)
-                    
                     // Friends' recent activity (quickFeed) — self-hides
                     // when empty. Was fetched on every load but never shown.
                     friendActivitySection
@@ -880,13 +886,8 @@ struct HomeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                LogoWordmark(size: .custom(30))
-                    .frame(width: 132)
-                    .accessibilityLabel(Text("brand.linkfit"))
-            }
-            .hideSharedBackgroundIfAvailable()
-
+            // The greeting header owns the brand identity now, so the nav
+            // bar carries just the action icons.
             ToolbarItemGroup(placement: .topBarTrailing) {
                 searchToolbarButton
                 playersToolbarButton
@@ -895,6 +896,61 @@ struct HomeView: View {
             }
             .hideSharedBackgroundIfAvailable()
         }
+    }
+
+    // MARK: - Greeting + stats snapshot
+
+    private var greetingKey: LocalizedStringKey {
+        // Sentence-case "_friendly" variants — the plain ones are uppercase
+        // (banned by FAZA 45).
+        switch Calendar.current.component(.hour, from: Date()) {
+        case 5..<12:  return "home.greeting.morning_friendly"
+        case 12..<18: return "home.greeting.afternoon_friendly"
+        default:      return "home.greeting.evening_friendly"
+        }
+    }
+
+    private var homeGreetingHeader: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(greetingKey)
+                    .font(DSType.bodyMedium)
+                    .foregroundStyle(DSColor.textSecondary)
+                Text(container.currentUser?.display_name ?? String(localized: "home.greeting.player"))
+                    .font(DSType.heroTitle)
+                    .foregroundStyle(DSColor.textPrimary)
+                    .lineLimit(1)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, DSSpacing.md)
+    }
+
+    @ViewBuilder
+    private var homeStatsSnapshot: some View {
+        if primaryElo != nil || gamesPlayed > 0 {
+            HStack(spacing: 10) {
+                statTile(value: primaryElo.map(String.init) ?? "—", labelKey: "home.stat.rating", color: DSColor.accent)
+                statTile(value: "\(gamesPlayed)", labelKey: "home.stat.games", color: DSColor.textPrimary)
+                statTile(value: winRateLabel, labelKey: "home.stat.winrate", color: DSColor.success)
+            }
+            .padding(.horizontal, DSSpacing.md)
+        }
+    }
+
+    private var winRateLabel: String {
+        guard gamesPlayed > 0 else { return "—" }
+        return "\(Int((Double(gamesWon) / Double(gamesPlayed) * 100).rounded()))%"
+    }
+
+    private func statTile(value: String, labelKey: LocalizedStringKey, color: Color) -> some View {
+        VStack(spacing: 2) {
+            Text(value).font(DSType.statValue).foregroundStyle(color)
+            Text(labelKey).font(DSType.caption2).foregroundStyle(DSColor.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(DSColor.surfaceElevated))
     }
 
     // MARK: - Premium Smart Hero Card
