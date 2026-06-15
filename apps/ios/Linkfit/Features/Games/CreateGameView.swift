@@ -22,7 +22,15 @@ struct CreateGameView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            PremiumAuthBackground()
+            // Clean canvas + soft brand glow — matches the rebuilt tabs,
+            // drops the animated auth mesh (the "AI-wash" FAZA 45 warns about).
+            DSColor.background.ignoresSafeArea()
+            RadialGradient(
+                colors: [DSColor.accent.opacity(0.06), .clear],
+                center: .topTrailing, startRadius: 10, endRadius: 360
+            )
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
 
             ScrollView {
                 VStack(spacing: 24) {
@@ -151,14 +159,14 @@ struct CreateGameView: View {
     private var quickChipRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(quickStarts, id: \.label) { item in
+                ForEach(viewModel.quickStarts) { item in
                     let selected = closeTo(item.date, viewModel.startsAt)
                     Button {
                         withAnimation(reduceMotion ? nil : .spring(response: 0.4)) {
                             viewModel.startsAt = item.date
                         }
                     } label: {
-                        Text(item.label)
+                        Text(String(localized: item.key))
                             .font(.system(size: 12, weight: .bold, design: .default))
                             .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
                             .padding(.horizontal, 14)
@@ -470,8 +478,8 @@ struct CreateGameView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
             }
-            PrimaryAuthButton(
-                titleKey: "create_game.submit",
+            PrimaryButton(
+                title: String(localized: "create_game.submit"),
                 isLoading: viewModel.isSubmitting,
                 isEnabled: viewModel.canSubmit
             ) {
@@ -541,39 +549,6 @@ struct CreateGameView: View {
         f.dateStyle = .medium
         f.timeStyle = .short
         return f.string(from: viewModel.startsAt)
-    }
-
-    private struct QuickStart {
-        let label: String
-        let date: Date
-    }
-
-    private var quickStarts: [QuickStart] {
-        let cal = Calendar.current
-        let now = Date()
-        let tonight = cal.date(bySettingHour: 19, minute: 0, second: 0, of: now) ?? now
-        let tomorrow6 = cal.date(byAdding: .day, value: 1,
-                                 to: cal.date(bySettingHour: 18, minute: 0, second: 0, of: now) ?? now) ?? now
-        let saturday = nextWeekday(7, from: now, atHour: 11)
-        return [
-            QuickStart(label: String(localized: "create_game.quickstart.tonight"),     date: tonight > now ? tonight : tomorrow6),
-            QuickStart(label: String(localized: "create_game.quickstart.tomorrow_pm"), date: tomorrow6),
-            QuickStart(label: String(localized: "create_game.quickstart.saturday"),    date: saturday),
-        ]
-    }
-
-    private func nextWeekday(_ weekday: Int, from date: Date, atHour hour: Int) -> Date {
-        let cal = Calendar.current
-        var comps = cal.dateComponents([.year, .month, .day], from: date)
-        comps.hour = hour
-        comps.minute = 0
-        let baseDate = cal.date(from: comps) ?? date
-        let weekdayOfDate = cal.component(.weekday, from: baseDate)
-        let daysToAdd = (weekday - weekdayOfDate + 7) % 7
-        let target = cal.date(byAdding: .day,
-                              value: daysToAdd == 0 ? 7 : daysToAdd,
-                              to: baseDate) ?? baseDate
-        return target
     }
 
     private func closeTo(_ a: Date, _ b: Date) -> Bool {
