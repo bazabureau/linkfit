@@ -2214,12 +2214,17 @@ extension Endpoint where Response == SendVerificationResponse {
 }
 
 extension Endpoint where Response == VerifyEmailResponse {
-    /// POST /api/v1/auth/verify-email — consumes a token pasted from the
-    /// email. Auth NOT required — token alone is enough.
+    /// POST /api/v1/auth/verify-email — submits the 6-digit code for the
+    /// authenticated user. Auth IS required: a 6-digit code isn't globally
+    /// unique, so the server identifies the account from the Bearer token and
+    /// checks the code against it. (The user is always signed in when the
+    /// verification gate is shown.) The body field stays `token`; its value is
+    /// now the 6-digit code.
     static func verifyEmail(token: String) -> Endpoint<VerifyEmailResponse> {
         Endpoint(method: .post,
                  path: "/api/v1/auth/verify-email",
-                 body: encodeJSON(["token": token]))
+                 body: encodeJSON(["token": token]),
+                 requiresAuth: true)
     }
 }
 
