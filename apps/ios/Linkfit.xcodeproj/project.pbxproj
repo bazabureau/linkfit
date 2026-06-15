@@ -185,6 +185,7 @@
 		7D279D748DE3E318FDF958B0 /* HomeSmartHero.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30A7355D3605AFF6CC44A5F4 /* HomeSmartHero.swift */; };
 		7D5B7885041D4C76193E4C2C /* SquadsHook.swift in Sources */ = {isa = PBXBuildFile; fileRef = 156CBC7BCCC7D44962C137DB /* SquadsHook.swift */; };
 		7DDA97AFB499BD40AA591979 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3AE8398CF4FD8F8805FA20B /* ThemeManager.swift */; };
+		7DE539183E67770AEE6DED10 /* TournamentComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48D6BD2D8968F4C47E866170 /* TournamentComponents.swift */; };
 		7E3D98ADC2ED4DE2A4143DAF /* MatchLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2886AEB8783029E9EAA782BE /* MatchLiveActivity.swift */; };
 		7EFA7D04D5FE41F6E624688F /* PrimaryAuthButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 991501EAFB41A9D98A46F290 /* PrimaryAuthButton.swift */; };
 		7F228EC88CEEB863D4F9B2E4 /* SessionsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DCD9F10980F0962C525CFF4 /* SessionsViewModel.swift */; };
@@ -244,6 +245,7 @@
 		A9C1790FBA935C740399435F /* OnboardingPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E921EEEF0CCBE66D019D6BF7 /* OnboardingPage.swift */; };
 		AB20F992D65B50F15BB72156 /* DeepLinkRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27FA0D7066B68860276A6560 /* DeepLinkRouter.swift */; };
 		AB6BFCD067F16BD9ED7627E9 /* HomePlayersRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A08EBC73A381BD9FB4DAF97 /* HomePlayersRow.swift */; };
+		ACB4B949E52E8AA97EAD6991 /* TournamentShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB3F31300E8A610672F0C270 /* TournamentShared.swift */; };
 		AD2816CF16E2B4709B39B3D9 /* AppleSignInService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D039FA4170EED7C07DF732D /* AppleSignInService.swift */; };
 		ADC5B3F6E40C714F189C16A6 /* SegmentedPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28AB99DB18ABC52399B28ABB /* SegmentedPicker.swift */; };
 		B2731AF7CA8C4DC9EA191108 /* ProgressPills.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C99F6693469B5B2939711B7 /* ProgressPills.swift */; };
@@ -495,6 +497,7 @@
 		46F2DCB78E80B1B755E4F8A9 /* SearchResultRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultRow.swift; sourceTree = "<group>"; };
 		471EBFA5FC77C7B059E2BD2E /* GameDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameDetailViewModel.swift; sourceTree = "<group>"; };
 		476C76BFCB18B9807AC52250 /* AmericanoTournamentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmericanoTournamentView.swift; sourceTree = "<group>"; };
+		48D6BD2D8968F4C47E866170 /* TournamentComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TournamentComponents.swift; sourceTree = "<group>"; };
 		4B9AB60F7055304885ADA6B2 /* VenueReviewsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VenueReviewsViewModel.swift; sourceTree = "<group>"; };
 		4BBB1B298DC717BBAAF82E43 /* InvitationsHook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvitationsHook.swift; sourceTree = "<group>"; };
 		4CBA2B6A87F337562B7AFA85 /* PillCTA.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillCTA.swift; sourceTree = "<group>"; };
@@ -745,6 +748,7 @@
 		F82A9094AB3945C1B280CA54 /* MedicalProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicalProfileView.swift; sourceTree = "<group>"; };
 		F9141599F389DAB3736B8047 /* SquadDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SquadDetailView.swift; sourceTree = "<group>"; };
 		F9965B1F8678D2F4F0440F4E /* ReferralsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferralsView.swift; sourceTree = "<group>"; };
+		FB3F31300E8A610672F0C270 /* TournamentShared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TournamentShared.swift; sourceTree = "<group>"; };
 		FC3635130CF6DDDE293F94AA /* StoryReplyComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryReplyComposer.swift; sourceTree = "<group>"; };
 		FD1AF96F72822D27E5A89B1D /* game_left.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = game_left.wav; sourceTree = "<group>"; };
 		FD4268D825612F96D7912EC3 /* NotificationsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsViewModel.swift; sourceTree = "<group>"; };
@@ -1310,8 +1314,10 @@
 			children = (
 				0A033B920FE2F182321E20B5 /* PlayerPickerSheet.swift */,
 				6D02B034987EEDB4369FBFAF /* RegisterSquadSheet.swift */,
+				48D6BD2D8968F4C47E866170 /* TournamentComponents.swift */,
 				6900BAFCBAEAD83F10EC083A /* TournamentDetailView.swift */,
 				573573988CD9721315CD7CE5 /* TournamentDetailViewModel.swift */,
+				FB3F31300E8A610672F0C270 /* TournamentShared.swift */,
 				9F4B9E833EDFEDFB635BC0A2 /* TournamentsView.swift */,
 				361C81FB91CF4F9DB4B721BF /* TournamentsViewModel.swift */,
 			);
@@ -2287,9 +2293,11 @@
 				1617E181A1C9BDD9E1314CAA /* ToastCenter.swift in Sources */,
 				44695FBA415637D852325575 /* ToastHost.swift in Sources */,
 				97097E2F4B1B7F90CB3C0F93 /* ToastView.swift in Sources */,
+				7DE539183E67770AEE6DED10 /* TournamentComponents.swift in Sources */,
 				9949A21E94D2BC6850CE1F36 /* TournamentDetailView.swift in Sources */,
 				493E060A3A2482897624722B /* TournamentDetailViewModel.swift in Sources */,
 				8CF6451C04D228CCDCC1A842 /* TournamentFeaturedCard.swift in Sources */,
+				ACB4B949E52E8AA97EAD6991 /* TournamentShared.swift in Sources */,
 				71108DFDFE1FCA760C9D287E /* TournamentsView.swift in Sources */,
 				D32C7CAABFB4BAD290E51145 /* TournamentsViewModel.swift in Sources */,
 				359E9CF64E3BEEE4EBE10CBB /* TutorialOverlay.swift in Sources */,

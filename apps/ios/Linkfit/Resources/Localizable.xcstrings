@@ -33994,6 +33994,28 @@
         }
       }
     },
+    "tournaments.action.join": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qoşul"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Join"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вступить"
+          }
+        }
+      }
+    },
     "tournaments.blocked.already_registered": {
       "localizations": {
         "az": {
@@ -34204,6 +34226,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Upcoming"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скоро"
+          }
+        }
+      }
+    },
+    "tournaments.coming_soon": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tezliklə"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soon"
           }
         },
         "ru": {
@@ -34544,6 +34588,28 @@
         }
       }
     },
+    "tournaments.featured": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seçilmiş"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Featured"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рекомендуемое"
+          }
+        }
+      }
+    },
     "tournaments.featured.kicker": {
       "localizations": {
         "az": {
@@ -34584,6 +34650,94 @@
           "stringUnit": {
             "state": "translated",
             "value": "Бесплатно"
+          }
+        }
+      }
+    },
+    "tournaments.filling_fast": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sürətlə dolur"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filling fast"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Быстро заполняется"
+          }
+        }
+      }
+    },
+    "tournaments.format.americano": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Americano"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Americano"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Americano"
+          }
+        }
+      }
+    },
+    "tournaments.format.league": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liqa"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "League"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лига"
+          }
+        }
+      }
+    },
+    "tournaments.format.tournament": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turnir"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tournament"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Турнир"
           }
         }
       }
@@ -34980,6 +35134,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "Капитан (ты)"
+          }
+        }
+      }
+    },
+    "tournaments.section.registration": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qeydiyyat açıq"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registration open"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Регистрация открыта"
+          }
+        }
+      }
+    },
+    "tournaments.section.results": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nəticələr"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Results"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Результаты"
           }
         }
       }
