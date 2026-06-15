@@ -104,8 +104,15 @@ struct BookCourtView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                PremiumAuthBackground()
-                
+                // Clean canvas + soft brand glow — matches the rebuilt tabs.
+                DSColor.background.ignoresSafeArea()
+                RadialGradient(
+                    colors: [DSColor.accent.opacity(0.06), .clear],
+                    center: .topTrailing, startRadius: 10, endRadius: 360
+                )
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+
                 if confirmed {
                     successCard
                 } else {
@@ -276,20 +283,40 @@ struct BookCourtView: View {
         }
     }
 
+    private func venueCoverURL(_ v: Venue) -> URL? {
+        if let first = v.photo_urls?.first, let u = URL(string: first) { return u }
+        if let s = v.photo_url, let u = URL(string: s) { return u }
+        return nil
+    }
+
+    private var venueThumbFallback: some View {
+        Image(systemName: "building.2.fill")
+            .font(.system(size: 22, weight: .bold))
+            .foregroundStyle(DSColor.accent)
+    }
+
     private func venueRow(_ v: Venue, selected: Bool) -> some View {
         HStack(spacing: 14) {
+            // Photo-first thumbnail — real venue cover, icon fallback.
             ZStack {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(DSColor.surfaceElevated)
-                    .frame(width: 52, height: 52)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(DSColor.border, lineWidth: 1)
-                    )
-                Image(systemName: "building.2.fill")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(DSColor.accent)
+                if let url = venueCoverURL(v) {
+                    CachedAsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        venueThumbFallback
+                    }
+                } else {
+                    venueThumbFallback
+                }
             }
+            .frame(width: 60, height: 60)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(DSColor.border, lineWidth: 1)
+            )
             .accessibilityHidden(true)
             
             VStack(alignment: .leading, spacing: 4) {
