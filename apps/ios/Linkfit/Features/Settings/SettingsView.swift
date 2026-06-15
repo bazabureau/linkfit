@@ -9,8 +9,7 @@ struct SettingsView: View {
 
     @State private var showEdit = false
     @State private var confirmLogout = false
-    @State private var confirmDelete = false
-    @State private var comingSoonMessage: ComingSoonMessage?
+    @State private var showPrivacy = false
 
     @State private var showMyBookings = false
     @State private var showLeaderboards = false
@@ -22,11 +21,6 @@ struct SettingsView: View {
         let short = (dict?["CFBundleShortVersionString"] as? String) ?? "—"
         let build = (dict?["CFBundleVersion"] as? String) ?? "—"
         return "\(short) (\(build))"
-    }
-
-    fileprivate struct ComingSoonMessage: Identifiable {
-        let id = UUID()
-        let key: LocalizedStringKey
     }
 
     var body: some View {
@@ -56,7 +50,7 @@ struct SettingsView: View {
                             rowDivider
                             settingsRow(icon: "calendar.badge.checkmark", titleKey: "settings.row.my_bookings") { showMyBookings = true }
                             rowDivider
-                            settingsRow(icon: "person.crop.circle.badge.minus", titleKey: "settings.account.delete", tint: DSColor.danger, showsChevron: false) { confirmDelete = true }
+                            settingsRow(icon: "person.crop.circle.badge.minus", titleKey: "settings.account.delete", tint: DSColor.danger) { showPrivacy = true }
                         }
                         .background(RoundedRectangle(cornerRadius: 20).fill(DSColor.surface))
                         .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(DSColor.border, lineWidth: 1))
@@ -316,31 +310,11 @@ struct SettingsView: View {
         } message: {
             Text("settings.logout.confirm.message")
         }
-        .confirmationDialog(
-            Text("settings.account.delete.confirm.title"),
-            isPresented: $confirmDelete,
-            titleVisibility: .visible
-        ) {
-            Button(role: .destructive) {
-                comingSoonMessage = ComingSoonMessage(key: "settings.coming_soon.delete_account")
-            } label: {
-                Text("settings.account.delete")
-            }
-            Button(role: .cancel) {} label: { Text("common.cancel") }
-        } message: {
-            Text("settings.account.delete.confirm.message")
-        }
-        .alert(
-            Text("settings.coming_soon.title"),
-            isPresented: Binding(
-                get: { comingSoonMessage != nil },
-                set: { if !$0 { comingSoonMessage = nil } }
-            ),
-            presenting: comingSoonMessage
-        ) { _ in
-            Button("common.ok", role: .cancel) { comingSoonMessage = nil }
-        } message: { msg in
-            Text(msg.key)
+        .navigationDestination(isPresented: $showPrivacy) {
+            // Real GDPR hub: data export + 30-day-grace account deletion.
+            // Replaces the old "coming soon" dead-end (Apple requires an
+            // in-app deletion path for apps with account creation).
+            PrivacyView()
         }
         .navigationDestination(isPresented: $showMyBookings) {
             MyBookingsView(

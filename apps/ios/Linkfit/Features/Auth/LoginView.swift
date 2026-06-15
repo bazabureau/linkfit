@@ -52,10 +52,15 @@ struct LoginView: View {
         }
         .onAppear(perform: stagger)
         .sheet(isPresented: $showForgotPassword) {
-            NavigationStack {
-                ForgotPasswordView(apiClient: container.apiClient)
+            // PasswordResetFlow owns its own NavigationStack + Cancel
+            // toolbar and chains ForgotPassword → ResetPassword (token
+            // entry), so a user who forgot their password can actually
+            // set a new one instead of dead-ending on the "check your
+            // email" toast.
+            PasswordResetFlow(apiClient: container.apiClient) { _ in
+                showForgotPassword = false
             }
-            .presentationDetents([.medium, .large])
+            .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
     }

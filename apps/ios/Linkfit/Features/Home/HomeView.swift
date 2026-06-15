@@ -765,6 +765,23 @@ struct HomeView: View {
             PremiumAuthBackground()
             ScrollView {
                 LazyVStack(spacing: 28, pinnedViews: []) { // Uniform 28pt startup spacing
+                    // MARK: - Email verification nudge
+                    // Self-hides once verified; the outer guard keeps it
+                    // out of the stack entirely so there's no phantom gap.
+                    if let user = container.currentUser, user.email_verified_at == nil {
+                        EmailVerificationBanner(
+                            user: user,
+                            apiClient: container.apiClient,
+                            onVerified: {
+                                Task {
+                                    if let me = try? await container.apiClient.send(.me) {
+                                        container.updateCurrentUser(me)
+                                    }
+                                }
+                            }
+                        )
+                    }
+
                     // MARK: - Announcement banner
                     AnnouncementBanner(viewModel: announcements)
 
