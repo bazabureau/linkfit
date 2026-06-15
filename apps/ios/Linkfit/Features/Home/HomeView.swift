@@ -551,6 +551,7 @@ struct HomeView: View {
             .tabItem { tabLabel(.profile) }
         }
         .tint(DSColor.accent)
+        .glassTabBarMinimize()
         .background(PremiumAuthBackground())
         .transition(reduceMotion ? .identity : .opacity)
     }
@@ -894,13 +895,16 @@ struct HomeView: View {
             }
             .hideSharedBackgroundIfAvailable()
 
+            // On iOS 26 these four icons sit inside a single shared Liquid
+            // Glass capsule — Apple's default toolbar treatment. We used to
+            // hide it for a flat look; the glass is exactly the language we
+            // want now, so we let it show (the wordmark above stays bare).
             ToolbarItemGroup(placement: .topBarTrailing) {
                 searchToolbarButton
                 playersToolbarButton
                 chatToolbarButton
                 notificationToolbarButton
             }
-            .hideSharedBackgroundIfAvailable()
         }
     }
 

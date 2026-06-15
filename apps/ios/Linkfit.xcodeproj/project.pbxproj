@@ -157,6 +157,7 @@
 		68E2AD6A0082ABEBB07B3348 /* HomePrimaryActionHero.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BEB54EF16EDD46A94543B47 /* HomePrimaryActionHero.swift */; };
 		68E34E0B84AA6F897A99F45D /* HomePulseStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = D43CF95E1D5BCCA5CA5F2AFB /* HomePulseStrip.swift */; };
 		68EE6489AB234E5381DC2265 /* LinkfitLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 891CF0FF8CA097D8F286AB0C /* LinkfitLiveActivityBundle.swift */; };
+		694FD75A93FEC4BDCFE17D57 /* Glass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 276E8F6974AA71ED0EE6CD78 /* Glass.swift */; };
 		698E845BD5D470698B458BA1 /* CachedAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAD08510BA7E2E2F30D6175A /* CachedAsyncImage.swift */; };
 		6A2ACA67357D15B5E62A58A7 /* Endpoint+Referrals.swift in Sources */ = {isa = PBXBuildFile; fileRef = 512DF2AFE122953FDF886BD2 /* Endpoint+Referrals.swift */; };
 		6A5890342BE97296EEED8494 /* HomeStatsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9E11A5018E76F530225C01E /* HomeStatsCard.swift */; };
@@ -450,6 +451,7 @@
 		2397E2451A6D20B7D66B2FBF /* GameMedicalSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameMedicalSheet.swift; sourceTree = "<group>"; };
 		259CE03677D918735ACBB613 /* VenueReviewsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VenueReviewsView.swift; sourceTree = "<group>"; };
 		269138A281AAD034FDBAFA24 /* RecurringHook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecurringHook.swift; sourceTree = "<group>"; };
+		276E8F6974AA71ED0EE6CD78 /* Glass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Glass.swift; sourceTree = "<group>"; };
 		27F472A649ACFE34784594A4 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		27FA0D7066B68860276A6560 /* DeepLinkRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkRouter.swift; sourceTree = "<group>"; };
 		280DD85C71A8300532FA7526 /* error.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = error.wav; sourceTree = "<group>"; };
@@ -1617,6 +1619,7 @@
 			children = (
 				97011A3277A84573F4685AAE /* AppearanceMode.swift */,
 				C2196B3B2777289F9689C2DF /* Color+LightDark.swift */,
+				276E8F6974AA71ED0EE6CD78 /* Glass.swift */,
 				A3AE8398CF4FD8F8805FA20B /* ThemeManager.swift */,
 				98F32917D122FC7FBFF4D1D5 /* ThemeSwitcher.swift */,
 			);
@@ -2096,6 +2099,7 @@
 				4F181FD147AF6511A335C830 /* GameJoinedCard.swift in Sources */,
 				1D7A503629CD8EAA707D2FEC /* GameMedicalSheet.swift in Sources */,
 				EC8CAFFEA0E2633221F226A5 /* GameRow.swift in Sources */,
+				694FD75A93FEC4BDCFE17D57 /* Glass.swift in Sources */,
 				23D10940AD2FD16EBFE58A7D /* GoogleSignInService.swift in Sources */,
 				932D16ECFCA0BE3D76055894 /* GroupChatHook.swift in Sources */,
 				C884632F9FDC36A5F56AB25C /* GroupChatViews.swift in Sources */,
