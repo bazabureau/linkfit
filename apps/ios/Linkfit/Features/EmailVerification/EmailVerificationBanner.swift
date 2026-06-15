@@ -72,55 +72,69 @@ struct EmailVerificationBanner: View {
     }
 
     private var pill: some View {
-        HStack(spacing: DSSpacing.sm) {
-            Image(systemName: "envelope.badge.fill")
-                .foregroundStyle(DSColor.textOnAccent)
-                .font(.system(size: 16, weight: .semibold))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("email.banner.title")
-                    .font(.system(.subheadline, design: .default, weight: .semibold))
+        // Two rows: title/email on top, the actions on their own full-width
+        // row below. Single-row crammed the title + both buttons together and
+        // truncated the labels ("Yenidə…", "Kod da…"). Now each button owns
+        // half the row and uses minimumScaleFactor instead of truncation, so
+        // the text never clips.
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: DSSpacing.sm) {
+                Image(systemName: "envelope.badge.fill")
                     .foregroundStyle(DSColor.textOnAccent)
-                Text(verbatim: user.email)
-                    .font(.system(.caption, design: .default))
-                    .foregroundStyle(DSColor.textOnAccent.opacity(0.75))
-                    .lineLimit(1)
-            }
+                    .font(.system(size: 16, weight: .semibold))
 
-            Spacer(minLength: DSSpacing.xs)
-
-            Button(action: resend) {
-                Group {
-                    if viewModel.isSending {
-                        ProgressView()
-                            .controlSize(.small)
-                            .tint(DSColor.textOnAccent)
-                    } else {
-                        Text("email.banner.resend")
-                            .font(.system(.footnote, design: .default, weight: .semibold))
-                    }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("email.banner.title")
+                        .font(.system(.subheadline, design: .default, weight: .semibold))
+                        .foregroundStyle(DSColor.textOnAccent)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(verbatim: user.email)
+                        .font(.system(.caption, design: .default))
+                        .foregroundStyle(DSColor.textOnAccent.opacity(0.75))
+                        .lineLimit(1)
                 }
-                .padding(.horizontal, DSSpacing.sm)
-                .frame(height: 32)
-                .foregroundStyle(DSColor.textOnAccent)
-                .overlay(
-                    Capsule().stroke(DSColor.textOnAccent.opacity(0.5), lineWidth: 1)
-                )
-            }
-            .buttonStyle(.plain)
-            .disabled(viewModel.isSending)
-            .accessibilityLabel("email.banner.resend")
 
-            Button(action: { showsEnterTokenSheet = true }) {
-                Text("email.banner.enter_token")
-                    .font(.system(.footnote, design: .default, weight: .bold))
-                    .padding(.horizontal, DSSpacing.sm)
-                    .frame(height: 32)
-                    .foregroundStyle(DSColor.accent)
-                    .background(Capsule().fill(DSColor.textOnAccent))
+                Spacer(minLength: 0)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("email.banner.enter_token")
+
+            HStack(spacing: DSSpacing.xs) {
+                Button(action: resend) {
+                    Group {
+                        if viewModel.isSending {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(DSColor.textOnAccent)
+                        } else {
+                            Text("email.banner.resend")
+                                .font(.system(.footnote, design: .default, weight: .semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 36)
+                    .foregroundStyle(DSColor.textOnAccent)
+                    .overlay(
+                        Capsule().stroke(DSColor.textOnAccent.opacity(0.5), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.isSending)
+                .accessibilityLabel("email.banner.resend")
+
+                Button(action: { showsEnterTokenSheet = true }) {
+                    Text("email.banner.enter_token")
+                        .font(.system(.footnote, design: .default, weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 36)
+                        .foregroundStyle(DSColor.accent)
+                        .background(Capsule().fill(DSColor.textOnAccent))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("email.banner.enter_token")
+            }
         }
         .padding(.horizontal, DSSpacing.md)
         .padding(.vertical, DSSpacing.sm)
