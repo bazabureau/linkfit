@@ -33,7 +33,15 @@ struct EditProfileView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                PremiumAuthBackground()
+                // Clean canvas + soft brand glow — matches the rebuilt tabs
+                // and the Oyun yarat sheet; drops the animated auth mesh.
+                DSColor.background.ignoresSafeArea()
+                RadialGradient(
+                    colors: [DSColor.accent.opacity(0.06), .clear],
+                    center: .topTrailing, startRadius: 10, endRadius: 360
+                )
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
 
                 ScrollView {
                     VStack(spacing: 16) {
@@ -390,8 +398,8 @@ struct EditProfileView: View {
                 .padding(.horizontal, 16)
             }
 
-            PrimaryAuthButton(
-                titleKey: "common.save",
+            PrimaryButton(
+                title: String(localized: "common.save"),
                 isLoading: viewModel.isSubmitting,
                 isEnabled: viewModel.canSubmit
             ) {
@@ -548,45 +556,3 @@ private struct ProfileAvatarEditor: View {
     }
 }
 
-private struct EditProfileSaveButton: View {
-    let title: String
-    let isLoading: Bool
-    let isEnabled: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button {
-            guard isEnabled, !isLoading else { return }
-            action()
-        } label: {
-            HStack(spacing: DSSpacing.xs) {
-                if isLoading {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(DSColor.textOnAccent)
-                } else {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 15, weight: .semibold))
-                }
-                Text(title)
-                    .font(.system(.body, design: .default, weight: .semibold))
-            }
-            .foregroundStyle(DSColor.textOnAccent)
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background(
-                RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
-                    .fill(isEnabled ? DSColor.accent : DSColor.surfaceElevated)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
-                    .strokeBorder(isEnabled ? Color.clear : DSColor.border, lineWidth: 1)
-            )
-            .opacity(isEnabled ? 1 : 0.62)
-        }
-        .buttonStyle(.plain)
-        .disabled(!isEnabled || isLoading)
-        .accessibilityLabel(title)
-        .accessibilityAddTraits(.isButton)
-    }
-}
