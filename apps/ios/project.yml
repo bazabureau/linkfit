@@ -180,15 +180,19 @@ targets:
             localhost:
               NSExceptionAllowsInsecureHTTPLoads: true
               NSIncludesSubdomains: false
+        # Google Sign-In: the iOS OAuth 2.0 client ID (provisioned in Google
+        # Cloud Console for bundle az.linkfit.app) is read at runtime via the
+        # `GIDClientID` key; GoogleSignInService feeds it to GIDConfiguration.
+        # Its reversed form is registered as a URL scheme below so the system
+        # browser can hand the OAuth callback back to the app.
+        GIDClientID: 655337821050-pi74ppu4gjv7b0gs0v417djtndrl7nt2.apps.googleusercontent.com
         # Widget agent — deep-link scheme so widget taps land in the host
         # app. URLs look like `linkfit://g/<gameId>` or `linkfit://matchmaking`.
-        # Google Sign-In URL scheme is intentionally omitted until a real
-        # OAuth 2.0 iOS client ID is provisioned in Google Cloud Console —
-        # the placeholder failed App Store Connect URL-scheme validation.
         CFBundleURLTypes:
           - CFBundleURLName: az.linkfit.app
             CFBundleURLSchemes:
               - linkfit
+              - com.googleusercontent.apps.655337821050-pi74ppu4gjv7b0gs0v417djtndrl7nt2
     platform: iOS
     deploymentTarget: "18.0"
     sources:
