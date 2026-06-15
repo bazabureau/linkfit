@@ -27731,6 +27731,50 @@
         }
       }
     },
+    "search.discover.subtitle": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oyunçu, klub, oyun və ya turnir tap"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find a player, club, game or tournament"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Найди игрока, клуб, игру или турнир"
+          }
+        }
+      }
+    },
+    "search.discover.title": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nə axtarırsan?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What are you looking for?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что ищешь?"
+          }
+        }
+      }
+    },
     "search.empty.message": {
       "localizations": {
         "az": {

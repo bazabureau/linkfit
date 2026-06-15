@@ -37,7 +37,14 @@ struct SearchView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                PremiumAuthBackground()
+                // Clean canvas + soft brand glow — matches the rebuilt tabs.
+                DSColor.background.ignoresSafeArea()
+                RadialGradient(
+                    colors: [DSColor.accent.opacity(0.06), .clear],
+                    center: .topTrailing, startRadius: 10, endRadius: 360
+                )
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
                 ScrollView {
                     VStack(alignment: .leading, spacing: DSSpacing.md) {
                         SearchField(
@@ -182,7 +189,7 @@ struct SearchView: View {
 
     @ViewBuilder
     private var idleState: some View {
-        VStack(alignment: .leading, spacing: DSSpacing.md) {
+        VStack(alignment: .leading, spacing: DSSpacing.lg) {
             if !viewModel.recents.isEmpty {
                 HStack {
                     Text("search.recents.title")
@@ -198,15 +205,44 @@ struct SearchView: View {
                 FlowChips(items: viewModel.recents) { q in
                     viewModel.runQueryImmediately(q)
                 }
+            } else {
+                discoveryHint
             }
 
-            Text("search.samples.title")
-                .font(.system(.subheadline, design: .default, weight: .semibold))
-                .foregroundStyle(DSColor.textPrimary)
-            FlowChips(items: viewModel.sampleQueries) { q in
-                viewModel.runQueryImmediately(q)
+            VStack(alignment: .leading, spacing: DSSpacing.sm) {
+                Text("search.samples.title")
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
+                    .foregroundStyle(DSColor.textPrimary)
+                FlowChips(items: viewModel.sampleQueries) { q in
+                    viewModel.runQueryImmediately(q)
+                }
             }
         }
+    }
+
+    /// Inviting hint on a fresh search (no recents) so the empty screen
+    /// reads as intentional rather than blank.
+    private var discoveryHint: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Circle().fill(DSColor.accentMuted).frame(width: 72, height: 72)
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundStyle(DSColor.accent)
+            }
+            Text("search.discover.title")
+                .font(DSType.sectionTitle)
+                .foregroundStyle(DSColor.textPrimary)
+                .multilineTextAlignment(.center)
+            Text("search.discover.subtitle")
+                .font(DSType.bodyMedium)
+                .foregroundStyle(DSColor.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 28)
+        .padding(.bottom, 4)
     }
 
     // MARK: - Result sections
