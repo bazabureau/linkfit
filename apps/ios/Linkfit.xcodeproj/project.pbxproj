@@ -45,6 +45,7 @@
 		2136878609C7C7B52F7A85E5 /* Endpoint+Stories.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56619063F8EA78FD73BD3CEF /* Endpoint+Stories.swift */; };
 		215FB04F353B3F39A160CF4D /* GameCardLarge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3E016D5ACA3037E5DF1AF9C /* GameCardLarge.swift */; };
 		2162FFB3B466BF31EE2DEA40 /* StoryFilterStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E156D55496697A5F1C4EC18 /* StoryFilterStrip.swift */; };
+		22693DCAC0DA8589856DC516 /* Money.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5052A87ACC510A23C5E0B94D /* Money.swift */; };
 		22E34D7FB4B40BABE115737C /* OnboardingTourViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6420A193DFE32CD59A206A26 /* OnboardingTourViewModel.swift */; };
 		2368524C61D6604A4184E2DC /* RecurringHook.swift in Sources */ = {isa = PBXBuildFile; fileRef = 269138A281AAD034FDBAFA24 /* RecurringHook.swift */; };
 		236AF8491F84AE3466137B91 /* RequestRetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7050CDFD05B8C4217766F2E2 /* RequestRetry.swift */; };
@@ -503,6 +504,7 @@
 		4E23D8C28948C2A0EC11E641 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		4F7AD44CA49FC96D79976551 /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
 		4FF3A418776C7CA7050F61F1 /* ErrorStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorStateView.swift; sourceTree = "<group>"; };
+		5052A87ACC510A23C5E0B94D /* Money.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Money.swift; sourceTree = "<group>"; };
 		50B336A1E177CB94B9694DE2 /* MyBookingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyBookingsView.swift; sourceTree = "<group>"; };
 		512DF2AFE122953FDF886BD2 /* Endpoint+Referrals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Endpoint+Referrals.swift"; sourceTree = "<group>"; };
 		5181CAEA6DA729DE3937E3D4 /* InsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsView.swift; sourceTree = "<group>"; };
@@ -895,6 +897,7 @@
 			isa = PBXGroup;
 			children = (
 				BE06DA376080368FF654A2DF /* LocaleManager.swift */,
+				5052A87ACC510A23C5E0B94D /* Money.swift */,
 			);
 			path = Locale;
 			sourceTree = "<group>";
@@ -2143,6 +2146,7 @@
 				5D31F437029DA22BB1CEC2CF /* MentionToolButton.swift in Sources */,
 				5A1611DF012DC90574A57AD5 /* MessagesViews.swift in Sources */,
 				A5B42623F4F759992BE39F22 /* MilestoneCard.swift in Sources */,
+				22693DCAC0DA8589856DC516 /* Money.swift in Sources */,
 				5DDC3804FC0703A9CEFBBB0E /* Motion.swift in Sources */,
 				E9B0E0766573619750FD0812 /* MyBookingsView.swift in Sources */,
 				94B77DA5E2ACD2EC443B2229 /* MyBookingsViewModel.swift in Sources */,
