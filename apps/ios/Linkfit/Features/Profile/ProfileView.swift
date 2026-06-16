@@ -23,7 +23,6 @@ struct ProfileView: View {
     @State private var isRenderingMilestone = false
     @State private var reportPayload: ReportTargetPayload?
     @State private var confirmBlock = false
-    @State private var confirmUnfollow = false
     @State private var pendingThread: PendingThread?
     @State private var isStartingConversation = false
     @State private var pushedProfileUserId: PushedProfile?
@@ -81,7 +80,7 @@ struct ProfileView: View {
                     Menu {
                         if viewModel.isFollowing {
                             Button {
-                                confirmUnfollow = true
+                                Task { await viewModel.toggleFollow() }
                             } label: {
                                 Label("profile.action.unfollow", systemImage: "person.fill.xmark")
                             }
@@ -143,20 +142,6 @@ struct ProfileView: View {
         ) { _ in
             Button("common.ok", role: .cancel) { viewModel.clearMessageError() }
         } message: { Text($0) }
-        .confirmationDialog(
-            Text("profile.confirm.unfollow.title"),
-            isPresented: $confirmUnfollow,
-            titleVisibility: .visible
-        ) {
-            Button(role: .destructive) {
-                Task { await viewModel.toggleFollow() }
-            } label: {
-                Text("profile.action.unfollow")
-            }
-            Button(role: .cancel) {} label: { Text("common.cancel") }
-        } message: {
-            Text("profile.confirm.unfollow.message")
-        }
         .confirmationDialog(
             Text("profile.confirm.block.title"),
             isPresented: $confirmBlock,
@@ -501,13 +486,8 @@ struct ProfileView: View {
         return HStack(spacing: 12) {
             Button {
                 UISelectionFeedbackGenerator().selectionChanged()
-                // Unfollow is destructive — route it through the same
-                // confirmation the overflow menu uses. Following is instant.
-                if viewModel.isFollowing {
-                    confirmUnfollow = true
-                } else {
-                    Task { await viewModel.toggleFollow() }
-                }
+                // Follow + unfollow are both instant toggles — no confirmation.
+                Task { await viewModel.toggleFollow() }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: viewModel.isFollowing ? "checkmark" : "plus")
