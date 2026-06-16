@@ -120,6 +120,29 @@ struct ProfileView: View {
         } message: { message in
             Text(message)
         }
+        // Surface follow/unfollow failures (the VM reverts the optimistic state
+        // but the revert would otherwise be invisible).
+        .alert(
+            Text("common.error"),
+            isPresented: Binding(
+                get: { viewModel.followError != nil },
+                set: { if !$0 { viewModel.clearFollowError() } }
+            ),
+            presenting: viewModel.followError
+        ) { _ in
+            Button("common.ok", role: .cancel) { viewModel.clearFollowError() }
+        } message: { Text($0) }
+        // Surface "Message" failures so a tap that can't open a thread says so.
+        .alert(
+            Text("common.error"),
+            isPresented: Binding(
+                get: { viewModel.messageError != nil },
+                set: { if !$0 { viewModel.clearMessageError() } }
+            ),
+            presenting: viewModel.messageError
+        ) { _ in
+            Button("common.ok", role: .cancel) { viewModel.clearMessageError() }
+        } message: { Text($0) }
         .confirmationDialog(
             Text("profile.confirm.unfollow.title"),
             isPresented: $confirmUnfollow,

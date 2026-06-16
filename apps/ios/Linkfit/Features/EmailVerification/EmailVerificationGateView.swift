@@ -140,17 +140,19 @@ struct EmailVerificationGateView: View {
                     Group {
                         if viewModel.isSending {
                             ProgressView().controlSize(.small).tint(DSColor.accent)
+                        } else if let countdown = viewModel.resendCountdownText {
+                            Text(String(format: String(localized: "email.gate.resend_in"), countdown))
                         } else {
                             Text("email.banner.resend")
                         }
                     }
                     .font(DSType.button)
-                    .foregroundStyle(DSColor.accent)
+                    .foregroundStyle(viewModel.canResend ? DSColor.accent : DSColor.textTertiary)
                     .frame(maxWidth: .infinity, minHeight: 48)
-                    .overlay(Capsule().stroke(DSColor.accent.opacity(0.4), lineWidth: 1))
+                    .overlay(Capsule().stroke(DSColor.accent.opacity(viewModel.canResend ? 0.4 : 0.15), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
-                .disabled(viewModel.isSending)
+                .disabled(!viewModel.canResend)
 
                 Button { Task { await refresh(announce: true) } } label: {
                     Group {
