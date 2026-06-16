@@ -1,0 +1,63 @@
+<?php
+
+use App\Services\Notifications\PushDispatcher;
+use App\Services\Notifications\ReminderDispatcher;
+use Illuminate\Foundation\Inspiring;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Storage;
+
+Artisan::command('inspire', function () {
+    $this->comment(Inspiring::quote());
+})->purpose('Display an inspiring quote');
+
+Artisan::command('push:process {--limit=100} {--dry-run}', function () {
+    $dispatcher = app(PushDispatcher::class);
+    $stats = $dispatcher->process((int) $this->option('limit'), (bool) $this->option('dry-run'));
+    foreach ($stats as $key => $value) {
+        $this->line($key.': '.$value);
+    }
+})->purpose('Process pending Linkfit push notification jobs');
+
+Artisan::command('ops:send-reminders {--window=120} {--lookahead=150}', function () {
+    $stats = app(ReminderDispatcher::class)->process((int) $this->option('window'), (int) $this->option('lookahead'));
+    foreach ($stats as $key => $value) {
+        $this->line($key.': '.$value);
+    }
+})->purpose('Create game and booking reminder notifications');
+
+Artisan::command('ops:cleanup-media {--days=7} {--limit=500} {--dry-run}', function () {
+    $cutoff = now()->subDays((int) $this->option('days'));
+    $limit = min(max((int) $this->option('limit'), 1), 1000);
+    $dryRun = (bool) $this->option('dry-run');
+    $assets = DB::table('media_assets')
+        ->whereNotNull('deleted_at')
+        ->whereNull('cleanup_reason')
+        ->where('deleted_at', '<=', $cutoff)
+        ->orderBy('deleted_at')
+        ->limit($limit)
+        ->get(['id', 'disk', 'path']);
+
+    $deleted = 0;
+    $failed = 0;
+    if (! $dryRun) {
+        foreach ($assets as $asset) {
+            try {
+                Storage::disk($asset->disk)->delete($asset->path);
+                DB::table('media_assets')->where('id', $asset->id)->update([
+                    'cleanup_reason' => 'scheduled_cleanup',
+                    'updated_at' => now(),
+                ]);
+                $deleted++;
+            } catch (Throwable $e) {
+                $failed++;
+                $this->error($asset->id.': '.$e->getMessage());
+            }
+        }
+    }
+
+    $this->line('selected: '.$assets->count());
+    $this->line('deleted: '.$deleted);
+    $this->line('failed: '.$failed);
+    $this->line('dry_run: '.($dryRun ? '1' : ''));
+})->purpose('Prune storage files for media assets already soft-deleted');

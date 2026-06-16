@@ -1,0 +1,292 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Support\ApiException;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+class StoriesController extends ApiController
+{
+    private array $emojiKeys = ['heart', 'fire', '100', 'clap', 'padel'];
+
+    public function store(Request $request): JsonResponse
+    {
+        $user = $this->authUser($request);
+        $data = $this->validateBody($request, [
+            'media_url' => ['required', 'string', 'max:2048'],
+            'media_type' => ['required', 'in:image,video'],
+            'caption' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'overlays' => ['sometimes', 'array', 'max:32'],
+            'mentions' => ['sometimes', 'array', 'max:16'],
+            'mentions.*.user_id' => ['required_with:mentions', 'uuid'],
+            'mentions.*.x' => ['required_with:mentions', 'numeric', 'min:0', 'max:1'],
+            'mentions.*.y' => ['required_with:mentions', 'numeric', 'min:0', 'max:1'],
+        ]);
+        $id = (string) Str::uuid();
+        DB::transaction(function () use ($id, $user, $data) {
+            DB::table('stories')->insert([
+                'id' => $id,
+                'user_id' => $user->id,
+                'media_url' => $data['media_url'],
+                'media_type' => $data['media_type'],
+                'caption' => $data['caption'] ?? null,
+                'overlays' => json_encode($data['overlays'] ?? []),
+                'created_at' => now(),
+                'expires_at' => now()->addDay(),
+            ]);
+            foreach (($data['mentions'] ?? []) as $mention) {
+                DB::table('story_mentions')->insertOrIgnore([
+                    'story_id' => $id,
+                    'mentioned_user_id' => $mention['user_id'],
+                    'x' => $mention['x'],
+                    'y' => $mention['y'],
+                    'created_at' => now(),
+                ]);
+            }
+        });
+
+        $story = DB::table('stories')->where('id', $id)->first();
+
+        return response()->json([
+            'id' => $story->id,
+            'user_id' => $story->user_id,
+            'media_url' => $story->media_url,
+            'media_type' => $story->media_type,
+            'caption' => $story->caption,
+            'created_at' => $this->iso($story->created_at),
+            'expires_at' => $this->iso($story->expires_at),
+            'view_count' => (int) $story->view_count,
+            // iOS `Story` decodes `viewed_by_me` as a REQUIRED Bool. A freshly
+            // created story has never been viewed (the author's own view is not
+            // recorded), so it is always false here.
+            'viewed_by_me' => false,
+            'overlays' => json_decode($story->overlays ?? '[]', true) ?: [],
+            'mentions' => $this->mentions($story->id),
+        ], 201);
+    }
+
+    public function feed(Request $request): JsonResponse
+    {
+        $viewer = $this->authUser($request);
+        $rows = DB::table('stories as s')
+            ->join('users as u', 'u.id', '=', 's.user_id')
+            ->where('s.expires_at', '>', now())
+            ->orderByDesc('s.created_at')
+            ->limit(200)
+            ->get(['s.*', 'u.display_name', 'u.photo_url']);
+
+        $items = $rows->groupBy('user_id')->map(function ($stories) use ($viewer) {
+            $first = $stories->first();
+
+            return [
+                'user_id' => $first->user_id,
+                'display_name' => $first->display_name,
+                'photo_url' => $first->photo_url,
+                'has_unviewed' => $stories->contains(fn ($s) => ! DB::table('story_views')->where('story_id', $s->id)->where('viewer_user_id', $viewer->id)->exists()),
+                'latest_story_at' => $this->iso($first->created_at),
+                'stories' => $stories->map(fn ($s) => $this->storyPayload($s, $viewer->id))->values(),
+            ];
+        })->values();
+
+        return response()->json(['items' => $items]);
+    }
+
+    public function view(Request $request, string $id): JsonResponse
+    {
+        $user = $this->authUser($request);
+        $inserted = DB::table('story_views')->insertOrIgnore(['story_id' => $id, 'viewer_user_id' => $user->id, 'viewed_at' => now()]);
+        if ($inserted) {
+            DB::table('stories')->where('id', $id)->increment('view_count');
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function viewers(Request $request, string $id): JsonResponse
+    {
+        $story = DB::table('stories')->where('id', $id)->first();
+        if ($story === null) {
+            throw ApiException::notFound('Story not found');
+        }
+        if ($story->user_id !== $this->authUser($request)->id) {
+            throw ApiException::forbidden('Only author can view viewers');
+        }
+
+        // Capture the rows so we can ship `count` alongside the array — iOS
+        // `StoryViewersResponse` decodes `count` as a REQUIRED Int (it drives
+        // the eye-pill total without re-counting client-side). Left-join
+        // `story_reactions` so each row carries the viewer's `reaction_emoji`
+        // (wire key) when they also reacted; iOS reads it via
+        // `decodeIfPresent`, so a null is fine when they didn't.
+        $rows = DB::table('story_views as v')
+            ->join('users as u', 'u.id', '=', 'v.viewer_user_id')
+            ->leftJoin('story_reactions as r', function ($join) use ($id) {
+                $join->on('r.user_id', '=', 'v.viewer_user_id')
+                    ->where('r.story_id', '=', $id);
+            })
+            ->where('v.story_id', $id)
+            ->orderByDesc('v.viewed_at')
+            ->get(['v.viewer_user_id', 'u.display_name', 'u.photo_url', 'v.viewed_at', 'r.emoji as reaction_emoji']);
+
+        $viewers = $rows->map(fn ($v) => [
+            'user_id' => $v->viewer_user_id,
+            'display_name' => $v->display_name,
+            // iOS `StoryViewerInfo` decodes `avatar_url` (optional). Emit it
+            // so the row's avatar renders; keep `photo_url` too since other
+            // callers/clients use that key.
+            'avatar_url' => $v->photo_url,
+            'photo_url' => $v->photo_url,
+            'viewed_at' => $this->iso($v->viewed_at),
+            'reaction_emoji' => $v->reaction_emoji,
+        ]);
+
+        return response()->json([
+            'story_id' => $id,
+            'viewers' => $viewers,
+            'count' => $rows->count(),
+        ]);
+    }
+
+    public function react(Request $request, string $id): JsonResponse
+    {
+        $data = $this->validateBody($request, ['emoji' => ['required', 'in:heart,fire,100,clap,padel']]);
+        DB::table('story_reactions')->updateOrInsert(
+            ['story_id' => $id, 'user_id' => $this->authUser($request)->id],
+            ['emoji' => $data['emoji'], 'created_at' => now()],
+        );
+
+        return response()->json(['reactions' => $this->reactionCounts($id), 'my_reaction' => $data['emoji']]);
+    }
+
+    public function unreact(Request $request, string $id): JsonResponse
+    {
+        DB::table('story_reactions')->where('story_id', $id)->where('user_id', $this->authUser($request)->id)->delete();
+
+        return response()->json(['reactions' => $this->reactionCounts($id), 'my_reaction' => null]);
+    }
+
+    public function reply(Request $request, string $id): JsonResponse
+    {
+        $user = $this->authUser($request);
+        $data = $this->validateBody($request, [
+            'body' => ['required', 'string', 'max:500'],
+        ]);
+        $body = trim($data['body']);
+        if ($body === '') {
+            throw ApiException::validation('Reply body cannot be empty');
+        }
+
+        // Story must still exist (the sweeper deletes expired rows). iOS
+        // surfaces a 404 for expired/never-existed stories.
+        $story = DB::table('stories')->where('id', $id)->first();
+        if ($story === null) {
+            throw ApiException::notFound('Story not found');
+        }
+        // Replying to your own story is a no-op the composer hides; reject it
+        // so we never mint a self-conversation.
+        if ($story->user_id === $user->id) {
+            throw ApiException::validation('Cannot reply to your own story');
+        }
+
+        // Resolve-or-create the 1:1 DM thread between caller and author,
+        // mirroring MessagingController::startConversation EXACTLY (table
+        // names, participant rows, left_at resurrection). The
+        // `bump_conversation_last_message_at` trigger keeps
+        // conversations.last_message_at fresh on the message insert, so we
+        // don't touch it here — same as MessagingController::sendMessage.
+        $conversationId = DB::table('conversation_participants as a')
+            ->join('conversation_participants as b', 'b.conversation_id', '=', 'a.conversation_id')
+            ->where('a.user_id', $user->id)
+            ->where('b.user_id', $story->user_id)
+            ->value('a.conversation_id');
+
+        $messageId = (string) Str::uuid();
+        // Prefix so the recipient's inbox renders it as a story reply without
+        // a schema migration (matches the iOS `StoryReplyRequest` contract).
+        $messageBody = '↩ Story reply: '.$body;
+
+        DB::transaction(function () use (&$conversationId, $user, $story, $messageId, $messageBody) {
+            if ($conversationId !== null) {
+                DB::table('conversation_participants')
+                    ->where('conversation_id', $conversationId)
+                    ->whereIn('user_id', [$user->id, $story->user_id])
+                    ->update(['left_at' => null]);
+            } else {
+                $conversationId = (string) Str::uuid();
+                DB::table('conversations')->insert(['id' => $conversationId, 'created_at' => now()]);
+                DB::table('conversation_participants')->insert([
+                    ['conversation_id' => $conversationId, 'user_id' => $user->id],
+                    ['conversation_id' => $conversationId, 'user_id' => $story->user_id],
+                ]);
+            }
+
+            DB::table('messages')->insert([
+                'id' => $messageId,
+                'conversation_id' => $conversationId,
+                'sender_user_id' => $user->id,
+                'body' => $messageBody,
+                'created_at' => now(),
+            ]);
+        });
+
+        return response()->json([
+            'conversation_id' => $conversationId,
+            'message_id' => $messageId,
+        ], 201);
+    }
+
+    public function destroy(Request $request, string $id): JsonResponse
+    {
+        $story = DB::table('stories')->where('id', $id)->first();
+        if ($story === null) {
+            throw ApiException::notFound('Story not found');
+        }
+        if ($story->user_id !== $this->authUser($request)->id) {
+            throw ApiException::forbidden('Only author can delete story');
+        }
+        DB::table('stories')->where('id', $id)->delete();
+
+        return response()->json(null, 204);
+    }
+
+    private function storyPayload(object $s, string $viewerId): array
+    {
+        $mine = DB::table('story_reactions')->where('story_id', $s->id)->where('user_id', $viewerId)->value('emoji');
+
+        return [
+            'id' => $s->id,
+            'media_url' => $s->media_url,
+            'media_type' => $s->media_type,
+            'caption' => $s->caption,
+            'created_at' => $this->iso($s->created_at),
+            'viewed_by_me' => DB::table('story_views')->where('story_id', $s->id)->where('viewer_user_id', $viewerId)->exists(),
+            'reactions' => $this->reactionCounts($s->id),
+            'my_reaction' => $mine,
+            'overlays' => json_decode($s->overlays ?? '[]', true) ?: [],
+            'mentions' => $this->mentions($s->id),
+        ];
+    }
+
+    private function mentions(string $storyId): array
+    {
+        return DB::table('story_mentions as m')->join('users as u', 'u.id', '=', 'm.mentioned_user_id')->where('m.story_id', $storyId)->get(['m.mentioned_user_id', 'u.display_name', 'm.x', 'm.y'])->map(fn ($m) => [
+            'user_id' => $m->mentioned_user_id,
+            'display_name' => $m->display_name,
+            'x' => (float) $m->x,
+            'y' => (float) $m->y,
+        ])->all();
+    }
+
+    private function reactionCounts(string $storyId): array
+    {
+        $counts = array_fill_keys($this->emojiKeys, 0);
+        foreach (DB::table('story_reactions')->where('story_id', $storyId)->selectRaw('emoji, count(*) as total')->groupBy('emoji')->get() as $row) {
+            $counts[$row->emoji] = (int) $row->total;
+        }
+
+        return $counts;
+    }
+}

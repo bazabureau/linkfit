@@ -1,0 +1,124 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Support\ApiException;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+class SeriesController extends ApiController
+{
+    public function store(Request $request): JsonResponse
+    {
+        $user = $this->authUser($request);
+        $id = (string) Str::uuid();
+        DB::table('game_series')->insert([
+            'id' => $id,
+            'host_user_id' => $user->id,
+            'sport_id' => $request->input('sport_id'),
+            'court_id' => $request->input('court_id'),
+            'lat' => $request->input('lat'),
+            'lng' => $request->input('lng'),
+            'day_of_week' => $request->input('day_of_week'),
+            'time_of_day' => $request->input('time_of_day'),
+            'duration_minutes' => $request->input('duration_minutes'),
+            'capacity' => $request->input('capacity'),
+            'occurrences' => $request->input('occurrences', 1),
+            'starts_on' => $request->input('starts_on'),
+            'ends_on' => $request->input('ends_on'),
+            'notes' => $request->input('notes'),
+            'created_at' => now(),
+        ]);
+
+        return response()->json($this->seriesPayload($id), 201);
+    }
+
+    public function show(Request $request, string $id): JsonResponse
+    {
+        $this->authUser($request);
+
+        return response()->json($this->seriesPayload($id));
+    }
+
+    public function cancel(Request $request, string $id): JsonResponse
+    {
+        $this->authUser($request);
+        DB::table('game_series')->where('id', $id)->update(['status' => 'cancelled']);
+        $cancelledCount = DB::table('games')
+            ->where('series_id', $id)
+            ->where('starts_at', '>=', now())
+            ->update(['status' => 'cancelled', 'updated_at' => now()]);
+
+        return response()->json(['cancelled_count' => (int) $cancelledCount]);
+    }
+
+    /**
+     * Build the GameSeriesDetail payload the iOS client decodes: the series
+     * template row joined to its sport slug + optional venue name, plus the
+     * materialized games[] list (SeriesGameSummary shape). Numeric lat/lng are
+     * cast to float (PDO returns Postgres numerics as strings) and timestamptz
+     * columns are emitted as ISO8601 strings via $this->iso().
+     */
+    private function seriesPayload(string $id): array
+    {
+        $row = DB::table('game_series as gs')
+            ->join('sports as s', 's.id', '=', 'gs.sport_id')
+            ->leftJoin('courts as c', 'c.id', '=', 'gs.court_id')
+            ->leftJoin('venues as v', 'v.id', '=', 'c.venue_id')
+            ->where('gs.id', $id)
+            ->selectRaw('
+                gs.id, gs.host_user_id, gs.sport_id, s.slug as sport_slug,
+                gs.court_id, v.name as venue_name, gs.lat, gs.lng,
+                gs.day_of_week, gs.time_of_day, gs.duration_minutes, gs.capacity,
+                gs.occurrences, gs.starts_on, gs.ends_on, gs.status, gs.notes,
+                gs.created_at
+            ')
+            ->first();
+
+        if ($row === null) {
+            throw ApiException::notFound('Game series not found');
+        }
+
+        $games = DB::table('games as g')
+            ->where('g.series_id', $id)
+            ->orderBy('g.occurrence_number')
+            ->selectRaw("
+                g.id, g.occurrence_number, g.starts_at, g.status, g.capacity,
+                (select count(*) from game_participants gp where gp.game_id = g.id and gp.status = 'confirmed')::int as participants_count
+            ")
+            ->get()
+            ->map(fn ($g) => [
+                'id' => $g->id,
+                'occurrence_number' => (int) $g->occurrence_number,
+                'starts_at' => $this->iso($g->starts_at),
+                'status' => $g->status,
+                'capacity' => (int) $g->capacity,
+                'participants_count' => (int) $g->participants_count,
+            ])
+            ->values();
+
+        return [
+            'id' => $row->id,
+            'host_user_id' => $row->host_user_id,
+            'sport_id' => $row->sport_id,
+            'sport_slug' => $row->sport_slug,
+            'court_id' => $row->court_id,
+            'venue_name' => $row->venue_name,
+            'lat' => (float) $row->lat,
+            'lng' => (float) $row->lng,
+            'day_of_week' => (int) $row->day_of_week,
+            'time_of_day' => $row->time_of_day,
+            'duration_minutes' => (int) $row->duration_minutes,
+            'capacity' => (int) $row->capacity,
+            'occurrences' => (int) $row->occurrences,
+            'starts_on' => $row->starts_on,
+            'ends_on' => $row->ends_on,
+            'status' => $row->status,
+            'notes' => $row->notes,
+            'created_at' => $this->iso($row->created_at),
+            'games' => $games,
+        ];
+    }
+}
