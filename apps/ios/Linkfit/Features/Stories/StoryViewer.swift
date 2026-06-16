@@ -80,6 +80,10 @@ struct StoryViewer: View {
     /// overflow still fits); tapping flips this and lets the caption
     /// run to its full length. Pure UI, so it lives here, not on the VM.
     @State private var captionExpanded: Bool = false
+    /// Bumped by the media-error "Retry" button to force the failed
+    /// CachedAsyncImage to re-fetch (its `.id` folds this in alongside the
+    /// media URL, so a retry — or a new story — re-runs the load).
+    @State private var mediaReloadToken: Int = 0
     /// Set when the viewer taps the "..." menu → "Şikayət et". Drives
     /// the `.reportSheet` modifier; the underlying viewer pauses while
     /// the sheet is up so the timer doesn't advance behind the form.
@@ -303,10 +307,25 @@ struct StoryViewer: View {
                 img.resizable().scaledToFit()
                     .ignoresSafeArea()
             } else if case .failure = phase {
-                VStack(spacing: 12) {
+                VStack(spacing: 14) {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.system(size: 32))
                     Text("common.error.generic")
+                    // The story timer keeps running, so a media blip used to
+                    // dead-end on this triangle until it auto-advanced. Give the
+                    // viewer a real retry that re-fetches the current frame.
+                    Button {
+                        Haptics.selection()
+                        mediaReloadToken += 1
+                    } label: {
+                        Label("common.retry", systemImage: "arrow.clockwise")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Capsule().fill(.white.opacity(0.15)))
+                    }
+                    .buttonStyle(.plain)
                 }
                 .foregroundStyle(.white.opacity(0.7))
             } else {
@@ -315,6 +334,9 @@ struct StoryViewer: View {
                     .tint(.white)
             }
         }
+        // Folds the retry token into identity so tapping Retry (or moving to a
+        // new story URL) re-runs the load instead of showing a cached failure.
+        .id("\(story.media_url)#\(mediaReloadToken)")
     }
 
     // MARK: - Progress bars

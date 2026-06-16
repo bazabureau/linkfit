@@ -50,20 +50,12 @@ struct StoryReplyComposer: View {
     /// state apply instantly.
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// Five quick-react emojis surfaced as one-tap shortcuts above the
-    /// text composer. Same glyph order as `StoryReactionEmoji.allCases`
-    /// so the visual identity matches the reactions bar; the action is
-    /// different (DM send vs. reaction upsert), but the glyphs are
-    /// stable so the user's muscle memory transfers.
-    private static let quickReactions: [String] = ["\u{2764}\u{FE0F}", "\u{1F525}", "\u{1F4AF}", "\u{1F44F}", "\u{1F3BE}"]
-
     /// Hide the entire composer when there's no recipient — happens
     /// mid-dismiss when `currentGroup` briefly goes nil before the
     /// view tears down.
     var body: some View {
         if let group = viewModel.currentGroup {
             VStack(spacing: 10) {
-                quickReactionRow
                 composerRow(authorName: group.display_name)
             }
             // Stop touch-down anywhere inside the composer strip from
@@ -82,44 +74,6 @@ struct StoryReplyComposer: View {
         } else {
             EmptyView()
         }
-    }
-
-    // MARK: - Quick reactions
-
-    /// Horizontal row of one-tap quick-reaction emojis. Each tap sends
-    /// the glyph as a single-character reply (`viewModel.sendReply`)
-    /// and surfaces a soft haptic. We intentionally don't dim the row
-    /// while a previous send is in flight — quick reactions are
-    /// throwaway, and a rapid double-tap producing two heart messages
-    /// matches Instagram's behavior.
-    private var quickReactionRow: some View {
-        HStack(spacing: 12) {
-            ForEach(Self.quickReactions, id: \.self) { glyph in
-                Button {
-                    Haptics.soft()
-                    // Quick reactions ignore `draft` — they send the
-                    // emoji literally. We don't await the result here
-                    // (fire-and-forget) since the toast surfaces success
-                    // and the strip stays interactive for the next tap.
-                    Task { await viewModel.sendReply(text: glyph) }
-                } label: {
-                    Text(glyph)
-                        .font(.system(size: 28))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel(Text(String(
-                    format: String(localized: "stories.reply.quick.a11y"),
-                    glyph
-                )))
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(
-            Capsule()
-                .fill(Color.black.opacity(0.35))
-        )
     }
 
     // MARK: - Text composer
