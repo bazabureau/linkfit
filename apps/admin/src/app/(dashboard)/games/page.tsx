@@ -1,7 +1,7 @@
 import { GamesTable } from "./GamesTable";
 
 export const metadata = {
-  title: "Games · Linkfit Admin",
+  title: "Oyunlar · Linkfit Admin",
 };
 
 export default function GamesPage(): JSX.Element {
@@ -10,10 +10,10 @@ export default function GamesPage(): JSX.Element {
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Games
+            Oyunlar
           </h1>
           <p className="mt-1 text-sm text-foregroundMuted">
-            Review, moderate, and triage scheduled games across all sports.
+            Padel və tenis oyunlarını yoxlayın, ləğv edin və idarə edin.
           </p>
         </div>
       </header>

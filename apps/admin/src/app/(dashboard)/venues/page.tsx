@@ -17,6 +17,7 @@ import {
 } from "@/lib/admin-venues";
 import { VenueForm } from "./VenueForm";
 import { VenuesTable } from "./VenuesTable";
+import { useI18n } from "@/lib/i18n";
 
 interface ErrorWithStatus {
   status?: number;
@@ -36,6 +37,7 @@ function getErrorMessage(err: unknown, fallback: string): string {
 
 export default function VenuesPage(): React.JSX.Element {
   const toast = useToast();
+  const { t } = useI18n();
   const { data: venues = [], isLoading } = useVenues({ limit: 100 });
 
   const createMut = useCreateVenue();
@@ -75,14 +77,14 @@ export default function VenuesPage(): React.JSX.Element {
     try {
       if (editing) {
         await updateMut.mutateAsync({ id: editing.id, data: payload });
-        toast.success("Venue updated", payload.name);
+        toast.success(t("Venue updated"), payload.name);
       } else {
         await createMut.mutateAsync(payload);
-        toast.success("Venue created", payload.name);
+        toast.success(t("Venue created"), payload.name);
       }
       closeForm();
     } catch (err) {
-      toast.error("Save failed", getErrorMessage(err, "Could not save venue"));
+      toast.error(t("Save failed"), getErrorMessage(err, "Could not save venue"));
     }
   };
 
@@ -92,9 +94,9 @@ export default function VenuesPage(): React.JSX.Element {
     setConfirmDelete(null);
     try {
       await deleteMut.mutateAsync(target.id);
-      toast.success("Venue deleted", target.name);
+      toast.success(t("Venue deleted"), target.name);
     } catch (err) {
-      toast.error("Delete failed", getErrorMessage(err, "Could not delete venue"));
+      toast.error(t("Delete failed"), getErrorMessage(err, "Could not delete venue"));
     }
   };
 
@@ -103,28 +105,28 @@ export default function VenuesPage(): React.JSX.Element {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Venues
+            {t("Venues")}
           </h1>
           <p className="text-sm text-foregroundMuted">
-            Manage partner venues, locations, courts and hero imagery.
+            {t("Manage partner venues, locations, courts and hero imagery.")}
           </p>
         </div>
-        <Button onClick={openNew}>
+        <Button onClick={openNew} className="w-full sm:w-auto">
           <Plus className="h-4 w-4" />
-          New venue
+          {t("New venue")}
         </Button>
       </div>
 
       {!showEmpty && (
-        <div className="relative max-w-md">
+        <div className="relative max-w-md sm:max-w-lg">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foregroundMuted" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name or address…"
+            placeholder={t("Search by name or address…")}
             className="pl-9"
           />
         </div>
@@ -138,20 +140,20 @@ export default function VenuesPage(): React.JSX.Element {
             </div>
             <div>
               <h3 className="text-base font-semibold text-foreground">
-                No venues yet
+                {t("No venues yet")}
               </h3>
               <p className="text-sm text-foregroundMuted">
-                Add your first venue to start listing courts and accepting bookings.
+                {t("Add your first venue to start listing courts and accepting bookings.")}
               </p>
             </div>
             <Button onClick={openNew} className="mt-2">
               <Plus className="h-4 w-4" />
-              Add your first venue
+              {t("Add your first venue")}
             </Button>
           </div>
         ) : !isLoading && filtered.length === 0 ? (
           <div className="px-6 py-12 text-center text-sm text-foregroundMuted">
-            No venues match {JSON.stringify(query)}.
+            {t("No venues match")} {JSON.stringify(query)}.
           </div>
         ) : (
           <VenuesTable
@@ -166,11 +168,11 @@ export default function VenuesPage(): React.JSX.Element {
       <Dialog
         open={formOpen}
         onOpenChange={(open) => (open ? setFormOpen(true) : closeForm())}
-        title={editing ? "Edit venue" : "New venue"}
+        title={editing ? t("Edit venue") : t("New venue")}
         description={
           editing
-            ? "Update venue details, photo or partner status."
-            : "Create a venue. You can add courts after saving."
+            ? t("Update venue details, photo or partner status.")
+            : t("Create a venue. You can add courts after saving.")
         }
       >
         <VenueForm
@@ -184,16 +186,15 @@ export default function VenuesPage(): React.JSX.Element {
       <Dialog
         open={confirmDelete !== null}
         onOpenChange={(open) => (open ? null : setConfirmDelete(null))}
-        title="Delete venue"
+        title={t("Delete venue")}
       >
         <div className="space-y-4">
           <p className="text-sm text-foregroundMuted">
-            Are you sure you want to delete{" "}
+            {t("Are you sure you want to delete")}{" "}
             <span className="font-semibold text-foreground">
               {confirmDelete?.name}
             </span>
-            ? This action cannot be undone, and the venue must not have any
-            future bookings.
+            ? {t("This action cannot be undone, and the venue must not have any future bookings.")}
           </p>
           <div className="flex justify-end gap-2">
             <Button
@@ -201,14 +202,14 @@ export default function VenuesPage(): React.JSX.Element {
               onClick={() => setConfirmDelete(null)}
               disabled={deleteMut.isPending}
             >
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button
               variant="danger"
               onClick={handleDelete}
               disabled={deleteMut.isPending}
             >
-              {deleteMut.isPending ? "Deleting..." : "Delete"}
+              {deleteMut.isPending ? t("Deleting...") : t("Delete")}
             </Button>
           </div>
         </div>

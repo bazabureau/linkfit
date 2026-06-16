@@ -38,6 +38,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAdminStats } from "@/lib/admin-overview";
+import { useI18n } from "@/lib/i18n";
 
 const numberFmt = new Intl.NumberFormat("en-US");
 
@@ -50,6 +51,7 @@ type Kpi = {
 
 export default function AdminOverviewPage() {
   const { data, isLoading, isError, refetch, isFetching } = useAdminStats();
+  const { t } = useI18n();
 
   const kpis: Kpi[] = [
     {
@@ -80,13 +82,13 @@ export default function AdminOverviewPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex items-end justify-between gap-4">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Overview
+            {t("Overview")}
           </h1>
           <p className="text-sm text-foregroundMuted">
-            High-level activity across LinkFit.
+            {t("High-level activity across LinkFit.")}
           </p>
         </div>
         <Button
@@ -94,11 +96,12 @@ export default function AdminOverviewPage() {
           size="sm"
           onClick={() => refetch()}
           disabled={isFetching}
+          className="w-full sm:w-auto"
         >
           <RefreshCw
             className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
           />
-          Refresh
+          {t("Refresh")}
         </Button>
       </header>
 
@@ -109,15 +112,15 @@ export default function AdminOverviewPage() {
               <AlertTriangle className="h-5 w-5 text-danger" />
               <div>
                 <p className="font-medium text-foreground">
-                  Failed to load admin stats
+                  {t("Failed to load admin stats")}
                 </p>
                 <p className="text-sm text-foregroundMuted">
-                  Check your connection and try again.
+                  {t("Check your connection and try again.")}
                 </p>
               </div>
             </div>
             <Button variant="secondary" size="sm" onClick={() => refetch()}>
-              Retry
+              {t("Retry")}
             </Button>
           </CardContent>
         </Card>
@@ -125,7 +128,7 @@ export default function AdminOverviewPage() {
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map((k) => (
-          <KpiTile key={k.label} kpi={k} loading={isLoading} />
+          <KpiTile key={k.label} kpi={{ ...k, label: t(k.label), hint: k.hint ? t(k.hint) : undefined }} loading={isLoading} />
         ))}
       </section>
 
@@ -134,10 +137,10 @@ export default function AdminOverviewPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Trophy className="h-4 w-4 text-accent" />
-              Top venues
+              {t("Top venues")}
             </CardTitle>
             <CardDescription>
-              Venues hosting the most games right now.
+              {t("Venues hosting the most games right now.")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -189,8 +192,8 @@ export default function AdminOverviewPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Venue</TableHead>
-                      <TableHead className="text-right">Games</TableHead>
+                      <TableHead>{t("Venue")}</TableHead>
+                      <TableHead className="text-right">{t("Games")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -212,7 +215,7 @@ export default function AdminOverviewPage() {
               </div>
             ) : (
               <p className="py-8 text-center text-sm text-foregroundMuted">
-                No venue activity yet.
+                {t("No venue activity yet.")}
               </p>
             )}
           </CardContent>
@@ -222,10 +225,10 @@ export default function AdminOverviewPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-warning" />
-              Pending reports
+              {t("Pending reports")}
             </CardTitle>
             <CardDescription>
-              Moderation queue awaiting review.
+              {t("Moderation queue awaiting review.")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -239,13 +242,13 @@ export default function AdminOverviewPage() {
               )}
               <p className="mt-1 text-xs text-foregroundMuted">
                 {data?.pending_reports
-                  ? "Awaiting moderator action"
-                  : "All clear"}
+                  ? t("Awaiting moderator action")
+                  : t("All clear")}
               </p>
             </div>
             <Button asChild size="sm" className="gap-2">
               <Link href="/reports">
-                Review queue
+                {t("Review queue")}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>

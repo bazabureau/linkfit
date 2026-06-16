@@ -65,7 +65,7 @@ export function AuditTable() {
     <div className="space-y-4">
       {isError ? (
         <Card className="border-danger/40 bg-danger/10">
-          <CardContent className="flex items-center justify-between gap-4 py-5">
+          <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-5 w-5 text-danger" />
               <p className="text-sm text-foreground">
@@ -83,10 +83,10 @@ export function AuditTable() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-44">Timestamp</TableHead>
-              <TableHead>Actor</TableHead>
-              <TableHead>Action</TableHead>
-              <TableHead>Entity</TableHead>
+              <TableHead className="min-w-44">Timestamp</TableHead>
+              <TableHead className="min-w-56">Actor</TableHead>
+              <TableHead className="min-w-40">Action</TableHead>
+              <TableHead className="min-w-56">Entity</TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>

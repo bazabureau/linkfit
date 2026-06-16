@@ -1,31 +1,29 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { ArrowRight, Loader2, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { loginAdmin } from "@/lib/auth";
 import { APIError } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 const LoginSchema = z.object({
   email: z.string().email("Enter a valid email"),
   password: z.string().min(1, "Password is required"),
 });
 type LoginValues = z.infer<typeof LoginSchema>;
+const ADMIN_BASE_PATH = process.env.NEXT_PUBLIC_ADMIN_BASE_PATH || "/admin";
 
 export default function LoginPage(): React.JSX.Element {
   const router = useRouter();
+  const { t } = useI18n();
   const [redirectTo, setRedirectTo] = React.useState("/");
   React.useEffect(() => { if (typeof window === "undefined") return; const p = new URLSearchParams(window.location.search); const r = p.get("from"); if (r) setRedirectTo(r); }, []);
   
@@ -49,96 +47,158 @@ export default function LoginPage(): React.JSX.Element {
     } catch (err) {
       if (err instanceof APIError) {
         if (err.code === "forbidden_not_admin" || err.status === 403) {
-          setServerError("This account does not have admin access.");
+          setServerError(t("This account does not have admin access."));
         } else if (err.status === 401) {
-          setServerError("Incorrect email or password.");
+          setServerError(t("Incorrect email or password."));
         } else {
-          setServerError(err.message || "Sign in failed.");
+          setServerError(err.message || t("Sign in failed."));
         }
       } else {
-        setServerError("Sign in failed. Try again.");
+        setServerError(t("Sign in failed. Try again."));
       }
     }
   });
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 py-12 bg-background">
-      <div className="w-full max-w-md">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-accent/15 grid place-items-center">
-            <ShieldCheck className="h-5 w-5 text-accent" />
-          </div>
-          <div>
-            <div className="text-lg font-semibold leading-tight">Linkfit</div>
-            <div className="text-xs uppercase tracking-wider text-foregroundMuted">
-              Admin panel
+    <main className="min-h-screen bg-[#f4f7f8] text-[#111827]">
+      <div className="grid min-h-screen lg:grid-cols-[1.04fr_0.96fr]">
+        <section className="relative hidden overflow-hidden lg:block">
+          <Image
+            src={`${ADMIN_BASE_PATH}/brand/site/padel-player.jpg`}
+            alt=""
+            fill
+            priority
+            unoptimized
+            sizes="52vw"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(4,10,18,0.82),rgba(4,10,18,0.38)_58%,rgba(4,10,18,0.08))]" />
+          <div className="relative flex h-full flex-col justify-between p-12">
+            <Image
+              src={`${ADMIN_BASE_PATH}/brand/logolinkfit.png`}
+              alt="Linkfit"
+              width={260}
+              height={36}
+              priority
+              unoptimized
+              className="h-9 w-auto object-contain"
+            />
+            <div className="max-w-xl pb-8 text-white">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm backdrop-blur">
+                <ShieldCheck className="h-4 w-4 text-[#b7f233]" />
+                {t("Admin panel")}
+              </div>
+              <h1 className="text-5xl font-semibold leading-[1.02] tracking-normal">
+                Platforma nəzarəti bir yerdə.
+              </h1>
+              <p className="mt-5 max-w-md text-base leading-7 text-white/78">
+                İstifadəçilər, məkanlar, courtlar, oyunlar və rezervasiyalar üçün Linkfit idarəetməsi.
+              </p>
             </div>
           </div>
-        </div>
+        </section>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Sign in</CardTitle>
-            <CardDescription>
-              Use your Linkfit admin account to continue.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={onSubmit} className="space-y-4" noValidate>
-              <div className="space-y-1.5">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@linkfit.app"
-                  aria-invalid={Boolean(errors.email)}
-                  {...register("email")}
-                />
+        <section className="flex min-h-screen items-center justify-center px-5 py-8 sm:px-8">
+          <div className="w-full max-w-[460px]">
+            <div className="mb-10 flex items-center justify-between gap-4">
+              <Image
+                src={`${ADMIN_BASE_PATH}/brand/logolinkfit-dark.png`}
+                alt="Linkfit"
+                width={230}
+                height={32}
+                priority
+                unoptimized
+                className="h-8 w-auto object-contain"
+              />
+              <LanguageSwitcher />
+            </div>
+
+            <div className="mb-8">
+              <p className="mb-3 text-sm font-semibold uppercase text-[#6b7280]">
+                {t("Admin panel")}
+              </p>
+              <h2 className="text-4xl font-semibold leading-tight tracking-normal text-[#0f172a]">
+                {t("Sign in")}
+              </h2>
+              <p className="mt-3 text-base leading-7 text-[#5f6b7a]">
+                {t("Use your Linkfit admin account to continue.")}
+              </p>
+            </div>
+
+            <form onSubmit={onSubmit} className="space-y-5" noValidate>
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-[#273241]">
+                  {t("Email")}
+                </Label>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7b8794]" />
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="admin@linkfit.az"
+                    aria-invalid={Boolean(errors.email)}
+                    className="h-12 rounded-xl border-[#d7dee4] bg-white pl-11 text-[#111827] placeholder:text-[#8a94a3] focus-visible:border-[#b7f233] focus-visible:ring-[#b7f233]/45"
+                    {...register("email")}
+                  />
+                </div>
                 {errors.email ? (
-                  <p className="text-xs text-danger">{errors.email.message}</p>
+                  <p className="text-sm font-medium text-[#dc2626]">{t(errors.email.message ?? "")}</p>
                 ) : null}
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  aria-invalid={Boolean(errors.password)}
-                  {...register("password")}
-                />
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-[#273241]">
+                  {t("Password")}
+                </Label>
+                <div className="relative">
+                  <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7b8794]" />
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    aria-invalid={Boolean(errors.password)}
+                    className="h-12 rounded-xl border-[#d7dee4] bg-white pl-11 text-[#111827] placeholder:text-[#8a94a3] focus-visible:border-[#b7f233] focus-visible:ring-[#b7f233]/45"
+                    {...register("password")}
+                  />
+                </div>
                 {errors.password ? (
-                  <p className="text-xs text-danger">{errors.password.message}</p>
+                  <p className="text-sm font-medium text-[#dc2626]">{t(errors.password.message ?? "")}</p>
                 ) : null}
               </div>
 
               {serverError ? (
-                <div className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+                <div className="rounded-xl border border-[#fecaca] bg-[#fff1f2] px-4 py-3 text-sm font-medium text-[#b91c1c]">
                   {serverError}
                 </div>
               ) : null}
 
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
+              <Button
+                type="submit"
+                className="h-12 w-full rounded-xl bg-[#b7f233] text-[#101820] hover:bg-[#a5df22]"
+                disabled={isSubmitting}
+              >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Signing in…
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {t("Signing in…")}
                   </>
                 ) : (
-                  "Sign in"
+                  <>
+                    {t("Sign in")}
+                    <ArrowRight className="h-4 w-4" />
+                  </>
                 )}
               </Button>
             </form>
-          </CardContent>
-        </Card>
 
-        <p className="mt-4 text-center text-xs text-foregroundMuted">
-          Need access? Ask an existing admin to provision your account.
-        </p>
+            <p className="mt-6 text-sm leading-6 text-[#6b7280]">
+              {t("Need access? Ask an existing admin to provision your account.")}
+            </p>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

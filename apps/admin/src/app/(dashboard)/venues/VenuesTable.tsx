@@ -66,11 +66,11 @@ export function VenuesTable({
       <TableHeader>
         <TableRow>
           <TableHead className="w-16">Photo</TableHead>
-          <TableHead>Name</TableHead>
-          <TableHead>Address</TableHead>
-          <TableHead>Partner</TableHead>
-          <TableHead>Courts</TableHead>
-          <TableHead>Created</TableHead>
+          <TableHead className="min-w-48">Name</TableHead>
+          <TableHead className="min-w-56">Address</TableHead>
+          <TableHead className="min-w-28">Partner</TableHead>
+          <TableHead className="min-w-44">Courts</TableHead>
+          <TableHead className="min-w-28">Created</TableHead>
           <TableHead className="text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
@@ -156,7 +156,7 @@ export function VenuesTable({
                       onClick={() => onEdit(venue)}
                     >
                       <Pencil className="h-3.5 w-3.5" />
-                      Edit
+                      <span className="hidden sm:inline">Edit</span>
                     </Button>
                     <Button
                       variant="danger"
@@ -164,7 +164,7 @@ export function VenuesTable({
                       onClick={() => onDelete(venue)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                      Delete
+                      <span className="hidden sm:inline">Delete</span>
                     </Button>
                   </div>
                 </TableCell>

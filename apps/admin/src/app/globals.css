@@ -9,12 +9,14 @@
   --border: 38 47 61; /* #262F3D */
   --foreground: 230 234 242; /* #E6EAF2 */
   --foreground-muted: 156 166 184; /* #9CA6B8 */
-  --accent: 34 197 94; /* #22C55E */
+  --accent: 215 255 25; /* #D7FF19 */
 }
 
 html,
 body {
   height: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -23,6 +25,21 @@ body {
   font-feature-settings: "rlig" 1, "calt" 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 /* Subtle scrollbars on the dark theme */

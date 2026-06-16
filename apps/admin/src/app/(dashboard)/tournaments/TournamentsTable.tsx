@@ -55,12 +55,12 @@ export function TournamentsTable({
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Sport</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Dates</TableHead>
-          <TableHead>Entries</TableHead>
-          <TableHead>Entry fee</TableHead>
+          <TableHead className="min-w-56">Name</TableHead>
+          <TableHead className="min-w-28">Sport</TableHead>
+          <TableHead className="min-w-36">Status</TableHead>
+          <TableHead className="min-w-40">Dates</TableHead>
+          <TableHead className="min-w-28">Entries</TableHead>
+          <TableHead className="min-w-32">Entry fee</TableHead>
           <TableHead className="text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
@@ -115,19 +115,19 @@ export function TournamentsTable({
                   <Button asChild variant="ghost" size="sm">
                     <Link href={`/tournaments/${t.id}`}>
                       <Eye className="h-3.5 w-3.5" />
-                      View
+                      <span className="hidden sm:inline">View</span>
                     </Link>
                   </Button>
                   <Button asChild variant="secondary" size="sm">
                     <Link href={`/tournaments/${t.id}/edit`}>
                       <Pencil className="h-3.5 w-3.5" />
-                      Edit
+                      <span className="hidden sm:inline">Edit</span>
                     </Link>
                   </Button>
                   {t.status !== "cancelled" && t.status !== "completed" && (
                     <Button variant="danger" size="sm" onClick={() => onDelete(t)}>
                       <Trash2 className="h-3.5 w-3.5" />
-                      Cancel
+                      <span className="hidden sm:inline">Cancel</span>
                     </Button>
                   )}
                 </div>

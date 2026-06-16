@@ -25,6 +25,7 @@ export interface CourtFormProps {
 const courtSchema = z.object({
   sport_id: z.string().uuid("Pick a sport"),
   name: z.string().min(1, "Court name is required").max(120),
+  status: z.enum(["active", "inactive", "maintenance"]),
   hourly_price_major: z
     .number({ invalid_type_error: "Price must be a number" })
     .min(0, "Price cannot be negative")
@@ -33,6 +34,11 @@ const courtSchema = z.object({
     .string()
     .length(3, "Currency must be a 3-letter code")
     .transform((v) => v.toUpperCase()),
+  photo_url: z
+    .string()
+    .url("Photo URL must be valid")
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
 });
 
 type CourtFormValues = z.infer<typeof courtSchema>;
@@ -56,8 +62,10 @@ export function CourtForm({
     defaultValues: {
       sport_id: defaultSportId,
       name: initial?.name ?? "",
+      status: initial?.status ?? "active",
       hourly_price_major: initial ? initial.hourly_price_minor / 100 : 0,
       currency: initial?.currency ?? "AZN",
+      photo_url: initial?.photo_url ?? "",
     },
   });
 
@@ -65,8 +73,10 @@ export function CourtForm({
     reset({
       sport_id: initial?.sport_id ?? sports[0]?.id ?? "",
       name: initial?.name ?? "",
+      status: initial?.status ?? "active",
       hourly_price_major: initial ? initial.hourly_price_minor / 100 : 0,
       currency: initial?.currency ?? "AZN",
+      photo_url: initial?.photo_url ?? "",
     });
   }, [initial, sports, reset]);
 
@@ -76,18 +86,20 @@ export function CourtForm({
       name: values.name.trim(),
       hourly_price_minor: Math.round(values.hourly_price_major * 100),
       currency: values.currency,
+      status: values.status,
+      photo_url: values.photo_url?.trim() || null,
     };
     return onSubmit(payload);
   });
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form onSubmit={submit} className="max-h-[72vh] space-y-4 overflow-y-auto pr-1">
       <div>
         <label
           className="mb-1 block text-sm font-medium text-foreground"
           htmlFor="court-sport"
         >
-          Sport
+          İdman
         </label>
         <select
           id="court-sport"
@@ -110,11 +122,32 @@ export function CourtForm({
           className="mb-1 block text-sm font-medium text-foreground"
           htmlFor="court-name"
         >
-          Court name
+          Kort adı
         </label>
-        <Input id="court-name" {...register("name")} placeholder="Court 1" />
+        <Input id="court-name" {...register("name")} placeholder="Kort 1" />
         {errors.name && (
           <p className="mt-1 text-xs text-danger">{errors.name.message}</p>
+        )}
+      </div>
+
+      <div>
+        <label
+          className="mb-1 block text-sm font-medium text-foreground"
+          htmlFor="court-status"
+        >
+          Status
+        </label>
+        <select
+          id="court-status"
+          {...register("status")}
+          className="flex h-10 w-full rounded-lg border border-border bg-surfaceElevated px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+        >
+          <option value="active">Aktiv</option>
+          <option value="inactive">Passiv</option>
+          <option value="maintenance">Təmir / maintenance</option>
+        </select>
+        {errors.status && (
+          <p className="mt-1 text-xs text-danger">{errors.status.message}</p>
         )}
       </div>
 
@@ -124,7 +157,7 @@ export function CourtForm({
             className="mb-1 block text-sm font-medium text-foreground"
             htmlFor="court-price"
           >
-            Hourly price
+            Saatlıq qiymət
           </label>
           <Input
             id="court-price"
@@ -145,7 +178,7 @@ export function CourtForm({
             className="mb-1 block text-sm font-medium text-foreground"
             htmlFor="court-currency"
           >
-            Currency
+            Valyuta
           </label>
           <Input
             id="court-currency"
@@ -159,6 +192,23 @@ export function CourtForm({
         </div>
       </div>
 
+      <div>
+        <label
+          className="mb-1 block text-sm font-medium text-foreground"
+          htmlFor="court-photo"
+        >
+          Şəkil URL
+        </label>
+        <Input
+          id="court-photo"
+          {...register("photo_url")}
+          placeholder="https://..."
+        />
+        {errors.photo_url && (
+          <p className="mt-1 text-xs text-danger">{errors.photo_url.message}</p>
+        )}
+      </div>
+
       <div className="flex justify-end gap-2 pt-2 border-t border-border">
         <Button
           type="button"
@@ -166,10 +216,10 @@ export function CourtForm({
           onClick={onCancel}
           disabled={submitting}
         >
-          Cancel
+          Ləğv et
         </Button>
         <Button type="submit" disabled={submitting}>
-          {submitting ? "Saving..." : initial ? "Save changes" : "Add court"}
+          {submitting ? "Yadda saxlanır..." : initial ? "Yadda saxla" : "Kort əlavə et"}
         </Button>
       </div>
     </form>

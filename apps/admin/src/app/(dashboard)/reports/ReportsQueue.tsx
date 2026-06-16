@@ -106,7 +106,7 @@ export function ReportsQueue() {
 
       {isError ? (
         <Card className="border-danger/40 bg-danger/10">
-          <CardContent className="flex items-center justify-between gap-4 py-5">
+          <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-5 w-5 text-danger" />
               <p className="text-sm text-foreground">Failed to load reports.</p>
@@ -122,13 +122,13 @@ export function ReportsQueue() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-24">ID</TableHead>
-              <TableHead>Reporter</TableHead>
-              <TableHead className="w-20 text-center">Target</TableHead>
-              <TableHead>Target ID</TableHead>
-              <TableHead>Reason</TableHead>
-              <TableHead className="w-28">Status</TableHead>
-              <TableHead className="w-36">Created</TableHead>
+              <TableHead className="min-w-24">ID</TableHead>
+              <TableHead className="min-w-36">Reporter</TableHead>
+              <TableHead className="min-w-20 text-center">Target</TableHead>
+              <TableHead className="min-w-36">Target ID</TableHead>
+              <TableHead className="min-w-64">Reason</TableHead>
+              <TableHead className="min-w-28">Status</TableHead>
+              <TableHead className="min-w-36">Created</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -188,7 +188,7 @@ export function ReportsQueue() {
         </Table>
       </Card>
 
-      <div className="flex items-center justify-between text-sm text-foregroundMuted">
+      <div className="flex flex-col gap-3 text-sm text-foregroundMuted sm:flex-row sm:items-center sm:justify-between">
         <span>
           {total === 0
             ? "—"

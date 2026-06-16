@@ -111,7 +111,7 @@ export default function TournamentsPage(): React.JSX.Element {
             Schedule, publish, and manage tournaments end-to-end.
           </p>
         </div>
-        <Button asChild>
+        <Button asChild className="w-full sm:w-auto">
           <Link href="/tournaments/new">
             <Plus className="h-3.5 w-3.5" />
             New tournament
@@ -120,7 +120,7 @@ export default function TournamentsPage(): React.JSX.Element {
       </div>
 
       <Card className="p-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_180px_auto]">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_180px_180px_auto]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foregroundMuted" />
             <Input

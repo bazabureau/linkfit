@@ -1,24 +1,17 @@
 "use client";
 
-/**
- * Admin Games table.
- *
- * Filters: status pill row, sport pill row, search by host name, date range
- * shortcut, free-text search. Server keeps cursor pagination but we use
- * offset under the hood for simple page-back / page-forward UX; cursor is
- * still available on the API surface for the iOS app.
- *
- * Row actions: View (→ /games/[id]), Cancel (with reason confirm),
- * Delete (only when cancelled/completed).
- */
-
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowUpDown,
+  ArrowDownUp,
+  CalendarDays,
+  Clock3,
   Eye,
+  MapPin,
+  RefreshCw,
   Search,
   Trash2,
+  Users,
   X,
 } from "lucide-react";
 import {
@@ -52,36 +45,41 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/cn";
+import { useI18n } from "@/lib/i18n";
 
 const PAGE_SIZE = 20;
 
 type StatusFilter = GameStatus | "all";
 type DateFilter = "this_week" | "next_30" | "past_30" | "all";
+type SportFilter = "all" | "padel" | "tennis";
 type SortKey = "starts_at" | "capacity";
 
-const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "open", label: "Open" },
-  { value: "full", label: "Full" },
-  { value: "cancelled", label: "Cancelled" },
-  { value: "completed", label: "Completed" },
+const STATUS_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
+  { value: "all", label: "Hamısı" },
+  { value: "open", label: "Açıq" },
+  { value: "full", label: "Dolu" },
+  { value: "cancelled", label: "Ləğv" },
+  { value: "completed", label: "Bitib" },
 ];
 
-const DATE_OPTIONS: { value: DateFilter; label: string }[] = [
-  { value: "all", label: "All time" },
-  { value: "this_week", label: "This week" },
-  { value: "next_30", label: "Next 30 days" },
-  { value: "past_30", label: "Past 30 days" },
+const DATE_OPTIONS: Array<{ value: DateFilter; label: string }> = [
+  { value: "all", label: "Bütün tarixlər" },
+  { value: "this_week", label: "Bu həftə" },
+  { value: "next_30", label: "Növbəti 30 gün" },
+  { value: "past_30", label: "Son 30 gün" },
 ];
 
-// Curated sport pill set — anything else we encounter goes into a generic
-// "Other" lump on the row icon. Sport rows are pulled live below.
-const SPORT_OPTIONS = ["all", "padel", "tennis", "football", "basketball", "volleyball"] as const;
+const SPORT_OPTIONS: Array<{ value: SportFilter; label: string }> = [
+  { value: "all", label: "Hamısı" },
+  { value: "padel", label: "Padel" },
+  { value: "tennis", label: "Tenis" },
+];
 
 function dateRangeFor(filter: DateFilter): { from?: string; to?: string } {
   const now = new Date();
   if (filter === "this_week") {
-    const day = now.getDay(); // 0=Sun
+    const day = now.getDay();
     const diffToMon = (day + 6) % 7;
     const monday = new Date(now);
     monday.setDate(now.getDate() - diffToMon);
@@ -106,28 +104,32 @@ function dateRangeFor(filter: DateFilter): { from?: string; to?: string } {
 
 export function GamesTable(): JSX.Element {
   const toast = useToast();
-
+  const { t } = useI18n();
   const [status, setStatus] = useState<StatusFilter>("all");
-  const [sport, setSport] = useState<string>("all");
+  const [sport, setSport] = useState<SportFilter>("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [offset, setOffset] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("starts_at");
   const [sortAsc, setSortAsc] = useState(false);
-
   const [confirmCancel, setConfirmCancel] = useState<AdminGame | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<AdminGame | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounce the search input so we don't refetch on every keystroke.
-  useMemo(() => {
-    const t = setTimeout(() => setDebouncedSearch(search.trim()), 280);
-    return () => clearTimeout(t);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setOffset(0);
+    }, 250);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [search]);
 
   const range = useMemo(() => dateRangeFor(dateFilter), [dateFilter]);
-
   const params = useMemo(
     () => ({
       status,
@@ -144,20 +146,16 @@ export function GamesTable(): JSX.Element {
   const { data, isLoading, isError, refetch, isFetching } = useAdminGames(params);
 
   const cancelMut = useCancelAdminGame({
-    onSuccess: () => toast.success("Cancelled", "Players will be notified."),
-    onError: (err) =>
-      toast.error("Cancel failed", err.message ?? "Try again in a moment."),
+    onSuccess: () => toast.success(t("Oyun ləğv edildi"), t("İştirakçılar bildiriş alacaq.")),
+    onError: (err) => toast.error(t("Ləğv alınmadı"), err.message),
   });
   const deleteMut = useDeleteAdminGame({
-    onSuccess: () => toast.success("Deleted", "Game hidden from listings."),
-    onError: (err) =>
-      toast.error("Delete failed", err.message ?? "Could not soft-delete game."),
+    onSuccess: () => toast.success(t("Oyun silindi"), t("Oyun siyahılardan gizlədildi.")),
+    onError: (err) => toast.error(t("Silmək alınmadı"), err.message),
   });
 
   const items = useMemo(() => {
     const rows = data?.items ?? [];
-    // Client-side sort on top of the server's default starts_at DESC order —
-    // covers "sort by capacity" and "flip starts_at to ascending".
     const sorted = [...rows].sort((a, b) => {
       if (sortKey === "starts_at") {
         const ord = new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime();
@@ -167,96 +165,122 @@ export function GamesTable(): JSX.Element {
       return sortAsc ? ord : -ord;
     });
     return sorted;
-  }, [data?.items, sortKey, sortAsc]);
+  }, [data?.items, sortAsc, sortKey]);
 
   const total = data?.total ?? 0;
   const page = Math.floor(offset / PAGE_SIZE) + 1;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const visibleSummary = useMemo(() => summarizeGames(items), [items]);
+  const hasFilters =
+    status !== "all" ||
+    sport !== "all" ||
+    dateFilter !== "all" ||
+    debouncedSearch.length > 0;
 
   function resetOffset(): void {
     setOffset(0);
   }
 
+  function resetFilters(): void {
+    setStatus("all");
+    setSport("all");
+    setDateFilter("all");
+    setSearch("");
+    setDebouncedSearch("");
+    setOffset(0);
+  }
+
   function toggleSort(key: SortKey): void {
-    if (sortKey === key) setSortAsc((p) => !p);
-    else {
-      setSortKey(key);
-      setSortAsc(false);
+    if (sortKey === key) {
+      setSortAsc((prev) => !prev);
+      return;
     }
+    setSortKey(key);
+    setSortAsc(false);
   }
 
   return (
-    <Card className="overflow-hidden p-0">
-      {/* ─── Filter bar ─────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-3 border-b border-border bg-surface/60 p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-[11px] uppercase tracking-wider text-foregroundMuted">
-            Status
-          </span>
-          {STATUS_OPTIONS.map((opt) => (
-            <Chip
-              key={opt.value}
-              active={status === opt.value}
-              onClick={() => {
-                setStatus(opt.value);
-                resetOffset();
-              }}
-            >
-              {opt.label}
-            </Chip>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-[11px] uppercase tracking-wider text-foregroundMuted">
-            Sport
-          </span>
-          {SPORT_OPTIONS.map((s) => (
-            <Chip
-              key={s}
-              active={sport === s}
-              onClick={() => {
-                setSport(s);
-                resetOffset();
-              }}
-            >
-              {s === "all" ? "All" : `${sportIcon(s)} ${s}`}
-            </Chip>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-[11px] uppercase tracking-wider text-foregroundMuted">
-            Date
-          </span>
-          {DATE_OPTIONS.map((opt) => (
-            <Chip
-              key={opt.value}
-              active={dateFilter === opt.value}
-              onClick={() => {
-                setDateFilter(opt.value);
-                resetOffset();
-              }}
-            >
-              {opt.label}
-            </Chip>
-          ))}
-          <div className="relative ml-auto w-72 max-w-full">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foregroundMuted" />
-            <Input
-              placeholder="Search by host or venue…"
-              className="pl-9"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                resetOffset();
-              }}
-            />
+    <Card className="overflow-hidden rounded-xl border-border bg-surface p-0">
+      <div className="border-b border-border px-5 py-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <div className="text-lg font-semibold text-foreground">{t("Oyun siyahısı")}</div>
+            <div className="mt-1 text-sm text-foregroundMuted">
+              {total === 0
+                ? t("Oyun yoxdur")
+                : `${offset + 1}-${Math.min(offset + PAGE_SIZE, total)} / ${total} ${t("oyun")}`}
+              {isFetching && !isLoading ? ` · ${t("yenilənir")}` : ""}
+            </div>
+          </div>
+          <div className="grid w-full gap-2 sm:grid-cols-3 xl:max-w-xl">
+            <SummaryBox label={t("Açıq")} value={visibleSummary.open} />
+            <SummaryBox label={t("Dolu")} value={visibleSummary.full} />
+            <SummaryBox label={t("Ləğv")} value={visibleSummary.cancelled} />
           </div>
         </div>
       </div>
 
-      {/* ─── Body ───────────────────────────────────────────────────────── */}
+      <div className="border-b border-border bg-background/30 px-5 py-4">
+        <div className="grid gap-4 2xl:grid-cols-[1fr_auto]">
+          <div className="space-y-3">
+            <FilterRow label={t("Status")}>
+              {STATUS_OPTIONS.map((option) => (
+                <Chip
+                  key={option.value}
+                  active={status === option.value}
+                  onClick={() => {
+                    setStatus(option.value);
+                    resetOffset();
+                  }}
+                >
+                  {t(option.label)}
+                </Chip>
+              ))}
+            </FilterRow>
+            <FilterRow label={t("Tarix")}>
+              {DATE_OPTIONS.map((option) => (
+                <Chip
+                  key={option.value}
+                  active={dateFilter === option.value}
+                  onClick={() => {
+                    setDateFilter(option.value);
+                    resetOffset();
+                  }}
+                >
+                  {t(option.label)}
+                </Chip>
+              ))}
+            </FilterRow>
+          </div>
+
+          <div className="flex flex-col gap-3 2xl:w-[520px]">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <SegmentedSport value={sport} onChange={setSportWithReset(setSport, resetOffset)} />
+              <div className="flex items-center gap-2">
+                {hasFilters ? (
+                  <Button variant="secondary" size="sm" onClick={resetFilters}>
+                    {t("Sıfırla")}
+                  </Button>
+                ) : null}
+                <Button variant="secondary" size="sm" onClick={() => refetch()}>
+                  <RefreshCw className={cn("h-4 w-4", isFetching ? "animate-spin" : "")} />
+                  {t("Yenilə")}
+                </Button>
+              </div>
+            </div>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foregroundMuted" />
+              <Input
+                placeholder={t("Host və ya məkan üzrə axtar")}
+                className="h-11 pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {isLoading ? (
         <GamesSkeleton />
       ) : isError ? (
@@ -264,59 +288,46 @@ export function GamesTable(): JSX.Element {
       ) : items.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">Sport</TableHead>
-                <TableHead>Host</TableHead>
-                <TableHead>Venue</TableHead>
-                <TableHead>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 text-left text-xs uppercase tracking-wider text-foregroundMuted hover:text-foreground"
-                    onClick={() => toggleSort("starts_at")}
-                  >
-                    When <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </TableHead>
-                <TableHead className="text-right">
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-foregroundMuted hover:text-foreground"
-                    onClick={() => toggleSort("capacity")}
-                  >
-                    Capacity <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </TableHead>
-                <TableHead className="text-right">Distance</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((g) => (
-                <GameRow
-                  key={g.id}
-                  game={g}
-                  onCancel={() => {
-                    setCancelReason("");
-                    setConfirmCancel(g);
-                  }}
-                  onDelete={() => setConfirmDelete(g)}
-                />
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-surface">
+              <TableHead className="min-w-[300px]">{t("Oyun")}</TableHead>
+              <TableHead className="min-w-[230px]">{t("Məkan")}</TableHead>
+              <TableHead className="min-w-[210px]">
+                <SortButton active={sortKey === "starts_at"} onClick={() => toggleSort("starts_at")}>
+                  {t("Vaxt")}
+                </SortButton>
+              </TableHead>
+              <TableHead className="min-w-[160px] text-right">
+                <SortButton active={sortKey === "capacity"} onClick={() => toggleSort("capacity")}>
+                  {t("Tutum")}
+                </SortButton>
+              </TableHead>
+              <TableHead className="w-28 text-right">{t("Status")}</TableHead>
+              <TableHead className="w-36 text-right">{t("Əməliyyat")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((game) => (
+              <GameRow
+                key={game.id}
+                game={game}
+                onCancel={() => {
+                  setCancelReason("");
+                  setConfirmCancel(game);
+                }}
+                onDelete={() => setConfirmDelete(game)}
+              />
+            ))}
+          </TableBody>
+        </Table>
       )}
 
-      {/* ─── Pagination ─────────────────────────────────────────────────── */}
-      {!isLoading && !isError && items.length > 0 && (
-        <div className="flex items-center justify-between border-t border-border p-3 text-sm text-foregroundMuted">
+      {!isLoading && !isError && items.length > 0 ? (
+        <div className="flex flex-col gap-3 border-t border-border px-5 py-3 text-sm text-foregroundMuted sm:flex-row sm:items-center sm:justify-between">
           <div>
-            Total: <span className="text-foreground">{total}</span>
-            {isFetching && !isLoading ? <span className="ml-2 text-xs">· refreshing…</span> : null}
+            {t("Səhifə")} <span className="text-foreground">{page}</span> /{" "}
+            <span className="text-foreground">{pageCount}</span>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -325,203 +336,101 @@ export function GamesTable(): JSX.Element {
               disabled={offset === 0}
               onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
             >
-              Previous
+              {t("Əvvəlki")}
             </Button>
-            <span className="px-2 text-xs tabular-nums">
-              {page} / {pageCount}
-            </span>
             <Button
               variant="secondary"
               size="sm"
               disabled={offset + PAGE_SIZE >= total}
               onClick={() => setOffset(offset + PAGE_SIZE)}
             >
-              Next
+              {t("Növbəti")}
             </Button>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* ─── Cancel dialog ──────────────────────────────────────────────── */}
-      <Dialog
-        open={confirmCancel !== null}
+      <CancelDialog
+        game={confirmCancel}
+        reason={cancelReason}
+        pending={cancelMut.isPending}
+        onReasonChange={setCancelReason}
         onOpenChange={(open) => {
           if (!open) setConfirmCancel(null);
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Force-cancel game?</DialogTitle>
-            <DialogDescription>
-              {confirmCancel
-                ? `${sportIcon(confirmCancel.sport_slug)} ${confirmCancel.sport_slug} game hosted by ${confirmCancel.host_display_name}. All confirmed participants will be notified.`
-                : ""}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <label
-              htmlFor="cancel-reason"
-              className="text-sm font-medium text-foreground"
-            >
-              Reason (optional, visible to participants)
-            </label>
-            <Input
-              id="cancel-reason"
-              placeholder="e.g. Venue maintenance"
-              value={cancelReason}
-              maxLength={500}
-              onChange={(e) => setCancelReason(e.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setConfirmCancel(null)}>
-              Back
-            </Button>
-            <Button
-              variant="danger"
-              disabled={cancelMut.isPending}
-              onClick={() => {
-                if (!confirmCancel) return;
-                const reason = cancelReason.trim();
-                cancelMut.mutate({ id: confirmCancel.id, reason: reason || undefined });
-                setConfirmCancel(null);
-              }}
-            >
-              {cancelMut.isPending ? "Cancelling…" : "Yes, cancel"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onConfirm={() => {
+          if (!confirmCancel) return;
+          const reason = cancelReason.trim();
+          cancelMut.mutate({ id: confirmCancel.id, reason: reason || undefined });
+          setConfirmCancel(null);
+        }}
+      />
 
-      {/* ─── Delete dialog ──────────────────────────────────────────────── */}
-      <Dialog
-        open={confirmDelete !== null}
+      <DeleteDialog
+        game={confirmDelete}
+        pending={deleteMut.isPending}
         onOpenChange={(open) => {
           if (!open) setConfirmDelete(null);
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Soft-delete game?</DialogTitle>
-            <DialogDescription>
-              Hides this row from default listings. The underlying record (and
-              its audit log) is preserved in the database.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setConfirmDelete(null)}>
-              Back
-            </Button>
-            <Button
-              variant="danger"
-              disabled={deleteMut.isPending}
-              onClick={() => {
-                if (!confirmDelete) return;
-                deleteMut.mutate({ id: confirmDelete.id });
-                setConfirmDelete(null);
-              }}
-            >
-              {deleteMut.isPending ? "Deleting…" : "Yes, delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onConfirm={() => {
+          if (!confirmDelete) return;
+          deleteMut.mutate({ id: confirmDelete.id });
+          setConfirmDelete(null);
+        }}
+      />
     </Card>
   );
 }
 
-// ───────────────────────── Row ─────────────────────────
+function setSportWithReset(
+  setSport: (sport: SportFilter) => void,
+  resetOffset: () => void,
+) {
+  return (next: SportFilter) => {
+    setSport(next);
+    resetOffset();
+  };
+}
 
-function GameRow({
-  game,
-  onCancel,
-  onDelete,
-}: {
-  game: AdminGame;
-  onCancel: () => void;
-  onDelete: () => void;
-}): JSX.Element {
-  const canCancel = game.status === "open" || game.status === "full";
-  const canDelete = game.status === "cancelled" || game.status === "completed";
-  const distance = distanceFromBakuKm(game.lat, game.lng);
-
-  return (
-    <TableRow>
-      <TableCell className="text-xl" title={game.sport_slug}>
-        {sportIcon(game.sport_slug)}
-      </TableCell>
-      <TableCell>
-        <div className="flex items-center gap-2">
-          <Avatar name={game.host_display_name} photoUrl={game.host_photo_url} />
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-foreground">
-              {game.host_display_name}
-            </span>
-            <span className="text-[11px] text-foregroundMuted capitalize">
-              {game.sport_slug.replace(/_/g, " ")}
-            </span>
-          </div>
-        </div>
-      </TableCell>
-      <TableCell className="text-sm text-foregroundMuted">
-        {game.venue_name ?? <span className="italic text-foregroundMuted/60">Free location</span>}
-      </TableCell>
-      <TableCell className="text-sm text-foregroundMuted tabular-nums">
-        {formatDateTime(game.starts_at)}
-        <div className="text-[11px] text-foregroundMuted/70">
-          {game.duration_minutes} min
-        </div>
-      </TableCell>
-      <TableCell className="text-right">
-        <CapacityBar
-          confirmed={game.participants_count}
-          capacity={game.capacity}
-        />
-      </TableCell>
-      <TableCell className="text-right text-sm text-foregroundMuted tabular-nums">
-        {distance} km
-      </TableCell>
-      <TableCell>
-        <StatusBadge status={game.status} />
-      </TableCell>
-      <TableCell className="text-right">
-        <div className="flex justify-end gap-2">
-          <Button asChild variant="secondary" size="sm">
-            <Link href={`/games/${game.id}`}>
-              <Eye className="h-3.5 w-3.5" />
-              View
-            </Link>
-          </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            disabled={!canCancel}
-            onClick={onCancel}
-            title={canCancel ? "Force-cancel game" : "Only open/full games can be cancelled"}
-          >
-            <X className="h-3.5 w-3.5" />
-            Cancel
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!canDelete}
-            onClick={onDelete}
-            title={
-              canDelete
-                ? "Soft-delete game"
-                : "Only cancelled/completed games can be deleted"
-            }
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </TableCell>
-    </TableRow>
+function summarizeGames(items: AdminGame[]) {
+  return items.reduce(
+    (acc, item) => {
+      acc[item.status] += 1;
+      return acc;
+    },
+    { open: 0, full: 0, cancelled: 0, completed: 0 } satisfies Record<GameStatus, number>,
   );
 }
 
-// ───────────────────────── Subcomponents ─────────────────────────
+function SummaryBox({ label, value }: { label: string; value: number }): JSX.Element {
+  return (
+    <div className="rounded-xl border border-border bg-surfaceElevated px-4 py-3">
+      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-foregroundMuted">
+        {label}
+      </div>
+      <div className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function FilterRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}): JSX.Element {
+  return (
+    <div className="grid gap-2 md:grid-cols-[84px_1fr] md:items-center">
+      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-foregroundMuted">
+        {label}
+      </div>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  );
+}
 
 function Chip({
   active,
@@ -536,28 +445,184 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={[
-        "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+      className={cn(
+        "rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors",
         active
-          ? "border-accent/40 bg-accent/15 text-accent"
-          : "border-border bg-transparent text-foregroundMuted hover:border-foregroundMuted/40 hover:text-foreground",
-      ].join(" ")}
+          ? "border-accent bg-accent text-black"
+          : "border-border bg-surfaceElevated text-foregroundMuted hover:border-accent/60 hover:text-foreground",
+      )}
     >
       {children}
     </button>
   );
 }
 
+function SegmentedSport({
+  value,
+  onChange,
+}: {
+  value: SportFilter;
+  onChange: (value: SportFilter) => void;
+}): JSX.Element {
+  const { t } = useI18n();
+  return (
+    <div className="inline-flex rounded-xl border border-border bg-surfaceElevated p-1">
+      {SPORT_OPTIONS.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+          className={cn(
+            "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+            value === option.value
+              ? "bg-accent text-black"
+              : "text-foregroundMuted hover:text-foreground",
+          )}
+        >
+          {option.value === "all" ? t(option.label) : `${sportIcon(option.value)} ${t(option.label)}`}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SortButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider hover:text-foreground",
+        active ? "text-foreground" : "text-foregroundMuted",
+      )}
+    >
+      {children}
+      <ArrowDownUp className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
+function GameRow({
+  game,
+  onCancel,
+  onDelete,
+}: {
+  game: AdminGame;
+  onCancel: () => void;
+  onDelete: () => void;
+}): JSX.Element {
+  const { t } = useI18n();
+  const canCancel = game.status === "open" || game.status === "full";
+  const canDelete = game.status === "cancelled" || game.status === "completed";
+  const distance = distanceFromBakuKm(game.lat, game.lng);
+
+  return (
+    <TableRow className="hover:bg-surfaceElevated/35">
+      <TableCell className="py-3">
+        <div className="flex items-center gap-3">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-border bg-background text-xl">
+            {sportIcon(game.sport_slug)}
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={`/games/${game.id}`}
+                className="truncate font-semibold text-foreground hover:text-accent"
+              >
+                {game.host_display_name}
+              </Link>
+              <StatusBadge status={game.status} />
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-foregroundMuted">
+              <span className="capitalize">{sportLabel(game.sport_slug)}</span>
+              <span>·</span>
+              <span>{game.visibility === "public" ? "Public" : "Invite"}</span>
+            </div>
+          </div>
+        </div>
+      </TableCell>
+      <TableCell className="py-3">
+        <div className="flex items-start gap-2 text-sm">
+          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-foregroundMuted" />
+          <div className="min-w-0">
+            <div className="truncate text-foreground">
+              {game.venue_name ?? t("Sərbəst lokasiya")}
+            </div>
+            <div className="mt-1 text-xs tabular-nums text-foregroundMuted">
+              {distance} km
+            </div>
+          </div>
+        </div>
+      </TableCell>
+      <TableCell className="py-3">
+        <div className="space-y-1 text-sm">
+          <div className="flex items-center gap-2 text-foreground">
+            <CalendarDays className="h-4 w-4 text-foregroundMuted" />
+            <span className="tabular-nums">{formatDateTime(game.starts_at)}</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-foregroundMuted">
+            <Clock3 className="h-3.5 w-3.5" />
+            {game.duration_minutes} dəq.
+          </div>
+        </div>
+      </TableCell>
+      <TableCell className="py-3 text-right">
+        <CapacityBar confirmed={game.participants_count} capacity={game.capacity} />
+      </TableCell>
+      <TableCell className="py-3 text-right">
+        <StatusBadge status={game.status} />
+      </TableCell>
+      <TableCell className="py-3 text-right">
+        <div className="inline-flex items-center gap-1 rounded-xl border border-border bg-surfaceElevated p-1">
+          <Button asChild variant="ghost" size="icon" title={t("Bax")}>
+            <Link href={`/games/${game.id}`}>
+              <Eye className="h-4 w-4" />
+            </Link>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={!canCancel}
+            onClick={onCancel}
+            title={canCancel ? t("Oyunu ləğv et") : t("Yalnız açıq/dolu oyun ləğv edilə bilər")}
+            className="text-danger hover:bg-danger/10"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={!canDelete}
+            onClick={onDelete}
+            title={canDelete ? t("Oyunu sil") : t("Yalnız ləğv/bitmiş oyun silinə bilər")}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 export function StatusBadge({ status }: { status: GameStatus }): JSX.Element {
+  const { t } = useI18n();
   switch (status) {
     case "open":
-      return <Badge variant="success">Open</Badge>;
+      return <Badge variant="success">{t("Açıq")}</Badge>;
     case "full":
-      return <Badge variant="info">Full</Badge>;
+      return <Badge variant="info">{t("Dolu")}</Badge>;
     case "cancelled":
-      return <Badge variant="danger">Cancelled</Badge>;
+      return <Badge variant="danger">{t("Ləğv")}</Badge>;
     case "completed":
-      return <Badge variant="neutral">Completed</Badge>;
+      return <Badge variant="neutral">{t("Bitib")}</Badge>;
     default:
       return <Badge variant="neutral">{status}</Badge>;
   }
@@ -573,14 +638,15 @@ export function CapacityBar({
   const pct = Math.min(100, Math.round((confirmed / Math.max(1, capacity)) * 100));
   const full = confirmed >= capacity;
   return (
-    <div className="inline-flex w-24 flex-col items-end gap-1">
-      <span className="text-xs tabular-nums text-foregroundMuted">
+    <div className="ml-auto inline-flex w-36 max-w-full flex-col items-end gap-1.5">
+      <div className="flex items-center gap-2 text-sm tabular-nums text-foreground">
+        <Users className="h-4 w-4 text-foregroundMuted" />
         {confirmed} / {capacity}
-      </span>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-surfaceElevated">
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-background">
         <div
-          className={`h-full rounded-full ${full ? "bg-info" : "bg-accent"} transition-all`}
-          style={{ width: `${String(pct)}%` }}
+          className={cn("h-full rounded-full transition-all", full ? "bg-info" : "bg-accent")}
+          style={{ width: `${pct}%` }}
         />
       </div>
     </div>
@@ -598,10 +664,11 @@ export function Avatar({
 }): JSX.Element {
   const initials = name
     .split(/\s+/)
-    .map((p) => p[0]?.toUpperCase() ?? "")
+    .map((part) => part[0]?.toUpperCase() ?? "")
     .slice(0, 2)
     .join("");
-  const dim = `${String(size)}px`;
+  const dim = `${size}px`;
+
   if (photoUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -609,33 +676,126 @@ export function Avatar({
         src={photoUrl}
         alt={name}
         style={{ width: dim, height: dim }}
-        className="rounded-full object-cover border border-border"
+        className="rounded-full border border-border object-cover"
       />
     );
   }
+
   return (
     <div
       style={{ width: dim, height: dim }}
-      className="flex items-center justify-center rounded-full bg-surfaceElevated text-[11px] font-medium text-foreground border border-border"
+      className="flex items-center justify-center rounded-full border border-border bg-surfaceElevated text-[11px] font-medium text-foreground"
     >
       {initials || "?"}
     </div>
   );
 }
 
+function sportLabel(slug: string): string {
+  if (slug === "padel") return "Padel";
+  if (slug === "tennis") return "Tenis";
+  return slug.replace(/_/g, " ");
+}
+
+function CancelDialog({
+  game,
+  reason,
+  pending,
+  onReasonChange,
+  onOpenChange,
+  onConfirm,
+}: {
+  game: AdminGame | null;
+  reason: string;
+  pending: boolean;
+  onReasonChange: (value: string) => void;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <Dialog open={game !== null} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("Oyunu ləğv et?")}</DialogTitle>
+          <DialogDescription>
+            {game
+              ? `${game.host_display_name} ${t("tərəfindən yaradılmış")} ${sportLabel(game.sport_slug)} ${t("oyunu ləğv olunacaq.")}`
+              : ""}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <label htmlFor="cancel-reason" className="text-sm font-medium text-foreground">
+            {t("Səbəb")}
+          </label>
+          <Input
+            id="cancel-reason"
+            placeholder={t("Məsələn: məkan texniki səbəbə görə bağlıdır")}
+            value={reason}
+            maxLength={500}
+            onChange={(event) => onReasonChange(event.target.value)}
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+            {t("Geri")}
+          </Button>
+          <Button variant="danger" disabled={pending} onClick={onConfirm}>
+            {pending ? t("Ləğv edilir") : t("Ləğv et")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeleteDialog({
+  game,
+  pending,
+  onOpenChange,
+  onConfirm,
+}: {
+  game: AdminGame | null;
+  pending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <Dialog open={game !== null} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("Oyunu sil?")}</DialogTitle>
+          <DialogDescription>
+            {t("Oyun default siyahılardan gizlənəcək, audit və database qeydi saxlanacaq.")}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+            {t("Geri")}
+          </Button>
+          <Button variant="danger" disabled={pending} onClick={onConfirm}>
+            {pending ? t("Silinir") : t("Sil")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function GamesSkeleton(): JSX.Element {
   return (
-    <div className="space-y-2 p-4">
-      {Array.from({ length: 6 }).map((_, i) => (
+    <div className="space-y-2 p-5">
+      {Array.from({ length: 7 }).map((_, index) => (
         <div
-          key={i}
-          className="grid grid-cols-8 gap-3 rounded-md border border-border bg-surfaceElevated/30 p-3"
+          key={index}
+          className="grid grid-cols-[2fr_1.4fr_1.2fr_0.8fr] gap-3 rounded-xl border border-border bg-surfaceElevated p-3"
         >
-          {Array.from({ length: 8 }).map((__, j) => (
+          {Array.from({ length: 4 }).map((__, cell) => (
             <div
-              key={j}
-              className="h-3 animate-pulse rounded bg-border"
-              style={{ opacity: 1 - j * 0.07 }}
+              key={cell}
+              className="h-4 animate-pulse rounded bg-border"
+              style={{ opacity: 1 - cell * 0.12 }}
             />
           ))}
         </div>
@@ -645,26 +805,27 @@ function GamesSkeleton(): JSX.Element {
 }
 
 function EmptyState(): JSX.Element {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col items-center justify-center gap-2 p-12 text-center">
-      <div className="text-base font-medium text-foreground">No games found</div>
+      <div className="text-base font-medium text-foreground">{t("Oyun tapılmadı")}</div>
       <p className="max-w-sm text-sm text-foregroundMuted">
-        Adjust the filters above or wait for new games to be scheduled.
+        {t("Filterləri dəyişin və ya yeni oyunlar yaradıldıqda burada görünəcək.")}
       </p>
     </div>
   );
 }
 
 function ErrorState({ onRetry }: { onRetry: () => void }): JSX.Element {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col items-center justify-center gap-3 p-12 text-center">
-      <div className="text-base font-medium text-danger">Failed to load games</div>
+      <div className="text-base font-medium text-danger">{t("Oyunlar yüklənmədi")}</div>
       <p className="max-w-sm text-sm text-foregroundMuted">
-        Check your network connection and try again. If the problem persists,
-        verify the admin API is reachable.
+        {t("API bağlantısını və admin sessiyasını yoxlayın.")}
       </p>
       <Button variant="secondary" size="sm" onClick={onRetry}>
-        Retry
+        {t("Yenidən cəhd et")}
       </Button>
     </div>
   );

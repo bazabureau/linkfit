@@ -18,27 +18,55 @@ export interface Venue {
   address: string;
   lat: number;
   lng: number;
+  owner_user_id?: string | null;
   is_partner: boolean;
   phone: string | null;
   description: string | null;
   photo_url: string | null;
+  photo_urls?: string[];
+  status?: "draft" | "pending" | "published" | "suspended";
+  opening_hours?: Record<string, unknown> | null;
+  booking_slot_minutes?: number;
+  min_booking_minutes?: number;
+  max_booking_minutes?: number;
+  cancellation_window_minutes?: number;
+  courts_count?: number;
+  bookings_count?: number;
+  paid_revenue_minor?: number;
   distance_km: number | null;
   created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface Court {
   id: string;
   venue_id: string;
+  venue_name?: string | null;
   sport_id: string;
   sport_slug: string;
+  sport_name?: string | null;
   name: string;
   hourly_price_minor: number;
   currency: string;
+  status?: "active" | "inactive" | "maintenance";
+  photo_url?: string | null;
+  photo_urls?: string[];
   created_at?: string | null;
 }
 
 export interface VenueDetail extends Venue {
   courts: Court[];
+  partners?: PartnerAccount[];
+}
+
+export interface PartnerAccount {
+  id: string;
+  email: string;
+  display_name: string;
+  admin_role: string;
+  venue_id: string;
+  deleted_at: string | null;
+  created_at: string;
 }
 
 export interface VenuesListResponse {
@@ -57,7 +85,14 @@ export interface VenuePayload {
   phone?: string | null;
   description?: string | null;
   photo_url?: string | null;
+  photo_urls?: string[] | null;
   is_partner: boolean;
+  status?: Venue["status"];
+  opening_hours?: Record<string, unknown> | null;
+  booking_slot_minutes?: number;
+  min_booking_minutes?: number;
+  max_booking_minutes?: number;
+  cancellation_window_minutes?: number;
 }
 
 export interface CourtPayload {
@@ -65,6 +100,27 @@ export interface CourtPayload {
   name: string;
   hourly_price_minor: number;
   currency?: string;
+  status?: "active" | "inactive" | "maintenance";
+  photo_url?: string | null;
+  photo_urls?: string[] | null;
+}
+
+export interface CourtBlock {
+  id: string;
+  court_id: string;
+  created_by_user_id: string | null;
+  starts_at: string;
+  ends_at: string;
+  reason: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface CourtBlockPayload {
+  starts_at: string;
+  ends_at: string;
+  reason?: string | null;
+  force?: boolean;
 }
 
 // ---------- Query keys ----------
@@ -75,6 +131,7 @@ export const venuesKeys = {
     [...venuesKeys.all, "list", params] as const,
   detail: (id: string) => [...venuesKeys.all, "detail", id] as const,
   courts: (venueId: string) => [...venuesKeys.all, "courts", venueId] as const,
+  blocks: (courtId: string) => [...venuesKeys.all, "court-blocks", courtId] as const,
 };
 
 // ---------- Hooks ----------
@@ -97,7 +154,7 @@ export function useVenue(id: string | undefined): UseQueryResult<VenueDetail> {
     queryKey: venuesKeys.detail(id ?? ""),
     enabled: Boolean(id),
     queryFn: async () => {
-      const res = await api.get<VenueDetail>(`/api/v1/venues/${id}`);
+      const res = await api.get<VenueDetail>(`/api/v1/admin/venues/${id}`);
       return res;
     },
   });
@@ -126,6 +183,23 @@ export function useUpdateVenue(): UseMutationResult<
     mutationFn: async ({ id, data }) => {
       const res = await api.patch<Venue>(`/api/v1/admin/venues/${id}`, data);
       return res;
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: venuesKeys.all });
+      qc.invalidateQueries({ queryKey: venuesKeys.detail(vars.id) });
+    },
+  });
+}
+
+export function useUpdateVenueStatus(): UseMutationResult<
+  Venue,
+  Error,
+  { id: string; status: NonNullable<Venue["status"]> }
+> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status }) => {
+      return api.patch<Venue>(`/api/v1/admin/venues/${id}/status`, { status });
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: venuesKeys.all });
@@ -236,6 +310,50 @@ export function useDeleteCourt(
     onSettled: () => {
       qc.invalidateQueries({ queryKey: venuesKeys.courts(venueId) });
       qc.invalidateQueries({ queryKey: venuesKeys.detail(venueId) });
+    },
+  });
+}
+
+// ---------- Court blocks ----------
+
+export function useCourtBlocks(courtId: string | undefined): UseQueryResult<CourtBlock[]> {
+  return useQuery({
+    queryKey: venuesKeys.blocks(courtId ?? ""),
+    enabled: Boolean(courtId),
+    queryFn: async () => {
+      const res = await api.get<{ items: CourtBlock[] }>(
+        `/api/v1/admin/courts/${courtId}/blocks`,
+      );
+      return res.items ?? [];
+    },
+  });
+}
+
+export function useCreateCourtBlock(
+  courtId: string,
+): UseMutationResult<CourtBlock, Error, CourtBlockPayload> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => {
+      return api.post<CourtBlock>(`/api/v1/admin/courts/${courtId}/blocks`, payload);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: venuesKeys.blocks(courtId) });
+      qc.invalidateQueries({ queryKey: venuesKeys.all });
+    },
+  });
+}
+
+export function useDeleteCourtBlock(
+  courtId: string,
+): UseMutationResult<void, Error, string> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (blockId) => {
+      await api.delete<void>(`/api/v1/admin/courts/${courtId}/blocks/${blockId}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: venuesKeys.blocks(courtId) });
     },
   });
 }

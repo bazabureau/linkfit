@@ -15,13 +15,13 @@ const config: Config = {
         foreground: "#E6EAF2",
         foregroundMuted: "#9CA6B8",
         accent: {
-          DEFAULT: "#22C55E",
-          hover: "#16A34A",
-          subtle: "#22C55E1A",
+          DEFAULT: "#D7FF19",
+          hover: "#C4F000",
+          subtle: "#D7FF191A",
         },
-        // Brand alias used by feature pages (matches the iOS brand-green).
+        // Brand alias used by feature pages.
         brand: {
-          green: "#22C55E",
+          green: "#D7FF19",
         },
         danger: {
           DEFAULT: "#EF4444",

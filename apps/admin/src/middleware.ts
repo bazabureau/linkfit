@@ -10,6 +10,7 @@ export function middleware(req: NextRequest): NextResponse {
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
+    pathname.startsWith("/brand") ||
     pathname.startsWith("/favicon") ||
     pathname === "/robots.txt" ||
     pathname === "/sitemap.xml" ||
