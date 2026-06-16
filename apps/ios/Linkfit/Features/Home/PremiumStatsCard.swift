@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// 3-up metrics row with a thin lime accent strip on the leading edge —
-/// the row is busier than the hero ring above it but holds the page's
-/// numerical anchor (games played, wins, win-rate).
+/// 3-up metrics row with a thin royal-blue accent strip on the leading
+/// edge — the row is busier than the hero ring above it but holds the
+/// page's numerical anchor (games played, wins, win-rate).
 ///
-/// Each metric is rendered as `value` (large) over `label` (small caps).
-/// Win-rate sits on the right and gets a tiny green/grey badge based on
-/// whether it's at or above 50 %.
+/// Each metric is rendered as `value` (large) over `label` (small).
+/// Win-rate sits on the right and gets a tiny success/warning badge based
+/// on whether it's at or above 50 %.
 ///
 /// Empty state: when `matches == 0` we render an inviting one-line
 /// composition (medallion + headline + helper) instead of `0 · 0 · 0%`,
@@ -30,12 +30,13 @@ struct PremiumStatsCard: View {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(DSColor.accent)
                 .frame(width: 3)
-                .padding(.vertical, 14)
+                .padding(.vertical, DSSpacing.md)
+                .accessibilityHidden(true)
 
             if isEmpty {
                 emptyContent
-                    .padding(.vertical, 14)
-                    .padding(.horizontal, 14)
+                    .padding(.vertical, DSSpacing.md)
+                    .padding(.horizontal, DSSpacing.md)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 HStack(spacing: 0) {
@@ -45,8 +46,8 @@ struct PremiumStatsCard: View {
                     divider
                     winRateBlock
                 }
-                .padding(.vertical, 14)
-                .padding(.horizontal, 12)
+                .padding(.vertical, DSSpacing.md)
+                .padding(.horizontal, DSSpacing.sm)
                 .frame(maxWidth: .infinity)
             }
         }
@@ -60,14 +61,14 @@ struct PremiumStatsCard: View {
         )
     }
 
-    /// Compact empty composition — a 34pt lime medallion + a two-line
+    /// Compact empty composition — a 34pt accent medallion + a two-line
     /// text block. Sits in the slot where three numeric metrics would
     /// otherwise live, so the card occupies the same height as the
     /// populated variant. No CTA button here: the quick-action tiles
     /// directly below already provide "Create game" and "Find game",
     /// so a third CTA would be redundant.
     private var emptyContent: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DSSpacing.sm) {
             ZStack {
                 Circle()
                     .fill(DSColor.accent.opacity(0.16))
@@ -76,6 +77,7 @@ struct PremiumStatsCard: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(DSColor.accent)
             }
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("home.stats.empty.title")

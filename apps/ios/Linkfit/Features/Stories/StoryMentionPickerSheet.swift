@@ -122,7 +122,7 @@ struct StoryMentionPickerSheet: View {
             LazyVStack(spacing: DSSpacing.sm) {
                 ForEach(users) { user in
                     Button {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        Haptics.selection()
                         onSelect(user)
                     } label: {
                         row(user: user)
@@ -152,7 +152,7 @@ struct StoryMentionPickerSheet: View {
                         Image(systemName: level.systemImage)
                             .font(.system(size: 9, weight: .bold))
                         Text(level.shortKey)
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(DSType.caption2)
                     }
                     .foregroundStyle(level.accent)
                 }
@@ -160,9 +160,9 @@ struct StoryMentionPickerSheet: View {
             Spacer(minLength: DSSpacing.xs)
         }
         .padding(DSSpacing.md)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surface))
+        .background(RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous).fill(DSColor.surface))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                 .strokeBorder(DSColor.border, lineWidth: 1)
         )
         .contentShape(Rectangle())

@@ -13,12 +13,6 @@ final class NotificationsViewModel {
     private(set) var sections: [(String, [AppNotification])] = []
     private let apiClient: APIClient
 
-    /// Shared ISO8601 parser. ISO8601DateFormatter is thread-safe for
-    /// reads (the methods are documented as safe) and allocating one
-    /// per call is the dominant cost of `rebuildSections` — hoist it
-    /// here so every recompute reuses the same instance.
-    nonisolated(unsafe) static let isoFormatter = ISO8601DateFormatter()
-
     init(apiClient: APIClient) { self.apiClient = apiClient }
 
     func load() async {
@@ -52,7 +46,7 @@ final class NotificationsViewModel {
         if case .loaded(var items) = state {
             if let idx = items.firstIndex(where: { $0.id == notification.id }) {
                 let n = items[idx]
-                let now = Self.isoFormatter.string(from: Date())
+                let now = Date().toISO()
                 items[idx] = AppNotification(
                     id: n.id, type: n.type, title: n.title, body: n.body,
                     read_at: now, created_at: n.created_at, payload: n.payload
@@ -72,7 +66,7 @@ final class NotificationsViewModel {
     func markAllRead() async {
         // Optimistic — mark all in-memory items read first.
         if case .loaded(let items) = state {
-            let now = Self.isoFormatter.string(from: Date())
+            let now = Date().toISO()
             let updated = items.map { n in
                 AppNotification(
                     id: n.id, type: n.type, title: n.title, body: n.body,
@@ -146,7 +140,7 @@ final class NotificationsViewModel {
         var thisWeek: [AppNotification] = []
         var earlier: [AppNotification] = []
         for n in items {
-            guard let d = Self.isoFormatter.date(from: n.created_at) else {
+            guard let d = Date.fromISO(n.created_at) else {
                 earlier.append(n); continue
             }
             if cal.isDateInToday(d) { today.append(n) }

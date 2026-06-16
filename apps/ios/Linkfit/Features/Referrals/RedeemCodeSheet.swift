@@ -39,6 +39,9 @@ struct RedeemCodeSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        // FAZA 45 §13.6: opaque content background means the safe-area gutter
+        // reads as glass without this.
+        .presentationBackground(.ultraThinMaterial)
     }
 
     // MARK: - Subviews

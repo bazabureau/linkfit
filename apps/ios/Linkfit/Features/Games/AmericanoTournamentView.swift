@@ -6,7 +6,6 @@ import SwiftUI
 struct AmericanoTournamentView: View {
     @Environment(AppContainer.self) private var container
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.locale) private var locale
 
     // MARK: - Navigation States
     @State private var tournamentId: String? = nil
@@ -124,8 +123,8 @@ struct AmericanoTournamentView: View {
                 // Form section inputs
                 VStack(spacing: 20) {
                     // Name field
-                    formCard(title: localizedString("game_name")) {
-                        TextField(localizedString("friendly_match"), text: $gameName)
+                    formCard(title: "americano.form.game_name") {
+                        TextField("americano.form.friendly_match", text: $gameName)
                             .textFieldStyle(.plain)
                             .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(DSColor.textPrimary)
@@ -135,10 +134,10 @@ struct AmericanoTournamentView: View {
                     }
 
                     // Format Concentric Picker
-                    formCard(title: localizedString("select_format")) {
+                    formCard(title: "americano.form.select_format") {
                         HStack(spacing: 4) {
                             Button { format = "solo" } label: {
-                                Text(localizedString("solo"))
+                                Text("americano.solo")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundStyle(format == "solo" ? DSColor.textPrimary : DSColor.textSecondary)
                                     .frame(maxWidth: .infinity)
@@ -155,7 +154,7 @@ struct AmericanoTournamentView: View {
                             .buttonStyle(.plain)
 
                             Button { format = "team" } label: {
-                                Text(localizedString("team"))
+                                Text("americano.team")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundStyle(format == "team" ? DSColor.textPrimary : DSColor.textSecondary)
                                     .frame(maxWidth: .infinity)
@@ -177,10 +176,10 @@ struct AmericanoTournamentView: View {
                     }
 
                     // Add player names
-                    formCard(title: localizedString("add_players")) {
+                    formCard(title: "americano.form.add_players") {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack(spacing: 8) {
-                                TextField(localizedString("player_name_placeholder"), text: $playerNameInput)
+                                TextField("americano.form.player_name_placeholder", text: $playerNameInput)
                                     .textFieldStyle(.plain)
                                     .font(.system(size: 14, weight: .medium))
                                     .padding(12)
@@ -190,7 +189,7 @@ struct AmericanoTournamentView: View {
                                 Button {
                                     addPlayer()
                                 } label: {
-                                    Text(localizedString("add"))
+                                    Text("americano.form.add")
                                         .font(.system(size: 14, weight: .bold))
                                         .foregroundStyle(DSColor.textOnAccent)
                                         .padding(.horizontal, 16)
@@ -202,7 +201,7 @@ struct AmericanoTournamentView: View {
                             }
 
                             if players.count < 4 || players.count > 12 {
-                                Text(localizedString("participants_warning"))
+                                Text("americano.form.participants_warning")
                                     .font(.system(size: 11, weight: .semibold))
                                     .foregroundStyle(DSColor.warning)
                                     .padding(.top, 2)
@@ -236,7 +235,7 @@ struct AmericanoTournamentView: View {
                     }
 
                     // Courts grid selection
-                    formCard(title: localizedString("select_courts")) {
+                    formCard(title: "americano.form.select_courts") {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 95, maximum: 120))], spacing: 8) {
                             ForEach(1...9, id: \.self) { num in
                                 let courtName = "Court \(num)"
@@ -273,7 +272,7 @@ struct AmericanoTournamentView: View {
                                     .tint(DSColor.textOnAccent)
                                     .padding(.trailing, 8)
                             }
-                            Text(localizedString("start_game"))
+                            Text("americano.form.start_game")
                                 .font(.system(size: 15, weight: .black))
                                 .foregroundStyle(DSColor.textOnAccent)
                         }
@@ -611,7 +610,7 @@ struct AmericanoTournamentView: View {
     }
 
     // MARK: - Form Helper View Builder
-    private func formCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func formCard<Content: View>(title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(.system(size: 13, weight: .bold))
@@ -663,7 +662,7 @@ struct AmericanoTournamentView: View {
         isSubmitting = true
 
         let tourneyName = gameName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? localizedString("friendly_match")
+            ? String(localized: "americano.form.friendly_match")
             : gameName.trimmingCharacters(in: .whitespacesAndNewlines)
 
         Task {
@@ -702,7 +701,7 @@ struct AmericanoTournamentView: View {
                     self.isSubmitting = false
                     // P0: surface the failure instead of dropping into a silent
                     // local sandbox the backend never recorded.
-                    self.formError = localizedString("start_error")
+                    self.formError = String(localized: "americano.start_error")
                     UINotificationFeedbackGenerator().notificationOccurred(.error)
                 }
             }
@@ -724,10 +723,10 @@ struct AmericanoTournamentView: View {
     /// winning side reaching the configured target. Returns a localized
     /// message when invalid, `nil` when the score may be saved.
     private func scoreValidationError(_ a: Int, _ b: Int) -> String? {
-        if a < 0 || b < 0 { return localizedString("score_negative") }
-        if a == b { return localizedString("score_tie") }
+        if a < 0 || b < 0 { return String(localized: "americano.score_negative") }
+        if a == b { return String(localized: "americano.score_tie") }
         if max(a, b) != scoreTarget {
-            return String(format: localizedString("score_target_fmt"), scoreTarget)
+            return String(format: String(localized: "americano.score_target_fmt"), scoreTarget)
         }
         return nil
     }
@@ -735,7 +734,7 @@ struct AmericanoTournamentView: View {
     private func submitScore() {
         guard let match = selectedMatchForScore else { return }
         guard let sA = Int(scoreAInput), let sB = Int(scoreBInput) else {
-            scoreError = localizedString("score_invalid")
+            scoreError = String(localized: "americano.score_invalid")
             return
         }
 
@@ -778,7 +777,7 @@ struct AmericanoTournamentView: View {
                 await MainActor.run {
                     // P0: surface the failure instead of silently writing the
                     // score into local memory the backend never recorded.
-                    self.formError = localizedString("score_error")
+                    self.formError = String(localized: "americano.score_error")
                     UINotificationFeedbackGenerator().notificationOccurred(.error)
                 }
             }
@@ -786,7 +785,7 @@ struct AmericanoTournamentView: View {
     }
 
     private func getTeamDisplayName(_ id: String) -> String {
-        teams.first(where: { $0.id == id })?.display_name ?? localizedString("team_fallback")
+        teams.first(where: { $0.id == id })?.display_name ?? String(localized: "americano.team_fallback")
     }
 
     /// Winner row for the reward card. Falls back to a localized "Winner"
@@ -858,125 +857,6 @@ struct AmericanoTournamentView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             self.copiedCoupon = false
         }
-    }
-
-    private func localizedString(_ key: String) -> String {
-        let code = locale.language.languageCode?.identifier ?? "az"
-        
-        let azDict = [
-            "game_name": "Oyunun adı",
-            "friendly_match": "Yoldaşlıq görüşü",
-            "select_format": "Formatı seçin",
-            "solo": "Fərdi",
-            "team": "Komanda",
-            "add_players": "Oyunçu adlarını daxil edin",
-            "player_name_placeholder": "Oyunçu adı",
-            "add": "Əlavə et",
-            "participants_warning": "İştirakçı sayı 4 ilə 12 arasında olduqda oyunu təşkil etmək olar.",
-            "select_courts": "Oynadığınız meydançaları seçin",
-            "start_game": "Oyuna başla",
-            "matches": "Oyunlar",
-            "leaderboard": "Reytinq cədvəli",
-            "record": "Hesabı yaz",
-            "cancel": "Ləğv et",
-            "save": "Yadda saxla",
-            "reset": "Sıfırla",
-            "sponsor_reward": "Sponsor Mükafatı",
-            "copy": "Kodu kopyala",
-            "copied": "Kopyalandı!",
-            "prize_desc": "Top Padel Baku-da 1 saatlıq pulsuz meydan slotu kuponu",
-            "win_short": "Q",
-            "draw_short": "H",
-            "loss_short": "M",
-            "points": "Xal",
-            "diff": "Fərq",
-            "team_fallback": "Komanda",
-            "start_error": "Turniri başlatmaq alınmadı. İnternet bağlantınızı yoxlayıb yenidən cəhd edin.",
-            "score_error": "Hesabı yadda saxlamaq alınmadı. Yenidən cəhd edin.",
-            "score_invalid": "Hesabı rəqəmlə daxil edin.",
-            "score_negative": "Hesab mənfi ola bilməz.",
-            "score_tie": "Oyun heç-heçə ilə bitə bilməz. Bir tərəf qalib gəlməlidir.",
-            "score_target_fmt": "Qalib tərəfin hesabı tam %d olmalıdır."
-        ]
-
-        let enDict = [
-            "game_name": "Game name",
-            "friendly_match": "A friendly match",
-            "select_format": "Select game format",
-            "solo": "Solo",
-            "team": "Team",
-            "add_players": "Add player names",
-            "player_name_placeholder": "Player name",
-            "add": "Add",
-            "participants_warning": "The game can be organized if the number of participants is between 4 and 12 players.",
-            "select_courts": "Select the courts where you're playing",
-            "start_game": "Start game",
-            "matches": "Matches",
-            "leaderboard": "Leaderboard",
-            "record": "Record score",
-            "cancel": "Cancel",
-            "save": "Save score",
-            "reset": "Reset",
-            "sponsor_reward": "Sponsor Reward",
-            "copy": "Copy code",
-            "copied": "Copied!",
-            "prize_desc": "Free 1 Hour Court Slot at Top Padel Baku",
-            "win_short": "W",
-            "draw_short": "D",
-            "loss_short": "L",
-            "points": "pts",
-            "diff": "Diff",
-            "team_fallback": "Team",
-            "start_error": "Couldn't start the tournament. Check your connection and try again.",
-            "score_error": "Couldn't save the score. Please try again.",
-            "score_invalid": "Enter the score as a number.",
-            "score_negative": "Scores can't be negative.",
-            "score_tie": "A match can't end in a tie. One side must win.",
-            "score_target_fmt": "The winning side must reach exactly %d."
-        ]
-
-        let ruDict = [
-            "game_name": "Название игры",
-            "friendly_match": "Товарищеский матч",
-            "select_format": "Выберите формат",
-            "solo": "Соло",
-            "team": "Команда",
-            "add_players": "Добавьте имена игроков",
-            "player_name_placeholder": "Имя игрока",
-            "add": "Добавить",
-            "participants_warning": "Игра может быть организована, если количество участников от 4 до 12 игроков.",
-            "select_courts": "Выберите корты, на которых играете",
-            "start_game": "Начать игру",
-            "matches": "Матчи",
-            "leaderboard": "Турнирная таблица",
-            "record": "Записать счет",
-            "cancel": "Отмена",
-            "save": "Сохранить",
-            "reset": "Сбросить",
-            "sponsor_reward": "Спонсорская награда",
-            "copy": "Копировать код",
-            "copied": "Скопировано!",
-            "prize_desc": "Купон на 1 час бесплатной игры в Top Padel Baku",
-            "win_short": "В",
-            "draw_short": "Н",
-            "loss_short": "П",
-            "points": "очк.",
-            "diff": "Разн.",
-            "team_fallback": "Команда",
-            "start_error": "Не удалось начать турнир. Проверьте подключение и попробуйте снова.",
-            "score_error": "Не удалось сохранить счёт. Попробуйте снова.",
-            "score_invalid": "Введите счёт числом.",
-            "score_negative": "Счёт не может быть отрицательным.",
-            "score_tie": "Матч не может закончиться вничью. Одна сторона должна победить.",
-            "score_target_fmt": "Победившая сторона должна набрать ровно %d."
-        ]
-
-        if code.hasPrefix("en") {
-            return enDict[key] ?? key
-        } else if code.hasPrefix("ru") {
-            return ruDict[key] ?? key
-        }
-        return azDict[key] ?? key
     }
 
     @ViewBuilder

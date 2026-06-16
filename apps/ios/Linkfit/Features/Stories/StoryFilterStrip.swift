@@ -49,6 +49,10 @@ struct StoryFilterStrip: View {
     /// dim-source-image tiles look fine while the real renders settle.
     @State private var isRendering = false
 
+    /// When the user has Reduce Motion on we drop the selection
+    /// scale-pop and fade so the strip switches filters instantly.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
@@ -90,16 +94,20 @@ struct StoryFilterStrip: View {
             // Light haptic on selection — matches IG's tactile feedback
             // when scrubbing the filter row.
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.easeOut(duration: 0.18)) {
+            if reduceMotion {
                 viewModel.selectedFilter = filter
+            } else {
+                withAnimation(.easeOut(duration: 0.18)) {
+                    viewModel.selectedFilter = filter
+                }
             }
         } label: {
             VStack(spacing: 6) {
                 thumbnail(for: filter)
                     .frame(width: 60, height: 60)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous)
                             // The lime ring on the selected tile. We
                             // stroke at 2.5pt so it's visible even on
                             // dark photos but not so chunky that it
@@ -109,7 +117,7 @@ struct StoryFilterStrip: View {
                                 lineWidth: isSelected ? 2.5 : 1
                             )
                     )
-                    .scaleEffect(isSelected ? 1.06 : 1.0)
+                    .scaleEffect((isSelected && !reduceMotion) ? 1.06 : 1.0)
                 Text(LocalizedStringKey(filter.localizationKey))
                     .font(.system(size: 11, weight: isSelected ? .heavy : .semibold))
                     .foregroundStyle(isSelected ? DSColor.accent : Color.white.opacity(0.85))

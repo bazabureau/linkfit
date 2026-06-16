@@ -13,6 +13,7 @@ import SwiftUI
 struct AgendaCalendarView: View {
     @State var viewModel: AgendaCalendarViewModel
     @Environment(LanguageManager.self) private var lang
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Detail-sheet driver — non-nil while presented.
     @State private var selectedDay: SelectedDay?
@@ -186,6 +187,7 @@ struct AgendaCalendarView: View {
                 .contentShape(Rectangle())
                 .onTapGesture {
                     guard isInDisplayedMonth(day) else { return }
+                    Haptics.selection()
                     selectedDay = SelectedDay(date: day)
                 }
             }
@@ -193,7 +195,9 @@ struct AgendaCalendarView: View {
         .padding(.horizontal, DSSpacing.md)
         .offset(x: dragOffset)
         .gesture(swipeGesture)
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: dragOffset)
+        // Honour Reduce Motion: skip the rubber-band spring when the user
+        // has opted out of motion (the month still changes, just without animation).
+        .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.85), value: dragOffset)
     }
 
     private var emptyHint: some View {
@@ -235,11 +239,11 @@ struct AgendaCalendarView: View {
         .padding(28)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
                 .fill(.ultraThinMaterial)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
                 .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
         )
     }
@@ -379,7 +383,7 @@ private struct DayCell: View {
         .frame(height: 56)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                 .fill(isInMonth ? DSColor.surface.opacity(0.4) : Color.clear)
         )
         .opacity(isInMonth ? 1.0 : 0.35)

@@ -17,6 +17,13 @@ struct ReferralsView: View {
     @State private var showShareSheet = false
     @State private var showRedeemSheet = false
     @State private var didCopy = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Spring used for the copy/redeem feedback. Collapses to no animation
+    /// when Reduce Motion is on so the toast just appears/disappears.
+    private var feedbackAnimation: Animation? {
+        reduceMotion ? nil : .easeOut(duration: 0.2)
+    }
 
     var body: some View {
         ZStack {
@@ -25,7 +32,7 @@ struct ReferralsView: View {
                 VStack(alignment: .leading, spacing: DSSpacing.lg) {
                     header
                     content
-                    Spacer().frame(height: 120)
+                    Spacer().frame(height: DSSpacing.xxxl)
                 }
                 .padding(.horizontal, DSSpacing.md)
                 .padding(.top, DSSpacing.lg)
@@ -106,6 +113,7 @@ struct ReferralsView: View {
                 .frame(height: 64)
         }
         .redacted(reason: .placeholder)
+        .accessibilityHidden(true)
     }
 
     /// Big rounded card with the code centered in a lime pill. Tap to copy.
@@ -117,13 +125,7 @@ struct ReferralsView: View {
                 .foregroundStyle(DSColor.textOnAccent.opacity(0.85))
 
             Button {
-                UIPasteboard.general.string = code
-                Haptics.success()
-                withAnimation(.easeOut(duration: 0.2)) { didCopy = true }
-                Task {
-                    try? await Task.sleep(nanoseconds: 2_000_000_000)
-                    withAnimation { didCopy = false }
-                }
+                copyCode(code)
             } label: {
                 Text(code)
                     .font(.system(size: 36, weight: .black, design: .monospaced))
@@ -153,13 +155,7 @@ struct ReferralsView: View {
             // link don't have to discover the tap-on-code-to-copy gesture.
             HStack(spacing: DSSpacing.xs) {
                 Button {
-                    UIPasteboard.general.string = code
-                    Haptics.success()
-                    withAnimation(.easeOut(duration: 0.2)) { didCopy = true }
-                    Task {
-                        try? await Task.sleep(nanoseconds: 2_000_000_000)
-                        withAnimation { didCopy = false }
-                    }
+                    copyCode(code)
                 } label: {
                     HStack(spacing: DSSpacing.xs) {
                         Image(systemName: "doc.on.doc.fill")
@@ -191,6 +187,7 @@ struct ReferralsView: View {
                     .background(RoundedRectangle(cornerRadius: 14).fill(DSColor.textOnAccent))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(Text("referrals.cta.share"))
             }
             .padding(.top, DSSpacing.xs)
         }
@@ -205,6 +202,19 @@ struct ReferralsView: View {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .strokeBorder(DSColor.textOnAccent.opacity(0.12), lineWidth: 1)
         )
+    }
+
+    /// Copy the code to the pasteboard with success haptic + a Reduce-Motion
+    /// aware toast that auto-dismisses. Shared by the code pill and the
+    /// explicit "Kopyala" button so feedback is identical from both entry points.
+    private func copyCode(_ code: String) {
+        UIPasteboard.general.string = code
+        Haptics.success()
+        withAnimation(feedbackAnimation) { didCopy = true }
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            withAnimation(feedbackAnimation) { didCopy = false }
+        }
     }
 
     // MARK: - Stats row
@@ -414,7 +424,10 @@ struct ReferralsView: View {
             .padding(.vertical, DSSpacing.sm)
             .background(Capsule().fill(success ? DSColor.success : DSColor.danger))
             .padding(.top, DSSpacing.lg)
-            .transition(.move(edge: .top).combined(with: .opacity))
+            // Slide-in only when motion is allowed; otherwise a plain fade so
+            // the toast doesn't fly down the screen under Reduce Motion.
+            .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+            .accessibilityAddTraits(.isStaticText)
     }
 }
 
@@ -479,12 +492,11 @@ struct ReferralsShareSheet: UIViewControllerRepresentable {
 /// Shared formatting helpers for the referrals screens. Pulled out so
 /// `ReferredFriendRow` doesn't need to reach into other features for them.
 enum ReferralFormatting {
+    /// Parse via the shared `Date.fromISO` foundation so we handle the
+    /// backend's fractional-seconds timestamps exactly like every other
+    /// screen — no per-feature formatter that silently drops `.000Z` dates.
     static func date(from iso: String) -> Date? {
-        let primary = ISO8601DateFormatter()
-        primary.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = primary.date(from: iso) { return d }
-        let fallback = ISO8601DateFormatter()
-        return fallback.date(from: iso)
+        Date.fromISO(iso)
     }
 
     static func timeAgo(_ iso: String) -> String {

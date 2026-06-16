@@ -18,6 +18,7 @@ struct SearchField: View {
     var body: some View {
         HStack(spacing: DSSpacing.sm) {
             Image(systemName: "magnifyingglass")
+                .font(DSType.body)
                 .foregroundStyle(DSColor.textSecondary)
                 .accessibilityHidden(true)
             TextField(
@@ -27,6 +28,7 @@ struct SearchField: View {
             )
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled(true)
+            .font(DSType.body)
             .foregroundStyle(DSColor.textPrimary)
             .focused($focused)
             .submitLabel(.search)
@@ -37,7 +39,10 @@ struct SearchField: View {
                     text = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
+                        .font(DSType.body)
                         .foregroundStyle(DSColor.textTertiary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("common.clear"))

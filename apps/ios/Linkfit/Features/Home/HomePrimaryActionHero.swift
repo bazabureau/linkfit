@@ -75,7 +75,7 @@ struct HomePrimaryActionHero: View {
 
     private var primaryButton: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            Haptics.medium()
             onCreate()
         } label: {
             HStack(spacing: 6) {
@@ -94,7 +94,7 @@ struct HomePrimaryActionHero: View {
 
     private var secondaryButton: some View {
         Button {
-            UISelectionFeedbackGenerator().selectionChanged()
+            Haptics.selection()
             onFind()
         } label: {
             HStack(spacing: 6) {
@@ -117,7 +117,7 @@ struct HomePrimaryActionHero: View {
     }
 
     private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 22, style: .continuous)
+        RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
             .fill(.ultraThinMaterial)
             .overlay(
                 LinearGradient(
@@ -129,12 +129,12 @@ struct HomePrimaryActionHero: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous))
             )
     }
 
     private var cardStroke: some View {
-        RoundedRectangle(cornerRadius: 22, style: .continuous)
+        RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
             .strokeBorder(DSColor.accent.opacity(0.22), lineWidth: 1)
     }
 }

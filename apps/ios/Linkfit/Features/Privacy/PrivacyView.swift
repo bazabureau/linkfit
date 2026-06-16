@@ -101,7 +101,7 @@ struct PrivacyView: View {
                     Haptics.selection()
                     UIApplication.shared.open(url)
                 } label: {
-                    HStack(spacing: 12) {
+                    HStack(spacing: DSSpacing.sm) {
                         iconBadge("arrow.down.doc.fill", tint: DSColor.accent)
                         Text("privacy.action.download_export")
                             .font(.system(.body, weight: .semibold))
@@ -114,6 +114,7 @@ struct PrivacyView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(Text("privacy.action.download_export"))
 
                 // "Re-request" — once the user has a ready export, they
                 // can still ask for a fresh one. Same action, just a
@@ -133,7 +134,7 @@ struct PrivacyView: View {
             } else if vm.exportPending || vm.exportInFlight {
                 // Either we just POSTed or the poller saw a still-pending
                 // record on load. Either way: spinner row, no actions.
-                HStack(spacing: 12) {
+                HStack(spacing: DSSpacing.sm) {
                     iconBadge("clock.arrow.circlepath", tint: DSColor.accent)
                     Text("privacy.export.pending")
                         .font(.system(.body, weight: .medium))
@@ -161,8 +162,8 @@ struct PrivacyView: View {
             sectionHeader("privacy.section.data_export")
         } footer: {
             if vm.exportReady, let expiresRaw = vm.export?.expires_at,
-               let date = isoDate(expiresRaw) {
-                Text("privacy.export.ready_format \(date.formatted(date: .abbreviated, time: .shortened))")
+               let date = Date.fromISO(expiresRaw) {
+                Text("privacy.export.ready_format \(date.formatted(.dateTime.day().month(.abbreviated).year().hour().minute().locale(appLocale)))")
                     .font(DSType.metaCaption)
                     .foregroundStyle(DSColor.textTertiary)
             }
@@ -179,10 +180,10 @@ struct PrivacyView: View {
                 // Pending state — render the hard-delete date and offer a
                 // cancel button. Date is parsed from the ISO timestamp.
                 if let hardDate = vm.hardDeleteDate {
-                    HStack(spacing: 12) {
+                    HStack(spacing: DSSpacing.sm) {
                         iconBadge("hourglass", tint: DSColor.danger)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("privacy.delete.scheduled_format \(hardDate.formatted(date: .long, time: .omitted))")
+                            Text("privacy.delete.scheduled_format \(hardDate.formatted(.dateTime.day().month(.wide).year().locale(appLocale)))")
                                 .font(.system(.body, weight: .semibold))
                                 .foregroundStyle(DSColor.textPrimary)
                         }
@@ -248,7 +249,7 @@ struct PrivacyView: View {
         titleKey: LocalizedStringKey,
         tint: Color
     ) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DSSpacing.sm) {
             iconBadge(icon, tint: tint)
             Text(titleKey)
                 .font(.system(.body, weight: .medium))
@@ -263,7 +264,7 @@ struct PrivacyView: View {
 
     private func iconBadge(_ name: String, tint: Color) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.xs, style: .continuous)
                 .fill(tint.opacity(0.16))
                 .frame(width: 28, height: 28)
             Image(systemName: name)
@@ -279,15 +280,10 @@ struct PrivacyView: View {
             .foregroundStyle(DSColor.textSecondary)
     }
 
-    /// Local ISO parser for footer copy. Mirrors the one in the view
-    /// model but the view doesn't get to reach into the VM's private
-    /// formatter — keeping the two independent means the formatter
-    /// options can drift if the API gains a different precision.
-    private func isoDate(_ raw: String) -> Date? {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = f.date(from: raw) { return date }
-        f.formatOptions = [.withInternetDateTime]
-        return f.date(from: raw)
+    /// The app's chosen language as a `Locale`, so `.formatted` renders
+    /// month names / ordering in az / en / ru rather than the device
+    /// locale. Falls back to Azerbaijani — the app's default language.
+    private var appLocale: Locale {
+        Locale(identifier: LocaleManager.shared.current ?? "az")
     }
 }

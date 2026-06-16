@@ -19,7 +19,7 @@ struct SecondaryButton: View {
             )
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SpringPressStyle())   // match PrimaryButton press feedback
         .accessibilityLabel(title)
         .accessibilityAddTraits(.isButton)
     }

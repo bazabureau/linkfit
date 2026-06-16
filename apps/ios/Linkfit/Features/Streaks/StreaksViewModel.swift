@@ -23,7 +23,16 @@ final class StreaksViewModel {
         state = .loading
         do {
             let resp = try await apiClient.send(.streaks(userId: userId))
-            state = .loaded(resp)
+            // A brand-new player gets 26 zero-count weeks back. Surface the
+            // dedicated empty card instead of an all-grey heatmap so the
+            // screen reads as "nothing yet" rather than "loaded but blank".
+            if resp.current_streak_weeks == 0,
+               resp.longest_streak_weeks == 0,
+               resp.weeks.allSatisfy({ $0.games_count == 0 }) {
+                state = .empty
+            } else {
+                state = .loaded(resp)
+            }
         } catch is CancellationError {
             return
         } catch let error as APIError {

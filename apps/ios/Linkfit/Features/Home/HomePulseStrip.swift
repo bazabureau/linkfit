@@ -46,14 +46,14 @@ struct HomePulseStrip: View {
                 accessory: winRateAccessory
             )
         }
-        .padding(.vertical, 14)
-        .padding(.horizontal, 14)
+        .padding(.vertical, DSSpacing.md)
+        .padding(.horizontal, DSSpacing.md)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                 .fill(.ultraThinMaterial)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                 .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
         )
     }

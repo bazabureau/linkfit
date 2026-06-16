@@ -41,17 +41,33 @@ final class InviteFriendsViewModel {
         }
     }
 
-    /// Pick the share text that matches the device's primary language.
-    /// Falls back to the English (`share_text`) variant so the share sheet
-    /// is never empty in unexpected locales — better a foreign-language
-    /// blurb than a blank `UIActivityViewController`.
+    /// Pick the share text that matches the *in-app* language the user
+    /// selected, not just the device locale. The app supports an in-session
+    /// language switch (see `LanguageManager` / `LocaleManager`); reading the
+    /// stored preference first means a user on an English phone who set the
+    /// app to Azerbaijani still shares the Azerbaijani blurb. Falls back to
+    /// the device language, then to the English (`share_text`) variant so the
+    /// share sheet is never empty in unexpected locales.
     func localisedShareText(for resp: ReferralShareResponse) -> String {
-        let language = Locale.current.language.languageCode?.identifier ?? "en"
+        let language = Self.activeLanguageCode()
         switch language {
         case "az": return resp.share_text_az
         case "ru": return resp.share_text_ru
         default:   return resp.share_text
         }
+    }
+
+    /// Resolve the language the user is actually reading the app in. Order:
+    /// in-app `LanguageManager` preference → `LocaleManager` override →
+    /// device language.
+    private static func activeLanguageCode() -> String {
+        if let stored = UserDefaults.standard.string(forKey: "linkfit.language") {
+            return stored
+        }
+        if let override = UserDefaults.standard.string(forKey: "LinkfitPreferredLanguage") {
+            return override
+        }
+        return Locale.current.language.languageCode?.identifier ?? "en"
     }
 }
 
@@ -80,6 +96,12 @@ struct InviteFriendsView: View {
     @State var viewModel: InviteFriendsViewModel
     @State private var showShareSheet = false
     @State private var didCopy = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Feedback animation that collapses to nil under Reduce Motion.
+    private var feedbackAnimation: Animation? {
+        reduceMotion ? nil : .easeOut(duration: 0.2)
+    }
 
     var body: some View {
         ZStack {
@@ -117,10 +139,11 @@ struct InviteFriendsView: View {
             if didCopy {
                 copiedBanner
                     .onAppear {
-                        Haptics.success()
+                        // Haptic already fired on the copy tap; here we only
+                        // schedule the auto-dismiss so it isn't double-tapped.
                         Task {
                             try? await Task.sleep(nanoseconds: 2_000_000_000)
-                            withAnimation { didCopy = false }
+                            withAnimation(feedbackAnimation) { didCopy = false }
                         }
                     }
             }
@@ -195,7 +218,8 @@ struct InviteFriendsView: View {
 
             Button {
                 UIPasteboard.general.string = code
-                withAnimation(.easeOut(duration: 0.2)) { didCopy = true }
+                Haptics.success()
+                withAnimation(feedbackAnimation) { didCopy = true }
             } label: {
                 Text(code)
                     .font(.system(size: 36, weight: .black, design: .monospaced))
@@ -318,7 +342,8 @@ struct InviteFriendsView: View {
             .padding(.vertical, DSSpacing.sm)
             .background(Capsule().fill(DSColor.success))
             .padding(.top, DSSpacing.lg)
-            .transition(.move(edge: .top).combined(with: .opacity))
+            .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+            .accessibilityAddTraits(.isStaticText)
     }
 }
 

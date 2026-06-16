@@ -27,7 +27,7 @@ struct MentionToolButton: View {
 
     var body: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.selection()
             showPicker = true
         } label: {
             // The "@" glyph reads cleaner as a Text label than as an SF
@@ -45,6 +45,11 @@ struct MentionToolButton: View {
                 .overlay(
                     Circle().strokeBorder(.white.opacity(0.18), lineWidth: 1)
                 )
+                // Keep the visible chrome at 40pt to match the sibling tool
+                // buttons, but expand the hit area to the 44pt HIG minimum so
+                // the control is comfortably tappable on the busy canvas.
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("stories.mention.tool.label"))

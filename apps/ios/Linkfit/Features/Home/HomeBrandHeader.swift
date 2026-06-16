@@ -41,7 +41,7 @@ struct HomeBrandHeader: View {
                 Image(systemName: "bubble.left.and.bubble.right.fill")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 44, height: 44)
                 if unreadCount > 0 {
                     Text(unreadCount > 9 ? "9+" : "\(unreadCount)")
                         .font(.system(size: 10, weight: .bold, design: .default))
@@ -53,6 +53,7 @@ struct HomeBrandHeader: View {
                         .offset(x: 4, y: -4)
                 }
             }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("home.messages"))

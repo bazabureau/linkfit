@@ -106,9 +106,15 @@ final class VenueReviewsViewModel {
                 state = rows.isEmpty ? .empty : .loaded(rows)
             }
             await load()
+        } catch is CancellationError {
+            return
         } catch {
-            // Deletion is non-critical — surfacing a banner is enough.
-            // Keep the row visible; the caller will see the error toast.
+            // Keep the row visible and tell the user it failed — a silent
+            // no-op leaves them thinking the review was deleted when it
+            // wasn't.
+            let message = (error as? APIError)?.localizedMessage
+                ?? String(localized: "venue_reviews.error.delete")
+            ToastCenter.shared.error(message)
         }
     }
 }

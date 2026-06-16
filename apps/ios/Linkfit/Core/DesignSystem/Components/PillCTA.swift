@@ -14,7 +14,7 @@ struct PillCTA: View {
         Button(action: { if isEnabled && !isLoading { action() } }) {
             ZStack {
                 Text(title)
-                    .font(.system(.body, design: .default, weight: .semibold))
+                    .font(DSType.button)
                     .foregroundStyle(DSColor.textOnAccent)
 
                 HStack {
@@ -33,7 +33,7 @@ struct PillCTA: View {
             .opacity(isEnabled ? 1 : 0.55)
             .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SpringPressStyle())   // match PrimaryButton press feedback
         .disabled(!isEnabled || isLoading)
         .accessibilityLabel(title)
         .accessibilityAddTraits(.isButton)
@@ -60,6 +60,7 @@ struct PillCTA: View {
                 Image(systemName: trailingSystemImage)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(DSColor.textOnAccent)
+                    .accessibilityHidden(true)   // button already labelled by title
             }
         }
     }

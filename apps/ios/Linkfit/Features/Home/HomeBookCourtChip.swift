@@ -19,7 +19,7 @@ struct HomeBookCourtChip: View {
 
     var body: some View {
         Button(action: tap) {
-            HStack(spacing: 12) {
+            HStack(spacing: DSSpacing.sm) {
                 ZStack {
                     Circle()
                         .fill(DSColor.accent.opacity(0.16))
@@ -44,14 +44,14 @@ struct HomeBookCourtChip: View {
                     .font(.system(size: 12, weight: .heavy))
                     .foregroundStyle(DSColor.textTertiary)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, DSSpacing.md)
+            .padding(.vertical, DSSpacing.sm)
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                     .fill(.ultraThinMaterial)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                     .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
             )
         }

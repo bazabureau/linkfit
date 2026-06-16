@@ -41,7 +41,7 @@ private struct UpcomingMatchHero: View {
 
     var body: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            Haptics.medium()
             onOpen()
         } label: {
             VStack(alignment: .leading, spacing: 14) {
@@ -147,7 +147,7 @@ private struct UpcomingMatchHero: View {
     }
 
     private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 24, style: .continuous)
+        RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
             .fill(.ultraThinMaterial)
             .overlay(
                 LinearGradient(
@@ -159,12 +159,12 @@ private struct UpcomingMatchHero: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous))
             )
     }
 
     private var cardStroke: some View {
-        RoundedRectangle(cornerRadius: 24, style: .continuous)
+        RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
             .strokeBorder(DSColor.accent.opacity(0.28), lineWidth: 1)
     }
 }
@@ -232,7 +232,7 @@ private struct EmptyActionHero: View {
 
     private var primaryCTA: some View {
         Button {
-            UISelectionFeedbackGenerator().selectionChanged()
+            Haptics.selection()
             onFind()
         } label: {
             HStack(spacing: 7) {
@@ -258,7 +258,7 @@ private struct EmptyActionHero: View {
     /// link more honestly maps to actual behaviour.
     private var secondaryCTA: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.soft()
             onCreate()
         } label: {
             HStack(spacing: 6) {
@@ -274,7 +274,7 @@ private struct EmptyActionHero: View {
     }
 
     private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 26, style: .continuous)
+        RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
             .fill(.ultraThinMaterial)
             .overlay(
                 LinearGradient(
@@ -287,12 +287,12 @@ private struct EmptyActionHero: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous))
             )
     }
 
     private var cardStroke: some View {
-        RoundedRectangle(cornerRadius: 26, style: .continuous)
+        RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
             .strokeBorder(DSColor.accent.opacity(0.30), lineWidth: 1)
     }
 }

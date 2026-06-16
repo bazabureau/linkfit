@@ -88,16 +88,17 @@ struct RecentlyUnlockedCarousel: View {
                         .foregroundStyle(DSColor.textPrimary)
                     Spacer()
                     Button(String(localized: "achievements.see_all"), action: onSeeAll)
-                        .font(.system(.subheadline, design: .default, weight: .semibold))
+                        .font(DSType.bodyStrong)
                         .foregroundStyle(DSColor.accent)
                 }
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: DSSpacing.md) {
                         ForEach(items) { item in
                             Button {
+                                Haptics.soft()
                                 selected = item
                             } label: {
-                                VStack(spacing: 6) {
+                                VStack(spacing: DSSpacing.xxs) {
                                     BadgeBubble(iconName: item.icon_name,
                                                 unlocked: true,
                                                 size: 56)
@@ -109,9 +110,12 @@ struct RecentlyUnlockedCarousel: View {
                                 }
                             }
                             .buttonStyle(.plain)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(Text("\(item.name), \(String(localized: "achievements.status.unlocked"))"))
+                            .accessibilityAddTraits(.isButton)
                         }
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, DSSpacing.xxs)
                 }
             }
             .task { await viewModel.onAppear() }

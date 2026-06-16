@@ -59,6 +59,10 @@ struct StoryCameraView: View {
     @State private var showLibraryPicker: Bool = false
     @State private var isCapturing: Bool = false
 
+    /// When Reduce Motion is on we drop the capture-button fill
+    /// transition so the shutter feedback is instant.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -197,7 +201,7 @@ struct StoryCameraView: View {
                 Circle()
                     .fill(isCapturing ? DSColor.accent : Color.white.opacity(0.001))
                     .frame(width: 62, height: 62)
-                    .animation(.easeOut(duration: 0.12), value: isCapturing)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isCapturing)
             }
             .contentShape(Circle())
         }
@@ -268,6 +272,11 @@ struct StoryCameraView: View {
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
                 .background(Color.black.opacity(0.35), in: Circle())
+                // Keep the visible chrome circle at 36pt (camera-app
+                // convention) but expand the hit area to the 44pt HIG
+                // minimum so the close / flash controls are easy to tap.
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(a11y))

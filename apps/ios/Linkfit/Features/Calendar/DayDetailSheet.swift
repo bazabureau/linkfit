@@ -51,6 +51,7 @@ struct DayDetailSheet: View {
                 VStack(spacing: DSSpacing.sm) {
                     ForEach(items) { item in
                         Button {
+                            Haptics.selection()
                             switch item.kind {
                             case .game:       onTapGame(item)
                             case .booking:    onTapBooking(item)
@@ -59,7 +60,7 @@ struct DayDetailSheet: View {
                         } label: {
                             AgendaRow(item: item, locale: locale)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(SpringPressStyle())
                     }
                 }
                 .padding(.horizontal, DSSpacing.md)
@@ -121,9 +122,9 @@ private struct AgendaRow: View {
                 .font(.system(size: 13, weight: .semibold))
         }
         .padding(DSSpacing.sm)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surface))
+        .background(RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous).fill(DSColor.surface))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                 .strokeBorder(DSColor.border, lineWidth: 1)
         )
     }
@@ -145,13 +146,9 @@ private struct AgendaRow: View {
     }
 
     private var timeLabel: String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = f.date(from: item.starts_at) ?? {
-            let g = ISO8601DateFormatter()
-            g.formatOptions = [.withInternetDateTime]
-            return g.date(from: item.starts_at)
-        }() ?? Date()
+        // Centralised parsing via `Date.fromISO`; show a dash rather than a
+        // misleading "now" if a timestamp is genuinely unparseable.
+        guard let date = Date.fromISO(item.starts_at) else { return "—" }
         let df = DateFormatter()
         df.locale = locale
         df.timeStyle = .short

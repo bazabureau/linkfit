@@ -14,6 +14,13 @@ struct FeedView: View {
     /// Optional CTA for the empty state — when the viewer follows nobody,
     /// the empty state surfaces a "Find players" button that routes here.
     var onFindPlayers: (() -> Void)?
+    /// Optional handler for the per-card "şərh" affordance. When non-nil,
+    /// each `FeedEventCard` renders its comments row and invokes this with
+    /// the tapped event so the host can present `FeedCommentsSheet`. Left
+    /// optional with a safe default so existing call sites compile
+    /// unchanged — but without it the comments thread is unreachable from
+    /// the full feed, so hosts should wire it. See `FeedHook.swift`.
+    var onTapComments: ((FeedEvent) -> Void)? = nil
 
     var body: some View {
         ZStack {
@@ -39,7 +46,13 @@ struct FeedView: View {
             ScrollView {
                 LazyVStack(spacing: DSSpacing.sm) {
                     ForEach(events) { event in
-                        FeedEventCard(event: event, onTap: onTapTarget)
+                        FeedEventCard(
+                            event: event,
+                            onTap: onTapTarget,
+                            onTapComments: onTapComments.map { handler in
+                                { handler(event) }
+                            }
+                        )
                             .onAppear {
                                 if event.id == events.last?.id {
                                     Task { await viewModel.loadMore() }

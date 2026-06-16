@@ -65,6 +65,9 @@ struct MatchesView: View {
             RecurringGameSheet(
                 viewModel: RecurringGameViewModel(apiClient: container.apiClient)
             ) { _ in Task { await viewModel.load() } }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+            .presentationBackground(.ultraThinMaterial)
         }
         .sheet(isPresented: $showAmericano) {
             AmericanoTournamentView()

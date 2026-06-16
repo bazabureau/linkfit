@@ -68,7 +68,7 @@ struct AchievementsView: View {
     /// supporting line. No CTA, the user lands here automatically as soon
     /// as they have something to unlock.
     private var premiumEmptyCard: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: DSSpacing.md) {
             ZStack {
                 Circle()
                     .fill(DSColor.accent.opacity(0.16))
@@ -80,26 +80,27 @@ struct AchievementsView: View {
                     .font(.system(size: 28, weight: .semibold))
                     .foregroundStyle(DSColor.accent)
             }
-            VStack(spacing: 4) {
+            VStack(spacing: DSSpacing.xxs) {
                 Text("achievements.empty.title")
-                    .font(.system(size: 17, weight: .heavy))
+                    .font(DSType.sectionTitle)
                     .foregroundStyle(DSColor.textPrimary)
+                    .multilineTextAlignment(.center)
                 Text("achievements.empty.message")
-                    .font(.system(size: 14, weight: .regular))
+                    .font(DSType.bodyMedium)
                     .foregroundStyle(DSColor.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, DSSpacing.xs)
             }
         }
-        .padding(28)
+        .padding(DSSpacing.xl)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
                 .fill(.ultraThinMaterial)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
                 .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
         )
     }
@@ -115,18 +116,20 @@ struct AchievementsView: View {
                     res.unlocked_count, res.total_count
                 )
             )
-            .font(.system(.subheadline, design: .default))
+            .font(DSType.bodyMedium)
             .foregroundStyle(DSColor.textSecondary)
+            .contentTransition(.numericText())
             ProgressView(value: Double(res.unlocked_count),
                          total: max(Double(res.total_count), 1))
                 .tint(DSColor.accent)
-                .padding(.top, 4)
+                .padding(.top, DSSpacing.xxs)
         }
         .padding(DSSpacing.md)
         .background(
-            RoundedRectangle(cornerRadius: DSRadius.lg)
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                 .fill(DSColor.surface)
         )
+        .accessibilityElement(children: .combine)
     }
 
     private func grid(_ res: AchievementsResponse) -> some View {
@@ -139,12 +142,15 @@ struct AchievementsView: View {
                     cell(item)
                 }
                 .buttonStyle(.plain)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text("\(item.name), \(item.unlocked ? String(localized: "achievements.status.unlocked") : String(localized: "achievements.status.locked"))"))
+                .accessibilityAddTraits(.isButton)
             }
         }
     }
 
     private func cell(_ item: Achievement) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: DSSpacing.xs) {
             BadgeBubble(iconName: item.icon_name, unlocked: item.unlocked)
             Text(item.name)
                 .font(DSType.metaCaption)
@@ -173,10 +179,11 @@ struct AchievementDetailSheet: View {
                     .padding(.top, DSSpacing.lg)
                 VStack(spacing: DSSpacing.xs) {
                     Text(achievement.name)
-                        .font(.system(.title2, design: .default, weight: .bold))
+                        .font(.system(size: 22, weight: .heavy, design: .default))
                         .foregroundStyle(DSColor.textPrimary)
+                        .multilineTextAlignment(.center)
                     Text(statusLabel)
-                        .font(.system(.subheadline, design: .default, weight: .semibold))
+                        .font(DSType.bodyStrong)
                         .foregroundStyle(achievement.unlocked ? DSColor.accent : DSColor.textTertiary)
                 }
                 Text(achievement.description)
@@ -210,20 +217,40 @@ struct AchievementDetailSheet: View {
                 .foregroundStyle(DSColor.textPrimary)
             HStack {
                 Text(formatProgressLabel(progress))
-                    .font(.system(.subheadline, design: .default))
+                    .font(DSType.bodyMedium)
                     .foregroundStyle(DSColor.textSecondary)
                 Spacer()
-                Text("\(Int(progress.ratio * 100))%")
-                    .font(.system(.subheadline, design: .default, weight: .semibold))
+                Text(formatPercent(progress.ratio))
+                    .font(DSType.bodyStrong)
                     .foregroundStyle(DSColor.textPrimary)
+                    .contentTransition(.numericText())
+                    .monospacedDigit()
             }
             ProgressView(value: progress.ratio).tint(DSColor.accent)
         }
         .padding(DSSpacing.md)
         .background(
-            RoundedRectangle(cornerRadius: DSRadius.lg)
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                 .fill(DSColor.surface)
         )
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Whole-percent value rendered in the app language so the `%` symbol
+    /// sits on the correct side and uses the right separators (matches the
+    /// Insights pattern). `ratio` is already clamped to 0...1.
+    private func formatPercent(_ ratio: Double) -> String {
+        ratio.formatted(.percent.precision(.fractionLength(0)).locale(appLocale))
+    }
+
+    /// In-app language locale (mirrors `Money` / Insights). Drives number
+    /// grouping and the percent separator regardless of device region.
+    private var appLocale: Locale {
+        switch UserDefaults.standard.string(forKey: "LinkfitPreferredLanguage") {
+        case "en": return Locale(identifier: "en_US")
+        case "ru": return Locale(identifier: "ru_RU")
+        default:   return Locale(identifier: "az_AZ")
+        }
     }
 
     private func formatProgressLabel(_ p: AchievementProgress) -> String {
@@ -235,7 +262,7 @@ struct AchievementDetailSheet: View {
         case "percent": format = String(localized: "achievements.progress.percent_format")
         case "days":    format = String(localized: "achievements.progress.days_format")
         case "ratings": format = String(localized: "achievements.progress.ratings_format")
-        default:        format = "%d / %d"
+        default:        format = String(localized: "achievements.progress.generic_format")
         }
         return String.localizedStringWithFormat(format,
                                                 Int(p.current),

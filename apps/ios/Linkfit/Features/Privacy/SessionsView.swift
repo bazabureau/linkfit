@@ -123,13 +123,6 @@ struct SessionsView: View {
 private struct SessionRow: View {
     let session: SessionInfo
 
-    /// Shared formatters — `lastActive` runs every body pass per row.
-    private static let isoFormatter = ISO8601DateFormatter()
-    private static let relativeFormatter: RelativeDateTimeFormatter = {
-        let f = RelativeDateTimeFormatter()
-        f.unitsStyle = .short
-        return f
-    }()
 
     var body: some View {
         HStack(alignment: .top, spacing: DSSpacing.sm) {
@@ -220,8 +213,18 @@ private struct SessionRow: View {
     /// `created_at` if the server hasn't recorded a use yet).
     private var lastActive: String {
         let stamp = session.last_used_at ?? session.created_at
-        guard let date = Self.isoFormatter.date(from: stamp) else { return stamp }
-        return Self.relativeFormatter.localizedString(for: date, relativeTo: Date())
+        // `Date.fromISO` handles the API's fractional-seconds shape; a bare
+        // `ISO8601DateFormatter()` silently fails on those and leaks the raw
+        // timestamp into the UI.
+        guard let date = Date.fromISO(stamp) else { return stamp }
+        // Resolve the relative string in the app's chosen language rather
+        // than the device locale, so "5m ago" reads as "5 dəq əvvəl" etc.
+        // Allocated per call (active-session lists are short) to keep the
+        // shared-mutable-static off the Swift 6 concurrency radar.
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .short
+        f.locale = Locale(identifier: LocaleManager.shared.current ?? "az")
+        return f.localizedString(for: date, relativeTo: Date())
     }
 }
 

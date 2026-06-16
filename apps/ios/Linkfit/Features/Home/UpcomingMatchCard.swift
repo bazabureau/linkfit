@@ -20,7 +20,6 @@ struct UpcomingMatchCard: View {
     /// carousel renders many cards. Allocating fresh ISO/Date formatters
     /// per row per redraw was measurable in the audit, so reuse one
     /// configured instance per type for the lifetime of the app.
-    private static let isoFormatter = ISO8601DateFormatter()
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.doesRelativeDateFormatting = true
@@ -214,6 +213,7 @@ struct UpcomingMatchCard: View {
         guard let date = Date.fromISO(game.starts_at) else {
             return game.starts_at
         }
+        Self.dateFormatter.locale = HomeCardLocale.current
         return Self.dateFormatter.string(from: date)
     }
 }

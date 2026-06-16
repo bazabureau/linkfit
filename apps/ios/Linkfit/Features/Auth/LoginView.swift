@@ -81,7 +81,7 @@ struct LoginView: View {
 
             VStack(spacing: 6) {
                 Text("auth.login.title")
-                    .font(.system(size: 28, weight: .heavy, design: .default))
+                    .font(DSType.heroTitle)
                     .foregroundStyle(DSColor.textPrimary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -120,7 +120,7 @@ struct LoginView: View {
                 .fill(DSColor.border.opacity(0.55))
                 .frame(height: 1)
             Text("auth.or_email")
-                .font(.system(size: 12, weight: .semibold, design: .default))
+                .font(DSType.metaCaption)
                 .foregroundStyle(DSColor.textTertiary)
             Rectangle()
                 .fill(DSColor.border.opacity(0.55))
@@ -246,11 +246,11 @@ struct LoginView: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                 .fill(DSColor.danger.opacity(0.10))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                 .strokeBorder(DSColor.danger.opacity(0.30), lineWidth: 1)
         )
     }

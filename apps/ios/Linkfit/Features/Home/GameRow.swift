@@ -3,10 +3,10 @@ import SwiftUI
 struct GameRow: View {
     let game: GameSummary
 
-    /// Shared formatters — keep `body` allocation-free. The relative
-    /// date formatting flag and locale-driven dateStyle/timeStyle stay
-    /// constant per app lifetime, so one configured instance is enough.
-    private static let isoFormatter = ISO8601DateFormatter()
+    /// Shared formatter — keep `body` allocation-free. The relative
+    /// date formatting flag and dateStyle/timeStyle stay constant per app
+    /// lifetime; the locale is refreshed per render so a user who switches
+    /// the in-app language sees dates in that language immediately.
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.doesRelativeDateFormatting = true
@@ -42,7 +42,7 @@ struct GameRow: View {
                             .foregroundStyle(DSColor.textSecondary)
                             .lineLimit(1)
                         if let km = game.distance_km {
-                            Text("· \(String(format: "%.1f", km)) km")
+                            Text("· \(DistanceFormatter.km(km))")
                                 .font(DSType.footnote)
                                 .foregroundStyle(DSColor.textSecondary)
                         }
@@ -82,9 +82,10 @@ struct GameRow: View {
     }
 
     private var timeLine: String {
-        guard let date = Self.isoFormatter.date(from: game.starts_at) else {
+        guard let date = Date.fromISO(game.starts_at) else {
             return game.starts_at
         }
+        Self.dateFormatter.locale = HomeCardLocale.current
         return Self.dateFormatter.string(from: date)
     }
 
@@ -101,7 +102,22 @@ struct GameRow: View {
             .font(DSType.caption)
             .foregroundStyle(color)
             .padding(.horizontal, DSSpacing.xs)
-            .padding(.vertical, 4)
+            .padding(.vertical, DSSpacing.xxs)
             .background(Capsule().fill(bg))
+    }
+}
+
+/// In-app language locale for the Home card date formatters. Mirrors the
+/// canonical mapping in `Money` / `LocaleManager` (same `UserDefaults`
+/// key) so a user who picks Azerbaijani sees Azerbaijani-formatted dates
+/// even on an English-region device. Kept here (rather than in a shared
+/// Core file) because this audit pass is scoped to the Home card views.
+enum HomeCardLocale {
+    static var current: Locale {
+        switch UserDefaults.standard.string(forKey: "LinkfitPreferredLanguage") {
+        case "en": return Locale(identifier: "en_US")
+        case "ru": return Locale(identifier: "ru_RU")
+        default:   return Locale(identifier: "az_AZ")
+        }
     }
 }

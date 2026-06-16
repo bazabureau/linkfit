@@ -36,7 +36,7 @@ struct HomeHeroGreeting: View {
         // friendly. Collapsing to "Sabahın xeyir, Kamran" in one
         // breath is closer to how people actually greet each other.
         Text(greetingLine)
-            .font(.system(size: 28, weight: .heavy, design: .default))
+            .font(DSType.heroTitle)
             .foregroundStyle(DSColor.textPrimary)
             .lineLimit(2)
             .minimumScaleFactor(0.75)

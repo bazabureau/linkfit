@@ -7,10 +7,10 @@ import SwiftUI
 struct GameCardLarge: View {
     let game: GameSummary
 
-    /// Shared formatters — `timeRelative` is read twice per body (once for
+    /// Shared formatter — `timeRelative` is read twice per body (once for
     /// the visible label, once for the accessibility string) and the
-    /// carousel can render many of these at a time.
-    private static let isoFormatter = ISO8601DateFormatter()
+    /// carousel can render many of these at a time. The locale is refreshed
+    /// per render so an in-app language switch is reflected immediately.
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.doesRelativeDateFormatting = true
@@ -30,7 +30,7 @@ struct GameCardLarge: View {
             .padding(DSSpacing.md)
         }
         .frame(width: 260, height: 320)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous))
         .shadow(color: .black.opacity(0.18), radius: 14, x: 0, y: 8)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(format: String(localized: "card.game_accessibility_format"),
@@ -104,7 +104,7 @@ struct GameCardLarge: View {
         .padding(.horizontal, DSSpacing.md)
         .padding(.vertical, DSSpacing.sm)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                 .fill(Color.black.opacity(0.45))
         )
     }
@@ -141,9 +141,10 @@ struct GameCardLarge: View {
         }
     }
     private var timeRelative: String {
-        guard let date = Self.isoFormatter.date(from: game.starts_at) else {
+        guard let date = Date.fromISO(game.starts_at) else {
             return game.starts_at
         }
+        Self.dateFormatter.locale = HomeCardLocale.current
         return Self.dateFormatter.string(from: date)
     }
 }

@@ -36,9 +36,10 @@ struct StarRow: View {
     /// new integer rating into the binding.
     var selection: Binding<Int>?
     var variant: Variant = .small
-    /// Optional accent override. Defaults to brand lime; the venue card
-    /// uses a warm gold for the summary header.
-    var tint: Color = DSColor.accent
+    /// Optional accent override. Defaults to the warm amber rating colour
+    /// (`DSColor.warning`) so stars read consistently everywhere — list
+    /// rows, summary header, and the interactive write sheet.
+    var tint: Color = DSColor.warning
 
     var body: some View {
         HStack(spacing: variant.spacing) {
@@ -46,9 +47,13 @@ struct StarRow: View {
                 starView(at: index)
             }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text("venue_reviews.a11y.rating_\(String(format: "%.1f", value))"))
-        .accessibilityValue(Text(String(format: "%.1f", value)))
+        // Read-only rows collapse into a single VoiceOver element ("Rating,
+        // 4.5"). Interactive rows must keep each star button reachable so a
+        // VoiceOver user can actually set a rating — so we only collapse
+        // when there's no selection binding.
+        .accessibilityElement(children: selection == nil ? .ignore : .contain)
+        .accessibilityLabel(Text("venue_reviews.a11y.rating"))
+        .accessibilityValue(selection == nil ? Text(String(format: "%.1f", value)) : Text(verbatim: ""))
     }
 
     @ViewBuilder
@@ -72,7 +77,10 @@ struct StarRow: View {
                     .symbolEffect(.bounce, value: selection.wrappedValue)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(Text("venue_reviews.a11y.star_\(index)"))
+            .accessibilityLabel(Text(String(
+                format: NSLocalizedString("venue_reviews.a11y.rate_stars",
+                                          comment: "VoiceOver label for an interactive rating star"),
+                index)))
         } else {
             Image(systemName: icon)
                 .font(.system(size: variant.iconSize, weight: .semibold))

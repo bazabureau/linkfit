@@ -110,15 +110,11 @@ struct AgendaSnapshot: Equatable {
 
     init(response: AgendaResponse, utc: Calendar) {
         var map: [String: [AgendaItem]] = [:]
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let fallback = ISO8601DateFormatter()
-        fallback.formatOptions = [.withInternetDateTime]
 
         func bucket(_ item: AgendaItem) {
-            let date = formatter.date(from: item.starts_at)
-                ?? fallback.date(from: item.starts_at)
-            guard let date else { return }
+            // Centralised parsing — `Date.fromISO` handles both the
+            // fractional-seconds and bare ISO forms the backend emits.
+            guard let date = Date.fromISO(item.starts_at) else { return }
             let key = AgendaCalendarViewModel.utcKey(for: date, utc: utc)
             map[key, default: []].append(item)
         }

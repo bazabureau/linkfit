@@ -96,12 +96,12 @@ struct TournamentsView: View {
     // MARK: - States
 
     private var loadingSkeleton: some View {
-        VStack(spacing: 16) {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+        VStack(spacing: DSSpacing.md) {
+            RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
                 .fill(DSColor.surfaceElevated)
                 .frame(height: 180)
             ForEach(0..<3, id: \.self) { _ in
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                     .fill(DSColor.surfaceElevated)
                     .frame(height: 96)
             }
@@ -111,7 +111,7 @@ struct TournamentsView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: DSSpacing.sm) {
             ZStack {
                 Circle().fill(DSColor.accentMuted).frame(width: 64, height: 64)
                 Image(systemName: "trophy")
@@ -129,17 +129,19 @@ struct TournamentsView: View {
                 Text("tournaments.empty.refresh")
                     .font(DSType.bodyStrong)
                     .foregroundStyle(DSColor.accent)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(SpringPressStyle())
-            .padding(.top, 4)
+            .padding(.top, DSSpacing.xxs)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 48)
-        .padding(.horizontal, 24)
+        .padding(.top, DSSpacing.xxl)
+        .padding(.horizontal, DSSpacing.lg)
     }
 
     private func errorState(_ message: String) -> some View {
-        VStack(spacing: 12) {
+        VStack(spacing: DSSpacing.sm) {
             ZStack {
                 Circle().fill(DSColor.danger.opacity(0.12)).frame(width: 64, height: 64)
                 Image(systemName: "exclamationmark.triangle")
@@ -154,12 +156,14 @@ struct TournamentsView: View {
                 Text("tournaments.empty.refresh")
                     .font(DSType.bodyStrong)
                     .foregroundStyle(DSColor.accent)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(SpringPressStyle())
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 48)
-        .padding(.horizontal, 24)
+        .padding(.top, DSSpacing.xxl)
+        .padding(.horizontal, DSSpacing.lg)
     }
 }
 

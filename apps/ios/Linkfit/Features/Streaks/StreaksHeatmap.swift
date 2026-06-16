@@ -46,6 +46,12 @@ struct StreaksHeatmap: View {
 
     private func cell(for week: StreaksWeek) -> some View {
         let isSelected = selected?.week_start == week.week_start
+        let isInteractive = onTap != nil
+        // The dense 13-per-row grid can't give every swatch a full 44pt frame
+        // without overflowing the phone width, so we extend the hit area into
+        // the surrounding gap via negative padding inside `contentShape`. The
+        // visible swatch and the grid layout are untouched; only the tappable
+        // region grows.
         return RoundedRectangle(cornerRadius: 4, style: .continuous)
             .fill(fillStyle(for: week.games_count))
             .frame(width: cellSize, height: cellSize)
@@ -56,9 +62,11 @@ struct StreaksHeatmap: View {
                         lineWidth: isSelected ? 1.5 : 0.5,
                     ),
             )
-            .contentShape(Rectangle())
-            .onTapGesture { onTap?(week) }
+            .contentShape(Rectangle().inset(by: isInteractive ? -cellSpacing : 0))
+            .onTapGesture { if isInteractive { onTap?(week) } }
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityLabel(for: week))
+            .accessibilityAddTraits(isInteractive ? .isButton : [])
     }
 
     /// Lime gradient tiers — translucent at games=0 (rendered as grey

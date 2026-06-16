@@ -284,7 +284,7 @@ struct GameJoinedCard: View {
 
     private func formattedDate(_ date: Date) -> String {
         let f = DateFormatter()
-        f.locale = .current
+        f.locale = ShareCardLocale.current
         f.dateStyle = .long
         f.timeStyle = .none
         return f.string(from: date)
@@ -292,7 +292,7 @@ struct GameJoinedCard: View {
 
     private func formattedTime(_ date: Date) -> String {
         let f = DateFormatter()
-        f.locale = .current
+        f.locale = ShareCardLocale.current
         f.timeStyle = .short
         f.dateStyle = .none
         return f.string(from: date)

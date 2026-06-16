@@ -6,15 +6,12 @@ struct TournamentFeaturedCard: View {
     let tournament: Tournament
     let onTap: () -> Void
 
-    /// Shared formatters — `dateRange` allocated two ISO8601 formatters
-    /// plus one DateFormatter per body pass before. The "MMM d" format
-    /// pattern stays constant for the lifetime of the app.
-    private static let isoFormatter = ISO8601DateFormatter()
-    private static let monthDayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "MMM d"
-        return f
-    }()
+    /// Shared formatter — `dateRange` allocated two ISO8601 formatters
+    /// plus one DateFormatter per body pass before. The locale is refreshed
+    /// per render and a localized "month day" template is resolved against
+    /// it, so an in-app language switch is reflected immediately (and month
+    /// names follow the chosen language, not the device region).
+    private static let monthDayFormatter = DateFormatter()
 
     var body: some View {
         Button(action: onTap) {
@@ -29,20 +26,20 @@ struct TournamentFeaturedCard: View {
             }
             .padding(DSSpacing.md)
             .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
                     .fill(DSColor.surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
                     .strokeBorder(DSColor.border, lineWidth: 1)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SpringPressStyle())
     }
 
     private var trophyTile: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                 .fill(DSColor.accentMuted)
                 .frame(width: 64, height: 64)
             Image(systemName: "trophy.fill")
@@ -85,9 +82,9 @@ struct TournamentFeaturedCard: View {
 
     private var statusBadge: some View {
         Text(statusLabel)
-            .font(.system(size: 9, weight: .bold, design: .default))
+            .font(DSType.badge)
             .foregroundStyle(DSColor.accent)
-            .padding(.horizontal, 6)
+            .padding(.horizontal, DSSpacing.xxs)
             .padding(.vertical, 2)
             .background(Capsule().strokeBorder(DSColor.accent, lineWidth: 1))
     }
@@ -115,8 +112,13 @@ struct TournamentFeaturedCard: View {
     }
 
     private var dateRange: String {
-        let s = Self.isoFormatter.date(from: tournament.starts_at).map(Self.monthDayFormatter.string(from:)) ?? ""
-        let e = Self.isoFormatter.date(from: tournament.ends_at).map(Self.monthDayFormatter.string(from:)) ?? ""
+        let locale = HomeCardLocale.current
+        Self.monthDayFormatter.locale = locale
+        // Resolve a locale-correct "month day" template instead of a fixed
+        // "MMM d" pattern so each language orders/abbreviates the parts itself.
+        Self.monthDayFormatter.setLocalizedDateFormatFromTemplate("MMMd")
+        let s = Date.fromISO(tournament.starts_at).map(Self.monthDayFormatter.string(from:)) ?? ""
+        let e = Date.fromISO(tournament.ends_at).map(Self.monthDayFormatter.string(from:)) ?? ""
         return s == e ? s : "\(s) – \(e)"
     }
 }

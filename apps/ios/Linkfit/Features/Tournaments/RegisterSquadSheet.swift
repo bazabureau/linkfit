@@ -63,25 +63,26 @@ struct RegisterSquadSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(.ultraThinMaterial)
     }
 
     // MARK: - Sections
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: DSSpacing.xxs) {
             Text(tournament.name)
-                .font(.system(.headline, design: .default, weight: .heavy))
+                .font(DSType.cardTitle)
                 .foregroundStyle(DSColor.textPrimary)
             Text("tournaments.register.subtitle")
-                .font(.system(.footnote, design: .default))
+                .font(DSType.footnote)
                 .foregroundStyle(DSColor.textSecondary)
         }
     }
 
     private var nameField: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: DSSpacing.xxs) {
             Text("tournaments.register.squad_name")
-                .font(.system(.caption, design: .default, weight: .heavy))
+                .font(DSType.metaCaption)
                 .foregroundStyle(DSColor.textSecondary)
             TextField("", text: $squadName, prompt: Text("tournaments.register.squad_name.placeholder")
                 .foregroundStyle(DSColor.textTertiary))
@@ -89,8 +90,8 @@ struct RegisterSquadSheet: View {
                 .foregroundStyle(DSColor.textPrimary)
                 .padding(.horizontal, DSSpacing.md)
                 .frame(height: 50)
-                .background(RoundedRectangle(cornerRadius: 14).fill(DSColor.surface))
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(DSColor.border, lineWidth: 1))
+                .background(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous).fill(DSColor.surface))
+                .overlay(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous).strokeBorder(DSColor.border, lineWidth: 1))
         }
     }
 
@@ -99,12 +100,12 @@ struct RegisterSquadSheet: View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             HStack {
                 Text("tournaments.register.players")
-                    .font(.system(.caption, design: .default, weight: .heavy))
+                    .font(DSType.metaCaption)
                     .foregroundStyle(DSColor.textSecondary)
                 Spacer()
                 Text(String(format: String(localized: "tournaments.register.players.count_format"),
                             picked.count + 1, tournament.squad_size))
-                    .font(.system(.caption, design: .default))
+                    .font(DSType.caption)
                     .foregroundStyle(DSColor.textTertiary)
             }
 
@@ -119,14 +120,14 @@ struct RegisterSquadSheet: View {
                 addPlayerButton
             } else if maxInvitees == 0 {
                 Text("tournaments.register.solo_only")
-                    .font(.system(.caption, design: .default))
+                    .font(DSType.caption)
                     .foregroundStyle(DSColor.textTertiary)
-                    .padding(.top, 4)
+                    .padding(.top, DSSpacing.xxs)
             }
         }
         .padding(DSSpacing.md)
-        .background(RoundedRectangle(cornerRadius: 18).fill(DSColor.surface))
-        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(DSColor.border, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous).fill(DSColor.surface))
+        .overlay(RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous).strokeBorder(DSColor.border, lineWidth: 1))
     }
 
     private var captainRow: some View {
@@ -134,17 +135,17 @@ struct RegisterSquadSheet: View {
             ZStack {
                 Circle().fill(DSColor.accent)
                 Text(initials(container.currentUser?.display_name ?? "?"))
-                    .font(.system(.caption, design: .default, weight: .heavy))
+                    .font(DSType.caption2)
                     .foregroundStyle(DSColor.textOnAccent)
             }
             .frame(width: 36, height: 36)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(container.currentUser?.display_name ?? "—")
-                    .font(.system(.footnote, design: .default, weight: .heavy))
+                    .font(DSType.bodyStrong)
                     .foregroundStyle(DSColor.textPrimary)
                 Text("tournaments.register.you_captain")
-                    .font(.system(.caption2, design: .default))
+                    .font(DSType.caption2)
                     .foregroundStyle(DSColor.textSecondary)
             }
             Spacer()
@@ -156,27 +157,30 @@ struct RegisterSquadSheet: View {
             ZStack {
                 Circle().fill(DSColor.surfaceElevated)
                 Text(initials(p.display_name))
-                    .font(.system(.caption, design: .default, weight: .heavy))
+                    .font(DSType.caption2)
                     .foregroundStyle(DSColor.textPrimary)
             }
             .frame(width: 36, height: 36)
             VStack(alignment: .leading, spacing: 2) {
                 Text(p.display_name)
-                    .font(.system(.footnote, design: .default, weight: .semibold))
+                    .font(DSType.bodyStrong)
                     .foregroundStyle(DSColor.textPrimary)
                 if let sport = p.primary_sport {
                     Text(sport.capitalized)
-                        .font(.system(.caption2, design: .default, weight: .heavy))
+                        .font(DSType.caption2)
                         .foregroundStyle(DSColor.accent)
                 }
             }
             Spacer()
             Button {
+                Haptics.selection()
                 picked.removeAll { $0.id == p.id }
             } label: {
                 Image(systemName: "minus.circle.fill")
                     .font(.system(size: 22))
                     .foregroundStyle(DSColor.danger)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text("common.remove"))
@@ -185,30 +189,33 @@ struct RegisterSquadSheet: View {
 
     private var addPlayerButton: some View {
         Button {
+            Haptics.selection()
             pickerOpen = true
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: DSSpacing.xxs) {
                 Image(systemName: "plus.circle.fill")
                 Text("tournaments.register.add_player")
             }
-            .font(.system(.footnote, design: .default, weight: .heavy))
+            .font(DSType.bodyStrong)
             .foregroundStyle(DSColor.accent)
-            .padding(.vertical, 8)
+            .padding(.vertical, DSSpacing.xs)
             .padding(.horizontal, DSSpacing.md)
+            .frame(minHeight: 44)
             .background(Capsule().fill(DSColor.accent.opacity(0.14)))
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
     }
 
     private func errorBanner(_ msg: String) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: DSSpacing.xs) {
             Image(systemName: "exclamationmark.triangle.fill")
-            Text(msg).font(.system(.caption, design: .default, weight: .semibold))
+            Text(msg).font(DSType.caption)
         }
         .foregroundStyle(DSColor.danger)
         .padding(DSSpacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12).fill(DSColor.danger.opacity(0.10)))
+        .background(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous).fill(DSColor.danger.opacity(0.10)))
     }
 
     private var submitButton: some View {

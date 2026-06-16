@@ -190,11 +190,13 @@ struct NotificationsView: View {
 struct NotificationRow: View {
     let notification: AppNotification
 
-    /// Shared formatters — hoisted off `body` so re-renders don't allocate
-    /// a fresh `ISO8601DateFormatter` + `RelativeDateTimeFormatter` per
-    /// row per redraw. Both types are documented as safe to share across
-    /// reads once their configuration is set.
-    private static let isoFormatter = ISO8601DateFormatter()
+    /// Shared formatter — hoisted off `body` so re-renders don't allocate
+    /// a fresh `RelativeDateTimeFormatter` per row per redraw.
+    /// `RelativeDateTimeFormatter` is documented as safe to share across
+    /// reads once configured. ISO parsing goes through `Date.fromISO`,
+    /// which handles the backend's fractional-seconds shape (a bare
+    /// `ISO8601DateFormatter` rejects `...000Z` and would return "" for
+    /// every row).
     private static let relativeFormatter: RelativeDateTimeFormatter = {
         let f = RelativeDateTimeFormatter()
         f.unitsStyle = .short
@@ -288,7 +290,7 @@ struct NotificationRow: View {
     }
 
     private func timeAgo(_ iso: String) -> String {
-        guard let date = Self.isoFormatter.date(from: iso) else { return "" }
+        guard let date = Date.fromISO(iso) else { return "" }
         return Self.relativeFormatter.localizedString(for: date, relativeTo: Date())
     }
 }

@@ -31,7 +31,7 @@ struct PremiumSocialButton: View {
             .frame(maxWidth: .infinity, minHeight: 54)
             .background(background)
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                     .strokeBorder(borderColor, lineWidth: 1)
             )
             .shadow(color: DSColor.limeInk.opacity(0.06), radius: 8, y: 3)
@@ -85,10 +85,10 @@ struct PremiumSocialButton: View {
     private var background: some View {
         switch provider {
         case .apple:
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                 .fill(DSColor.limeInk)
         case .google:
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                 .fill(DSColor.textOnAccent)
         }
     }

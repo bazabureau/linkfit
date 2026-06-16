@@ -24,7 +24,7 @@ struct DrawingToolButton: View {
 
     var body: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.soft()   // light tier — secondary tool entry per the haptic ladder
             showCanvas = true
         } label: {
             Image(systemName: "scribble.variable")

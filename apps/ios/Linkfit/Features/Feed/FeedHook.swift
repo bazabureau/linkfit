@@ -49,13 +49,20 @@ struct FeedPreviewCard: View {
     @State private var viewModel: FeedViewModel
     let onTapTarget: (FeedCardTarget) -> Void
     let onSeeAll: () -> Void
+    /// Optional comments handler — when wired, each preview row exposes
+    /// its "şərh" affordance and forwards the tapped event so the host
+    /// can present `FeedCommentsSheet`. Optional with a safe default so
+    /// existing embeds compile unchanged.
+    let onTapComments: ((FeedEvent) -> Void)?
 
     init(apiClient: APIClient,
          onTapTarget: @escaping (FeedCardTarget) -> Void,
-         onSeeAll: @escaping () -> Void) {
+         onSeeAll: @escaping () -> Void,
+         onTapComments: ((FeedEvent) -> Void)? = nil) {
         _viewModel = State(initialValue: FeedViewModel(apiClient: apiClient, pageSize: 5))
         self.onTapTarget = onTapTarget
         self.onSeeAll = onSeeAll
+        self.onTapComments = onTapComments
     }
 
     var body: some View {
@@ -86,7 +93,13 @@ struct FeedPreviewCard: View {
             case .loaded(let events):
                 VStack(spacing: DSSpacing.xs) {
                     ForEach(events.prefix(3)) { event in
-                        FeedEventCard(event: event, onTap: onTapTarget)
+                        FeedEventCard(
+                            event: event,
+                            onTap: onTapTarget,
+                            onTapComments: onTapComments.map { handler in
+                                { handler(event) }
+                            }
+                        )
                     }
                 }
             }

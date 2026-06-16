@@ -51,6 +51,7 @@ struct PlayerPickerSheet: View {
                 }
             }
         }
+        .presentationBackground(.ultraThinMaterial)
         .task { await viewModel.load() }
     }
 
@@ -78,6 +79,7 @@ struct PlayerPickerSheet: View {
             } else {
                 ForEach(filtered) { p in
                     Button {
+                        Haptics.selection()
                         onPick(p)
                         dismiss()
                     } label: { row(p) }
@@ -122,34 +124,35 @@ struct PlayerPickerSheet: View {
             ZStack {
                 Circle().fill(DSColor.surfaceElevated)
                 Text(initials(p.display_name))
-                    .font(.system(.caption, design: .default, weight: .heavy))
+                    .font(DSType.caption2)
                     .foregroundStyle(DSColor.textPrimary)
             }
             .frame(width: 40, height: 40)
             VStack(alignment: .leading, spacing: 2) {
                 Text(p.display_name)
-                    .font(.system(.footnote, design: .default, weight: .semibold))
+                    .font(DSType.bodyStrong)
                     .foregroundStyle(DSColor.textPrimary)
                 if let sport = p.primary_sport, p.primary_elo != nil {
                     // Word-based skill bucket instead of raw "ELO 1450".
                     let levelLabel = SkillLevel.from(elo: p.primary_elo).localizedName
                     Text("\(sport.capitalized) · \(levelLabel)")
-                        .font(.system(.caption2, design: .default))
+                        .font(DSType.caption2)
                         .foregroundStyle(DSColor.textSecondary)
                 } else if let sport = p.primary_sport {
                     Text(sport.capitalized)
-                        .font(.system(.caption2, design: .default))
+                        .font(DSType.caption2)
                         .foregroundStyle(DSColor.textSecondary)
                 }
             }
             Spacer()
             Image(systemName: "plus.circle.fill")
                 .foregroundStyle(DSColor.accent)
+                .accessibilityHidden(true)
         }
         .padding(.horizontal, DSSpacing.sm)
-        .padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 14).fill(DSColor.surface))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(DSColor.border, lineWidth: 1))
+        .padding(.vertical, DSSpacing.xs)
+        .background(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous).fill(DSColor.surface))
+        .overlay(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous).strokeBorder(DSColor.border, lineWidth: 1))
     }
 
     private var full: some View {

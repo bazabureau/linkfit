@@ -56,9 +56,17 @@ final class SessionsViewModel {
         state = items.isEmpty ? .empty : .loaded(items)
         do {
             _ = try await apiClient.send(.revokeSession(id: session.id))
+        } catch is CancellationError {
+            // View went away mid-flight; leave the optimistic state in
+            // place rather than flashing the row back in.
+            return
         } catch {
-            // Roll back — server still considers the row valid.
+            // Roll back — the server still considers the row valid. Without
+            // feedback the row silently reappears and the user thinks the
+            // revoke "didn't take", so surface a toast + error haptic.
             state = .loaded(snapshot)
+            Haptics.error()
+            ToastCenter.shared.error(String(localized: "sessions.error.revoke"))
         }
     }
 
@@ -79,8 +87,14 @@ final class SessionsViewModel {
         defer { isRevokingAll = false }
         do {
             _ = try await apiClient.send(.revokeAllOtherSessions())
+        } catch is CancellationError {
+            return
         } catch {
+            // Same silent-failure trap as `revoke` — restore every row and
+            // tell the user the bulk sign-out didn't go through.
             state = .loaded(snapshot)
+            Haptics.error()
+            ToastCenter.shared.error(String(localized: "sessions.error.revoke_all"))
         }
     }
 }

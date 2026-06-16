@@ -17,23 +17,23 @@ struct IconTextField: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: DSSpacing.xs) {
             HStack {
                 Text(labelKey)
-                    .font(.system(.subheadline, design: .default, weight: .semibold))
+                    .font(DSType.bodyStrong)
                     .foregroundStyle(DSColor.textPrimary)
                 Spacer()
                 if let link = trailingLink {
                     Button(action: link.action) {
                         Text(link.key)
-                            .font(.system(.footnote, design: .default, weight: .semibold))
+                            .font(DSType.metaCaption)
                             .foregroundStyle(DSColor.accent)
                     }
                     .buttonStyle(.plain)
                 }
             }
 
-            HStack(spacing: 10) {
+            HStack(spacing: DSSpacing.xs) {
                 Image(systemName: icon)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(DSColor.accent)
@@ -46,19 +46,21 @@ struct IconTextField: View {
                         Image(systemName: revealed ? "eye.slash" : "eye")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(DSColor.textSecondary)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(revealed ? String(localized: "auth.password.hide") : String(localized: "auth.password.show"))
+                    .accessibilityLabel(revealed ? Text("auth.password.hide") : Text("auth.password.show"))
                 }
             }
-            .padding(.horizontal, 14)
-            .frame(height: 48)
+            .padding(.horizontal, DSSpacing.md)
+            .frame(minHeight: 48)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                     .fill(DSColor.surfaceElevated.opacity(0.86))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                     .strokeBorder(borderColor, lineWidth: focused ? 1.5 : 1)
             )
 
@@ -91,7 +93,7 @@ struct IconTextField: View {
         .textContentType(contentType)
         .textInputAutocapitalization(autocapitalization)
         .autocorrectionDisabled(true)
-        .font(.system(size: 16, weight: .regular, design: .default))
+        .font(DSType.body)
         .foregroundStyle(DSColor.textPrimary)
         .focused($focused)
     }

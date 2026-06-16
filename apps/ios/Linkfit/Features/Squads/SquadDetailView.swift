@@ -39,10 +39,12 @@ struct SquadDetailView: View {
                         .font(.system(size: 17, weight: .heavy))
                         .foregroundStyle(DSColor.textPrimary)
                         .lineLimit(1)
+                        .accessibilityAddTraits(.isHeader)
                 } else {
                     Text("squads.title")
                         .font(.system(size: 17, weight: .heavy))
                         .foregroundStyle(DSColor.textPrimary)
+                        .accessibilityAddTraits(.isHeader)
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
@@ -165,7 +167,7 @@ struct SquadDetailView: View {
 
     private func loadedContent(_ squad: SquadWithMembers) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: DSSpacing.lg) {
                 heroHeader(squad)
                 membersSection(squad)
                 if viewModel.isOwner {
@@ -175,8 +177,8 @@ struct SquadDetailView: View {
                 actionsFooter(squad)
                 Spacer().frame(height: 72)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
+            .padding(.horizontal, DSSpacing.md)
+            .padding(.top, DSSpacing.sm)
         }
         .scrollIndicators(.hidden)
     }
@@ -184,9 +186,9 @@ struct SquadDetailView: View {
     // MARK: - Hero
 
     private func heroHeader(_ squad: SquadWithMembers) -> some View {
-        VStack(spacing: 14) {
+        VStack(spacing: DSSpacing.md - 2) {
             heroPhoto(squad)
-            VStack(spacing: 6) {
+            VStack(spacing: DSSpacing.xxs + 2) {
                 Text(squad.name)
                     .font(.system(size: 24, weight: .heavy))
                     .foregroundStyle(DSColor.textPrimary)
@@ -194,15 +196,15 @@ struct SquadDetailView: View {
                     .lineLimit(2)
                 if let desc = squad.description, !desc.isEmpty {
                     Text(desc)
-                        .font(.system(size: 14, weight: .regular))
+                        .font(DSType.bodyMedium)
                         .foregroundStyle(DSColor.textSecondary)
                         .multilineTextAlignment(.center)
                         .lineSpacing(2)
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, DSSpacing.sm)
                 }
                 Text(String(format: String(localized: "squads.member_count_format"),
                             squad.members.count, squad.max_size))
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(DSType.metaCaption)
                     .foregroundStyle(DSColor.textTertiary)
                     .monospacedDigit()
                     .padding(.top, 2)
@@ -252,12 +254,13 @@ struct SquadDetailView: View {
     // MARK: - Members
 
     private func membersSection(_ squad: SquadWithMembers) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: DSSpacing.sm - 2) {
             Text("squads.section.members")
-                .font(.system(size: 15, weight: .heavy))
+                .font(DSType.cardTitle)
                 .foregroundStyle(DSColor.textPrimary)
+                .accessibilityAddTraits(.isHeader)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
+                HStack(spacing: DSSpacing.sm - 2) {
                     ForEach(squad.members) { member in
                         memberChip(member)
                     }
@@ -268,7 +271,7 @@ struct SquadDetailView: View {
     }
 
     private func memberChip(_ member: SquadMember) -> some View {
-        VStack(spacing: 6) {
+        VStack(spacing: DSSpacing.xxs + 2) {
             ZStack {
                 if let url = memberPhotoURL(member.photo_url) {
                     CachedAsyncImage(url: url) { image in
@@ -289,14 +292,16 @@ struct SquadDetailView: View {
                 )
             )
             Text(firstName(member.display_name))
-                .font(.system(size: 11, weight: .semibold))
+                .font(DSType.caption2)
                 .foregroundStyle(DSColor.textSecondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .frame(maxWidth: 64)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text(member.display_name))
+        .accessibilityLabel(member.is_owner
+            ? Text(String(format: String(localized: "squads.member.owner_a11y_format"), member.display_name))
+            : Text(member.display_name))
     }
 
     private func memberInitials(_ name: String) -> some View {
@@ -308,6 +313,7 @@ struct SquadDetailView: View {
             Text(initials(name))
                 .font(.system(size: 16, weight: .heavy))
                 .foregroundStyle(DSColor.textOnAccent)
+                .minimumScaleFactor(0.7)
         }
     }
 
@@ -318,11 +324,11 @@ struct SquadDetailView: View {
             UISelectionFeedbackGenerator().selectionChanged()
             showInvite = true
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: DSSpacing.xs) {
                 Image(systemName: "person.crop.circle.badge.plus")
                     .font(.system(size: 15, weight: .heavy))
                 Text("squads.invite")
-                    .font(.system(size: 15, weight: .heavy))
+                    .font(DSType.button)
             }
             .foregroundStyle(DSColor.textOnAccent)
             .frame(maxWidth: .infinity)
@@ -337,20 +343,22 @@ struct SquadDetailView: View {
     // MARK: - Games
 
     private var gamesSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: DSSpacing.sm - 2) {
             Text("squads.section.this_week_games")
-                .font(.system(size: 15, weight: .heavy))
+                .font(DSType.cardTitle)
                 .foregroundStyle(DSColor.textPrimary)
+                .accessibilityAddTraits(.isHeader)
             if !viewModel.gamesLoaded {
                 ProgressView()
                     .controlSize(.regular)
                     .tint(DSColor.accent)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, DSSpacing.md)
+                    .accessibilityLabel(Text("loading.default"))
             } else if viewModel.games.isEmpty {
                 emptyGamesCard
             } else {
-                VStack(spacing: 8) {
+                VStack(spacing: DSSpacing.xs) {
                     ForEach(viewModel.games) { game in
                         SquadGameRow(game: game)
                     }
@@ -360,22 +368,22 @@ struct SquadDetailView: View {
     }
 
     private var emptyGamesCard: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: DSSpacing.xxs) {
             Text("squads.games.empty.title")
                 .font(.system(size: 14, weight: .heavy))
                 .foregroundStyle(DSColor.textPrimary)
             Text("squads.games.empty.message")
-                .font(.system(size: 12, weight: .medium))
+                .font(DSType.metaCaption)
                 .foregroundStyle(DSColor.textSecondary)
         }
-        .padding(14)
+        .padding(DSSpacing.md - 2)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                 .fill(.ultraThinMaterial)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                 .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
         )
     }
@@ -391,39 +399,41 @@ struct SquadDetailView: View {
                 UISelectionFeedbackGenerator().selectionChanged()
                 confirmDelete = true
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: DSSpacing.xs) {
                     Image(systemName: "trash")
                         .font(.system(size: 14, weight: .heavy))
                     Text("squads.delete")
-                        .font(.system(size: 14, weight: .heavy))
+                        .font(DSType.bodyStrong)
                 }
                 .foregroundStyle(DSColor.danger)
                 .frame(maxWidth: .infinity)
-                .frame(height: 44)
+                .frame(minHeight: 44)
                 .background(Capsule().fill(DSColor.danger.opacity(0.12)))
                 .overlay(Capsule().strokeBorder(DSColor.danger.opacity(0.35), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .disabled(viewModel.isMutating)
+            .accessibilityLabel(Text("squads.delete"))
         } else {
             Button(role: .destructive) {
                 UISelectionFeedbackGenerator().selectionChanged()
                 confirmLeave = true
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: DSSpacing.xs) {
                     Image(systemName: "rectangle.portrait.and.arrow.right")
                         .font(.system(size: 14, weight: .heavy))
                     Text("squads.leave")
-                        .font(.system(size: 14, weight: .heavy))
+                        .font(DSType.bodyStrong)
                 }
                 .foregroundStyle(DSColor.danger)
                 .frame(maxWidth: .infinity)
-                .frame(height: 44)
+                .frame(minHeight: 44)
                 .background(Capsule().fill(DSColor.danger.opacity(0.12)))
                 .overlay(Capsule().strokeBorder(DSColor.danger.opacity(0.35), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .disabled(viewModel.isMutating)
+            .accessibilityLabel(Text("squads.leave"))
         }
     }
 
@@ -458,7 +468,7 @@ private struct SquadGameRow: View {
     let game: GameSummary
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DSSpacing.sm) {
             ZStack {
                 Circle()
                     .fill(DSColor.accent.opacity(0.16))
@@ -467,44 +477,43 @@ private struct SquadGameRow: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(DSColor.accent)
             }
+            .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(timeHeadline)
                     .font(.system(size: 14, weight: .heavy))
                     .foregroundStyle(DSColor.textPrimary)
                     .lineLimit(1)
                 Text(venueLine)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(DSType.metaCaption)
                     .foregroundStyle(DSColor.textSecondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 6)
             Text(String(format: String(localized: "squads.game.participants_format"),
                         game.participants_count, game.capacity))
-                .font(.system(size: 11, weight: .heavy))
+                .font(DSType.badge)
                 .foregroundStyle(DSColor.textSecondary)
                 .monospacedDigit()
         }
-        .padding(12)
+        .padding(DSSpacing.sm)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                 .fill(.ultraThinMaterial)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                 .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
         )
+        .accessibilityElement(children: .combine)
     }
 
     private var timeHeadline: String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        var date = formatter.date(from: game.starts_at)
-        if date == nil {
-            formatter.formatOptions = [.withInternetDateTime]
-            date = formatter.date(from: game.starts_at)
-        }
-        guard let d = date else { return game.starts_at }
+        // Centralised parsing via `Date.fromISO` (handles the API's
+        // fractional-seconds shape); formatted in the in-app language so
+        // the headline matches the rest of the app's date rendering.
+        guard let d = Date.fromISO(game.starts_at) else { return game.starts_at }
         let display = DateFormatter()
+        display.locale = SquadsLocale.current
         display.dateStyle = .medium
         display.timeStyle = .short
         return display.string(from: d)
@@ -550,13 +559,13 @@ private struct EditSquadSheet: View {
             ZStack {
                 DSColor.background.ignoresSafeArea()
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: DSSpacing.md) {
                         nameField
                         descriptionField
-                        Spacer().frame(height: 16)
+                        Spacer().frame(height: DSSpacing.md)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
+                    .padding(.horizontal, DSSpacing.md)
+                    .padding(.top, DSSpacing.md)
                 }
                 .scrollDismissesKeyboard(.interactively)
             }
@@ -586,54 +595,54 @@ private struct EditSquadSheet: View {
     }
 
     private var nameField: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: DSSpacing.xxs + 2) {
             Text("squads.field.name")
-                .font(.system(size: 12, weight: .heavy))
+                .font(DSType.metaCaption)
                 .foregroundStyle(DSColor.textTertiary)
             TextField(text: $name) {
                 Text("squads.field.name.placeholder")
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.horizontal, DSSpacing.md - 2)
+            .padding(.vertical, DSSpacing.sm)
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.md + 2, style: .continuous)
                     .fill(DSColor.surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.md + 2, style: .continuous)
                     .strokeBorder(DSColor.border.opacity(0.5), lineWidth: 1)
             )
         }
     }
 
     private var descriptionField: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: DSSpacing.xxs + 2) {
             Text("squads.field.description")
-                .font(.system(size: 12, weight: .heavy))
+                .font(DSType.metaCaption)
                 .foregroundStyle(DSColor.textTertiary)
             ZStack(alignment: .topLeading) {
                 if description.isEmpty {
                     Text("squads.field.description.placeholder")
-                        .font(.system(size: 14))
+                        .font(DSType.bodyMedium)
                         .foregroundStyle(DSColor.textTertiary)
-                        .padding(.horizontal, 4)
-                        .padding(.top, 8)
+                        .padding(.horizontal, DSSpacing.xxs)
+                        .padding(.top, DSSpacing.xs)
                         .allowsHitTesting(false)
                 }
                 TextEditor(text: $description)
-                    .font(.system(size: 14))
+                    .font(DSType.bodyMedium)
                     .foregroundStyle(DSColor.textPrimary)
                     .scrollContentBackground(.hidden)
                     .frame(minHeight: 96)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, DSSpacing.sm - 2)
+            .padding(.vertical, DSSpacing.xxs + 2)
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.md + 2, style: .continuous)
                     .fill(DSColor.surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.md + 2, style: .continuous)
                     .strokeBorder(DSColor.border.opacity(0.5), lineWidth: 1)
             )
         }

@@ -767,7 +767,8 @@ struct HomeView: View {
                     case .none:               break
                     }
                 },
-                onFindPlayers: { homePath.append(HomeRoute.players) }
+                onFindPlayers: { homePath.append(HomeRoute.players) },
+                onTapComments: { event in commentsEventId = FeedCommentsTarget(eventId: event.id) }
             )
         case .tournament(let id):
             TournamentDetailView(viewModel: TournamentDetailViewModel(

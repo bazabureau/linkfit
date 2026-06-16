@@ -122,7 +122,7 @@ final class FeedCommentsViewModel {
             displayName: currentDisplayName ?? "",
             avatarURL: currentAvatarURL,
             body: trimmed,
-            createdAt: ISO8601DateFormatter().string(from: Date()),
+            createdAt: Date().toISO(),
             pending: true
         )
         loaded.append(pending)

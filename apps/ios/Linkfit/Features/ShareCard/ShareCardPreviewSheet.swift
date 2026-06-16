@@ -23,6 +23,7 @@ struct ShareCardPreviewSheet: View {
     @State private var errorMessage: String?
     @Environment(\.dismiss) private var dismiss
     @Environment(AppContainer.self) private var container
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         NavigationStack {
@@ -101,7 +102,7 @@ struct ShareCardPreviewSheet: View {
             variantTab(.story, labelKey: "share_card.variant.story")
             variantTab(.square, labelKey: "share_card.variant.square")
         }
-        .padding(4)
+        .padding(DSSpacing.xxs)
         .background(
             Capsule().fill(DSColor.surface)
         )
@@ -114,15 +115,15 @@ struct ShareCardPreviewSheet: View {
     private func variantTab(_ option: ShareCardVariant, labelKey: LocalizedStringKey) -> some View {
         let active = variant == option
         return Button {
-            withAnimation(.snappy(duration: 0.18)) {
+            UISelectionFeedbackGenerator().selectionChanged()
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.18)) {
                 variant = option
             }
         } label: {
             Text(labelKey)
-                .font(.system(size: 13, weight: .bold))
+                .font(DSType.caption2)
                 .foregroundStyle(active ? DSColor.textOnAccent : DSColor.textSecondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, minHeight: 44)
                 .background(
                     Capsule().fill(active ? DSColor.accent : Color.clear)
                 )
@@ -143,7 +144,7 @@ struct ShareCardPreviewSheet: View {
                     .strokeBorder(DSColor.border, lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.4), radius: 24, x: 0, y: 12)
-            .animation(.snappy(duration: 0.22), value: variant)
+            .animation(reduceMotion ? nil : .snappy(duration: 0.22), value: variant)
     }
 
     /// Story is taller than wide, so we down-sample more aggressively.
@@ -168,10 +169,9 @@ struct ShareCardPreviewSheet: View {
                 }
                 Text("share_card.share_button")
             }
-            .font(.system(size: 15, weight: .heavy))
+            .font(DSType.button)
             .foregroundStyle(DSColor.textOnAccent)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, minHeight: 52)
             .background(
                 Capsule().fill(DSColor.accent)
             )
@@ -179,6 +179,7 @@ struct ShareCardPreviewSheet: View {
         .buttonStyle(.plain)
         .disabled(isRendering)
         .padding(.top, DSSpacing.xs)
+        .accessibilityLabel(Text("share_card.share_button"))
     }
 
     private var shareToStoriesButton: some View {
@@ -194,10 +195,9 @@ struct ShareCardPreviewSheet: View {
                 }
                 Text("game.action.share_to_story")
             }
-            .font(.system(size: 15, weight: .heavy))
+            .font(DSType.button)
             .foregroundStyle(DSColor.textPrimary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, minHeight: 52)
             .background(
                 Capsule().fill(DSColor.surfaceElevated)
             )
@@ -207,6 +207,7 @@ struct ShareCardPreviewSheet: View {
         }
         .buttonStyle(.plain)
         .disabled(isSharingToStories || isRendering)
+        .accessibilityLabel(Text("game.action.share_to_story"))
     }
 
     // MARK: - Share

@@ -173,6 +173,9 @@ struct NotificationPreferencesView: View {
             )
             .labelsHidden()
             .tint(DSColor.accent)
+            // The visual label is the leading Text; VoiceOver reads the
+            // picker as a separate element, so give it the same label.
+            .accessibilityLabel(Text(labelKey))
         }
     }
 

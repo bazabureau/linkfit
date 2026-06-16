@@ -16,25 +16,30 @@ struct SocialAuthButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button(action: {
+            Haptics.soft()   // social = light tier of the haptic ladder (§2.4)
+            action()
+        }) {
             HStack(spacing: DSSpacing.sm) {
                 icon
                 Text(provider.labelKey)
-                    .font(.system(.subheadline, design: .default, weight: .semibold))
+                    .font(DSType.bodyStrong)
                     .foregroundStyle(DSColor.textPrimary)
             }
             .frame(maxWidth: .infinity, minHeight: 48)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                     .fill(DSColor.surfaceElevated.opacity(0.48))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                     .strokeBorder(DSColor.border, lineWidth: 1)
             )
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SpringPressStyle())   // match other DS buttons' press feedback
         .accessibilityLabel(provider.labelKey)
+        .accessibilityAddTraits(.isButton)
     }
 
     @ViewBuilder

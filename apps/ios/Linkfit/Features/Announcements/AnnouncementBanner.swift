@@ -10,8 +10,8 @@ import Observation
 ///
 /// Composition:
 ///
-///   * Lime accent background (`DSColor.accent`) so the row reads as
-///     "branded callout", not "default chrome". Title is bold ink on
+///   * Royal-blue accent background (`DSColor.accent`) so the row reads
+///     as "branded callout", not "default chrome". Title is bold ink on
 ///     accent (`DSColor.textOnAccent`), body picks up the same ink at
 ///     regular weight so the contrast holds in both light and dark.
 ///   * Optional CTA pill on the right — only renders when `cta_url`
@@ -70,16 +70,16 @@ struct AnnouncementBanner: View {
             // Title + optional body stacked. Title is the headline; the
             // body line is the supporting copy. Body is optional —
             // collapses cleanly when the server returned `nil`.
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: DSSpacing.xxs / 2) {
                 Text(announcement.title)
-                    .font(.subheadline.weight(.bold))
+                    .font(DSType.cardTitle)
                     .foregroundStyle(DSColor.textOnAccent)
                     .multilineTextAlignment(.leading)
                     .lineLimit(2)
 
                 if let body = announcement.body, !body.isEmpty {
                     Text(body)
-                        .font(.footnote)
+                        .font(DSType.footnote)
                         .foregroundStyle(DSColor.textOnAccent.opacity(0.85))
                         .multilineTextAlignment(.leading)
                         .lineLimit(3)
@@ -95,9 +95,10 @@ struct AnnouncementBanner: View {
                 ctaButton(label: announcement.cta_label, intent: intent)
             }
 
-            // Dismiss "X" — far-right, always present. The 28pt frame
-            // gives the tap target room without inflating the visual
-            // glyph; matches the version-soft-update banner pattern.
+            // Dismiss "X" — far-right, always present. The glyph stays
+            // small but the tap target is padded out to the 44pt HIG
+            // minimum via `.contentShape`, so the X is comfortable to
+            // hit without inflating the visible icon.
             //
             // The VM's `dismiss()` does an optimistic local clear
             // (sets `current = nil` synchronously before awaiting the
@@ -109,14 +110,16 @@ struct AnnouncementBanner: View {
             // inside an awaited Task naturally participate in the
             // bound `.animation` modifier's transaction.
             Button {
-                UISelectionFeedbackGenerator().selectionChanged()
+                Haptics.selection()
                 Task { await viewModel.dismiss() }
             } label: {
                 Image(systemName: "xmark")
-                    .font(.caption.weight(.bold))
+                    .font(DSType.metaCaption)
                     .foregroundStyle(DSColor.textOnAccent)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
             .accessibilityLabel(Text("announcements.dismiss.a11y"))
         }
         .padding(.horizontal, DSSpacing.md)
@@ -133,7 +136,7 @@ struct AnnouncementBanner: View {
     @ViewBuilder
     private func ctaButton(label: String?, intent: AnnouncementsViewModel.CTAIntent) -> some View {
         Button {
-            UISelectionFeedbackGenerator().selectionChanged()
+            Haptics.selection()
             switch intent {
             case .deepLink(let url):
                 // Stash in the URL router so HomeView's
@@ -144,28 +147,31 @@ struct AnnouncementBanner: View {
                 openURL(url)
             }
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: DSSpacing.xxs) {
                 Text(ctaLabel(label))
-                    .font(.footnote.weight(.heavy))
+                    .font(DSType.badge)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .heavy))
+                    .font(DSType.badge)
             }
             .foregroundStyle(DSColor.accent)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.horizontal, DSSpacing.sm)
+            .padding(.vertical, DSSpacing.xs)
             .background(DSColor.textOnAccent, in: Capsule())
+            // Keep the pill at the 44pt HIG minimum tap height even
+            // though the rendered chip is shorter.
+            .frame(minHeight: 44)
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
     }
 
     /// Resolve the CTA label: prefer the admin-supplied locale-collapsed
-    /// label, fall back to the AZ default "Bax" so the chevron pill
-    /// always reads as a verb rather than going wordless.
+    /// label, fall back to the localized `announcements.cta.default` key
+    /// (az "Bax" / en "View" / ru "Открыть") so the chevron pill always
+    /// reads as a verb in the user's language rather than going wordless.
     private func ctaLabel(_ provided: String?) -> String {
         if let provided, !provided.isEmpty { return provided }
-        return NSLocalizedString("announcements.cta.default",
-                                 value: "Bax",
-                                 comment: "Default CTA label when the announcement has no per-locale label set")
+        return String(localized: "announcements.cta.default")
     }
 
     // MARK: - Motion

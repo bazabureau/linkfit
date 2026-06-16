@@ -81,7 +81,7 @@ enum VenueReviewsHook {
         var body: some View {
             HStack(spacing: DSSpacing.xxs) {
                 Image(systemName: "star.fill")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(DSType.badge)
                     .foregroundStyle(DSColor.warning)
                 Text(label)
                     .font(DSType.caption)

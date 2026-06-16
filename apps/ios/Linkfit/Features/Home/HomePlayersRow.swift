@@ -43,6 +43,7 @@ private struct PlayerCarouselCard: View {
                         .font(.system(size: 13, weight: .heavy, design: .default))
                         .foregroundStyle(DSColor.textPrimary)
                         .lineLimit(1)
+                        .truncationMode(.tail)
                         .minimumScaleFactor(0.85)
                     if player.primary_elo != nil {
                         // Word-based skill label (Yeni / Orta / Təcrübəli /
@@ -55,10 +56,11 @@ private struct PlayerCarouselCard: View {
                             .foregroundStyle(SkillLevel.from(elo: player.primary_elo).accent)
                             .lineLimit(1)
                     } else if let km = player.distance_km {
-                        Text(String(format: "%.1f km", km))
+                        Text(DistanceFormatter.km(km))
                             .font(.system(size: 11, weight: .semibold, design: .default))
                             .foregroundStyle(DSColor.textSecondary)
                             .monospacedDigit()
+                            .lineLimit(1)
                     }
                 }
                 .padding(.horizontal, 4)
@@ -67,15 +69,16 @@ private struct PlayerCarouselCard: View {
             .padding(.horizontal, 12)
             .frame(width: 140)
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                     .fill(.ultraThinMaterial)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                     .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
     }
 
     private var avatar: some View {

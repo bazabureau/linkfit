@@ -15,12 +15,12 @@ struct HomeStatsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             HStack(alignment: .center, spacing: DSSpacing.sm) {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: DSSpacing.xxs) {
                     Text("stats.skill_level")
                         .font(.system(.caption, design: .default, weight: .medium))
                         .foregroundStyle(DSColor.textSecondary)
 
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline, spacing: DSSpacing.xs) {
                         Text(skillTitle)
                             .font(.system(.title3, design: .default, weight: .semibold))
                             .foregroundStyle(DSColor.textPrimary)
@@ -29,8 +29,8 @@ struct HomeStatsCard: View {
                             .font(.system(.subheadline, design: .default, weight: .semibold))
                             .foregroundStyle(DSColor.accent)
                             .monospacedDigit()
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
+                            .padding(.horizontal, DSSpacing.xs)
+                            .padding(.vertical, DSSpacing.xxs)
                             .background(Capsule().fill(DSColor.accentMuted))
                     }
                 }
@@ -42,6 +42,7 @@ struct HomeStatsCard: View {
                     .foregroundStyle(DSColor.accent)
                     .frame(width: 38, height: 38)
                     .background(Circle().fill(DSColor.accentMuted))
+                    .accessibilityHidden(true)
             }
 
             Rectangle()
@@ -64,7 +65,7 @@ struct HomeStatsCard: View {
     }
 
     private func metric(value: String, labelKey: LocalizedStringKey, showsDivider: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: DSSpacing.xxs) {
             Text(value)
                 .font(.system(.title3, design: .default, weight: .semibold))
                 .foregroundStyle(DSColor.textPrimary)

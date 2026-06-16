@@ -212,12 +212,15 @@ struct MedicalProfileView: View {
                 Task {
                     let ok = await viewModel.save()
                     if ok {
+                        Haptics.success()
                         let reduceMotion = UIAccessibility.isReduceMotionEnabled
                         withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.85)) {
                             savedToastVisible = true
                         }
                         try? await Task.sleep(nanoseconds: 1_400_000_000)
                         withAnimation(reduceMotion ? nil : .default) { savedToastVisible = false }
+                    } else {
+                        Haptics.error()
                     }
                 }
             }

@@ -1212,6 +1212,29 @@
         }
       }
     },
+    "achievements.progress.generic_format": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d / %2$d"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d / %2$d"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d / %2$d"
+          }
+        }
+      }
+    },
     "achievements.progress.percent_format": {
       "comment": "Format: '%1$d%% (target %2$d%%)'",
       "localizations": {
@@ -1658,6 +1681,213 @@
           "stringUnit": {
             "state": "translated",
             "value": "Н"
+          }
+        }
+      }
+    },
+    "americano.form.add": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Əlavə et"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить"
+          }
+        }
+      }
+    },
+    "americano.form.add_players": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oyunçu adlarını daxil edin"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add player names"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавьте имена игроков"
+          }
+        }
+      }
+    },
+    "americano.form.friendly_match": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yoldaşlıq görüşü"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A friendly match"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Товарищеский матч"
+          }
+        }
+      }
+    },
+    "americano.form.game_name": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oyunun adı"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Game name"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Название игры"
+          }
+        }
+      }
+    },
+    "americano.form.participants_warning": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İştirakçı sayı 4 ilə 12 arasında olduqda oyunu təşkil etmək olar."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The game can be organized when there are between 4 and 12 participants."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Игру можно организовать, если количество участников от 4 до 12."
+          }
+        }
+      }
+    },
+    "americano.form.player_name_placeholder": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oyunçu adı"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Player name"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Имя игрока"
+          }
+        }
+      }
+    },
+    "americano.form.select_courts": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oynadığınız meydançaları seçin"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select the courts you're playing on"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите корты, на которых играете"
+          }
+        }
+      }
+    },
+    "americano.form.select_format": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Formatı seçin"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select game format"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите формат"
+          }
+        }
+      }
+    },
+    "americano.form.start_game": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oyuna başla"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start game"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начать игру"
           }
         }
       }
@@ -18426,6 +18656,29 @@
         }
       }
     },
+    "medical.call_contact": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Təcili əlaqəyə zəng et"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call emergency contact"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Позвонить экстренному контакту"
+          }
+        }
+      }
+    },
     "medical.error.load_failed": {
       "localizations": {
         "az": {
@@ -28971,7 +29224,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Подтвердите команды"
+            "value": "Подтвердить команды"
           }
         }
       }
@@ -28988,7 +29241,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tap a player to switch sides"
+            "value": "Tap a player to swap sides"
           }
         },
         "ru": {
@@ -29934,6 +30187,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удалось загрузить список устройств."
+          }
+        }
+      }
+    },
+    "sessions.error.revoke": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sessiya bağlanmadı. Yenidən cəhd edin."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't sign out that session. Please try again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось завершить сеанс. Попробуйте ещё раз."
+          }
+        }
+      }
+    },
+    "sessions.error.revoke_all": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Digər cihazlardan çıxış alınmadı. Yenidən cəhd edin."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't sign out the other devices. Please try again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось выйти на других устройствах. Попробуйте ещё раз."
           }
         }
       }
@@ -32713,6 +33012,29 @@
         }
       }
     },
+    "squads.member.owner_a11y_format": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, kapitan"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, captain"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, капитан"
+          }
+        }
+      }
+    },
     "squads.member_count_format": {
       "comment": "Microline like '5/8 üzv'. %1$d = current size, %2$d = max size.",
       "localizations": {
@@ -33281,6 +33603,190 @@
         }
       }
     },
+    "stories.draw.color.black": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qara"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Black"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чёрный"
+          }
+        }
+      }
+    },
+    "stories.draw.color.blue": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mavi"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Синий"
+          }
+        }
+      }
+    },
+    "stories.draw.color.brand": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brend rəngi"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brand color"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Фирменный цвет"
+          }
+        }
+      }
+    },
+    "stories.draw.color.orange": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narıncı"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orange"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оранжевый"
+          }
+        }
+      }
+    },
+    "stories.draw.color.pink": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çəhrayı"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pink"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Розовый"
+          }
+        }
+      }
+    },
+    "stories.draw.color.red": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qırmızı"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Red"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Красный"
+          }
+        }
+      }
+    },
+    "stories.draw.color.white": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ağ"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "White"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Белый"
+          }
+        }
+      }
+    },
+    "stories.draw.color.yellow": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sarı"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yellow"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Жёлтый"
+          }
+        }
+      }
+    },
     "stories.draw.done": {
       "comment": "W13 drawing tool. VoiceOver/aria label on the ✓ confirm button at the top-right of the drawing canvas modal — commits the sketch and dismisses the modal.",
       "localizations": {
@@ -33392,6 +33898,75 @@
           "stringUnit": {
             "state": "translated",
             "value": "Назад"
+          }
+        }
+      }
+    },
+    "stories.draw.width.large": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qalın"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thick"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Толстая"
+          }
+        }
+      }
+    },
+    "stories.draw.width.medium": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orta"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medium"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Средняя"
+          }
+        }
+      }
+    },
+    "stories.draw.width.small": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nazik"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thin"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тонкая"
           }
         }
       }
@@ -34247,6 +34822,29 @@
         }
       }
     },
+    "stories.text.tool.label": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mətn"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текст"
+          }
+        }
+      }
+    },
     "stories.viewer.a11y.dismiss": {
       "comment": "W13-13 VoiceOver. Accessibility action label — closes the viewer (sighted-user equivalent: swipe-down dismiss).",
       "localizations": {
@@ -34885,7 +35483,7 @@
       }
     },
     "streaks.heatmap.games_count_format": {
-      "comment": "Format: %d is the number of games in the week",
+      "extractionState": "manual",
       "localizations": {
         "az": {
           "stringUnit": {
@@ -34896,7 +35494,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%d game(s)"
+            "value": "%d games"
           }
         },
         "ru": {
@@ -37823,6 +38421,98 @@
         }
       }
     },
+    "venue_reviews.a11y.rate_stars": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d ulduz ver"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rate %d stars"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оценить на %d звёзд"
+          }
+        }
+      }
+    },
+    "venue_reviews.a11y.rating": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reytinq"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rating"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рейтинг"
+          }
+        }
+      }
+    },
+    "venue_reviews.delete.confirm.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu rəy həmişəlik silinəcək. Bu əməliyyatı geri qaytarmaq olmaz."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This review will be permanently deleted. This action can't be undone."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот отзыв будет удалён навсегда. Это действие нельзя отменить."
+          }
+        }
+      }
+    },
+    "venue_reviews.delete.confirm.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rəyi silmək?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete review?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить отзыв?"
+          }
+        }
+      }
+    },
     "venue_reviews.empty.message": {
       "localizations": {
         "az": {
@@ -37863,6 +38553,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Пока нет отзывов"
+          }
+        }
+      }
+    },
+    "venue_reviews.error.delete": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rəy silinmədi. Yenidən cəhd edin."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't delete the review. Please try again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось удалить отзыв. Попробуйте ещё раз."
           }
         }
       }
@@ -38149,6 +38862,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Изменить"
+          }
+        }
+      }
+    },
+    "venue_reviews.row.more_actions": {
+      "extractionState": "manual",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha çox"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More actions"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё"
           }
         }
       }

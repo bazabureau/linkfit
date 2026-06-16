@@ -21,19 +21,19 @@ struct PremiumPageHero: View {
     var accent: Color = DSColor.accent
 
     var body: some View {
-        VStack(alignment: alignment, spacing: 14) {
+        VStack(alignment: alignment, spacing: DSSpacing.sm) {
             medallion
 
-            VStack(alignment: alignment, spacing: 6) {
+            VStack(alignment: alignment, spacing: DSSpacing.xxs + 2) {
                 Text(titleKey)
-                    .font(.system(size: 26, weight: .heavy, design: .default))
+                    .font(DSType.heroTitle)
                     .foregroundStyle(DSColor.textPrimary)
                     .multilineTextAlignment(alignment == .center ? .center : .leading)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let subtitleKey {
                     Text(subtitleKey)
-                        .font(.system(size: 14, weight: .regular, design: .default))
+                        .font(DSType.bodyMedium)
                         .foregroundStyle(DSColor.textSecondary)
                         .multilineTextAlignment(alignment == .center ? .center : .leading)
                         .lineSpacing(2)

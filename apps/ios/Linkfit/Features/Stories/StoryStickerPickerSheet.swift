@@ -39,6 +39,7 @@ struct StoryStickerPickerSheet: View {
                 LazyVGrid(columns: columns, spacing: 8) {
                     ForEach(filtered, id: \.glyph) { entry in
                         Button {
+                            Haptics.selection()
                             onSelect(entry.glyph)
                         } label: {
                             Text(entry.glyph)
@@ -47,7 +48,7 @@ struct StoryStickerPickerSheet: View {
                                 .frame(height: 56)
                                 .background(
                                     RoundedRectangle(
-                                        cornerRadius: 12,
+                                        cornerRadius: DSRadius.md,
                                         style: .continuous
                                     )
                                     .fill(DSColor.surfaceElevated)

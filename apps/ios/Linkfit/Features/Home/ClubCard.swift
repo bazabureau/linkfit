@@ -19,7 +19,7 @@ struct ClubCard: View {
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
                                 .background(Capsule().fill(DSColor.accent))
-                                .padding(10)
+                                .padding(DSSpacing.xs)
                         }
                     }
 
@@ -48,7 +48,7 @@ struct ClubCard: View {
                     }
                 }
             }
-            .padding(10)
+            .padding(DSSpacing.sm)
             .frame(width: 232, alignment: .leading)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous))
             .overlay(
@@ -90,7 +90,7 @@ struct ClubCard: View {
             DSColor.surfaceElevated
             CourtMini()
                 .stroke(DSColor.textTertiary.opacity(0.32), lineWidth: 1)
-                .padding(20)
+                .padding(DSSpacing.lg)
             Image(systemName: "sportscourt")
                 .font(.system(size: 28, weight: .regular))
                 .foregroundStyle(DSColor.accent.opacity(0.55))

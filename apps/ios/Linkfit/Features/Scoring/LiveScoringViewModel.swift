@@ -142,6 +142,24 @@ final class LiveScoringViewModel {
         return (Array(roster.prefix(half)), Array(roster.dropFirst(half)))
     }
 
+    /// Move a single player to the *other* team, returning the new rosters.
+    ///
+    /// Pure (no side effects, no stored state) so the confirmation UI can keep
+    /// the working split in `@State` and call this on each tap-to-swap. The
+    /// confirmed split is then handed to `startScoring(teamA:teamB:)`. Slots not
+    /// belonging to either input list are left untouched.
+    func swapping(_ slot: RosterSlot,
+                  teamA: [RosterSlot],
+                  teamB: [RosterSlot]) -> (teamA: [RosterSlot], teamB: [RosterSlot]) {
+        if teamA.contains(where: { $0.userId == slot.userId }) {
+            return (teamA.filter { $0.userId != slot.userId }, teamB + [slot])
+        }
+        if teamB.contains(where: { $0.userId == slot.userId }) {
+            return (teamA + [slot], teamB.filter { $0.userId != slot.userId })
+        }
+        return (teamA, teamB)
+    }
+
     /// Initial fetch + start polling. Idempotent — safe to call repeatedly.
     func appear() async {
         await reload()

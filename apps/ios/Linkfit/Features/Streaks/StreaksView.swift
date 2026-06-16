@@ -11,6 +11,7 @@ import SwiftUI
 struct StreaksView: View {
     @State var viewModel: StreaksViewModel
     @State private var selectedWeek: StreaksWeek?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -61,7 +62,7 @@ struct StreaksView: View {
     /// motivational heading + supporting line. No CTA because the player
     /// already lives one tap away from match discovery on the home tab.
     private var premiumEmptyCard: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: DSSpacing.sm) {
             ZStack {
                 Circle()
                     .fill(DSColor.accent.opacity(0.16))
@@ -72,29 +73,31 @@ struct StreaksView: View {
                 Image(systemName: "flame.fill")
                     .font(.system(size: 28, weight: .semibold))
                     .foregroundStyle(DSColor.accent)
+                    .accessibilityHidden(true)
             }
-            VStack(spacing: 4) {
+            VStack(spacing: DSSpacing.xxs) {
                 Text("streaks.empty.title")
-                    .font(.system(size: 17, weight: .heavy))
+                    .font(DSType.sectionTitle)
                     .foregroundStyle(DSColor.textPrimary)
                 Text("streaks.empty.message")
-                    .font(.system(size: 14, weight: .regular))
+                    .font(DSType.body)
                     .foregroundStyle(DSColor.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, DSSpacing.xs)
             }
         }
-        .padding(28)
+        .padding(DSSpacing.lg)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(.ultraThinMaterial),
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1),
         )
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - KPI strip
@@ -152,6 +155,7 @@ struct StreaksView: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(DSColor.border, lineWidth: 1),
         )
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Heatmap
@@ -185,10 +189,10 @@ struct StreaksView: View {
 
             if let selectedWeek {
                 tooltip(for: selectedWeek)
-                    .transition(.opacity.combined(with: .scale))
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale))
             } else {
                 Text("streaks.heatmap.tap_hint")
-                    .font(.system(.caption2, design: .default))
+                    .font(DSType.metaCaption)
                     .foregroundStyle(DSColor.textTertiary)
             }
         }
@@ -201,7 +205,10 @@ struct StreaksView: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(DSColor.border, lineWidth: 1),
         )
-        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: selectedWeek)
+        .animation(
+            reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.85),
+            value: selectedWeek,
+        )
     }
 
     /// Inline tooltip — the week label + a games count summary. We render
@@ -218,7 +225,7 @@ struct StreaksView: View {
                     .foregroundStyle(DSColor.textPrimary)
                 Text(String(format: String(localized: "streaks.heatmap.games_count_format"),
                             week.games_count))
-                    .font(.system(.caption2, design: .default))
+                    .font(DSType.caption)
                     .foregroundStyle(DSColor.textSecondary)
             }
             Spacer()
@@ -235,7 +242,7 @@ struct StreaksView: View {
     private var legendCard: some View {
         HStack(spacing: DSSpacing.sm) {
             Text("streaks.legend.less")
-                .font(.system(.caption2, design: .default))
+                .font(DSType.metaCaption)
                 .foregroundStyle(DSColor.textTertiary)
             ForEach([0, 1, 2, 3, 4], id: \.self) { tier in
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
@@ -245,9 +252,10 @@ struct StreaksView: View {
                         RoundedRectangle(cornerRadius: 3, style: .continuous)
                             .strokeBorder(DSColor.border.opacity(0.3), lineWidth: 0.5),
                     )
+                    .accessibilityHidden(true)
             }
             Text("streaks.legend.more")
-                .font(.system(.caption2, design: .default))
+                .font(DSType.metaCaption)
                 .foregroundStyle(DSColor.textTertiary)
             Spacer()
         }
@@ -285,9 +293,21 @@ struct StreaksView: View {
         let end = start.addingTimeInterval(6 * 24 * 60 * 60)
 
         let outFmt = DateFormatter()
-        outFmt.locale = Locale.current
+        outFmt.locale = appLocale
         outFmt.timeZone = TimeZone.current
         outFmt.setLocalizedDateFormatFromTemplate("MMMd")
         return "\(outFmt.string(from: start)) – \(outFmt.string(from: end))"
+    }
+
+    /// Locale that follows the in-app language override (az/en/ru) rather
+    /// than the device locale, so month names in the tooltip match the rest
+    /// of the UI's language. Falls back to the device locale if no override
+    /// has been stored yet.
+    private var appLocale: Locale {
+        if let raw = UserDefaults.standard.string(forKey: LanguageManager.storageKey),
+           let lang = AppLanguage(rawValue: raw) {
+            return lang.locale
+        }
+        return Locale.current
     }
 }

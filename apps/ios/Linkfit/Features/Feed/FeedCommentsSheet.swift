@@ -252,25 +252,6 @@ struct FeedCommentRow: View {
     /// the gesture is the same, only the destination branches on `isMine`.
     let onLongPressReport: () -> Void
 
-    /// Shared formatter instances — `relativeCreatedAt` runs every body
-    /// pass per row, threads can scroll long. Same pattern as
-    /// `FeedEventCard`.
-    private static let isoFractionalFormatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
-    private static let isoFormatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime]
-        return f
-    }()
-    private static let relativeFormatter: RelativeDateTimeFormatter = {
-        let f = RelativeDateTimeFormatter()
-        f.unitsStyle = .short
-        return f
-    }()
-
     var body: some View {
         HStack(alignment: .top, spacing: DSSpacing.sm) {
             avatar
@@ -295,10 +276,10 @@ struct FeedCommentRow: View {
         }
         .padding(DSSpacing.sm)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous).fill(DSColor.surface)
+            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous).fill(DSColor.surface)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                 .strokeBorder(DSColor.border, lineWidth: 1)
         )
         .opacity(item.pending ? 0.6 : 1)
@@ -354,10 +335,15 @@ struct FeedCommentRow: View {
     }
 
     private var relativeCreatedAt: String {
-        let date = Self.isoFractionalFormatter.date(from: item.createdAt)
-            ?? Self.isoFormatter.date(from: item.createdAt)
-        guard let d = date else { return item.createdAt }
-        return Self.relativeFormatter.localizedString(for: d, relativeTo: Date())
+        guard let d = Date.fromISO(item.createdAt) else { return item.createdAt }
+        // Match the app language like `FeedEventCard` does — the shared
+        // relative formatter otherwise renders in the device locale, which
+        // drifts from the rest of the in-app copy when they disagree.
+        let langCode = UserDefaults.standard.string(forKey: "linkfit.language") ?? "az"
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        formatter.locale = Locale(identifier: langCode)
+        return formatter.localizedString(for: d, relativeTo: Date())
     }
 
     private func initials(_ name: String) -> String {

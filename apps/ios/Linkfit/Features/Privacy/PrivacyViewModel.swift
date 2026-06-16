@@ -241,7 +241,7 @@ final class PrivacyViewModel {
         guard let exp = export, exp.status == "ready",
               let _ = exp.download_url else { return false }
         if let expires = exp.expires_at,
-           let date = Self.dateFormatter.date(from: expires),
+           let date = Date.fromISO(expires),
            date < Date() {
             return false
         }
@@ -263,15 +263,6 @@ final class PrivacyViewModel {
     /// hasn't populated `hard_delete_at` yet.
     var hardDeleteDate: Date? {
         guard let raw = deletion?.hard_delete_at else { return nil }
-        return Self.dateFormatter.date(from: raw)
+        return Date.fromISO(raw)
     }
-
-    /// ISO-8601 with fractional seconds — the server's standard format
-    /// for timestamp strings. Built once as a static so we don't pay the
-    /// allocation cost on every poll tick.
-    private static let dateFormatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
 }

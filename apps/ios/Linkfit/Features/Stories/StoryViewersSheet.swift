@@ -58,8 +58,9 @@ struct StoryViewersSheet: View {
                         Image(systemName: "xmark")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(DSColor.textPrimary)
-                            .padding(8)
+                            .frame(width: 44, height: 44)
                             .background(Circle().fill(DSColor.surface))
+                            .contentShape(Circle())
                     }
                     .accessibilityLabel(Text("common.close"))
                 }
@@ -94,7 +95,7 @@ struct StoryViewersSheet: View {
                     ForEach(viewers) { viewer in
                         row(viewer)
                     }
-                    Spacer().frame(height: 60)
+                    Spacer().frame(height: DSSpacing.xxl)
                 }
                 .padding(.horizontal, DSSpacing.md)
                 .padding(.top, DSSpacing.md)
@@ -122,31 +123,31 @@ struct StoryViewersSheet: View {
                     .font(.system(size: 28, weight: .semibold))
                     .foregroundStyle(DSColor.accent)
             }
-            VStack(spacing: 4) {
+            VStack(spacing: DSSpacing.xxs) {
                 Text("stories.viewers.empty.title")
-                    .font(.system(size: 17, weight: .heavy, design: .default))
+                    .font(DSType.sectionTitle)
                     .foregroundStyle(DSColor.textPrimary)
                     .multilineTextAlignment(.center)
                 Text("stories.viewers.empty.body")
-                    .font(.system(size: 14, weight: .regular, design: .default))
+                    .font(DSType.bodyMedium)
                     .foregroundStyle(DSColor.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, DSSpacing.xs)
             }
         }
-        .padding(28)
+        .padding(DSSpacing.lg)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
                 .fill(.ultraThinMaterial)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
                 .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
         )
         .padding(.horizontal, DSSpacing.md)
-        .padding(.top, 60)
+        .padding(.top, DSSpacing.xxl)
     }
 
     // MARK: - Row
@@ -163,11 +164,11 @@ struct StoryViewersSheet: View {
                 avatar(for: viewer)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(viewer.display_name)
-                        .font(.system(.subheadline, design: .default, weight: .semibold))
+                        .font(DSType.bodyStrong)
                         .foregroundStyle(DSColor.textPrimary)
                         .lineLimit(1)
                     Text(relativeViewedAt(viewer.viewed_at))
-                        .font(.system(.caption2, design: .default))
+                        .font(DSType.caption2)
                         .foregroundStyle(DSColor.textTertiary)
                 }
                 Spacer(minLength: DSSpacing.xs)
@@ -181,8 +182,8 @@ struct StoryViewersSheet: View {
                    let glyph = reactionGlyph(for: emoji) {
                     Text(glyph)
                         .font(.system(size: 14))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, DSSpacing.xs)
+                        .padding(.vertical, DSSpacing.xxs)
                         .background(
                             Capsule().fill(DSColor.surface.opacity(0.6))
                         )
@@ -197,8 +198,8 @@ struct StoryViewersSheet: View {
                     .foregroundStyle(DSColor.textTertiary)
             }
             .padding(DSSpacing.md)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surface))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .background(RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous).fill(DSColor.surface))
+            .overlay(RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                 .strokeBorder(DSColor.border, lineWidth: 1))
             .contentShape(Rectangle())
         }
@@ -275,7 +276,7 @@ struct StoryViewersSheet: View {
     /// can't be parsed (best-effort UX — we'd rather show "indi" than
     /// a raw ISO string in a stranger's view list).
     private func relativeViewedAt(_ iso: String) -> String {
-        guard let date = parseISO(iso) else {
+        guard let date = Date.fromISO(iso) else {
             return String(localized: "stories.viewers.relative_now")
         }
         // Under a minute ago — return localized "indi" rather than
@@ -286,15 +287,6 @@ struct StoryViewersSheet: View {
             return String(localized: "stories.viewers.relative_now")
         }
         return Self.relativeFormatter.localizedString(for: date, relativeTo: Date())
-    }
-
-    private func parseISO(_ s: String) -> Date? {
-        let withFrac = ISO8601DateFormatter()
-        withFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = withFrac.date(from: s) { return d }
-        let plain = ISO8601DateFormatter()
-        plain.formatOptions = [.withInternetDateTime]
-        return plain.date(from: s)
     }
 
     /// Hoisted off `body` so re-renders during pull-to-refresh don't

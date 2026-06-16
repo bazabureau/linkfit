@@ -34,6 +34,7 @@ struct InboxView: View {
     /// rows so the badge zeroes in the same frame.
     var invitationsBadge: Int
     @Namespace private var pickerNamespace
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -50,7 +51,13 @@ struct InboxView: View {
                 let showsBadge = tab == .invitations && invitationsBadge > 0
                 Button {
                     UISelectionFeedbackGenerator().selectionChanged()
-                    withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                    // Gate the sliding-capsule animation on Reduce Motion —
+                    // the matchedGeometryEffect below produces a horizontal
+                    // slide that should snap instantly when the user has
+                    // motion reduced.
+                    withAnimation(
+                        reduceMotion ? nil : .spring(response: 0.30, dampingFraction: 0.78)
+                    ) {
                         selection = tab
                     }
                 } label: {

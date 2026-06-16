@@ -36,26 +36,6 @@ struct FeedEventCard: View {
     /// stays anchored regardless of digit width.
     var commentCount: Int? = nil
 
-    /// Shared formatters — `relativeCreatedAt` runs every body pass per
-    /// card and the feed scrolls long. The server emits either ISO with
-    /// fractional seconds or without, so we keep two pre-configured
-    /// parsers and fall back from the fractional one to the plain one.
-    private static let isoFractionalFormatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
-    private static let isoFormatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime]
-        return f
-    }()
-    private static let relativeFormatter: RelativeDateTimeFormatter = {
-        let f = RelativeDateTimeFormatter()
-        f.unitsStyle = .short
-        return f
-    }()
-
     private var target: FeedCardTarget {
         switch event.type {
         case .joined_game, .won_match:
@@ -83,10 +63,10 @@ struct FeedEventCard: View {
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surface)
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous).fill(DSColor.surface)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                 .strokeBorder(DSColor.border, lineWidth: 1)
         )
     }
@@ -174,6 +154,23 @@ struct FeedEventCard: View {
     // MARK: - Subviews
 
     private var avatar: some View {
+        Group {
+            if let urlString = event.actor.photo_url,
+               let url = URL(string: urlString) {
+                CachedAsyncImage(url: url) { image in
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    initialsAvatar
+                }
+                .frame(width: 44, height: 44)
+                .clipShape(Circle())
+            } else {
+                initialsAvatar
+            }
+        }
+    }
+
+    private var initialsAvatar: some View {
         ZStack {
             Circle().fill(LinearGradient(
                 colors: [DSColor.accent, DSColor.accentSoft],
@@ -248,10 +245,7 @@ struct FeedEventCard: View {
     }
 
     private var relativeCreatedAt: String {
-        let date = Self.isoFractionalFormatter.date(from: event.created_at)
-            ?? Self.isoFormatter.date(from: event.created_at)
-        guard let d = date else { return event.created_at }
-        
+        guard let d = Date.fromISO(event.created_at) else { return event.created_at }
         let langCode = UserDefaults.standard.string(forKey: "linkfit.language") ?? "az"
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short

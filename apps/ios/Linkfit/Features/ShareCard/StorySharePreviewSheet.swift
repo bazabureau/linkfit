@@ -15,45 +15,45 @@ struct StorySharePreviewSheet: View {
                 DSColor.background.ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: 24) {
+                    VStack(spacing: DSSpacing.lg) {
                         // Title header
-                        VStack(spacing: 6) {
+                        VStack(spacing: DSSpacing.xxs) {
                             Text("story_share.sheet.title")
-                                .font(.system(size: 22, weight: .heavy))
+                                .font(DSType.displayMedium)
                                 .foregroundStyle(DSColor.textPrimary)
                             Text("story_share.sheet.subtitle")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(DSType.bodyMedium)
                                 .foregroundStyle(DSColor.textSecondary)
                                 .multilineTextAlignment(.center)
-                                .padding(.horizontal, 20)
+                                .padding(.horizontal, DSSpacing.md)
                         }
-                        .padding(.top, 16)
+                        .padding(.top, DSSpacing.md)
 
                         // Pre-rendered card preview
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFit()
                             .frame(maxHeight: 420)
-                            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
                                     .strokeBorder(DSColor.border, lineWidth: 1)
                             )
                             .shadow(color: .black.opacity(0.25), radius: 20, x: 0, y: 12)
-                            .padding(.horizontal, 28)
-                        
+                            .padding(.horizontal, DSSpacing.lg)
+
                         // Interaction CTAs
-                        VStack(spacing: 12) {
+                        VStack(spacing: DSSpacing.sm) {
                             // Primary Native Linkfit Story button
                             Button {
                                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                                 showStoryCreator = true
                             } label: {
-                                HStack(spacing: 8) {
+                                HStack(spacing: DSSpacing.xs) {
                                     Image(systemName: "plus.circle.fill")
                                     Text("story_share.action.linkfit_story")
                                 }
-                                .font(.system(size: 15, weight: .heavy))
+                                .font(DSType.button)
                                 .foregroundStyle(DSColor.textOnAccent)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 52)
@@ -64,17 +64,18 @@ struct StorySharePreviewSheet: View {
                                 )
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel(Text("story_share.action.linkfit_story"))
                             
                             // Secondary system sharing button
                             Button {
                                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 systemSharePayload = SystemSharePayload(image: image)
                             } label: {
-                                HStack(spacing: 8) {
+                                HStack(spacing: DSSpacing.xs) {
                                     Image(systemName: "square.and.arrow.up")
                                     Text("story_share.action.system_share")
                                 }
-                                .font(.system(size: 15, weight: .heavy))
+                                .font(DSType.button)
                                 .foregroundStyle(DSColor.textPrimary)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 52)
@@ -86,11 +87,12 @@ struct StorySharePreviewSheet: View {
                                 )
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel(Text("story_share.action.system_share"))
                         }
-                        .padding(.horizontal, 28)
-                        .padding(.top, 8)
+                        .padding(.horizontal, DSSpacing.lg)
+                        .padding(.top, DSSpacing.xs)
                     }
-                    .padding(.bottom, 24)
+                    .padding(.bottom, DSSpacing.lg)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)

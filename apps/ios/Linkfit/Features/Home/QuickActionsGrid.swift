@@ -26,13 +26,14 @@ struct QuickActionsGrid: View {
         Button(action: action) {
             HStack(spacing: DSSpacing.sm) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                         .fill(DSColor.accentMuted)
                         .frame(width: 38, height: 38)
                     Image(systemName: icon)
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(DSColor.accent)
                 }
+                .accessibilityHidden(true)
 
                 Text(titleKey)
                     .font(.system(.subheadline, design: .default, weight: .semibold))
@@ -54,6 +55,6 @@ struct QuickActionsGrid: View {
                     .strokeBorder(DSColor.border, lineWidth: 1)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SpringPressStyle())
     }
 }

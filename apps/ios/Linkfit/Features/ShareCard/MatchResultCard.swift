@@ -286,7 +286,7 @@ struct MatchResultCard: View {
 
     private var formattedDate: String {
         let formatter = DateFormatter()
-        formatter.locale = .current
+        formatter.locale = ShareCardLocale.current
         formatter.dateStyle = .medium
         formatter.timeStyle = .none
         return formatter.string(from: data.date)

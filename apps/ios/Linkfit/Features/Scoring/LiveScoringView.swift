@@ -16,6 +16,13 @@ struct LiveScoringView: View {
     @State private var confirmFinalize = false
     @State private var setFlashScale: CGFloat = 1
     @State private var setFlashTeam: ScoreTeam? = nil
+    /// Host-editable team split for the pre-start roster confirmation. Seeded
+    /// from `viewModel.proposedTeams` and reshuffled by tap-to-swap before the
+    /// host commits via `startScoring(teamA:teamB:)`.
+    @State private var rosterTeamA: [LiveScoringViewModel.RosterSlot] = []
+    @State private var rosterTeamB: [LiveScoringViewModel.RosterSlot] = []
+    @State private var rosterSeeded = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -108,37 +115,150 @@ struct LiveScoringView: View {
         }
     }
 
-    /// Pre-start screen. Only the host sees the action button — everyone else
-    /// gets a "host hasn't started yet" placeholder so multi-device flows stay
-    /// predictable.
+    /// Pre-start screen. The host confirms the team split (tap a player to
+    /// swap sides) before kicking off scoring; everyone else gets a "host
+    /// hasn't started yet" placeholder so multi-device flows stay predictable.
     private var startScreen: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "stopwatch")
-                .font(.system(size: 56, weight: .light))
-                .foregroundStyle(DSColor.textSecondary)
-            Text("scoring.empty.title")
-                .font(DSType.sectionTitle)
-                .foregroundStyle(DSColor.textPrimary)
-            Text("scoring.empty.message")
-                .font(DSType.bodyMedium)
-                .foregroundStyle(DSColor.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            if viewModel.canStart {
-                Button {
-                    Task { await viewModel.startScoring() }
-                } label: {
-                    Text("scoring.start")
-                        .font(DSType.button)
-                        .foregroundStyle(DSColor.textOnAccent)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Capsule().fill(DSColor.accent))
+        ScrollView {
+            VStack(spacing: DSSpacing.lg) {
+                Image(systemName: "stopwatch")
+                    .font(.system(size: 56, weight: .light))
+                    .foregroundStyle(DSColor.textSecondary)
+                Text("scoring.empty.title")
+                    .font(DSType.sectionTitle)
+                    .foregroundStyle(DSColor.textPrimary)
+                Text("scoring.empty.message")
+                    .font(DSType.bodyMedium)
+                    .foregroundStyle(DSColor.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, DSSpacing.xl)
+                if viewModel.canStart {
+                    if viewModel.confirmedRoster.isEmpty {
+                        // No confirmed players to assign — fall back to the
+                        // plain start action (server applies its own split).
+                        startButton
+                    } else {
+                        rosterConfirmation
+                    }
                 }
-                .disabled(viewModel.isMutating)
-                .padding(.horizontal, 32)
-                .padding(.top, 12)
             }
+            .padding(.top, DSSpacing.xl)
+            .padding(.bottom, DSSpacing.xl)
+        }
+        .scrollIndicators(.hidden)
+        .onAppear(perform: seedRosterIfNeeded)
+    }
+
+    /// Plain start CTA used when there is no roster to confirm.
+    private var startButton: some View {
+        Button {
+            Haptics.medium()
+            Task { await viewModel.startScoring() }
+        } label: {
+            Text("scoring.start")
+                .font(DSType.button)
+                .foregroundStyle(DSColor.textOnAccent)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 52)
+                .background(Capsule().fill(DSColor.accent))
+        }
+        .buttonStyle(SpringPressStyle())
+        .disabled(viewModel.isMutating)
+        .padding(.horizontal, DSSpacing.xl)
+        .padding(.top, DSSpacing.sm)
+    }
+
+    /// Two-column tap-to-swap roster + confirm CTA.
+    private var rosterConfirmation: some View {
+        VStack(spacing: DSSpacing.md) {
+            Text("scoring.start.tap_to_swap")
+                .font(DSType.metaCaption)
+                .foregroundStyle(DSColor.textTertiary)
+                .multilineTextAlignment(.center)
+            HStack(alignment: .top, spacing: DSSpacing.sm) {
+                rosterColumn(titleKey: "scoring.start.team_a", slots: rosterTeamA)
+                rosterColumn(titleKey: "scoring.start.team_b", slots: rosterTeamB)
+            }
+            Button {
+                Haptics.medium()
+                let teamA = rosterTeamA.map { $0.userId }
+                let teamB = rosterTeamB.map { $0.userId }
+                Task { await viewModel.startScoring(teamA: teamA, teamB: teamB) }
+            } label: {
+                Text("scoring.start.confirm_teams")
+                    .font(DSType.button)
+                    .foregroundStyle(DSColor.textOnAccent)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 52)
+                    .background(Capsule().fill(DSColor.accent))
+            }
+            .buttonStyle(SpringPressStyle())
+            .disabled(viewModel.isMutating || rosterTeamA.isEmpty || rosterTeamB.isEmpty)
+            .opacity((rosterTeamA.isEmpty || rosterTeamB.isEmpty) ? 0.5 : 1)
+        }
+        .padding(.horizontal, DSSpacing.md)
+        .padding(.top, DSSpacing.sm)
+    }
+
+    /// One team's column: a header pill + tappable player chips. Tapping a chip
+    /// swaps that player to the other side.
+    private func rosterColumn(titleKey: LocalizedStringKey,
+                              slots: [LiveScoringViewModel.RosterSlot]) -> some View {
+        VStack(spacing: DSSpacing.xs) {
+            Text(titleKey)
+                .font(DSType.badge)
+                .foregroundStyle(DSColor.accent)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, DSSpacing.xs)
+                .background(Capsule().fill(DSColor.accentMuted))
+            ForEach(slots) { slot in
+                Button {
+                    swap(slot)
+                } label: {
+                    Text(slot.displayName)
+                        .font(DSType.bodyStrong)
+                        .foregroundStyle(DSColor.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
+                        .padding(.horizontal, DSSpacing.sm)
+                        .background(
+                            RoundedRectangle(cornerRadius: DSRadius.md)
+                                .fill(DSColor.surfaceElevated),
+                        )
+                }
+                .buttonStyle(SpringPressStyle())
+                .accessibilityLabel(Text(slot.displayName))
+                .accessibilityHint(Text("scoring.start.tap_to_swap"))
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
+        .padding(DSSpacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: DSRadius.lg)
+                .fill(DSColor.surface),
+        )
+    }
+
+    /// Seed the working roster from the VM's proposed split once, when the
+    /// host first lands on the empty/start screen.
+    private func seedRosterIfNeeded() {
+        guard !rosterSeeded else { return }
+        let proposed = viewModel.proposedTeams
+        rosterTeamA = proposed.teamA
+        rosterTeamB = proposed.teamB
+        rosterSeeded = true
+    }
+
+    /// Tap-to-swap: move one player to the other team.
+    private func swap(_ slot: LiveScoringViewModel.RosterSlot) {
+        Haptics.selection()
+        let result = viewModel.swapping(slot, teamA: rosterTeamA, teamB: rosterTeamB)
+        withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8)) {
+            rosterTeamA = result.teamA
+            rosterTeamB = result.teamB
         }
     }
 

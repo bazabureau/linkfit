@@ -112,7 +112,7 @@ struct VenuePickerSheet: View {
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("create_game.venue.none.title")
-                        .font(.system(size: 15, weight: .heavy))
+                        .font(DSType.cardTitle)
                         .foregroundStyle(DSColor.textPrimary)
                     Text("create_game.venue.none.subtitle")
                         .font(.system(size: 12, weight: .medium))
@@ -173,12 +173,12 @@ struct VenuePickerSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(venue.name)
-                            .font(.system(size: 15, weight: .heavy))
+                            .font(DSType.cardTitle)
                             .foregroundStyle(DSColor.textPrimary)
                             .lineLimit(1)
                         if venue.is_partner {
                             Text("create_game.venue.partner_badge")
-                                .font(.system(size: 9, weight: .heavy, design: .default))
+                                .font(DSType.badge)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
                                 .foregroundStyle(DSColor.accent)
@@ -195,7 +195,7 @@ struct VenuePickerSheet: View {
                 Spacer()
                 if let km = venue.distance_km {
                     Text(DistanceFormatter.km(km))
-                        .font(.system(size: 11, weight: .heavy, design: .default))
+                        .font(DSType.badge)
                         .foregroundStyle(DSColor.textTertiary)
                         .monospacedDigit()
                 }

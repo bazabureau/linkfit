@@ -81,19 +81,20 @@ struct SquadInviteSheet: View {
 
     @ViewBuilder
     private var content: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: DSSpacing.sm) {
             searchField
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .padding(.horizontal, DSSpacing.md)
+                .padding(.top, DSSpacing.xs)
             list
         }
     }
 
     private var searchField: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: DSSpacing.sm - 2) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(DSColor.textTertiary)
+                .accessibilityHidden(true)
             TextField(text: $query) {
                 Text("squads.invite.search.placeholder")
             }
@@ -110,17 +111,17 @@ struct SquadInviteSheet: View {
                         .foregroundStyle(DSColor.textTertiary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(Text("common.cancel"))
+                .accessibilityLabel(Text("common.clear"))
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, DSSpacing.md - 2)
+        .padding(.vertical, DSSpacing.sm - 2)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.md + 2, style: .continuous)
                 .fill(DSColor.surface)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.md + 2, style: .continuous)
                 .strokeBorder(DSColor.border.opacity(0.5), lineWidth: 1)
         )
     }
@@ -149,7 +150,7 @@ struct SquadInviteSheet: View {
                     )
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 8) {
+                        LazyVStack(spacing: DSSpacing.xs) {
                             ForEach(filtered) { edge in
                                 row(edge)
                                     .onAppear {
@@ -162,11 +163,12 @@ struct SquadInviteSheet: View {
                                 ProgressView()
                                     .controlSize(.regular)
                                     .tint(DSColor.accent)
-                                    .padding(.vertical, 12)
+                                    .padding(.vertical, DSSpacing.sm)
+                                    .accessibilityLabel(Text("loading.default"))
                             }
-                            Spacer().frame(height: 24)
+                            Spacer().frame(height: DSSpacing.lg)
                         }
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, DSSpacing.md)
                     }
                     .scrollIndicators(.hidden)
                 }
@@ -195,11 +197,11 @@ struct SquadInviteSheet: View {
             UISelectionFeedbackGenerator().selectionChanged()
             Task { await sendInvite(to: edge) }
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: DSSpacing.sm) {
                 avatar(for: edge)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(edge.display_name)
-                        .font(.system(size: 15, weight: .heavy))
+                        .font(DSType.cardTitle)
                         .foregroundStyle(DSColor.textPrimary)
                         .lineLimit(1)
                 }
@@ -209,23 +211,24 @@ struct SquadInviteSheet: View {
                         .progressViewStyle(.circular)
                         .tint(DSColor.accent)
                         .scaleEffect(0.85)
+                        .accessibilityLabel(Text("loading.default"))
                 } else {
                     Text("squads.invite.cta")
-                        .font(.system(size: 12, weight: .heavy))
+                        .font(DSType.badge)
                         .foregroundStyle(DSColor.accent)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, DSSpacing.sm)
+                        .padding(.vertical, DSSpacing.xxs + 2)
                         .background(Capsule().fill(DSColor.accent.opacity(0.14)))
                         .overlay(Capsule().strokeBorder(DSColor.accent.opacity(0.4), lineWidth: 1))
                 }
             }
-            .padding(14)
+            .padding(DSSpacing.md - 2)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                     .fill(DSColor.surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                     .strokeBorder(DSColor.border.opacity(0.45), lineWidth: 1)
             )
             .contentShape(Rectangle())
@@ -234,6 +237,7 @@ struct SquadInviteSheet: View {
         .disabled(busy)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(edge.display_name))
+        .accessibilityHint(Text("squads.invite.cta"))
     }
 
     private func avatar(for edge: FollowEdge) -> some View {

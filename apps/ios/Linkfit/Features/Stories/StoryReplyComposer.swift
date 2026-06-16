@@ -45,6 +45,11 @@ struct StoryReplyComposer: View {
     /// the gesture overlay while the keyboard is up.
     @FocusState private var fieldFocused: Bool
 
+    /// Honor Reduce Motion — the send-button "arm" spring is decorative
+    /// affordance, so under Reduce Motion we drop it and let the enabled
+    /// state apply instantly.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     /// Five quick-react emojis surfaced as one-tap shortcuts above the
     /// text composer. Same glyph order as `StoryReactionEmoji.allCases`
     /// so the visual identity matches the reactions bar; the action is
@@ -149,15 +154,15 @@ struct StoryReplyComposer: View {
                 guard canSend else { return }
                 trySend()
             }
-            .font(.system(size: 15))
+            .font(DSType.body)
             .foregroundStyle(.white)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
                     .fill(Color.black.opacity(0.45))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
                             .stroke(Color.white.opacity(0.18), lineWidth: 0.5)
                     )
             )
@@ -183,7 +188,9 @@ struct StoryReplyComposer: View {
                         .fill(canSend ? DSColor.accent : Color.white.opacity(0.18))
                 )
                 .scaleEffect(canSend ? 1.0 : 0.92)
-                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: canSend)
+                .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.7), value: canSend)
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
         }
         .disabled(!canSend)
         .accessibilityLabel(Text("stories.reply.send.a11y"))

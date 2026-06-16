@@ -22,6 +22,10 @@ struct VenueReviewsView: View {
     /// the trash icon on the author's own row.
     var currentUserId: String?
 
+    /// Review the user has tapped "delete" on; drives the destructive
+    /// confirmation dialog so a deletion is never one accidental tap.
+    @State private var pendingDelete: VenueReview?
+
     var body: some View {
         ZStack {
             DSColor.background.ignoresSafeArea()
@@ -41,6 +45,31 @@ struct VenueReviewsView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 writeReviewToolbarButton
             }
+        }
+        .confirmationDialog(
+            Text("venue_reviews.delete.confirm.title"),
+            isPresented: Binding(
+                get: { pendingDelete != nil },
+                set: { if !$0 { pendingDelete = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: pendingDelete
+        ) { review in
+            Button(role: .destructive) {
+                Haptics.warning()
+                let target = review.id
+                pendingDelete = nil
+                Task { await viewModel.remove(target) }
+            } label: {
+                Text("venue_reviews.row.delete")
+            }
+            Button(role: .cancel) {
+                pendingDelete = nil
+            } label: {
+                Text("common.cancel")
+            }
+        } message: { _ in
+            Text("venue_reviews.delete.confirm.message")
         }
         .task { await viewModel.onAppear() }
         .refreshable { await viewModel.load() }
@@ -91,7 +120,7 @@ struct VenueReviewsView: View {
                         .frame(width: 10, alignment: .trailing)
                         .monospacedDigit()
                     Image(systemName: "star.fill")
-                        .font(.system(size: 9))
+                        .font(DSType.caption2)
                         .foregroundStyle(DSColor.warning)
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
@@ -148,7 +177,7 @@ struct VenueReviewsView: View {
                               onEditMyReviewTap?(review)
                           },
                           onDelete: {
-                              Task { await viewModel.remove(review.id) }
+                              pendingDelete = review
                           })
                 .onAppear {
                     // Last row → load the next page.
@@ -236,7 +265,12 @@ private struct ReviewRow: View {
                         Image(systemName: "ellipsis.circle")
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundStyle(DSColor.textSecondary)
+                            // Guarantee a HIG-compliant 44pt tap target —
+                            // an 18pt glyph alone is far too small to hit.
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
+                    .accessibilityLabel(Text("venue_reviews.row.more_actions"))
                 }
             }
             if let body = review.body, !body.isEmpty {
@@ -301,13 +335,10 @@ private struct ReviewRow: View {
     }
 
     private func relativeDate(_ iso: String) -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let parsed = formatter.date(from: iso) ?? {
-            let alt = ISO8601DateFormatter()
-            alt.formatOptions = [.withInternetDateTime]
-            return alt.date(from: iso) ?? Date()
-        }()
+        // Parse through the tolerant `Date.fromISO` foundation (handles the
+        // fractional-seconds shape the API ships). On a genuinely
+        // unparseable value, render nothing rather than a misleading "now".
+        guard let parsed = Date.fromISO(iso) else { return "" }
         let fmt = RelativeDateTimeFormatter()
         fmt.unitsStyle = .short
         return fmt.localizedString(for: parsed, relativeTo: Date())

@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// Drop-in sheet that lets the user file a moderation report.
 ///
@@ -15,6 +14,7 @@ import UIKit
 struct ReportSheet: View {
     @State var viewModel: ReportSheetViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hasFiredSuccess: Bool = false
 
     var body: some View {
@@ -22,29 +22,32 @@ struct ReportSheet: View {
             ZStack {
                 DSColor.background.ignoresSafeArea()
                 content
+                    .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85),
+                               value: viewModel.didSucceed)
             }
             .navigationTitle(Text("reports.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(role: .cancel) {
-                        UISelectionFeedbackGenerator().selectionChanged()
+                        Haptics.selection()
                         dismiss()
                     } label: {
                         Text("reports.cancel")
                     }
-                    .accessibilityLabel(Text("reports.cancel"))
                 }
             }
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(.ultraThinMaterial)
     }
 
     @ViewBuilder
     private var content: some View {
         if viewModel.didSucceed {
             successCard
+                .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96)))
                 .task { await autoDismissAfterSuccess() }
         } else {
             ScrollView {
@@ -53,17 +56,22 @@ struct ReportSheet: View {
                     reasonList
                     notesField
                     if let error = viewModel.errorMessage {
-                        Text(error)
-                            .font(DSType.footnote)
-                            .foregroundStyle(DSColor.danger)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        HStack(alignment: .firstTextBaseline, spacing: DSSpacing.xs) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .font(DSType.footnote)
+                                .foregroundStyle(DSColor.danger)
+                            Text(error)
+                                .font(DSType.footnote)
+                                .foregroundStyle(DSColor.danger)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityElement(children: .combine)
                     }
                     PrimaryButton(
                         title: String(localized: "reports.submit"),
                         isLoading: viewModel.isSubmitting,
                         isEnabled: viewModel.canSubmit
                     ) {
-                        UISelectionFeedbackGenerator().selectionChanged()
                         Task { await onSubmit() }
                     }
                     .padding(.top, DSSpacing.sm)
@@ -110,7 +118,7 @@ struct ReportSheet: View {
     private func reasonRow(_ reason: ReportReason) -> some View {
         let selected = viewModel.selectedReason == reason
         return Button {
-            UISelectionFeedbackGenerator().selectionChanged()
+            Haptics.selection()
             viewModel.selectedReason = reason
         } label: {
             HStack(spacing: DSSpacing.sm) {
@@ -196,6 +204,7 @@ struct ReportSheet: View {
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 56, weight: .regular))
                 .foregroundStyle(DSColor.accent)
+                .accessibilityHidden(true)
             Text("reports.success.title")
                 .font(DSType.title)
                 .foregroundStyle(DSColor.textPrimary)
@@ -208,6 +217,8 @@ struct ReportSheet: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(DSSpacing.lg)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isStaticText)
     }
 
     // MARK: - Side effects
@@ -217,10 +228,10 @@ struct ReportSheet: View {
         if ok {
             if !hasFiredSuccess {
                 hasFiredSuccess = true
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                Haptics.success()
             }
         } else {
-            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            Haptics.error()
         }
     }
 

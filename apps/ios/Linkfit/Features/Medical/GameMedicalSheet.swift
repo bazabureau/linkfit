@@ -75,10 +75,27 @@ struct GameMedicalSheet: View {
         if viewModel.isLoading {
             ProgressView().frame(maxWidth: .infinity, minHeight: 120)
         } else if let err = viewModel.errorMessage {
-            Text(err)
-                .font(.system(.footnote))
-                .foregroundStyle(DSColor.danger)
-                .padding(DSSpacing.md)
+            VStack(alignment: .leading, spacing: DSSpacing.xs) {
+                Text(err)
+                    .font(.system(.footnote))
+                    .foregroundStyle(DSColor.danger)
+                    .fixedSize(horizontal: false, vertical: true)
+                if viewModel.canRetry {
+                    Button {
+                        Task { await viewModel.load(gameId: gameId) }
+                    } label: {
+                        Text("common.retry")
+                            .font(.system(.footnote, design: .default, weight: .semibold))
+                            .foregroundStyle(DSColor.accent)
+                    }
+                }
+            }
+            .padding(DSSpacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(DSColor.surfaceElevated)
+            )
         } else if viewModel.items.isEmpty {
             VStack(spacing: DSSpacing.sm) {
                 Image(systemName: "person.crop.circle.badge.questionmark")
@@ -155,6 +172,8 @@ struct GameMedicalSheet: View {
                             .foregroundStyle(DSColor.accent)
                             .underline()
                     }
+                    .accessibilityLabel(Text("medical.call_contact"))
+                    .accessibilityValue(Text(value))
                 } else {
                     Text(value)
                         .font(.system(.subheadline))
@@ -173,6 +192,9 @@ final class GameMedicalViewModel {
     private(set) var isLoading = false
     private(set) var items: [GameMedicalParticipant] = []
     private(set) var errorMessage: String?
+    /// `false` for terminal errors (e.g. 403 not-host) where retrying is
+    /// pointless, so the view hides the retry affordance.
+    private(set) var canRetry = false
     private let apiClient: APIClient
 
     init(apiClient: APIClient) {
@@ -182,6 +204,7 @@ final class GameMedicalViewModel {
     func load(gameId: String) async {
         isLoading = true
         errorMessage = nil
+        canRetry = false
         defer { isLoading = false }
         do {
             let summary = try await apiClient.send(
@@ -190,10 +213,13 @@ final class GameMedicalViewModel {
             items = summary.items
         } catch APIError.forbidden {
             errorMessage = String(localized: "medical.host_sheet.error.not_host")
+            canRetry = false
         } catch let e as APIError {
             errorMessage = e.errorDescription ?? String(localized: "medical.host_sheet.error.load")
+            canRetry = true
         } catch {
             errorMessage = String(localized: "medical.host_sheet.error.load")
+            canRetry = true
         }
     }
 }

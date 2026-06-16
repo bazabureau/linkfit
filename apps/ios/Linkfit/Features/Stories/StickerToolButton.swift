@@ -29,6 +29,7 @@ struct StickerToolButton: View {
 
     var body: some View {
         Button {
+            Haptics.soft()   // light tier — secondary tool entry, matches Mention/Drawing buttons
             showPicker = true
         } label: {
             Image(systemName: "face.smiling")

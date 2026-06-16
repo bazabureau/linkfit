@@ -1,6 +1,22 @@
 import Foundation
 import SwiftUI
 
+/// In-app language locale for the share-card date formatters. Mirrors the
+/// canonical mapping in `Money` / `LocaleManager` (same `UserDefaults`
+/// key) so a user who picked Azerbaijani still gets Azerbaijani-formatted
+/// dates baked into the exported card even on an English-region device.
+/// `Locale.current` would silently fall back to the device region and leak
+/// the wrong language onto a shared graphic.
+enum ShareCardLocale {
+    static var current: Locale {
+        switch UserDefaults.standard.string(forKey: "LinkfitPreferredLanguage") {
+        case "en": return Locale(identifier: "en_US")
+        case "ru": return Locale(identifier: "ru_RU")
+        default:   return Locale(identifier: "az_AZ")
+        }
+    }
+}
+
 /// Layout variant for the shareable result card.
 ///
 /// - `square`: 1080×1080 — Instagram feed, Telegram, WhatsApp Status thumbnails.

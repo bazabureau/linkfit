@@ -14,15 +14,18 @@ struct SectionHeader: View {
             Spacer()
             if let action {
                 Button(action: action) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: DSSpacing.xxs) {
                         Text(actionLabel)
                         Image(systemName: "arrow.right")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(.caption2, design: .default, weight: .bold))
                     }
                     .font(.system(.footnote, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.accent)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(Text(actionLabel))
             }
         }
     }

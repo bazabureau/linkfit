@@ -86,15 +86,22 @@ struct StoryDrawCanvas: View {
     /// majority of "writing on a photo" use cases. Order picked so
     /// the highlight + lime accents sit near the start where the
     /// user's eye lands first.
-    private let palette: [(name: String, color: Color)] = [
-        ("white",  .white),
-        ("black",  .black),
-        ("lime",   DSColor.accent),       // brand lime
-        ("red",    Color(red: 0.95, green: 0.26, blue: 0.21)),
-        ("blue",   Color(red: 0.26, green: 0.52, blue: 0.96)),
-        ("yellow", Color(red: 0.98, green: 0.87, blue: 0.27)),
-        ("pink",   Color(red: 0.96, green: 0.40, blue: 0.69)),
-        ("orange", Color(red: 0.98, green: 0.60, blue: 0.20)),
+    /// Each entry pairs the ink colour with a localization key for its
+    /// VoiceOver label (`stories.draw.color.*`). The raw RGB triples
+    /// here are *drawing content* the user paints onto their photo —
+    /// not UI chrome — so they intentionally live outside `DSColor`,
+    /// which only governs app surfaces. The brand swatch reuses
+    /// `DSColor.accent` (royal blue) so painting in-brand stays one tap
+    /// away.
+    private let palette: [(key: LocalizedStringKey, color: Color)] = [
+        ("stories.draw.color.white",  .white),
+        ("stories.draw.color.black",  .black),
+        ("stories.draw.color.brand",  DSColor.accent),   // royal-blue brand accent
+        ("stories.draw.color.red",    Color(red: 0.95, green: 0.26, blue: 0.21)),
+        ("stories.draw.color.blue",   Color(red: 0.26, green: 0.52, blue: 0.96)),
+        ("stories.draw.color.yellow", Color(red: 0.98, green: 0.87, blue: 0.27)),
+        ("stories.draw.color.pink",   Color(red: 0.96, green: 0.40, blue: 0.69)),
+        ("stories.draw.color.orange", Color(red: 0.98, green: 0.60, blue: 0.20)),
     ]
 
     var body: some View {
@@ -149,7 +156,7 @@ struct StoryDrawCanvas: View {
             Spacer()
 
             Button {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                Haptics.medium()   // commit action — medium tier per the haptic ladder
                 // Serialise the strokes into the binary PencilKit
                 // representation. Empty drawings (user opened the
                 // canvas but didn't paint anything) still produce a
@@ -230,7 +237,7 @@ struct StoryDrawCanvas: View {
                         .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(Text(verbatim: entry.name))
+                .accessibilityLabel(Text(entry.key))
             }
         }
         .frame(maxWidth: .infinity)
@@ -262,7 +269,7 @@ struct StoryDrawCanvas: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(Text(verbatim: stop.accessibilityName))
+                .accessibilityLabel(Text(stop.accessibilityKey))
             }
         }
         .frame(maxWidth: .infinity)
@@ -361,15 +368,14 @@ private enum WidthStop: CaseIterable {
         }
     }
 
-    /// VoiceOver name. Not localised — the Aa-style brand-glyph
-    /// approach: the dot itself is the affordance, screen-reader
-    /// users get a stable English-language stop name. Future
-    /// localisation can swap these out.
-    var accessibilityName: String {
+    /// VoiceOver label key. The dot is the visual affordance; screen
+    /// reader users get a localised stop name (`stories.draw.width.*`)
+    /// so the control reads correctly in az/en/ru.
+    var accessibilityKey: LocalizedStringKey {
         switch self {
-        case .small:  return "small"
-        case .medium: return "medium"
-        case .large:  return "large"
+        case .small:  return "stories.draw.width.small"
+        case .medium: return "stories.draw.width.medium"
+        case .large:  return "stories.draw.width.large"
         }
     }
 }

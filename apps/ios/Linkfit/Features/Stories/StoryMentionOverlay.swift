@@ -64,7 +64,7 @@ struct StoryMentionOverlay: StoryOverlayPayload {
 /// Pure-presentation view for a mention chip on the canvas.
 ///
 /// Visual:
-///   • Pill: `DSColor.accent` (lime) background, `DSColor.textOnAccent` ink.
+///   • Pill: `DSColor.accent` (royal blue) background, `DSColor.textOnAccent` ink.
 ///   • Optional avatar prefix at 18pt circle — falls back to coloured
 ///     initials when `avatar_url` is missing or fails to load.
 ///   • Glyph text uses an explicit "@%@" format pulled from the localization
@@ -92,7 +92,7 @@ struct StoryMentionOverlayView: View {
             avatar
             Text(String(format: String(localized: "stories.mention.chip.format"),
                         overlay.display_name))
-                .font(.system(size: 15, weight: .heavy))
+                .font(DSType.cardTitle)
                 .foregroundStyle(DSColor.textOnAccent)
                 .lineLimit(1)
         }

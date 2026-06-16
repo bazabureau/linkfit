@@ -70,6 +70,8 @@ struct HomeHeroBanner: View {
                         .font(.system(.footnote, design: .default, weight: .bold))
                         .foregroundStyle(.white)
                 }
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text("home.your_profile"))
@@ -94,6 +96,8 @@ struct HomeHeroBanner: View {
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(.white)
                     }
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
                     if unreadCount > 0 {
                         Text(unreadCount > 9 ? "9+" : "\(unreadCount)")
                             .font(.system(size: 10, weight: .bold, design: .default))
@@ -115,7 +119,7 @@ struct HomeHeroBanner: View {
 
     private var title: some View {
         Text("home.title")
-            .font(.system(size: 32, weight: .heavy, design: .default))
+            .font(DSType.statValueLarge)
             .foregroundStyle(.white)
             .lineSpacing(1)
             .fixedSize(horizontal: false, vertical: true)

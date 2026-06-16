@@ -102,11 +102,11 @@ struct InsightsView: View {
 
     private func summaryKPI(_ resp: InsightsResponse) -> some View {
         HStack(spacing: DSSpacing.sm) {
-            kpi(titleKey: "insights.kpi.games",       value: "\(resp.total_games)",
+            kpi(titleKey: "insights.kpi.games",       value: formatNumber(resp.total_games),
                 icon: "calendar.badge.checkmark")
-            kpi(titleKey: "insights.kpi.elo",         value: "\(resp.current_elo)",
+            kpi(titleKey: "insights.kpi.elo",         value: formatNumber(resp.current_elo),
                 icon: "bolt.fill")
-            kpi(titleKey: "insights.kpi.reliability", value: "\(resp.current_reliability)%",
+            kpi(titleKey: "insights.kpi.reliability", value: formatPercent(resp.current_reliability),
                 icon: "shield.lefthalf.filled")
         }
     }
@@ -123,7 +123,10 @@ struct InsightsView: View {
             }
             Text(value)
                 .font(.system(size: 20, weight: .heavy, design: .default))
+                .monospacedDigit()
                 .foregroundStyle(DSColor.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
         .padding(DSSpacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -170,6 +173,7 @@ struct InsightsView: View {
             }
             .chartXAxis { axisDateMarks() }
             .chartYAxis { axisValueMarks() }
+            .environment(\.locale, appLocale)
             .frame(height: 200)
             .accessibilityLabel(Text("insights.chart.elo.title"))
             .accessibilityChartDescriptor(
@@ -213,6 +217,7 @@ struct InsightsView: View {
             .chartYScale(domain: 0...100)
             .chartXAxis { axisDateMarks() }
             .chartYAxis { axisValueMarks() }
+            .environment(\.locale, appLocale)
             .frame(height: 200)
             .accessibilityLabel(Text("insights.chart.winrate.title"))
             .accessibilityChartDescriptor(
@@ -240,6 +245,7 @@ struct InsightsView: View {
             }
             .chartXAxis { axisDateMarks() }
             .chartYAxis { axisValueMarks() }
+            .environment(\.locale, appLocale)
             .frame(height: 180)
             .accessibilityLabel(Text("insights.chart.gpw.title"))
             .accessibilityChartDescriptor(
@@ -257,7 +263,7 @@ struct InsightsView: View {
                 .foregroundStyle(DSColor.textPrimary)
             if resp.opponents.isEmpty {
                 Text("insights.chart.opponents.empty")
-                    .font(.system(.subheadline, design: .default))
+                    .font(DSType.bodyMedium)
                     .foregroundStyle(DSColor.textSecondary)
                     .padding(.vertical, DSSpacing.sm)
             } else {
@@ -292,7 +298,7 @@ struct InsightsView: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: opp.display_name)
-                    .font(.system(.subheadline, design: .default, weight: .bold))
+                    .font(DSType.bodyStrong)
                     .foregroundStyle(DSColor.textPrimary)
                     .lineLimit(1)
                 Text(String(format: String(localized: "insights.opponents.games_format"),
@@ -302,11 +308,12 @@ struct InsightsView: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text("\(Int(opp.win_rate.rounded()))%")
+                Text(formatPercent(Int(opp.win_rate.rounded())))
                     .font(DSType.cardTitle)
+                    .monospacedDigit()
                     .foregroundStyle(opp.win_rate >= 50 ? DSColor.success : DSColor.warning)
                 Text("insights.opponents.win_rate_label")
-                    .font(.system(.caption2, design: .default))
+                    .font(DSType.caption2)
                     .foregroundStyle(DSColor.textTertiary)
             }
         }
@@ -334,6 +341,7 @@ struct InsightsView: View {
             .chartYScale(domain: 0...100)
             .chartXAxis { axisDateMarks() }
             .chartYAxis { axisValueMarks() }
+            .environment(\.locale, appLocale)
             .frame(height: 160)
             .accessibilityLabel(Text("insights.chart.reliability.title"))
             .accessibilityChartDescriptor(
@@ -361,39 +369,40 @@ struct InsightsView: View {
                     .font(.system(size: 28, weight: .semibold))
                     .foregroundStyle(DSColor.accent)
             }
-            VStack(spacing: 4) {
+            VStack(spacing: DSSpacing.xxs) {
                 Text("insights.empty.title")
-                    .font(.system(size: 17, weight: .heavy))
+                    .font(DSType.sectionTitle)
                     .foregroundStyle(DSColor.textPrimary)
                 Text("insights.empty.message")
-                    .font(.system(size: 14, weight: .regular))
+                    .font(DSType.bodyMedium)
                     .foregroundStyle(DSColor.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, DSSpacing.xs)
             }
             Button {
                 Haptics.soft()
                 dismiss()
             } label: {
                 Text("insights.empty.cta")
-                    .font(.system(size: 14, weight: .heavy))
+                    .font(DSType.button)
                     .foregroundStyle(DSColor.textOnAccent)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, DSSpacing.md)
+                    .padding(.vertical, DSSpacing.xs)
+                    .frame(minHeight: 44)
                     .background(Capsule().fill(DSColor.accent))
             }
             .buttonStyle(.plain)
-            .padding(.top, 4)
+            .padding(.top, DSSpacing.xxs)
         }
-        .padding(28)
+        .padding(DSSpacing.lg)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(.ultraThinMaterial),
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1),
         )
     }
@@ -408,7 +417,7 @@ struct InsightsView: View {
                 .foregroundStyle(DSColor.textPrimary)
             Text(String(format: String(localized: "insights.threshold.message_format"),
                         InsightsViewModel.minGamesForCharts - resp.total_games))
-                .font(.system(.subheadline, design: .default))
+                .font(DSType.bodyMedium)
                 .foregroundStyle(DSColor.textSecondary)
                 .multilineTextAlignment(.center)
         }
@@ -504,6 +513,34 @@ struct InsightsView: View {
         fmt.timeZone = TimeZone(identifier: "UTC")
         fmt.dateFormat = "yyyy-MM-dd"
         return fmt.date(from: s)
+    }
+
+    /// The in-app language locale — derived from the same `UserDefaults` key
+    /// `Money`/`LocaleManager` read, mapped to the region-qualified locales the
+    /// app uses everywhere else. Drives number grouping (e.g. "1 450" vs
+    /// "1,450"), the decimal/percent separators and the chart axis labels so a
+    /// user who picked Azerbaijani sees Azerbaijani-formatted figures even on an
+    /// English-region device.
+    private var appLocale: Locale {
+        switch UserDefaults.standard.string(forKey: "LinkfitPreferredLanguage") {
+        case "en": return Locale(identifier: "en_US")
+        case "ru": return Locale(identifier: "ru_RU")
+        default:   return Locale(identifier: "az_AZ")
+        }
+    }
+
+    /// Group-separated integer in the app language (ELO, games, etc.).
+    private func formatNumber(_ value: Int) -> String {
+        value.formatted(.number.grouping(.automatic).locale(appLocale))
+    }
+
+    /// Whole-percent value in the app language. We keep the integer form the
+    /// backend emits but route the `%` through the locale so the symbol sits on
+    /// the correct side and uses the right separator.
+    private func formatPercent(_ value: Int) -> String {
+        (Double(value) / 100.0).formatted(
+            .percent.precision(.fractionLength(0)).locale(appLocale),
+        )
     }
 }
 

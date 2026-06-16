@@ -51,6 +51,11 @@ struct StoryReactionsBar: View {
     /// previous animation hasn't visually settled yet either.
     @State private var pulseEmoji: StoryReactionEmoji?
 
+    /// Honor Reduce Motion — the selection/pulse springs are decorative,
+    /// so under Reduce Motion we drop the spring and let the state change
+    /// apply instantly (no scale bounce).
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         HStack(spacing: 4) {
             ForEach(StoryReactionEmoji.allCases, id: \.self) { emoji in
@@ -104,9 +109,9 @@ struct StoryReactionsBar: View {
                     // pulsing = +0.18 transient. Both compose so a
                     // selected+pulsing tap reads as a "bigger pop"
                     // without two competing transforms.
-                    .scaleEffect((isSelected ? 1.12 : 1.0) * (isPulsing ? 1.18 : 1.0))
-                    .animation(.spring(response: 0.28, dampingFraction: 0.55), value: isSelected)
-                    .animation(.spring(response: 0.25, dampingFraction: 0.5), value: isPulsing)
+                    .scaleEffect(reduceMotion ? (isSelected ? 1.12 : 1.0) : (isSelected ? 1.12 : 1.0) * (isPulsing ? 1.18 : 1.0))
+                    .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.55), value: isSelected)
+                    .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.5), value: isPulsing)
                     // Drop shadow on the selected glyph — adds enough
                     // separation against the pill that the lime ring
                     // doesn't have to fight the emoji for contrast.
@@ -119,10 +124,10 @@ struct StoryReactionsBar: View {
                 // outer VStack re-layouts smoothly.
                 if count > 0 {
                     Text("\(count)")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(DSType.caption2)
                         .foregroundStyle(.white.opacity(0.9))
                         .monospacedDigit()
-                        .transition(.scale(scale: 0.6).combined(with: .opacity))
+                        .transition(reduceMotion ? .opacity : .scale(scale: 0.6).combined(with: .opacity))
                 }
             }
             .frame(minWidth: 44, minHeight: 44)

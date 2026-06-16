@@ -101,7 +101,7 @@ struct SquadsListView: View {
             ErrorStateView(message: m) { Task { await viewModel.load() } }
         case .loaded(let squads):
             ScrollView {
-                LazyVStack(spacing: 12) {
+                LazyVStack(spacing: DSSpacing.sm) {
                     ForEach(squads) { squad in
                         Button {
                             UISelectionFeedbackGenerator().selectionChanged()
@@ -113,8 +113,8 @@ struct SquadsListView: View {
                     }
                     Spacer().frame(height: 80)
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .padding(.horizontal, DSSpacing.md)
+                .padding(.top, DSSpacing.xs)
             }
             .scrollIndicators(.hidden)
         }
@@ -127,7 +127,7 @@ struct SquadsListView: View {
     /// copy, and a generous PrimaryButton — but uses the explicit
     /// AZ-first copy from the spec ("Squad yoxdur. İlk padel qrupunu yarat!").
     private var emptyState: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: DSSpacing.md + 2) {
             ZStack {
                 Circle()
                     .fill(DSColor.accent.opacity(0.16))
@@ -139,47 +139,47 @@ struct SquadsListView: View {
                     .font(.system(size: 36, weight: .semibold))
                     .foregroundStyle(DSColor.accent)
             }
-            VStack(spacing: 6) {
+            VStack(spacing: DSSpacing.xxs + 2) {
                 Text("squads.empty.title")
-                    .font(.system(size: 20, weight: .heavy))
+                    .font(DSType.sectionTitle)
                     .foregroundStyle(DSColor.textPrimary)
                     .multilineTextAlignment(.center)
                 Text("squads.empty.message")
-                    .font(.system(size: 14, weight: .regular))
+                    .font(DSType.bodyMedium)
                     .foregroundStyle(DSColor.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, DSSpacing.lg)
             }
             PrimaryButton(
                 title: String(localized: "squads.create"),
                 icon: "plus"
             ) {
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                UISelectionFeedbackGenerator().selectionChanged()
                 showCreate = true
             }
             .frame(maxWidth: 280)
-            .padding(.top, 4)
+            .padding(.top, DSSpacing.xxs)
         }
-        .padding(28)
+        .padding(DSSpacing.lg + 4)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var loadingSkeleton: some View {
         ScrollView {
-            VStack(spacing: 12) {
+            VStack(spacing: DSSpacing.sm) {
                 ForEach(0..<3, id: \.self) { _ in
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
                         .fill(.ultraThinMaterial)
                         .frame(height: 116)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
                                 .strokeBorder(DSColor.border.opacity(0.3), lineWidth: 1)
                         )
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
+            .padding(.horizontal, DSSpacing.md)
+            .padding(.top, DSSpacing.xs)
         }
         .scrollIndicators(.hidden)
     }
@@ -197,12 +197,12 @@ private struct SquadCard: View {
     let isOwner: Bool
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: DSSpacing.md - 2) {
             photoMedallion
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: DSSpacing.xxs) {
+                HStack(spacing: DSSpacing.xxs + 2) {
                     Text(squad.name)
-                        .font(.system(size: 16, weight: .heavy))
+                        .font(DSType.cardTitle)
                         .foregroundStyle(DSColor.textPrimary)
                         .lineLimit(1)
                     if isOwner {
@@ -210,16 +210,16 @@ private struct SquadCard: View {
                     }
                 }
                 Text(memberCountText)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(DSType.metaCaption)
                     .foregroundStyle(DSColor.textSecondary)
                     .monospacedDigit()
                 if let teaser = nextGameTeaser {
                     HStack(spacing: 5) {
                         Image(systemName: "calendar.badge.clock")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(DSType.caption2)
                             .foregroundStyle(DSColor.accent)
                         Text(teaser)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(DSType.metaCaption)
                             .foregroundStyle(DSColor.textSecondary)
                             .lineLimit(1)
                     }
@@ -228,17 +228,17 @@ private struct SquadCard: View {
             }
             Spacer(minLength: 6)
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(DSType.metaCaption)
                 .foregroundStyle(DSColor.textTertiary)
         }
-        .padding(14)
+        .padding(DSSpacing.md - 2)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
                 .fill(.ultraThinMaterial)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
                 .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
         )
         .contentShape(Rectangle())
@@ -264,9 +264,9 @@ private struct SquadCard: View {
             }
         }
         .frame(width: 56, height: 56)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                 .strokeBorder(DSColor.border.opacity(0.5), lineWidth: 1)
         )
     }
@@ -281,6 +281,7 @@ private struct SquadCard: View {
             Text(initials(squad.name))
                 .font(.system(size: 18, weight: .heavy))
                 .foregroundStyle(DSColor.textOnAccent)
+                .minimumScaleFactor(0.7)
         }
     }
 
@@ -319,17 +320,14 @@ private struct SquadCard: View {
 
     /// Best-effort short representation of an ISO timestamp. Falls back
     /// to the raw string if parsing fails so the cell never goes blank
-    /// on an unexpected wire format.
+    /// on an unexpected wire format. Parses via the centralised
+    /// `Date.fromISO` (handles the API's fractional-seconds shape) and
+    /// formats in the in-app language so an Azerbaijani user sees an
+    /// Azerbaijani date even on an English-region device.
     private func shortDate(_ iso: String) -> String {
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        var date = isoFormatter.date(from: iso)
-        if date == nil {
-            isoFormatter.formatOptions = [.withInternetDateTime]
-            date = isoFormatter.date(from: iso)
-        }
-        guard let d = date else { return iso }
+        guard let d = Date.fromISO(iso) else { return iso }
         let formatter = DateFormatter()
+        formatter.locale = SquadsLocale.current
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return formatter.string(from: d)
@@ -338,5 +336,22 @@ private struct SquadCard: View {
     private func initials(_ name: String) -> String {
         let parts = name.split(separator: " ").prefix(2).map { $0.prefix(1).uppercased() }
         return parts.joined().isEmpty ? "?" : parts.joined()
+    }
+}
+
+// MARK: - Locale
+
+/// In-app language locale for the Squads date formatters. Mirrors the
+/// canonical mapping in `Money` / `LocaleManager` / `HomeCardLocale`
+/// (same `UserDefaults` key) so a user who picks Azerbaijani sees
+/// Azerbaijani-formatted dates even on an English-region device. Kept
+/// local to the Squads area because this audit pass is scoped here.
+enum SquadsLocale {
+    static var current: Locale {
+        switch UserDefaults.standard.string(forKey: "LinkfitPreferredLanguage") {
+        case "en": return Locale(identifier: "en_US")
+        case "ru": return Locale(identifier: "ru_RU")
+        default:   return Locale(identifier: "az_AZ")
+        }
     }
 }

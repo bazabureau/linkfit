@@ -13,7 +13,7 @@ struct RecurringGameSheet: View {
 
     var body: some View {
         ZStack {
-            DSColor.background.ignoresSafeArea()
+            AppGlassBackground()
 
             // After a successful create, the form is swapped out for a
             // success card so the user gets a clean "12 games scheduled"
@@ -68,7 +68,7 @@ struct RecurringGameSheet: View {
                     Image(systemName: "xmark")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(DSColor.textPrimary)
-                        .frame(width: 40, height: 40)
+                        .frame(width: 44, height: 44)
                         .background(Circle().fill(DSColor.surfaceElevated))
                 }
                 .buttonStyle(.plain)
@@ -383,13 +383,12 @@ struct RecurringGameSheet: View {
     }
 
     private func formatted(starts_at: String) -> String {
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = iso.date(from: starts_at) ?? ISO8601DateFormatter().date(from: starts_at)
+        // Centralised parser handles the API's fractional-seconds form.
+        guard let date = Date.fromISO(starts_at) else { return starts_at }
         let f = DateFormatter()
         f.dateStyle = .medium
         f.timeStyle = .short
-        return f.string(from: date ?? Date())
+        return f.string(from: date)
     }
 }
 

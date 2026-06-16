@@ -160,6 +160,10 @@ struct StoryEditorView: View {
                     .foregroundStyle(.white)
                     .frame(width: 36, height: 36)
                     .background(Color.black.opacity(0.4), in: Circle())
+                    // Visible disc stays 36pt, but expand the hit area to
+                    // the 44pt HIG minimum so a small thumb still lands.
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text("stories.editor.close"))
@@ -179,8 +183,13 @@ struct StoryEditorView: View {
                     .foregroundStyle(.white)
                     .frame(width: 40, height: 40)
                     .background(Color.black.opacity(0.4), in: Circle())
+                    // 40pt disc matches the sibling tool buttons; bump the
+                    // hit area to 44pt for the HIG minimum tap target.
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(Text("stories.text.tool.label"))
 
             // Sibling-agent buttons. References-by-type-name so this
             // file fails to build until W12-3 (`MentionToolButton`) and
@@ -206,7 +215,7 @@ struct StoryEditorView: View {
         HStack {
             Spacer()
             Button {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                Haptics.medium()
                 // Burn the overlays into the bitmap so they actually show
                 // up in the posted story. With no overlays we keep the bare
                 // filtered photo (no letterboxing a plain photo onto black).
@@ -220,7 +229,7 @@ struct StoryEditorView: View {
             } label: {
                 HStack(spacing: 6) {
                     Text("stories.editor.next")
-                        .font(.system(size: 15, weight: .heavy))
+                        .font(DSType.button)
                     Image(systemName: "arrow.right")
                         .font(.system(size: 14, weight: .bold))
                 }
@@ -360,7 +369,7 @@ struct StoryEditorView: View {
             // Double-tap → confirm-delete. We don't auto-delete because
             // the gesture is easy to fire accidentally with a wide
             // finger over a small overlay.
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.soft()
             selectedID = id
             viewModel.requestDelete(id)
         }

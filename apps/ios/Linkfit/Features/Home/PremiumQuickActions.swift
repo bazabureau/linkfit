@@ -19,8 +19,8 @@ struct PremiumQuickActions: View {
     var onTournaments: () -> Void
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
+        VStack(spacing: DSSpacing.sm) {
+            HStack(spacing: DSSpacing.sm) {
                 actionCard(
                     icon: "plus.circle.fill",
                     titleKey: "home.action.create_game",
@@ -34,7 +34,7 @@ struct PremiumQuickActions: View {
                     action: onFind
                 )
             }
-            HStack(spacing: 12) {
+            HStack(spacing: DSSpacing.sm) {
                 actionCard(
                     icon: "calendar.badge.plus",
                     titleKey: "home.action.book_court",
@@ -75,14 +75,12 @@ private struct QuickActionCard: View {
     let subtitleKey: LocalizedStringKey
     let action: () -> Void
 
-    @State private var pressed = false
-
     var body: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.soft()
             action()
         } label: {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: DSSpacing.xs) {
                 ZStack {
                     Circle()
                         .fill(DSColor.accent.opacity(0.18))
@@ -91,6 +89,7 @@ private struct QuickActionCard: View {
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(DSColor.accent)
                 }
+                .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(titleKey)
@@ -105,7 +104,7 @@ private struct QuickActionCard: View {
                         .minimumScaleFactor(0.85)
                 }
             }
-            .padding(14)
+            .padding(DSSpacing.md)
             .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -115,14 +114,7 @@ private struct QuickActionCard: View {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .strokeBorder(DSColor.accent.opacity(0.22), lineWidth: 1)
             )
-            .scaleEffect(pressed ? 0.97 : 1)
-            .animation(.spring(response: 0.25, dampingFraction: 0.78), value: pressed)
         }
-        .buttonStyle(.plain)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in pressed = true }
-                .onEnded { _ in pressed = false }
-        )
+        .buttonStyle(SpringPressStyle())
     }
 }

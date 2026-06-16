@@ -65,7 +65,7 @@ struct TutorialOverlay: View {
     // MARK: - Bottom bar
 
     private var bottomBar: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: DSSpacing.md) {
             ProgressPills(
                 count: cards.count,
                 active: index,
@@ -83,9 +83,9 @@ struct TutorialOverlay: View {
             )
             .accessibilityLabel(isLast ? Text("tutorial.action.start") : Text("tutorial.action.next"))
         }
-        .padding(.horizontal, 20)
-        .padding(.bottom, 14)
-        .safeAreaPadding(.bottom, 10)
+        .padding(.horizontal, DSSpacing.lg)
+        .padding(.bottom, DSSpacing.sm)
+        .safeAreaPadding(.bottom, DSSpacing.xs)
     }
 
     private var isLast: Bool { index == cards.count - 1 }
@@ -160,7 +160,7 @@ private struct TutorialCardView: View {
     let card: TutorialCard
 
     var body: some View {
-        VStack(spacing: 28) {
+        VStack(spacing: DSSpacing.xl) {
             Spacer(minLength: 0)
 
             ZStack {
@@ -178,11 +178,13 @@ private struct TutorialCardView: View {
                     .accessibilityHidden(true)
             }
 
-            VStack(spacing: 12) {
+            VStack(spacing: DSSpacing.sm) {
                 Text(card.titleKey)
                     .font(DSType.heroTitle)
                     .foregroundStyle(DSColor.textPrimary)
                     .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.88)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(card.bodyKey)
@@ -191,9 +193,9 @@ private struct TutorialCardView: View {
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, DSSpacing.sm)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, DSSpacing.lg)
 
             Spacer(minLength: 0)
             // Pad bottom so content clears the fixed CTA + pills below.

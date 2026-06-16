@@ -107,6 +107,9 @@ struct StoryTextEditorSheet: View {
                     .foregroundStyle(.white)
                     .frame(width: 36, height: 36)
                     .background(Color.black.opacity(0.4), in: Circle())
+                    // 36pt disc, 44pt hit area (HIG minimum tap target).
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text("common.close"))
@@ -117,7 +120,7 @@ struct StoryTextEditorSheet: View {
                 commit()
             } label: {
                 Text("stories.text.done")
-                    .font(.system(size: 15, weight: .heavy))
+                    .font(DSType.button)
                     .foregroundStyle(DSColor.textOnAccent)
                     .padding(.horizontal, 18)
                     .padding(.vertical, 9)
@@ -141,11 +144,14 @@ struct StoryTextEditorSheet: View {
     /// Six-swatch palette. Selected swatch gets a lime ring so the user
     /// can tell their pick from the others without a checkmark badge.
     private var colorRow: some View {
-        HStack(spacing: 14) {
+        // Swatches carry their own 44pt hit frames (16pt of padding around
+        // each 28pt disc), so no extra inter-item spacing is needed — that
+        // keeps six swatches + rings comfortably within the narrowest phone.
+        HStack(spacing: 0) {
             ForEach(StoryTextOverlay.ColorOption.allCases, id: \.self) { option in
                 Button {
                     color = option
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    Haptics.soft()
                 } label: {
                     Circle()
                         .fill(option.swiftUIColor)
@@ -162,6 +168,9 @@ struct StoryTextEditorSheet: View {
                                 )
                                 .padding(-4)
                         )
+                        // 28pt swatch, 44pt hit area (HIG minimum tap target).
+                        .frame(width: 44, height: 44)
+                        .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("stories.text.color"))
@@ -175,13 +184,16 @@ struct StoryTextEditorSheet: View {
         HStack(spacing: 18) {
             Button {
                 cycleAlignment()
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                Haptics.soft()
             } label: {
                 Image(systemName: alignment.symbolName)
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 40, height: 40)
                     .background(Color.black.opacity(0.4), in: Circle())
+                    // 40pt disc, 44pt hit area (HIG minimum tap target).
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text("stories.text.align"))

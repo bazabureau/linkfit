@@ -86,7 +86,7 @@ struct CreateSquadView: View {
     }
 
     private var heroHeader: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: DSSpacing.sm - 2) {
             ZStack {
                 Circle()
                     .fill(DSColor.accent.opacity(0.16))
@@ -95,14 +95,16 @@ struct CreateSquadView: View {
                     .font(.system(size: 28, weight: .semibold))
                     .foregroundStyle(DSColor.accent)
             }
+            .accessibilityHidden(true)
             Text("squads.create.title")
                 .font(.system(size: 22, weight: .heavy))
                 .foregroundStyle(DSColor.textPrimary)
+                .accessibilityAddTraits(.isHeader)
             Text("squads.create.subtitle")
-                .font(.system(size: 13, weight: .medium))
+                .font(DSType.bodyMedium)
                 .foregroundStyle(DSColor.textSecondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
+                .padding(.horizontal, DSSpacing.xl)
         }
     }
 
@@ -130,25 +132,25 @@ struct CreateSquadView: View {
 
     private var nameSection: some View {
         sectionShell(titleKey: "squads.field.name") {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: DSSpacing.xxs + 2) {
                 TextField(text: $viewModel.name) {
                     Text("squads.field.name.placeholder")
                 }
                 .textInputAutocapitalization(.words)
                 .submitLabel(.next)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
+                .padding(.horizontal, DSSpacing.md - 2)
+                .padding(.vertical, DSSpacing.sm)
                 .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    RoundedRectangle(cornerRadius: DSRadius.md + 2, style: .continuous)
                         .fill(DSColor.surface)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    RoundedRectangle(cornerRadius: DSRadius.md + 2, style: .continuous)
                         .strokeBorder(DSColor.border.opacity(0.5), lineWidth: 1)
                 )
                 Text(String(format: String(localized: "squads.field.name.counter_format"),
                             viewModel.name.count))
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(DSType.caption2)
                     .foregroundStyle(DSColor.textTertiary)
                     .monospacedDigit()
             }
@@ -162,26 +164,26 @@ struct CreateSquadView: View {
             ZStack(alignment: .topLeading) {
                 if viewModel.description.isEmpty {
                     Text("squads.field.description.placeholder")
-                        .font(.system(size: 14))
+                        .font(DSType.bodyMedium)
                         .foregroundStyle(DSColor.textTertiary)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 14)
+                        .padding(.horizontal, DSSpacing.md)
+                        .padding(.top, DSSpacing.md - 2)
                         .allowsHitTesting(false)
                 }
                 TextEditor(text: $viewModel.description)
-                    .font(.system(size: 14))
+                    .font(DSType.bodyMedium)
                     .foregroundStyle(DSColor.textPrimary)
                     .scrollContentBackground(.hidden)
                     .frame(minHeight: 88)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, DSSpacing.sm - 2)
+                    .padding(.vertical, DSSpacing.xxs + 2)
             }
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.md + 2, style: .continuous)
                     .fill(DSColor.surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.md + 2, style: .continuous)
                     .strokeBorder(DSColor.border.opacity(0.5), lineWidth: 1)
             )
         }
@@ -191,28 +193,28 @@ struct CreateSquadView: View {
 
     private var sizeSection: some View {
         sectionShell(titleKey: "squads.field.max_size") {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: DSSpacing.sm - 2) {
                 HStack {
                     Text(String(format: String(localized: "squads.field.max_size.value_format"),
                                 viewModel.maxSize))
-                        .font(.system(size: 18, weight: .heavy))
+                        .font(DSType.sectionTitle)
                         .foregroundStyle(DSColor.textPrimary)
                         .monospacedDigit()
                     Spacer()
                     stepperControl
                 }
                 Text("squads.field.max_size.hint")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(DSType.caption2)
                     .foregroundStyle(DSColor.textSecondary)
                     .lineLimit(2)
             }
-            .padding(14)
+            .padding(DSSpacing.md - 2)
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.lg + 2, style: .continuous)
                     .fill(.ultraThinMaterial)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.lg + 2, style: .continuous)
                     .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
             )
         }
@@ -248,7 +250,8 @@ struct CreateSquadView: View {
             Image(systemName: systemImage)
                 .font(.system(size: 14, weight: .heavy))
                 .foregroundStyle(enabled ? DSColor.accent : DSColor.textTertiary)
-                .frame(width: 42, height: 36)
+                .frame(width: 48, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
@@ -260,15 +263,16 @@ struct CreateSquadView: View {
     private var submitBar: some View {
         VStack(spacing: 0) {
             if let err = viewModel.formError {
-                HStack(spacing: 6) {
+                HStack(spacing: DSSpacing.xxs + 2) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 12, weight: .bold))
                     Text(err)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(DSType.metaCaption)
                 }
                 .foregroundStyle(DSColor.danger)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
+                .padding(.horizontal, DSSpacing.md)
+                .padding(.bottom, DSSpacing.xs)
+                .accessibilityElement(children: .combine)
             }
             PrimaryButton(
                 title: String(localized: "squads.create.submit"),
@@ -283,8 +287,8 @@ struct CreateSquadView: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 18)
+            .padding(.horizontal, DSSpacing.md)
+            .padding(.bottom, DSSpacing.md + 2)
         }
         .background(
             LinearGradient(
@@ -300,20 +304,21 @@ struct CreateSquadView: View {
 
     // MARK: - Section shell
 
-    /// Reusable section block — small uppercase microlabel + content.
+    /// Reusable section block — small sentence-case microlabel + content.
     /// Same pattern `CreateGameView.sectionShell` uses; lifted here so
     /// the two flows feel like siblings.
     private func sectionShell<Content: View>(
         titleKey: LocalizedStringKey,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DSSpacing.xs) {
             Text(titleKey)
-                .font(.system(size: 11, weight: .heavy))
+                .font(DSType.badge)
                 .foregroundStyle(DSColor.textTertiary)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, DSSpacing.md + 4)
+                .accessibilityAddTraits(.isHeader)
             content()
-                .padding(.horizontal, 16)
+                .padding(.horizontal, DSSpacing.md)
         }
     }
 }
@@ -334,7 +339,7 @@ private struct PhotoPickerLabel: View {
     let image: UIImage?
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: DSSpacing.md - 2) {
             ZStack {
                 if let image {
                     Image(uiImage: image)
@@ -351,35 +356,39 @@ private struct PhotoPickerLabel: View {
                 }
             }
             .frame(width: 60, height: 60)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: DSRadius.md + 2, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.md + 2, style: .continuous)
                     .strokeBorder(DSColor.border.opacity(0.5), lineWidth: 1)
             )
+            .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(image == nil
                      ? "squads.field.photo.cta.add"
                      : "squads.field.photo.cta.change")
-                    .font(.system(size: 14, weight: .heavy))
+                    .font(DSType.bodyStrong)
                     .foregroundStyle(DSColor.textPrimary)
                 Text("squads.field.photo.hint")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(DSType.caption2)
                     .foregroundStyle(DSColor.textSecondary)
                     .lineLimit(2)
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(DSType.metaCaption)
                 .foregroundStyle(DSColor.textTertiary)
+                .accessibilityHidden(true)
         }
-        .padding(14)
+        .padding(DSSpacing.md - 2)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.lg + 2, style: .continuous)
                 .fill(.ultraThinMaterial)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.lg + 2, style: .continuous)
                 .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
         )
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
     }
 }

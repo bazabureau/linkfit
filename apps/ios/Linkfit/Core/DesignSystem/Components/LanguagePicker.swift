@@ -12,23 +12,28 @@ struct LanguagePicker: View {
                     language.current = lang
                     UISelectionFeedbackGenerator().selectionChanged()
                 } label: {
-                    Label(lang.displayKey, systemImage: lang == language.current ? "checkmark" : "")
+                    if lang == language.current {
+                        Label(lang.displayKey, systemImage: "checkmark")
+                    } else {
+                        Text(lang.displayKey)
+                    }
                 }
             }
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: DSSpacing.xxs) {
                 Image(systemName: "globe")
                     .font(.system(size: 12, weight: .semibold))
                 Text(language.current.displayKey)
-                    .font(.system(.footnote, design: .default, weight: .semibold))
+                    .font(DSType.metaCaption)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .bold))
             }
             .foregroundStyle(DSColor.textPrimary)
             .padding(.horizontal, DSSpacing.sm)
-            .padding(.vertical, 8)
+            .frame(minHeight: 44)
             .background(Capsule().fill(DSColor.surface.opacity(0.6)))
             .overlay(Capsule().strokeBorder(DSColor.border, lineWidth: 1))
         }
+        .accessibilityLabel(Text("settings.language"))
     }
 }

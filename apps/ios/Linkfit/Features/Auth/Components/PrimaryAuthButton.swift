@@ -34,7 +34,7 @@ struct PrimaryAuthButton: View {
                 // Disabled keeps the brand fill at reduced strength so the
                 // button still reads as "the action lives here" instead of
                 // a dead gray slab; enabling it just turns the light on.
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: isEnabled
@@ -48,7 +48,7 @@ struct PrimaryAuthButton: View {
             .overlay(
                 // Hairline top highlight gives the pill a slight convex
                 // "pressable" sheen without resorting to heavy gloss.
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                     .strokeBorder(DSColor.textOnAccent.opacity(isEnabled ? 0.18 : 0.08), lineWidth: 1)
                     .blendMode(.plusLighter)
             )

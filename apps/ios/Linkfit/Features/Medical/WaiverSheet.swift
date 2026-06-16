@@ -129,7 +129,7 @@ struct WaiverSheet: View {
     private var agreeRow: some View {
         Button {
             agreed.toggle()
-            UISelectionFeedbackGenerator().selectionChanged()
+            Haptics.selection()
         } label: {
             HStack(spacing: DSSpacing.sm) {
                 Image(systemName: agreed ? "checkmark.square.fill" : "square")
@@ -169,8 +169,11 @@ struct WaiverSheet: View {
                 Task {
                     let ok = await viewModel.sign(tournamentId: tournamentId)
                     if ok {
+                        Haptics.success()
                         onSigned()
                         dismiss()
+                    } else {
+                        Haptics.error()
                     }
                 }
             }
