@@ -436,11 +436,18 @@ struct HomeView: View {
                 apiClient: container.apiClient,
                 currentUserId: container.currentUser?.id
             )
-            profile = ProfileViewModel(
-                apiClient: container.apiClient,
-                userId: container.currentUser?.id ?? "",
-                container: container
-            )
+            // Only bind once we actually have the signed-in id. On a cold
+            // launch with a restored session this can still be nil here
+            // (AppShell.loadMe hydrates it async); the `.onChange` below
+            // binds it the moment it arrives, so we leave the tab empty
+            // rather than seeding a broken `userId: ""` VM.
+            if let uid = container.currentUser?.id, !uid.isEmpty {
+                profile = ProfileViewModel(
+                    apiClient: container.apiClient,
+                    userId: uid,
+                    container: container
+                )
+            }
             // Stories rail — re-bind to the real APIClient (the stub was
             // wired in at @State init time) and kick off the first fetch.
             // Idempotent: `loadIfNeeded()` returns early on tab re-mount
@@ -464,6 +471,27 @@ struct HomeView: View {
             // simply refreshes the cached payload.
             await versionGate.check()
             await loadJoinedGames()
+        }
+        // Cold-launch hydration race: when the session is restored from the
+        // keychain, `AppShell.loadMe()` populates `currentUser` asynchronously,
+        // which can land AFTER the `.task` above re-bound the per-user VMs with
+        // an empty id (`currentUser?.id ?? ""`). That left the Profile tab
+        // fetching `/users//profile` + `/users//streaks` → a not-found screen.
+        // Re-bind the Profile / Matches VMs the moment the real signed-in id
+        // arrives so they target the user instead of "".
+        .onChange(of: container.currentUser?.id) { _, newId in
+            guard let newId, !newId.isEmpty else { return }
+            if profile?.userId != newId {
+                profile = ProfileViewModel(
+                    apiClient: container.apiClient,
+                    userId: newId,
+                    container: container
+                )
+            }
+            matches = MatchesViewModel(
+                apiClient: container.apiClient,
+                currentUserId: newId
+            )
         }
         // Deep-link consume — separate `.task` from the main load chain so
         // a parallel edit to that block doesn't merge-conflict with this
@@ -549,7 +577,11 @@ struct HomeView: View {
             NavigationStack(path: $profilePath) {
                 Group {
                     if let profile {
+                        // Re-identify on userId so a re-bind (once the signed-in
+                        // id hydrates) rebuilds ProfileView with the new VM
+                        // instead of keeping its stale @State copy.
                         ProfileView(viewModel: profile)
+                            .id(profile.userId)
                     } else {
                         // First-pass before `.task` hydrates `profile`.
                         // Renders nothing visible; the tab is still
