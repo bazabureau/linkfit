@@ -9,7 +9,11 @@ class AppInfoController extends ApiController
     public function version(): JsonResponse
     {
         $latestVersion = config('services.linkfit.latest_version', '1.0.0');
-        $latestBuild = (int) config('services.linkfit.ios_latest_build', 14);
+        // Keep this equal to the build currently shipping to users (CURRENT_PROJECT_VERSION,
+        // presently 13). If it's HIGHER than the installed build, every user sees a false
+        // "Yeni versiya mövcuddur" soft banner pointing at a build that doesn't exist. Bump
+        // it only when a newer build is actually live on the App Store / TestFlight.
+        $latestBuild = (int) config('services.linkfit.ios_latest_build', 13);
         $minSupportedBuild = (int) config('services.linkfit.ios_min_supported_build', 1);
         $forceUpdate = (bool) config('services.linkfit.ios_force_update', false);
         $releaseNotesUrl = config('services.linkfit.ios_release_notes_url');
