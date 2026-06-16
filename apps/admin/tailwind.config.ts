@@ -6,22 +6,22 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Linkfit dark palette — mirrors iOS tokens.
-        background: "#0A0E14",
-        surface: "#141A22",
-        surfaceElevated: "#1E2530",
-        border: "#262F3D",
-        muted: "#8A94A6",
-        foreground: "#E6EAF2",
-        foregroundMuted: "#9CA6B8",
+        // Linkfit admin light palette.
+        background: "#F4F7F8",
+        surface: "#FFFFFF",
+        surfaceElevated: "#F8FAFB",
+        border: "#D7DEE4",
+        muted: "#7B8794",
+        foreground: "#101820",
+        foregroundMuted: "#606C7C",
         accent: {
-          DEFAULT: "#D7FF19",
-          hover: "#C4F000",
-          subtle: "#D7FF191A",
+          DEFAULT: "#B7F233",
+          hover: "#A5DF22",
+          subtle: "#B7F23333",
         },
         // Brand alias used by feature pages.
         brand: {
-          green: "#D7FF19",
+          green: "#B7F233",
         },
         danger: {
           DEFAULT: "#EF4444",
@@ -53,7 +53,7 @@ const config: Config = {
         "2xl": "1.125rem",
       },
       boxShadow: {
-        card: "0 1px 0 rgba(255,255,255,0.04), 0 8px 24px rgba(0,0,0,0.35)",
+        card: "0 1px 2px rgba(16,24,32,0.04), 0 14px 34px rgba(16,24,32,0.08)",
       },
     },
   },

@@ -14,18 +14,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="az" className="dark" suppressHydrationWarning>
+    <html lang="az" suppressHydrationWarning>
       <body className="min-h-screen bg-background text-foreground antialiased">
         <I18nProvider>
           {children}
           <Toaster
-            theme="dark"
+            theme="light"
             position="top-right"
             toastOptions={{
               style: {
-                background: "#141A22",
-                border: "1px solid #262F3D",
-                color: "#E6EAF2",
+                background: "#FFFFFF",
+                border: "1px solid #D7DEE4",
+                color: "#101820",
               },
             }}
           />

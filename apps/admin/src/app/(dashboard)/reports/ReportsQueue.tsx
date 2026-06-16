@@ -84,7 +84,7 @@ export function ReportsQueue() {
               className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
                 filter === f.key
                   ? "bg-accent text-black"
-                  : "bg-surfaceElevated text-foreground hover:bg-[#2a3340]"
+                  : "bg-surfaceElevated text-foreground hover:bg-white"
               }`}
             >
               {f.label}

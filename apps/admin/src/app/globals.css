@@ -3,13 +3,13 @@
 @tailwind utilities;
 
 :root {
-  --background: 10 14 20; /* #0A0E14 */
-  --surface: 20 26 34; /* #141A22 */
-  --surface-elevated: 30 37 48; /* #1E2530 */
-  --border: 38 47 61; /* #262F3D */
-  --foreground: 230 234 242; /* #E6EAF2 */
-  --foreground-muted: 156 166 184; /* #9CA6B8 */
-  --accent: 215 255 25; /* #D7FF19 */
+  --background: 244 247 248; /* #F4F7F8 */
+  --surface: 255 255 255; /* #FFFFFF */
+  --surface-elevated: 248 250 251; /* #F8FAFB */
+  --border: 215 222 228; /* #D7DEE4 */
+  --foreground: 16 24 32; /* #101820 */
+  --foreground-muted: 96 108 124; /* #606C7C */
+  --accent: 183 242 51; /* #B7F233 */
 }
 
 html,
@@ -42,7 +42,7 @@ textarea {
   }
 }
 
-/* Subtle scrollbars on the dark theme */
+/* Subtle scrollbars on the light admin theme */
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -51,11 +51,11 @@ textarea {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: rgba(156, 166, 184, 0.15);
+  background: rgba(96, 108, 124, 0.2);
   border-radius: 8px;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: rgba(156, 166, 184, 0.3);
+  background: rgba(96, 108, 124, 0.36);
 }
 
 /* Default focus ring uses accent */

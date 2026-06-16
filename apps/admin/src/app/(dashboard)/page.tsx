@@ -156,17 +156,17 @@ export default function AdminOverviewPage() {
                     >
                       <CartesianGrid
                         strokeDasharray="3 3"
-                        stroke="rgba(255,255,255,0.06)"
+                        stroke="rgba(96,108,124,0.18)"
                       />
                       <XAxis
                         dataKey="name"
-                        tick={{ fill: "#9CA6B8", fontSize: 11 }}
+                        tick={{ fill: "#606C7C", fontSize: 11 }}
                         tickLine={false}
                         axisLine={false}
                         interval={0}
                       />
                       <YAxis
-                        tick={{ fill: "#9CA6B8", fontSize: 11 }}
+                        tick={{ fill: "#606C7C", fontSize: 11 }}
                         tickLine={false}
                         axisLine={false}
                         allowDecimals={false}
@@ -174,16 +174,16 @@ export default function AdminOverviewPage() {
                       <Tooltip
                         cursor={{ fill: "rgba(34,197,94,0.08)" }}
                         contentStyle={{
-                          background: "#141A22",
-                          border: "1px solid #262F3D",
+                          background: "#FFFFFF",
+                          border: "1px solid #D7DEE4",
                           borderRadius: 8,
                           fontSize: 12,
-                          color: "#E6EAF2",
+                          color: "#101820",
                         }}
                       />
                       <Bar
                         dataKey="game_count"
-                        fill="#22C55E"
+                        fill="#B7F233"
                         radius={[4, 4, 0, 0]}
                       />
                     </BarChart>
