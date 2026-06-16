@@ -215,27 +215,6 @@ final class HomeViewModel: NSObject, CLLocationManagerDelegate {
 
     // MARK: - Quick feed preview
     //
-    // Home renders a 3-row "Friend activity" mini-section to surface the
-    // otherwise-orphaned FeedView. We deliberately don't pull in the full
-    // `FeedViewModel` here — that ships with pagination, state machines, and
-    // cursor handling that don't belong on the home screen. Instead we keep
-    // a flat `[FeedEvent]` cache and fire a one-shot `?limit=3` fetch
-    // alongside the existing home loads. A failure (auth dropped, offline,
-    // empty network) leaves the cache empty so the host can hide the
-    // section silently — see `HomeView.friendActivitySection`.
-    private(set) var quickFeed: [FeedEvent] = []
-
-    func loadQuickFeed() async {
-        do {
-            let page = try await apiClient.send(Endpoint<FeedPage>.feed(limit: 3))
-            if Task.isCancelled { return }
-            quickFeed = page.items
-        } catch {
-            // Best-effort. Empty cache hides the section — no visible error.
-            quickFeed = []
-        }
-    }
-
     // MARK: - Widget snapshot
     //
     // Picks the closest *upcoming* match from the freshly-loaded feed and

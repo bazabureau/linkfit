@@ -93,13 +93,6 @@ struct HomeView: View {
     @State private var presentedStoryGroup: StoryGroup?
     @State private var showStoryCreator: Bool = false
 
-    /// Per-day dismissal of the "Tanış olmaq istəyə bilərsən" rail.
-    /// Persisted as `home.suggested.dismissed.<YYYY-MM-DD>` so the rail
-    /// re-appears the next calendar day without us needing to schedule
-    /// a midnight clear. We store today's date here as @State so the
-    /// rail re-hides instantly after the dismiss tap (without waiting
-    /// for the next view re-evaluation to read UserDefaults).
-    @State private var suggestedRailDismissedToday: Bool = false
 
     /// Holds the freshly-created game's id so we can present the
     /// post-create invite sheet (followers multi-select). `nil` when no
@@ -461,19 +454,10 @@ struct HomeView: View {
             // automatically to surface the next-priority row.
             announcements = AnnouncementsViewModel(apiClient: container.apiClient)
             await announcements.load()
-            // Hydrate today's per-day dismissal flag for the
-            // "Tanış olmaq istəyə bilərsən" rail. Reads
-            // `home.suggested.dismissed.<YYYY-MM-DD>` from UserDefaults.
-            hydrateSuggestedDismissedFlag()
             await loadNearbyPlayers()
             await venues.load()
             await tournaments.load()
             await loadProfileSnapshot()
-            // Fire-and-await: a one-shot `GET /api/v1/feed?limit=3` for
-            // the "Friend activity" mini-section. Empty/failed
-            // responses hide the section silently (see
-            // `friendActivitySection`) so this load is best-effort.
-            await viewModel.loadQuickFeed()
             // Re-run the version probe on home appear in case the
             // launch-time check from `LinkfitApp.task` was racing the
             // first SwiftUI layout pass. Idempotent: a second probe
@@ -849,19 +833,19 @@ struct HomeView: View {
                     // Your level snapshot (rating / games / win rate).
                     homeStatsSnapshot
 
-                    // Suggested discovery rail
-                    if shouldShowSuggestedRail {
-                        SuggestedFollowsHook.makeRail(
-                            container: container,
-                            onTapUser: { userId in
-                                homePath.append(HomeRoute.profile(userId))
-                            },
-                            onDismiss: dismissSuggestedRailForToday
-                        )
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
+                    // Courts first. Linkfit is a padel app, not a social feed —
+                    // nearby clubs sit right under the hero so booking a court is
+                    // the primary path. (Removed the suggested-follows rail and
+                    // the friends'-activity feed: no social-media stream on Home.)
+                    nearbyClubsSection
+                        .homeSectionReveal(enabled: !reduceMotion)
 
-                    // MARK: - Daily Challenges
+                    // Find players to play with — a utility for the core loop,
+                    // not a follow / activity feed.
+                    playersSection
+                        .homeSectionReveal(enabled: !reduceMotion)
+
+                    // MARK: - Daily Challenges (padel engagement goals)
                     ChallengesHook.makeCard(
                         container: container,
                         onTap: { code in
@@ -884,17 +868,6 @@ struct HomeView: View {
                         }
                     )
 
-                    // Friends' recent activity (quickFeed) — self-hides
-                    // when empty. Was fetched on every load but never shown.
-                    friendActivitySection
-                        .homeSectionReveal(enabled: !reduceMotion)
-
-                    playersSection
-                        .homeSectionReveal(enabled: !reduceMotion)
-
-                    nearbyClubsSection
-                        .homeSectionReveal(enabled: !reduceMotion)
-
                     Spacer().frame(height: 32)
                 }
                 .padding(.top, 8)
@@ -907,11 +880,10 @@ struct HomeView: View {
                 async let v: Void = venues.load()
                 async let p: Void = loadProfileSnapshot()
                 async let pl: Void = loadNearbyPlayers()
-                async let f: Void = viewModel.loadQuickFeed()
                 async let s: Void = storiesRail.refresh()
                 async let a: Void = announcements.load()
                 async let j: Void = loadJoinedGames()
-                _ = await (g, v, p, pl, f, s, a, j)
+                _ = await (g, v, p, pl, s, a, j)
             }
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -1259,38 +1231,6 @@ struct HomeView: View {
     }
 
     @ViewBuilder
-    private var friendActivitySection: some View {
-        if !viewModel.quickFeed.isEmpty {
-            VStack(alignment: .leading, spacing: DSSpacing.sm) {
-                sectionHeader(titleKey: "home.section.activity",
-                              onSeeAll: { homePath.append(HomeRoute.feed) })
-
-                VStack(spacing: DSSpacing.xs) {
-                    ForEach(viewModel.quickFeed.prefix(3)) { event in
-                        FeedEventCard(
-                            event: event,
-                            onTap: { target in
-                                switch target {
-                                case .game(let id):    homePath.append(HomeRoute.game(id))
-                                case .profile(let id): homePath.append(HomeRoute.profile(id))
-                                case .tournament:      break
-                                case .none:            break
-                                }
-                            },
-                            // Present the comments thread for this event.
-                            // Wiring this closure is what makes the
-                            // FeedCommentsSheet reachable at all — the card
-                            // hides its comments affordance when it's nil.
-                            onTapComments: { commentsEventId = FeedCommentsTarget(eventId: event.id) }
-                        )
-                    }
-                }
-                .padding(.horizontal, DSSpacing.md)
-            }
-        }
-    }
-
-    @ViewBuilder
     private var nearbyClubsSection: some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             sectionHeader(titleKey: "home.section.clubs",
@@ -1442,34 +1382,6 @@ struct HomeView: View {
             RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
                 .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
         )
-    }
-
-    // MARK: - Suggested follows gating
-
-    private var shouldShowSuggestedRail: Bool {
-        guard container.currentUser != nil else { return false }
-        if suggestedRailDismissedToday { return false }
-        let knownFollows = FollowStore.shared.followingByUserId.values.filter { $0 }.count
-        if knownFollows >= 20 { return false }
-        return true
-    }
-
-    private var suggestedRailDismissKey: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        return "home.suggested.dismissed.\(formatter.string(from: Date()))"
-    }
-
-    private func hydrateSuggestedDismissedFlag() {
-        suggestedRailDismissedToday = UserDefaults.standard.bool(forKey: suggestedRailDismissKey)
-    }
-
-    private func dismissSuggestedRailForToday() {
-        UserDefaults.standard.set(true, forKey: suggestedRailDismissKey)
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-            suggestedRailDismissedToday = true
-        }
     }
 
     private func loadNearbyPlayers() async {
