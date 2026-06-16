@@ -127,11 +127,28 @@ final class EditProfileViewModel {
         isSubmitting = true
         defer { isSubmitting = false }
         do {
-            let endpoint = Endpoint<PublicUser>.updateMe(
-                displayName: trimmedDisplayName,
-                photoUrl: photoUrl.isEmpty ? .some(nil) : .some(photoUrl),
-                homeLat: hasLocation ? homeLat : nil,
-                homeLng: hasLocation ? homeLng : nil
+            // Build the PATCH body by hand so turning Home-location OFF sends an
+            // explicit JSON `null` for the coords (clearing them server-side)
+            // instead of dropping the keys. The `updateMe` helper only emits a
+            // key when its `Double?` arg is non-nil, so a plain `nil` would be a
+            // silent no-op and stale coords would survive. `NSNull()` is the
+            // codebase idiom for a JSON null (see Endpoint+NotificationPreferences).
+            var body: [String: Any] = [
+                "display_name": trimmedDisplayName,
+                "photo_url": photoUrl.isEmpty ? NSNull() : photoUrl as Any
+            ]
+            if hasLocation {
+                body["home_lat"] = homeLat
+                body["home_lng"] = homeLng
+            } else {
+                body["home_lat"] = NSNull()
+                body["home_lng"] = NSNull()
+            }
+            let endpoint = Endpoint<PublicUser>(
+                method: .patch,
+                path: "/api/v1/me",
+                body: try? JSONSerialization.data(withJSONObject: body),
+                requiresAuth: true
             )
             let updated = try await apiClient.send(endpoint)
             container.updateCurrentUser(updated)

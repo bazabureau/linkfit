@@ -9,6 +9,10 @@ import UIKit
 struct VenueMapView: View {
     let venues: [Venue]
     @State private var mapVM = VenueMapViewModel()
+    /// Venue the user chose to book from the detail card. Drives a
+    /// dedicated booking sheet so we never stack `BookCourtView`
+    /// on top of the still-open detail card (sheet-on-sheet is fragile).
+    @State private var venueToBook: Venue?
 
     var body: some View {
         Map(position: $mapVM.cameraPosition, selection: Binding(
@@ -50,11 +54,23 @@ struct VenueMapView: View {
             VenueDetailCard(
                 venue: venue,
                 distanceKm: mapVM.distanceKm(to: venue),
+                onBook: {
+                    // Close the detail card, then hand off to the booking
+                    // sheet on the next runloop so the dismissal lands first.
+                    mapVM.selectedVenueID = nil
+                    DispatchQueue.main.async { venueToBook = venue }
+                },
                 onDirections: { openDirections(to: venue) }
             )
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
             .presentationBackground(DSColor.surface)
+        }
+        .sheet(item: $venueToBook) { venue in
+            // Pre-seed the booking flow with the tapped venue so the user
+            // skips the venue picker and lands on court/slot selection.
+            BookCourtView(presetVenueId: venue.id)
+                .presentationDragIndicator(.visible)
         }
         .alert(
             String(localized: "venues.location_denied.title"),
@@ -133,6 +149,10 @@ private struct Triangle: Shape {
 private struct VenueDetailCard: View {
     let venue: Venue
     let distanceKm: Double?
+    /// Primary action — opens the booking flow preset to this venue.
+    /// Optional with a no-op default so the card stays back-compatible
+    /// for any caller that only wants directions.
+    var onBook: () -> Void = {}
     let onDirections: () -> Void
 
     var body: some View {
@@ -171,11 +191,24 @@ private struct VenueDetailCard: View {
                 }
             }
 
-            PrimaryButton(
-                title: String(localized: "venues.get_directions"),
-                icon: "arrow.triangle.turn.up.right.diamond.fill",
-                action: onDirections
-            )
+            VStack(spacing: DSSpacing.sm) {
+                // Primary anchor: book a court at this venue.
+                PrimaryButton(
+                    title: String(localized: "actions.book_court"),
+                    icon: "calendar.badge.plus",
+                    action: onBook
+                )
+
+                // Secondary: directions read as a quiet, bordered action so
+                // the card keeps a single primary anchor (FAZA 45 restraint).
+                SecondaryButton(
+                    title: String(localized: "venues.get_directions"),
+                    icon: "arrow.triangle.turn.up.right.diamond.fill"
+                ) {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    onDirections()
+                }
+            }
         }
         .padding(DSSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)

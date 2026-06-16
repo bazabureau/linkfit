@@ -82,7 +82,7 @@ struct OnboardingView: View {
                 Text(currentPage.headlineKey)
                     .font(DSType.heroTitle)
                     .foregroundStyle(DSColor.textPrimary)
-                    .lineLimit(2)
+                    .lineLimit(3)
                     .minimumScaleFactor(0.86)
                     .fixedSize(horizontal: false, vertical: true)
 

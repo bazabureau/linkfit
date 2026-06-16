@@ -354,6 +354,21 @@ struct GameDetailView: View {
         return starts > Date()
     }
 
+    /// Whether the participant-facing "track score" / "view final" CTA
+    /// renders. Always on for `.full` and `.completed`; additionally on
+    /// for an `.open` game whose start time has already passed (so a
+    /// match that began before filling can still be scored). Never on a
+    /// `.cancelled` game.
+    private func shouldShowTrackScore(_ game: GameDetail) -> Bool {
+        guard viewModel.isParticipant, game.status != .cancelled else { return false }
+        if game.status == .full || game.status == .completed { return true }
+        // `.open` only: gate behind the start time having passed.
+        if let starts = Date.fromISO(game.starts_at) {
+            return starts <= Date()
+        }
+        return false
+    }
+
     @ViewBuilder
     private var content: some View {
         switch viewModel.state {
@@ -677,10 +692,14 @@ struct GameDetailView: View {
             // Live-scoring affordance — anyone in the match can open
             // the scoring sheet. Visible from "full" (game starting)
             // through "completed" so participants can record and
-            // verify the result. After completion the same button
-            // opens the view in spectator mode so anyone can audit.
-            if viewModel.isParticipant
-                && (game.status == .full || game.status == .completed) {
+            // verify the result. We ALSO surface it on an `.open`
+            // game once its start time has passed: a half-empty match
+            // that kicked off anyway still needs its score tracked,
+            // and waiting for the backend to flip it to `.full` would
+            // strand those participants without a way in. After
+            // completion the same button opens the view in spectator
+            // mode so anyone can audit.
+            if shouldShowTrackScore(game) {
                 PrimaryButton(
                     title: String(localized: game.status == .completed
                                   ? "scoring.entry.view_final"
@@ -698,7 +717,12 @@ struct GameDetailView: View {
                     UISelectionFeedbackGenerator().selectionChanged()
                     showRating = true
                 }
-            } else if viewModel.isHost && game.status == .open {
+            } else if viewModel.isHost && canHostManage(game) {
+                // Host-management affordance. Mirrors `canHostManage`
+                // (open OR full, start still in the future) rather than
+                // `.open` alone — a full game the host can no longer
+                // join into still needs an inline cancel, matching the
+                // overflow "..." menu's gating.
                 SecondaryButton(title: String(localized: "game.action.cancel"), icon: "xmark.circle") {
                     confirmCancel = true
                 }
@@ -770,12 +794,30 @@ struct GameDetailView: View {
         return parts.map { $0.prefix(1).uppercased() }.joined()
     }
 
+    /// Locale derived from the user's chosen app language so date / relative
+    /// strings match the rest of the UI. Without this the system formatters
+    /// fall back to the device locale, so an Azerbaijani-language session on
+    /// an English phone would still read "in 3 hours" instead of "3 saatdan".
+    /// Mirrors the `LinkfitPreferredLanguage` default used app-wide (az).
+    /// Maps the language code to the same region-qualified locales `Money`
+    /// uses so date order, separators and relative words ("bu gün" / "today")
+    /// match the rest of the app — the bare code would leave region details
+    /// to the device.
+    private var appLocale: Locale {
+        switch UserDefaults.standard.string(forKey: "LinkfitPreferredLanguage") {
+        case "en": return Locale(identifier: "en_US")
+        case "ru": return Locale(identifier: "ru_RU")
+        default:   return Locale(identifier: "az_AZ")
+        }
+    }
+
     private func formatStart(_ iso: String) -> String {
         // Same story as `countdownBar` — without `Date.fromISO`, every
         // game on this screen showed its raw timestamp (`2026-05-20T
         // 19:00:00.000Z`) instead of a friendly date string.
         guard let date = Date.fromISO(iso) else { return iso }
         let f = DateFormatter()
+        f.locale = appLocale
         f.doesRelativeDateFormatting = true
         f.dateStyle = .full
         f.timeStyle = .short
@@ -791,6 +833,7 @@ struct GameDetailView: View {
             return String(localized: "game.detail.starts_now")
         }
         let f = RelativeDateTimeFormatter()
+        f.locale = appLocale
         f.unitsStyle = .full
         let rel = f.localizedString(for: date, relativeTo: Date())
         return String(format: String(localized: "game.detail.starts_in_format"), rel)

@@ -133,16 +133,14 @@ private struct RankRow: View {
             // Word-based skill bucket replaces the raw ELO integer
             // — matches the convention now used across the app. Rank
             // number on the left preserves precise ordering for power
-            // users.
+            // users. The redundant static "skill" caption was dropped:
+            // the level word already names itself, so the second line
+            // only added visual noise.
             VStack(alignment: .trailing, spacing: 2) {
-                let level = SkillLevel.from(elo: item.elo_rating)
-                Text(level.labelKey)
+                Text(SkillLevel.from(elo: item.elo_rating).labelKey)
                     .font(.system(.subheadline, design: .default, weight: .heavy))
-                    .foregroundStyle(level.accent)
+                    .foregroundStyle(SkillLevel.from(elo: item.elo_rating).accent)
                     .lineLimit(1)
-                Text("skill.label")
-                    .font(.system(.caption2, design: .default))
-                    .foregroundStyle(DSColor.textTertiary)
             }
         }
         .padding(.horizontal, DSSpacing.md)
@@ -154,6 +152,24 @@ private struct RankRow: View {
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(item.rank <= 3 ? DSColor.accent.opacity(0.6) : DSColor.border, lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityAddTraits(.isButton)
+    }
+
+    /// Composed from a positional, localized format so screen readers get a
+    /// coherent sentence in the user's language rather than disjoint labels.
+    /// Order: name, rank, skill, games, wins. Mirrors `LeaderboardRow`.
+    private var accessibilityLabel: String {
+        String(
+            format: String(localized: "rankings.row.a11y_format"),
+            item.display_name,
+            item.rank,
+            SkillLevel.from(elo: item.elo_rating).localizedName,
+            item.games_played,
+            item.games_won
         )
     }
 

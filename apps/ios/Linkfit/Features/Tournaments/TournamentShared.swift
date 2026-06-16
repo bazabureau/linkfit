@@ -145,16 +145,12 @@ struct TournamentMoneyPill: View {
 // MARK: - Formatting
 
 enum TournamentFormatting {
-    /// Format a minor-units integer (e.g. 5000 = 50.00 AZN). Drops cents if
-    /// the value is a clean whole number — typical for entry fees.
+    /// Format a minor-units integer (e.g. 5000 = 50.00 AZN). Routes through
+    /// `Money.format` so manat renders as the `₼` symbol (never the raw "AZN"
+    /// code), qəpik stay lossless, and the decimal separator follows the
+    /// in-app language. Whole values drop the cents, as before.
     static func formatMinor(_ minor: Int, currency: String) -> String {
-        let whole = Double(minor) / 100.0
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.maximumFractionDigits = minor % 100 == 0 ? 0 : 2
-        formatter.minimumFractionDigits = minor % 100 == 0 ? 0 : 2
-        let amount = formatter.string(from: NSNumber(value: whole)) ?? "\(whole)"
-        return "\(amount) \(currency)"
+        Money.format(minor: minor, currency: currency)
     }
 
     static func date(from iso: String) -> Date? {

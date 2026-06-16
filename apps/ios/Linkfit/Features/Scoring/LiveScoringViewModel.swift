@@ -113,6 +113,35 @@ final class LiveScoringViewModel {
         return me == hostUserId
     }
 
+    /// A confirmed player surfaced for the pre-start roster confirmation UI.
+    /// Carries the display name so the host can eyeball who landed on each
+    /// side before committing — the join-order split below is only a *guess*.
+    struct RosterSlot: Identifiable, Equatable {
+        let userId: String
+        let displayName: String
+        var id: String { userId }
+    }
+
+    /// Confirmed participants in join order — the pool the host assigns from.
+    var confirmedRoster: [RosterSlot] {
+        participants
+            .filter { $0.status == .confirmed }
+            .map { RosterSlot(userId: $0.user_id, displayName: $0.display_name) }
+    }
+
+    /// Default team split the host can confirm or override before starting.
+    /// Mirrors the join-order halving `startScoring()` falls back to, so the
+    /// confirmation UI shows exactly what would be sent if untouched. Padel is
+    /// 2v2, so for the normal 4-player case this is `[0,1]` vs `[2,3]`.
+    ///
+    /// NOTE: join order is *not* reliable team intent — these are a starting
+    /// suggestion. The host should be able to reassign before committing.
+    var proposedTeams: (teamA: [RosterSlot], teamB: [RosterSlot]) {
+        let roster = confirmedRoster
+        let half = max(1, roster.count / 2)
+        return (Array(roster.prefix(half)), Array(roster.dropFirst(half)))
+    }
+
     /// Initial fetch + start polling. Idempotent — safe to call repeatedly.
     func appear() async {
         await reload()
@@ -147,16 +176,28 @@ final class LiveScoringViewModel {
     }
 
     /// Host-only — set up team rosters and seed the match_scores row.
-    /// Splits participants in the order they joined: first half → team A,
-    /// second half → team B. Padel matches are 2v2, so this lands neatly.
-    func startScoring() async {
+    ///
+    /// Pass `teamA` / `teamB` (user ids) to commit a roster the host has
+    /// confirmed in the UI — this is the correct path. When they're left nil
+    /// the call falls back to a join-order split (first half → team A, second
+    /// half → team B). That fallback is only a *guess*: join order rarely
+    /// matches who actually partnered up, so a confirmation step should pass
+    /// explicit rosters (see `proposedTeams`) rather than rely on the split.
+    func startScoring(teamA explicitTeamA: [String]? = nil,
+                      teamB explicitTeamB: [String]? = nil) async {
         guard canStart else { return }
         isMutating = true
         defer { isMutating = false }
-        let confirmed = participants.filter { $0.status == .confirmed }
-        let half = max(1, confirmed.count / 2)
-        let teamA = Array(confirmed.prefix(half)).map { $0.user_id }
-        let teamB = Array(confirmed.dropFirst(half)).map { $0.user_id }
+        let teamA: [String]
+        let teamB: [String]
+        if let explicitTeamA, let explicitTeamB {
+            teamA = explicitTeamA
+            teamB = explicitTeamB
+        } else {
+            let proposed = proposedTeams
+            teamA = proposed.teamA.map { $0.userId }
+            teamB = proposed.teamB.map { $0.userId }
+        }
         guard !teamA.isEmpty && !teamB.isEmpty else {
             state = .error(message: String(localized: "scoring.error.teams_needed"))
             return

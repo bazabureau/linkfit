@@ -56,6 +56,15 @@ final class StoryCreatorViewModel {
     var phase: Phase = .camera
     var caption: String = ""
 
+    /// Cached composing payload (cropped image + overlay list) so an
+    /// upload/create failure can drop the user back into `.composing`
+    /// with their work intact instead of discarding it to `.camera`.
+    /// Set whenever we leave `.composing` for `.uploading`; consumed by
+    /// `dismissError()` on retry. Cleared after a successful post or a
+    /// deliberate return to the camera so a stale payload never leaks
+    /// into a fresh flow.
+    private var pendingComposition: (image: UIImage, overlays: [StoryOverlay])?
+
     /// On a successful post the host dismisses + the rail's VM gets the
     /// fresh story optimistically prepended. We use a callback (rather
     /// than a hard reference back to the rail VM) so the creator stays
@@ -170,6 +179,12 @@ final class StoryCreatorViewModel {
     func post() async {
         guard case .composing(let image, let overlays) = phase else { return }
 
+        // Cache the cropped image + overlays so any failure below can
+        // restore the user to `.composing` with their work intact (the
+        // crop + every overlay they placed) rather than dumping them
+        // back at the camera and forcing a full re-shoot.
+        pendingComposition = (image, overlays)
+
         // 1. JPEG encode at 0.85 quality — same setting MessagesView
         // uses for chat attachments. Stories are usually viewed full-
         // screen so we don't want to crank the compression any harder.
@@ -239,6 +254,7 @@ final class StoryCreatorViewModel {
             // Reset to the camera landing so a re-presentation of the
             // creator starts from a clean state (matches the default
             // entry point — see `Phase` doc).
+            pendingComposition = nil
             phase = .camera
             caption = ""
         } catch let error as APIError {
@@ -250,6 +266,7 @@ final class StoryCreatorViewModel {
             // it.
             if case .uploading = phase {
                 phase = .composing(image, overlays)
+                pendingComposition = nil
             }
         } catch {
             phase = .error(error.localizedDescription)
@@ -257,12 +274,19 @@ final class StoryCreatorViewModel {
     }
 
     /// Re-enter composing after an error — wires the inline "Try
-    /// again" button. Re-uses the existing cropped image, which we
-    /// can recover from the error context only if we cached it.
-    /// Since we don't, the user will need to re-shoot/re-pick —
-    /// simpler and matches Instagram's failure behavior (toast +
-    /// redirect to the camera viewfinder).
+    /// again" button. We cache the cropped image + overlay list in
+    /// `pendingComposition` before every upload, so a failed
+    /// upload/create can drop the user straight back into `.composing`
+    /// with their crop and every overlay intact — they just tap Post
+    /// again. We deliberately keep `caption` so the user doesn't lose
+    /// that either. Only when there's nothing cached (defensive — e.g.
+    /// the pre-upload JPEG-encode guard fired with no prior payload)
+    /// do we fall back to the camera landing.
     func dismissError() {
-        phase = .camera
+        if let pending = pendingComposition {
+            phase = .composing(pending.image, pending.overlays)
+        } else {
+            phase = .camera
+        }
     }
 }

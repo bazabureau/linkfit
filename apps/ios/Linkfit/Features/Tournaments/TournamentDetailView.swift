@@ -168,13 +168,13 @@ struct TournamentDetailView: View {
             summaryRow(icon: detail.entry_fee_minor > 0 ? "creditcard.fill" : "gift.fill",
                        title: String(localized: "tournaments.summary.entry_fee"),
                        value: detail.entry_fee_minor > 0
-                           ? TournamentFormatting.formatMinor(detail.entry_fee_minor, currency: detail.currency)
+                           ? Money.format(minor: detail.entry_fee_minor, currency: detail.currency)
                            : String(localized: "tournaments.fee.free"))
 
             if let deadlineISO = detail.registration_deadline {
                 summaryRow(icon: "clock.fill",
                            title: String(localized: "tournaments.summary.deadline"),
-                           value: TournamentFormatting.dateAndTime(deadlineISO))
+                           value: bakuDateAndTime(deadlineISO))
             }
         }
         .padding(DSSpacing.md)
@@ -362,12 +362,44 @@ struct TournamentDetailView: View {
     }
 
     private func formattedDateRange(detail: TournamentDetail) -> String {
-        let start = TournamentFormatting.dateAndTime(detail.starts_at)
-        let endShort = TournamentFormatting.mediumDate(detail.ends_at)
-        if TournamentFormatting.mediumDate(detail.starts_at) == endShort {
+        let start = bakuDateAndTime(detail.starts_at)
+        let endShort = bakuMediumDate(detail.ends_at)
+        if bakuMediumDate(detail.starts_at) == endShort {
             return start
         }
         return "\(start) → \(endShort)"
+    }
+
+    // MARK: - Baku-pinned date formatting
+    //
+    // Tournament timestamps describe a fixed wall-clock moment in Azerbaijan
+    // (matches start at a venue in Baku, deadlines close on Baku time). Rendering
+    // them in the device timezone would silently shift a 19:00 start to e.g.
+    // 17:00 for a traveller. We pin to Asia/Baku and tag the time-bearing string
+    // with a "Bakı vaxtı" suffix so the displayed clock is unambiguous.
+    //
+    // Parsing goes through the tolerant `Date.fromISO` foundation (handles the
+    // fractional-seconds shape the API emits); on a parse miss we fall back to
+    // the raw string rather than dropping the value.
+
+    private static let bakuTimeZone = TimeZone(identifier: "Asia/Baku")
+
+    private func bakuMediumDate(_ iso: String) -> String {
+        guard let date = Date.fromISO(iso) else { return iso }
+        let f = DateFormatter()
+        f.timeZone = Self.bakuTimeZone
+        f.dateStyle = .medium
+        return f.string(from: date)
+    }
+
+    private func bakuDateAndTime(_ iso: String) -> String {
+        guard let date = Date.fromISO(iso) else { return iso }
+        let f = DateFormatter()
+        f.timeZone = Self.bakuTimeZone
+        f.dateStyle = .medium
+        f.timeStyle = .short
+        let stamp = f.string(from: date)
+        return "\(stamp) (\(String(localized: "tournaments.time.baku_suffix")))"
     }
 
     private func blockedReasonText(_ reason: String?) -> String {

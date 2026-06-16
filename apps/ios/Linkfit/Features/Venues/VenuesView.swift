@@ -263,7 +263,7 @@ private struct VenueRowCard: View {
                 Text(venue.address)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(DSColor.textSecondary)
-                    .lineLimit(1)
+                    .lineLimit(2)
                 metaRow
             }
             Spacer(minLength: 8)
@@ -348,7 +348,7 @@ private struct VenueRowCard: View {
                 HStack(spacing: 3) {
                     Image(systemName: "star.fill")
                         .font(.system(size: 9, weight: .heavy))
-                        .foregroundStyle(DSColor.accent)
+                        .foregroundStyle(DSColor.warning)
                     Text(String(format: "%.1f", avg))
                         .font(.system(size: 11, weight: .heavy))
                         .foregroundStyle(DSColor.textPrimary)
@@ -674,7 +674,7 @@ struct VenueDetailView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "star.fill")
                             .font(.system(size: 12, weight: .heavy))
-                            .foregroundStyle(DSColor.accent)
+                            .foregroundStyle(DSColor.warning)
                         Text(String(format: "%.1f", avg))
                             .font(.system(.subheadline, design: .default, weight: .heavy))
                             .foregroundStyle(DSColor.textPrimary)
@@ -855,8 +855,8 @@ struct VenueDetailView: View {
     }
 
     private func courtPrice(_ court: Court) -> String {
-        let amount = Double(court.hourly_price_minor) / 100.0
-        return "\(String(format: "%.0f", amount)) \(court.currency) / h"
+        let price = Money.format(minor: court.hourly_price_minor, currency: court.currency)
+        return "\(price) \(String(localized: "venues.price.per_hour"))"
     }
 
     private func openDirections(_ venue: VenueDetail) {

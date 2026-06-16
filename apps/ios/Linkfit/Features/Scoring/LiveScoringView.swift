@@ -80,7 +80,7 @@ struct LiveScoringView: View {
                     confirmFinalize = true
                 } label: {
                     Text("scoring.finalize")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(DSType.bodyStrong)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
                         .background(Capsule().fill(DSColor.danger.opacity(0.18)))
@@ -117,10 +117,10 @@ struct LiveScoringView: View {
                 .font(.system(size: 56, weight: .light))
                 .foregroundStyle(DSColor.textSecondary)
             Text("scoring.empty.title")
-                .font(.system(size: 22, weight: .bold))
+                .font(DSType.sectionTitle)
                 .foregroundStyle(DSColor.textPrimary)
             Text("scoring.empty.message")
-                .font(.system(size: 14))
+                .font(DSType.bodyMedium)
                 .foregroundStyle(DSColor.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -129,7 +129,7 @@ struct LiveScoringView: View {
                     Task { await viewModel.startScoring() }
                 } label: {
                     Text("scoring.start")
-                        .font(.system(size: 17, weight: .bold))
+                        .font(DSType.button)
                         .foregroundStyle(DSColor.textOnAccent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -164,11 +164,11 @@ struct LiveScoringView: View {
 
     /// Recap of completed sets, e.g. "6-4 · 4-6 · 5-5".
     private func setsRibbon(score: MatchScore) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DSSpacing.sm) {
             ForEach(Array(score.sets.enumerated()), id: \.offset) { idx, s in
-                VStack(spacing: 2) {
+                VStack(spacing: DSSpacing.xxs / 2) {
                     Text("scoring.set.label \(idx + 1)")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(DSType.caption2)
                         .foregroundStyle(DSColor.textTertiary)
                     HStack(spacing: 6) {
                         Text("\(s.a)")
@@ -178,20 +178,22 @@ struct LiveScoringView: View {
                         Text("\(s.b)")
                             .foregroundStyle(s.b > s.a ? DSColor.accent : DSColor.textSecondary)
                     }
-                    .font(.system(size: 14, weight: .bold))
+                    .font(DSType.bodyStrong)
                     if let tb = s.tb {
                         Text("(\(tb.a)-\(tb.b))")
-                            .font(.system(size: 9))
+                            .font(DSType.caption2)
                             .foregroundStyle(DSColor.textTertiary)
                     }
                 }
-                .padding(.horizontal, 10)
+                .padding(.horizontal, DSSpacing.sm - 2)
                 .padding(.vertical, 6)
-                .background(RoundedRectangle(cornerRadius: 10).fill(DSColor.surfaceElevated))
+                .background(RoundedRectangle(cornerRadius: DSRadius.sm).fill(DSColor.surfaceElevated))
             }
             Spacer()
         }
-        .frame(height: 44)
+        // minHeight (not a fixed height) so a tiebreak line can grow the ribbon
+        // instead of being clipped.
+        .frame(minHeight: 44)
     }
 
     private func teamColumn(team: ScoreTeam, score: MatchScore) -> some View {
@@ -208,7 +210,7 @@ struct LiveScoringView: View {
         let isWinner = score.winning_team == team
         return VStack(spacing: 16) {
             Text(label)
-                .font(.system(size: 14, weight: .semibold))
+                .font(DSType.bodyStrong)
                 .foregroundStyle(DSColor.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
@@ -225,7 +227,7 @@ struct LiveScoringView: View {
                                : .spring(response: 0.4, dampingFraction: 0.6),
                            value: setFlashScale)
             Text("scoring.games \(games)")
-                .font(.system(size: 14, weight: .medium))
+                .font(DSType.bodyMedium)
                 .foregroundStyle(DSColor.textTertiary)
             if viewModel.canWrite && score.status == .in_progress {
                 pointButtons(team: team)
@@ -270,9 +272,9 @@ struct LiveScoringView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.uturn.backward")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(DSType.bodyStrong)
                         Text("scoring.undo")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(DSType.bodyStrong)
                     }
                     .foregroundStyle(DSColor.textPrimary)
                     .padding(.horizontal, 16)
@@ -284,14 +286,14 @@ struct LiveScoringView: View {
             Spacer()
             if score.status == .completed {
                 Text("scoring.match_complete")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(DSType.badge)
                     .foregroundStyle(DSColor.accent)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .background(Capsule().fill(DSColor.accentMuted))
             } else if !viewModel.canWrite {
                 Text("scoring.spectator")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(DSType.metaCaption)
                     .foregroundStyle(DSColor.textTertiary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
@@ -313,7 +315,7 @@ struct LiveScoringView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
                 .padding(.vertical, 24)
-                .background(RoundedRectangle(cornerRadius: 24).fill(DSColor.accent))
+                .background(RoundedRectangle(cornerRadius: DSRadius.xxl).fill(DSColor.accent))
                 .shadow(color: DSColor.accent.opacity(0.6), radius: 24, x: 0, y: 12)
         }
     }

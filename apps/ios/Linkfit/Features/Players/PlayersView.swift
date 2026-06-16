@@ -573,9 +573,6 @@ private struct PlayerRowCard: View {
     var onTap: () -> Void
     var onFollowChange: (Bool) -> Void
 
-    @State private var isSpinning: Bool = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    
     private var isFollowing: Bool {
         FollowStore.shared.followingByUserId[player.id] ?? (player.is_followed_by_me ?? false)
     }
@@ -594,7 +591,7 @@ private struct PlayerRowCard: View {
         
         let diff = Date().timeIntervalSince(date)
         if diff < 300 {
-            return "• " + String(localized: "players.status.active_now", defaultValue: "Active now")
+            return "• " + String(localized: "players.status.active_now")
         } else {
             let relFormatter = RelativeDateTimeFormatter()
             relFormatter.unitsStyle = .short
@@ -698,16 +695,9 @@ private struct PlayerRowCard: View {
                         lineWidth: 1.5
                     )
                     .frame(width: 49, height: 49)
-                    .rotationEffect(.degrees(isSpinning ? 360 : 0))
-                    .animation(
-                        reduceMotion ? .default :
-                        .linear(duration: 6.0)
-                        .repeatForever(autoreverses: false),
-                        value: isSpinning
-                    )
             )
             .padding(2)
-            
+
             if isActiveNow {
                 Circle()
                     .fill(DSColor.success)
@@ -718,9 +708,6 @@ private struct PlayerRowCard: View {
                     .shadow(color: DSColor.success.opacity(0.3), radius: 1.5)
                     .offset(x: -1, y: -1)
             }
-        }
-        .onAppear {
-            isSpinning = true
         }
     }
 
@@ -763,7 +750,7 @@ private struct PlayerRowCard: View {
                 HStack(spacing: 2) {
                     Image(systemName: "location.fill")
                         .font(.system(size: 8))
-                    Text(String(format: "%.1f km", km))
+                    Text(distanceLabel(km: km))
                         .font(.system(size: 9, weight: .semibold))
                 }
                 .foregroundStyle(DSColor.textSecondary)
@@ -864,8 +851,6 @@ private struct MatchmakerPlayerCard: View {
     var onFollow: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isSpinning: Bool = false
 
     private var isFollowing: Bool {
         FollowStore.shared.isFollowing(userId: player.user_id)
@@ -889,7 +874,7 @@ private struct MatchmakerPlayerCard: View {
                                 Image(systemName: "sparkles")
                                     .font(.system(size: 7, weight: .bold))
                                     .foregroundStyle(DSColor.accent)
-                                Text(verbatim: "VIP")
+                                Text("players.badge.vip")
                                     .font(.system(size: 8, weight: .bold))
                                     .foregroundStyle(DSColor.textPrimary)
                             }
@@ -958,7 +943,7 @@ private struct MatchmakerPlayerCard: View {
                 HStack(spacing: 2) {
                     Image(systemName: "location.fill")
                         .font(.system(size: 8))
-                    Text(String(format: "%.1f km", km))
+                    Text(distanceLabel(km: km))
                         .font(.system(size: 9, weight: .semibold))
                 }
                 .foregroundStyle(DSColor.textSecondary)
@@ -1002,18 +987,8 @@ private struct MatchmakerPlayerCard: View {
                     lineWidth: 1.5
                 )
                 .frame(width: 49, height: 49)
-                .rotationEffect(.degrees(isSpinning ? 360 : 0))
-                .animation(
-                    reduceMotion ? .default :
-                    .linear(duration: 6.0)
-                    .repeatForever(autoreverses: false),
-                    value: isSpinning
-                )
         )
         .padding(2)
-        .onAppear {
-            isSpinning = true
-        }
     }
 
     private var initialsCircle: some View {
@@ -1102,6 +1077,21 @@ private struct MatchmakerPlayerCard: View {
         .accessibilityLabel(Text(isFollowing ? "a11y.follow_toggle.unfollow" : "a11y.follow_toggle.follow"))
         .accessibilityAddTraits(isFollowing ? .isSelected : [])
     }
+}
+
+// MARK: - Distance formatting
+
+/// Renders a distance pill label using the localized unit format
+/// (`common.distance.km_format`, e.g. "%@ km" / "%@ км"). The numeric
+/// part is formatted locale-aware with one fraction digit so the
+/// decimal separator and digits respect the user's locale, and only the
+/// unit/order lives in the string catalog — never hardcoded in the view.
+private func distanceLabel(km: Double) -> String {
+    let number = km.formatted(.number.precision(.fractionLength(1)))
+    return String(
+        format: String(localized: "common.distance.km_format"),
+        number
+    )
 }
 
 // MARK: - PlayerSummary Extensions

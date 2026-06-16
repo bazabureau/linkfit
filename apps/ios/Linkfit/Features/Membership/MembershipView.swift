@@ -16,6 +16,10 @@ import SwiftUI
 struct MembershipView: View {
     @State var viewModel: MembershipViewModel
     @State private var showCancelConfirm = false
+    /// Tier the user tapped "Upgrade/Switch" on, awaiting confirmation.
+    /// Non-nil drives the subscribe confirmation dialog so we never open
+    /// Stripe Checkout on a single tap.
+    @State private var pendingSubscribe: TierCardModel?
     @State private var toastVisible = false
 
     var body: some View {
@@ -35,6 +39,24 @@ struct MembershipView: View {
             Button(role: .cancel) {} label: { Text("common.cancel") }
         } message: {
             Text("membership.cancel.confirm.message")
+        }
+        .confirmationDialog(
+            Text("membership.subscribe.confirm.title"),
+            isPresented: Binding(
+                get: { pendingSubscribe != nil },
+                set: { if !$0 { pendingSubscribe = nil } },
+            ),
+            titleVisibility: .visible,
+            presenting: pendingSubscribe,
+        ) { card in
+            Button {
+                Task { await viewModel.subscribe(to: card.tier) }
+            } label: {
+                Text(subscribeConfirmAction(for: card))
+            }
+            Button(role: .cancel) {} label: { Text("common.cancel") }
+        } message: { card in
+            Text(subscribeConfirmMessage(for: card))
         }
         .overlay(alignment: .top) {
             if toastVisible, let msg = viewModel.lastSuccessMessage {
@@ -185,7 +207,8 @@ struct MembershipView: View {
                     isLoading: viewModel.mutatingTier == card.tier,
                     isEnabled: !viewModel.isMutating && card.tier != .free,
                 ) {
-                    Task { await viewModel.subscribe(to: card.tier) }
+                    // Confirm tier + price before opening Stripe Checkout.
+                    if !viewModel.isMutating { pendingSubscribe = card }
                 }
             }
         }
@@ -222,7 +245,7 @@ struct MembershipView: View {
                     .font(.system(size: 28, weight: .heavy, design: .default))
                     .foregroundStyle(DSColor.textPrimary)
             } else {
-                Text(formatPrice(minor: minor, currency: currency))
+                Text(Money.format(minor: minor, currency: currency))
                     .font(.system(size: 28, weight: .heavy, design: .default))
                     .foregroundStyle(DSColor.textPrimary)
                 Text("membership.price.per_month")
@@ -247,15 +270,41 @@ struct MembershipView: View {
 
     // MARK: - Helpers
 
-    /// Format `minor` (qəpik) as "9.99 ₼". We don't use `NumberFormatter`
-    /// for AZN because the locale-aware glyph placement varies between
-    /// `az_AZ` ("9,99 ₼") and `en_US` ("AZN 9.99"); the design spec
-    /// pins the manat sign to the right of the digit string, decimal
-    /// separator = ".".
-    private func formatPrice(minor: Int, currency: String) -> String {
-        let major = Double(minor) / 100.0
-        let symbol = currency == "AZN" ? "₼" : currency
-        return String(format: "%.2f %@", major, symbol)
+    /// Localized "tier · price/month" summary used in the subscribe
+    /// confirmation. Paid tiers route through `Money.format` (lossless
+    /// qəpik, locale-aware separator + ₼); the free tier shows the word.
+    private func subscribeConfirmMessage(for card: TierCardModel) -> String {
+        let tierName: String
+        switch card.tier {
+        case .plus:    tierName = String(localized: "membership.tier.plus.title")
+        case .premium: tierName = String(localized: "membership.tier.premium.title")
+        case .free:    tierName = String(localized: "membership.tier.free.title")
+        }
+        let priceText: String
+        if card.priceMinor == 0 {
+            priceText = String(localized: "membership.price.free")
+        } else {
+            priceText = Money.format(minor: card.priceMinor, currency: card.currency)
+                + " " + String(localized: "membership.price.per_month")
+        }
+        return String(
+            format: String(localized: "membership.subscribe.confirm.message"),
+            tierName,
+            priceText,
+        )
+    }
+
+    /// Confirm-button label, e.g. "Subscribe · 9,99 ₼ /month".
+    private func subscribeConfirmAction(for card: TierCardModel) -> String {
+        guard card.priceMinor > 0 else {
+            return String(localized: "membership.subscribe.confirm.action_free")
+        }
+        let priceText = Money.format(minor: card.priceMinor, currency: card.currency)
+            + " " + String(localized: "membership.price.per_month")
+        return String(
+            format: String(localized: "membership.subscribe.confirm.action"),
+            priceText,
+        )
     }
 
     /// Format an ISO timestamp as a calendar day in the user's locale.

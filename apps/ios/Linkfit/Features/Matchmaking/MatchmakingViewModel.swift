@@ -182,6 +182,16 @@ final class MatchmakingViewModel {
 
         FollowStore.shared.setFollowing(userId: player.user_id, isFollowing: willFollow)
         FollowStore.shared.applyCountDelta(forUser: player.user_id, delta: willFollow ? 1 : -1)
+        // Mirror the edge into our own `players` state so the carousel
+        // re-renders. The card reads `FollowStore.shared` for its
+        // Follow/Following label, but the cells live inside a `ForEach`
+        // over this VM's value-type `RecommendedPlayer` snapshots — which
+        // never change when only the store mutates, so the recycled cell
+        // can keep its stale label. Touching the observed `players` array
+        // forces the `@Observable` VM to re-publish and the `ForEach` to
+        // re-evaluate each cell against fresh store state. Same intent as
+        // `PlayersViewModel.applyFollowMutation`.
+        mirrorFollowEdge(userId: player.user_id)
 
         do {
             if willFollow {
@@ -197,6 +207,21 @@ final class MatchmakingViewModel {
             // Revert on any failure — APIError, cancel, or unexpected.
             FollowStore.shared.setFollowing(userId: player.user_id, isFollowing: isFollowing)
             FollowStore.shared.applyCountDelta(forUser: player.user_id, delta: willFollow ? -1 : 1)
+            mirrorFollowEdge(userId: player.user_id)
         }
+    }
+
+    /// Re-publish the `players` lane so a follow-edge change is reflected
+    /// in the carousel cells. `RecommendedPlayer` carries no follow flag of
+    /// its own (the surface lists not-yet-followed candidates), so there is
+    /// nothing on the element to flip — instead we re-assign the same items
+    /// to a fresh array. The `@Observable` VM publishes the `players`
+    /// change, the `ForEach` re-evaluates, and each cell re-reads
+    /// `FollowStore.shared` for the now-current Follow/Following state.
+    /// No-op unless the affected player is in the loaded lane.
+    private func mirrorFollowEdge(userId: String) {
+        guard case .loaded(let items) = players,
+              items.contains(where: { $0.user_id == userId }) else { return }
+        players = .loaded(items)
     }
 }

@@ -150,7 +150,7 @@ private struct BookingRow: View {
                         .foregroundStyle(DSColor.accent)
                 }
                 Spacer()
-                Text(BookingPriceFormatter.format(minor: booking.total_minor, currency: booking.currency))
+                Text(Money.format(minor: booking.total_minor, currency: booking.currency))
                     .font(.system(.subheadline, design: .default, weight: .heavy))
                     .foregroundStyle(DSColor.accent)
             }
@@ -215,7 +215,7 @@ private struct BookingRow: View {
     }
 
     private func formatStart(_ iso: String) -> String {
-        guard let date = ISO8601DateFormatter().date(from: iso) else { return iso }
+        guard let date = Date.fromISO(iso) else { return iso }
         let f = DateFormatter()
         f.doesRelativeDateFormatting = true
         f.dateStyle = .medium

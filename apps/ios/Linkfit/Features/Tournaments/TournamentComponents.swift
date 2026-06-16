@@ -25,9 +25,7 @@ enum TournamentDisplay {
 
     static func fee(minor: Int, currency: String) -> String {
         guard minor > 0 else { return String(localized: "tournaments.fee.free") }
-        let amount = minor / 100
-        let symbol = currency.uppercased() == "AZN" ? "₼" : currency
-        return "\(amount) \(symbol)"
+        return Money.format(minor: minor, currency: currency)
     }
 
     static func squads(entries: Int, max: Int) -> String {
@@ -198,7 +196,9 @@ struct CompetitionFormatRail: View {
         if let action {
             Button(action: action) { content }.buttonStyle(SpringPressStyle())
         } else {
-            content.opacity(soon ? 0.85 : 1)
+            // No action == not a live destination. Dim it so the brightest
+            // tile doesn't read as the most tappable one (dead-tap trap).
+            content.opacity(soon ? 0.85 : 0.7)
         }
     }
 }

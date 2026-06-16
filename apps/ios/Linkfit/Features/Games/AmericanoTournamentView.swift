@@ -39,6 +39,18 @@ struct AmericanoTournamentView: View {
     @State private var showScoreModal: Bool = false
     @State private var copiedCoupon: Bool = false
 
+    /// Surfaced to the user instead of silently dropping into a local
+    /// sandbox when a `requiresAuth` endpoint fails (401 or transient).
+    @State private var formError: String? = nil
+    /// Per-score-modal validation message (must reach the 21 target, no
+    /// negatives, no ties). Cleared whenever the modal re-opens.
+    @State private var scoreError: String? = nil
+    /// True only when the user is not signed in — drives the sign-in
+    /// prompt instead of a generic error.
+    @State private var showSignInPrompt: Bool = false
+    /// Reset (Sıfırla) is destructive, so it routes through a confirm.
+    @State private var showResetConfirm: Bool = false
+
     var body: some View {
         ZStack {
             AppGlassBackground()
@@ -55,6 +67,27 @@ struct AmericanoTournamentView: View {
             if showScoreModal {
                 scoreRecordingModal
             }
+        }
+        .confirmationDialog(
+            Text("americano.reset.confirm.title"),
+            isPresented: $showResetConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(role: .destructive) {
+                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                resetTournament()
+            } label: { Text("americano.reset.confirm.action") }
+            Button(role: .cancel) {} label: { Text("common.cancel") }
+        } message: {
+            Text("americano.reset.confirm.message")
+        }
+        .alert(
+            Text("americano.signin.title"),
+            isPresented: $showSignInPrompt
+        ) {
+            Button { showSignInPrompt = false } label: { Text("common.ok") }
+        } message: {
+            Text("americano.signin.message")
         }
     }
 
@@ -211,7 +244,7 @@ struct AmericanoTournamentView: View {
                                 Button {
                                     toggleCourt(courtName)
                                 } label: {
-                                    Text(courtName)
+                                    Text("\(Text("americano.court")) \(num)")
                                         .font(.system(size: 12, weight: .bold))
                                         .foregroundStyle(isSelected ? DSColor.accent : DSColor.textSecondary)
                                         .frame(maxWidth: .infinity)
@@ -222,6 +255,12 @@ struct AmericanoTournamentView: View {
                                 .buttonStyle(.plain)
                             }
                         }
+                    }
+
+                    // Surfaced API/auth failure (replaces the old silent
+                    // local-sandbox fallback on a requiresAuth endpoint).
+                    if let formError {
+                        errorBanner(formError)
                     }
 
                     // Start Game Submit Button
@@ -264,16 +303,16 @@ struct AmericanoTournamentView: View {
                         Text(tournamentName)
                             .font(.system(size: 22, weight: .black))
                             .foregroundStyle(DSColor.textPrimary)
-                        Text("Americano • \(localizedString(tournamentFormat))")
+                        Text("\(Text("americano.label")) • \(Text(formatKey(tournamentFormat)))")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(DSColor.textSecondary)
                     }
                     Spacer()
                     
                     Button {
-                        resetTournament()
+                        showResetConfirm = true
                     } label: {
-                        Text(localizedString("reset"))
+                        Text("americano.reset")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundStyle(DSColor.danger)
                             .padding(.horizontal, 12)
@@ -281,25 +320,34 @@ struct AmericanoTournamentView: View {
                             .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(DSColor.danger.opacity(0.12)))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(Text("americano.reset.confirm.action"))
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
 
-                // Reward coupon visual if completed
+                // Surfaced score-submit failure (was a silent local update).
+                if let formError {
+                    errorBanner(formError)
+                        .padding(.horizontal, 16)
+                }
+
+                // Reward coupon visual — rendered ONLY when it comes from the
+                // backend. The local sandbox never fabricates a coupon, so this
+                // can no longer show a fake TOPPADEL reward.
                 if let reward = reward {
                     VStack(alignment: .leading, spacing: 14) {
                         HStack {
-                            Text(localizedString("sponsor_reward"))
+                            Text("americano.sponsor_reward")
                                 .font(.system(size: 10, weight: .black))
                                 .foregroundStyle(DSColor.textOnAccent)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
                                 .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(DSColor.accent))
-                            
+
                             Spacer()
                         }
-                        
-                        Text(reward.winner_team_id == "" ? "Winner Team" : getWinnerName())
+
+                        winnerNameView(for: reward)
                             .font(.system(size: 20, weight: .black))
                             .foregroundStyle(DSColor.textPrimary)
                         
@@ -320,7 +368,7 @@ struct AmericanoTournamentView: View {
                             Button {
                                 copyRewardCode(reward.sponsor_coupon_code)
                             } label: {
-                                Text(copiedCoupon ? localizedString("copied") : localizedString("copy"))
+                                Text(copiedCoupon ? "americano.copied" : "americano.copy")
                                     .font(.system(size: 12, weight: .black))
                                     .foregroundStyle(DSColor.textOnAccent)
                                     .padding(.horizontal, 14)
@@ -338,7 +386,7 @@ struct AmericanoTournamentView: View {
 
                 // Rounds slider navigation
                 VStack(alignment: .leading, spacing: 14) {
-                    Text(localizedString("matches"))
+                    Text("americano.matches")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(DSColor.textPrimary)
                         .padding(.horizontal, 16)
@@ -375,7 +423,7 @@ struct AmericanoTournamentView: View {
 
                 // Leaderboard standings list card
                 VStack(alignment: .leading, spacing: 14) {
-                    Text(localizedString("leaderboard"))
+                    Text("americano.leaderboard")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(DSColor.textPrimary)
                         .padding(.horizontal, 16)
@@ -394,7 +442,7 @@ struct AmericanoTournamentView: View {
                                         Text(item.display_name)
                                             .font(.system(size: 14, weight: .bold))
                                             .foregroundStyle(isGold ? DSColor.accent : DSColor.textPrimary)
-                                        Text("\(item.wins)\(localizedString("win_short")) • \(item.draws)\(localizedString("draw_short")) • \(item.losses)\(localizedString("loss_short"))")
+                                        Text("\(item.wins)\(String(localized: "americano.win_short")) • \(item.draws)\(String(localized: "americano.draw_short")) • \(item.losses)\(String(localized: "americano.loss_short"))")
                                             .font(.system(size: 10, weight: .medium))
                                             .foregroundStyle(DSColor.textSecondary)
                                     }
@@ -403,10 +451,10 @@ struct AmericanoTournamentView: View {
                                 Spacer()
                                 
                                 VStack(alignment: .trailing, spacing: 2) {
-                                    Text("\(item.score) \(localizedString("points"))")
+                                    Text("\(item.score) \(String(localized: "americano.points"))")
                                         .font(.system(size: 14, weight: .black))
                                         .foregroundStyle(DSColor.textPrimary)
-                                    Text("\(item.pointsDifference > 0 ? "+" : "")\(item.pointsDifference) \(localizedString("diff"))")
+                                    Text("\(item.pointsDifference > 0 ? "+" : "")\(item.pointsDifference) \(String(localized: "americano.diff"))")
                                         .font(.system(size: 10, weight: .semibold))
                                         .foregroundStyle(DSColor.textSecondary)
                                 }
@@ -433,10 +481,10 @@ struct AmericanoTournamentView: View {
 
             if let match = selectedMatchForScore {
                 VStack(spacing: 20) {
-                    Text(localizedString("record"))
+                    Text("americano.record")
                         .font(.system(size: 18, weight: .black))
                         .foregroundStyle(DSColor.textPrimary)
-                    
+
                     Text(match.court_name)
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(DSColor.textSecondary)
@@ -484,12 +532,27 @@ struct AmericanoTournamentView: View {
                         }
                     }
 
+                    // Inline validation feedback (one side must reach the
+                    // target, no negatives, no ties).
+                    if let scoreError {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(DSColor.warning)
+                            Text(verbatim: scoreError)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(DSColor.textSecondary)
+                                .multilineTextAlignment(.leading)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
                     // Save score actions
                     HStack(spacing: 10) {
                         Button {
                             showScoreModal = false
                         } label: {
-                            Text(localizedString("cancel"))
+                            Text("americano.cancel")
                                 .font(.system(size: 13, weight: .bold))
                                 .foregroundStyle(DSColor.textSecondary)
                                 .frame(maxWidth: .infinity)
@@ -502,7 +565,7 @@ struct AmericanoTournamentView: View {
                         Button {
                             submitScore()
                         } label: {
-                            Text(localizedString("save"))
+                            Text("americano.save")
                                 .font(.system(size: 13, weight: .black))
                                 .foregroundStyle(DSColor.textOnAccent)
                                 .frame(maxWidth: .infinity)
@@ -587,10 +650,20 @@ struct AmericanoTournamentView: View {
 
     private func startGame() {
         guard players.count >= 4 && players.count <= 12 else { return }
+
+        // P0: creating a tournament hits a `requiresAuth` endpoint. Gate it
+        // behind a real session instead of silently 401-ing into a local
+        // sandbox that the backend never sees.
+        guard container.isAuthenticated else {
+            showSignInPrompt = true
+            return
+        }
+
+        formError = nil
         isSubmitting = true
 
-        let tourneyName = gameName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty 
-            ? localizedString("friendly_match") 
+        let tourneyName = gameName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? localizedString("friendly_match")
             : gameName.trimmingCharacters(in: .whitespacesAndNewlines)
 
         Task {
@@ -627,94 +700,60 @@ struct AmericanoTournamentView: View {
             } catch {
                 await MainActor.run {
                     self.isSubmitting = false
-                    // Fallback to local sandbox play in case of transient local network issues
-                    startLocalSandboxGame()
+                    // P0: surface the failure instead of dropping into a silent
+                    // local sandbox the backend never recorded.
+                    self.formError = localizedString("start_error")
+                    UINotificationFeedbackGenerator().notificationOccurred(.error)
                 }
             }
         }
-    }
-
-    private func startLocalSandboxGame() {
-        let id = UUID().uuidString
-        let tourneyName = gameName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty 
-            ? localizedString("friendly_match") 
-            : gameName.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        let localTeams = players.map { name in
-            AmericanoTeam(
-                id: UUID().uuidString,
-                tournament_id: id,
-                display_name: name,
-                wins: 0,
-                draws: 0,
-                losses: 0,
-                score: 0
-            )
-        }
-
-        // Standard Circle Round Robin fixture generator
-        var list = localTeams
-        if list.count % 2 != 0 {
-            // Add bypass element
-            list.append(AmericanoTeam(id: "BYE", tournament_id: id, display_name: "BYE", wins: 0, draws: 0, losses: 0, score: 0))
-        }
-
-        let numTeams = list.count
-        let numRounds = numTeams - 1
-        let half = numTeams / 2
-        var localMatches: [AmericanoMatch] = []
-
-        for round in 1...numRounds {
-            var roundPairs: [(home: AmericanoTeam, away: AmericanoTeam)] = []
-            for i in 0..<half {
-                let home = list[i]
-                let away = list[numTeams - 1 - i]
-                if home.id != "BYE" && away.id != "BYE" {
-                    roundPairs.append((home, away))
-                }
-            }
-
-            for (index, pair) in roundPairs.enumerated() {
-                let courtName = selectedCourts[index % selectedCourts.count]
-                localMatches.append(
-                    AmericanoMatch(
-                        id: UUID().uuidString,
-                        tournament_id: id,
-                        court_name: courtName,
-                        round_number: round,
-                        team_a_id: pair.home.id,
-                        team_b_id: pair.away.id,
-                        score_a: nil,
-                        score_b: nil,
-                        status: "pending"
-                    )
-                )
-            }
-
-            // Rotate list
-            list.insert(list.removeLast(), at: 1)
-        }
-
-        self.tournamentId = id
-        self.tournamentName = tourneyName
-        self.tournamentFormat = format
-        self.status = "playing"
-        self.teams = localTeams
-        self.matches = localMatches
-        calculateLocalLeaderboard()
     }
 
     private func openScoreRecord(_ match: AmericanoMatch) {
         selectedMatchForScore = match
         scoreAInput = match.score_a != nil ? "\(match.score_a!)" : ""
         scoreBInput = match.score_b != nil ? "\(match.score_b!)" : ""
+        scoreError = nil
         showScoreModal = true
+    }
+
+    /// Target the winning side must reach (scoring system, defaults to 21).
+    private var scoreTarget: Int { Int(scoringSystem) ?? 21 }
+
+    /// P2: a valid Americano result has non-negative scores, no tie, and the
+    /// winning side reaching the configured target. Returns a localized
+    /// message when invalid, `nil` when the score may be saved.
+    private func scoreValidationError(_ a: Int, _ b: Int) -> String? {
+        if a < 0 || b < 0 { return localizedString("score_negative") }
+        if a == b { return localizedString("score_tie") }
+        if max(a, b) != scoreTarget {
+            return String(format: localizedString("score_target_fmt"), scoreTarget)
+        }
+        return nil
     }
 
     private func submitScore() {
         guard let match = selectedMatchForScore else { return }
-        guard let sA = Int(scoreAInput), let sB = Int(scoreBInput) else { return }
+        guard let sA = Int(scoreAInput), let sB = Int(scoreBInput) else {
+            scoreError = localizedString("score_invalid")
+            return
+        }
 
+        // P2: validate before we hit the network or update any state.
+        if let err = scoreValidationError(sA, sB) {
+            scoreError = err
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            return
+        }
+
+        // P0: recording a score hits a `requiresAuth` endpoint.
+        guard container.isAuthenticated else {
+            showScoreModal = false
+            showSignInPrompt = true
+            return
+        }
+
+        scoreError = nil
         showScoreModal = false
 
         Task {
@@ -737,120 +776,63 @@ struct AmericanoTournamentView: View {
                 }
             } catch {
                 await MainActor.run {
-                    // Failover: Sandbox mode score updates in local memory
-                    let updatedMatches = matches.map { m -> AmericanoMatch in
-                        if m.id == match.id {
-                            return AmericanoMatch(
-                                id: m.id,
-                                tournament_id: m.tournament_id,
-                                court_name: m.court_name,
-                                round_number: m.round_number,
-                                team_a_id: m.team_a_id,
-                                team_b_id: m.team_b_id,
-                                score_a: sA,
-                                score_b: sB,
-                                status: "completed"
-                            )
-                        }
-                        return m
-                    }
-                    self.matches = updatedMatches
-                    calculateLocalLeaderboard()
+                    // P0: surface the failure instead of silently writing the
+                    // score into local memory the backend never recorded.
+                    self.formError = localizedString("score_error")
+                    UINotificationFeedbackGenerator().notificationOccurred(.error)
                 }
             }
-        }
-    }
-
-    private func calculateLocalLeaderboard() {
-        var board: [AmericanoLeaderboardEntry] = teams.map { t in
-            AmericanoLeaderboardEntry(
-                id: t.id,
-                display_name: t.display_name,
-                wins: 0,
-                draws: 0,
-                losses: 0,
-                score: 0,
-                pointsScored: 0,
-                pointsConceded: 0,
-                pointsDifference: 0
-            )
-        }
-
-        for match in matches {
-            guard match.status == "completed", let sA = match.score_a, let sB = match.score_b else { continue }
-
-            if let idxA = board.firstIndex(where: { $0.id == match.team_a_id }) {
-                var entry = board[idxA]
-                entry = AmericanoLeaderboardEntry(
-                    id: entry.id,
-                    display_name: entry.display_name,
-                    wins: entry.wins + (sA > sB ? 1 : 0),
-                    draws: entry.draws + (sA == sB ? 1 : 0),
-                    losses: entry.losses + (sA < sB ? 1 : 0),
-                    score: entry.score + (sA > sB ? 3 : sA == sB ? 1 : 0),
-                    pointsScored: entry.pointsScored + sA,
-                    pointsConceded: entry.pointsConceded + sB,
-                    pointsDifference: entry.pointsDifference + (sA - sB)
-                )
-                board[idxA] = entry
-            }
-
-            if let idxB = board.firstIndex(where: { $0.id == match.team_b_id }) {
-                var entry = board[idxB]
-                entry = AmericanoLeaderboardEntry(
-                    id: entry.id,
-                    display_name: entry.display_name,
-                    wins: entry.wins + (sB > sA ? 1 : 0),
-                    draws: entry.draws + (sB == sA ? 1 : 0),
-                    losses: entry.losses + (sB < sA ? 1 : 0),
-                    score: entry.score + (sB > sA ? 3 : sB == sA ? 1 : 0),
-                    pointsScored: entry.pointsScored + sB,
-                    pointsConceded: entry.pointsConceded + sA,
-                    pointsDifference: entry.pointsDifference + (sB - sA)
-                )
-                board[idxB] = entry
-            }
-        }
-
-        // Sort by Score, then Diff, then Scored
-        board.sort { a, b in
-            if a.score != b.score { return a.score > b.score }
-            if a.pointsDifference != b.pointsDifference { return a.pointsDifference > b.pointsDifference }
-            return a.pointsScored > b.pointsScored
-        }
-
-        self.leaderboard = board
-
-        // Check if finished to award prize
-        let pending = matches.filter { $0.status == "pending" }
-        if pending.isEmpty && !matches.isEmpty {
-            self.status = "completed"
-            if let winner = board.first {
-                let couponChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-                var code = "TOPPADEL-"
-                for _ in 1...6 {
-                    code.append(couponChars.randomElement()!)
-                }
-                self.reward = AmericanoReward(
-                    id: UUID().uuidString,
-                    tournament_id: tournamentId!,
-                    winner_team_id: winner.id,
-                    sponsor_coupon_code: code,
-                    prize_name: localizedString("prize_desc")
-                )
-            }
-        } else {
-            self.reward = nil
         }
     }
 
     private func getTeamDisplayName(_ id: String) -> String {
-        teams.first(where: { $0.id == id })?.display_name ?? "Team"
+        teams.first(where: { $0.id == id })?.display_name ?? localizedString("team_fallback")
     }
 
-    private func getWinnerName() -> String {
-        guard let reward = reward else { return "" }
-        return teams.first(where: { $0.id == reward.winner_team_id })?.display_name ?? "Winner Team"
+    /// Winner row for the reward card. Falls back to a localized "Winner"
+    /// label when the team can't be resolved (instead of a hardcoded string).
+    @ViewBuilder
+    private func winnerNameView(for reward: AmericanoReward) -> some View {
+        if let name = teams.first(where: { $0.id == reward.winner_team_id })?.display_name {
+            Text(verbatim: name)
+        } else {
+            Text("americano.winner")
+        }
+    }
+
+    /// Maps a stored format identifier ("solo"/"team") to its localization key.
+    private func formatKey(_ format: String) -> LocalizedStringKey {
+        format == "team" ? "americano.team" : "americano.solo"
+    }
+
+    /// Renders a stored court identifier ("Court N") with a localized label,
+    /// keeping the numeric suffix. Falls back to the raw value if unparsable.
+    @ViewBuilder
+    private func courtLabel(_ courtName: String) -> some View {
+        if let num = courtName.split(separator: " ").last.flatMap({ Int($0) }) {
+            Text("\(Text("americano.court")) \(num)")
+        } else {
+            Text(verbatim: courtName)
+        }
+    }
+
+    /// Inline failure banner — shown instead of silently routing a failed
+    /// `requiresAuth` call into a local sandbox.
+    private func errorBanner(_ message: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(DSColor.danger)
+            Text(verbatim: message)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(DSColor.textPrimary)
+                .multilineTextAlignment(.leading)
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.danger.opacity(0.1)))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(DSColor.danger.opacity(0.35), lineWidth: 1))
     }
 
     private func resetTournament() {
@@ -907,7 +889,14 @@ struct AmericanoTournamentView: View {
             "draw_short": "H",
             "loss_short": "M",
             "points": "Xal",
-            "diff": "Fərq"
+            "diff": "Fərq",
+            "team_fallback": "Komanda",
+            "start_error": "Turniri başlatmaq alınmadı. İnternet bağlantınızı yoxlayıb yenidən cəhd edin.",
+            "score_error": "Hesabı yadda saxlamaq alınmadı. Yenidən cəhd edin.",
+            "score_invalid": "Hesabı rəqəmlə daxil edin.",
+            "score_negative": "Hesab mənfi ola bilməz.",
+            "score_tie": "Oyun heç-heçə ilə bitə bilməz. Bir tərəf qalib gəlməlidir.",
+            "score_target_fmt": "Qalib tərəfin hesabı tam %d olmalıdır."
         ]
 
         let enDict = [
@@ -936,7 +925,14 @@ struct AmericanoTournamentView: View {
             "draw_short": "D",
             "loss_short": "L",
             "points": "pts",
-            "diff": "Diff"
+            "diff": "Diff",
+            "team_fallback": "Team",
+            "start_error": "Couldn't start the tournament. Check your connection and try again.",
+            "score_error": "Couldn't save the score. Please try again.",
+            "score_invalid": "Enter the score as a number.",
+            "score_negative": "Scores can't be negative.",
+            "score_tie": "A match can't end in a tie. One side must win.",
+            "score_target_fmt": "The winning side must reach exactly %d."
         ]
 
         let ruDict = [
@@ -965,7 +961,14 @@ struct AmericanoTournamentView: View {
             "draw_short": "Н",
             "loss_short": "П",
             "points": "очк.",
-            "diff": "Разн."
+            "diff": "Разн.",
+            "team_fallback": "Команда",
+            "start_error": "Не удалось начать турнир. Проверьте подключение и попробуйте снова.",
+            "score_error": "Не удалось сохранить счёт. Попробуйте снова.",
+            "score_invalid": "Введите счёт числом.",
+            "score_negative": "Счёт не может быть отрицательным.",
+            "score_tie": "Матч не может закончиться вничью. Одна сторона должна победить.",
+            "score_target_fmt": "Победившая сторона должна набрать ровно %d."
         ]
 
         if code.hasPrefix("en") {
@@ -989,10 +992,10 @@ struct AmericanoTournamentView: View {
                     .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DSColor.border.opacity(0.3), lineWidth: 1))
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(getTeamDisplayName(match.team_a_id)) vs \(getTeamDisplayName(match.team_b_id))")
+                    Text("\(getTeamDisplayName(match.team_a_id)) \(Text("americano.vs")) \(getTeamDisplayName(match.team_b_id))")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(DSColor.textPrimary)
-                    Text(match.court_name)
+                    courtLabel(match.court_name)
                         .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(DSColor.textSecondary)
                 }
@@ -1019,15 +1022,19 @@ struct AmericanoTournamentView: View {
                             .foregroundStyle(DSColor.textSecondary)
                             .frame(width: 32, height: 32)
                             .background(Circle().fill(DSColor.surfaceElevated.opacity(0.4)))
+                            // Visual stays 32pt; hit area expands to the 44pt
+                            // minimum touch target (FAZA 45 / HIG).
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(Text(verbatim: localizedString("record")))
+                    .accessibilityLabel(Text("americano.record"))
                 }
             } else {
                 Button {
                     openScoreRecord(match)
                 } label: {
-                    Text(localizedString("record"))
+                    Text("americano.record")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(DSColor.textPrimary)
                         .padding(.horizontal, 12)

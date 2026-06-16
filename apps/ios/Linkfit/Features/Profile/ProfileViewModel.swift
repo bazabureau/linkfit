@@ -11,6 +11,14 @@ final class ProfileViewModel {
     /// re-renders the button automatically when somebody else mutates the
     /// edge — no manual notification plumbing.
     var isFollowing: Bool { FollowStore.shared.isFollowing(userId: userId) }
+    /// Set when an optimistic follow/unfollow is reverted because the network
+    /// call failed. ProfileView observes this (mirroring `blockError`) to show
+    /// an alert/toast so the silent revert isn't invisible to the user.
+    private(set) var followError: String?
+    /// Set when the Message tap can't open a conversation (unauthenticated or
+    /// the backend failed). ProfileView observes this to surface a toast
+    /// instead of the tap doing nothing.
+    private(set) var messageError: String?
     let userId: String
     let container: AppContainer
     private let apiClient: APIClient
@@ -83,17 +91,35 @@ final class ProfileViewModel {
             } else {
                 _ = try await apiClient.send(Endpoint<EmptyResponse>.unfollowUser(id: userId))
             }
-        } catch {
-            // Revert on failure — surface is silent for now (we don't have a
-            // toast surface inside a sheet-hosted profile). Revert order
-            // doesn't matter; we just need to undo every mutation we made.
+        } catch is CancellationError {
+            // A cancelled toggle (e.g. the sheet dismissed mid-flight) is not a
+            // failure the user needs to see — undo the optimistic mutation
+            // silently and leave `followError` clear. Revert order doesn't
+            // matter; we just need to undo every mutation we made.
             FollowStore.shared.setFollowing(userId: userId, isFollowing: previous)
             if !viewerId.isEmpty {
                 FollowStore.shared.applyCountDelta(forUser: viewerId, delta: -delta)
             }
             FollowStore.shared.applyCountDelta(forUser: userId, delta: -delta)
+        } catch {
+            // Revert on failure and surface it. Revert order doesn't matter;
+            // we just need to undo every mutation we made, then publish an
+            // error string ProfileView shows as an alert/toast (mirrors
+            // `blockError`) so the revert isn't invisible.
+            FollowStore.shared.setFollowing(userId: userId, isFollowing: previous)
+            if !viewerId.isEmpty {
+                FollowStore.shared.applyCountDelta(forUser: viewerId, delta: -delta)
+            }
+            FollowStore.shared.applyCountDelta(forUser: userId, delta: -delta)
+            if let apiError = error as? APIError {
+                followError = apiError.errorDescription ?? String(localized: "profile.follow.failed")
+            } else {
+                followError = error.localizedDescription
+            }
         }
     }
+
+    func clearFollowError() { followError = nil }
 
     /// Block the user being viewed. Calls POST /api/v1/users/:id/block
     /// (shipped in FAZA 61.5). On success the view dismisses back to the
@@ -138,10 +164,22 @@ final class ProfileViewModel {
         do {
             let res = try await apiClient.send(.startConversation(otherUserId: userId))
             return res.conversation_id
+        } catch is CancellationError {
+            // Cancelled (sheet dismissed mid-flight) — not a user-facing error.
+            return nil
         } catch {
+            // Surface the failure so the view shows a toast instead of the tap
+            // silently doing nothing.
+            if let apiError = error as? APIError {
+                messageError = apiError.errorDescription ?? String(localized: "profile.message.failed")
+            } else {
+                messageError = error.localizedDescription
+            }
             return nil
         }
     }
+
+    func clearMessageError() { messageError = nil }
 
     func logout() async {
         guard let refresh = container.tokenStore.refreshToken() else {

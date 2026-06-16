@@ -163,11 +163,16 @@ struct OpenGameCard: View {
 
             HStack {
                 Spacer()
-                Text("matches.row.join")
-                    .font(DSType.button)
-                    .foregroundStyle(DSColor.limeInk)
-                    .padding(.horizontal, 26).padding(.vertical, 9)
-                    .background(Capsule().fill(DSColor.secondary))
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(DSColor.secondary)
+                        .frame(width: 6, height: 6)
+                    Text("matches.row.join")
+                        .font(DSType.button)
+                        .foregroundStyle(DSColor.textOnAccent)
+                }
+                .padding(.horizontal, 26).padding(.vertical, 9)
+                .background(Capsule().fill(DSColor.accent))
             }
         }
         .padding(14)

@@ -40,7 +40,9 @@ struct FloatingTextField: View {
         VStack(alignment: .leading, spacing: 6) {
             fieldRow
                 .padding(.horizontal, 14)
-                .frame(height: 58)
+                // minHeight (not a fixed height) so the field grows with
+                // Dynamic Type instead of clipping the input at large sizes.
+                .frame(minHeight: 58)
                 .background(fieldBackground)
                 .overlay(fieldBorder)
                 .contentShape(Rectangle())
@@ -90,7 +92,9 @@ struct FloatingTextField: View {
                 .textContentType(contentType)
                 .textInputAutocapitalization(autocapitalization)
                 .autocorrectionDisabled(true)
-                .font(.system(size: 16, weight: .regular, design: .default))
+                // Dynamic Type-relative so the input scales with the user's
+                // text size instead of staying pinned at 16pt.
+                .font(DSType.body)
                 .foregroundStyle(DSColor.textPrimary)
                 .tint(DSColor.accent)
                 // Push content down to make room for the floated label so
@@ -100,9 +104,11 @@ struct FloatingTextField: View {
                 .offset(y: floats ? 8 : 0)
 
                 Text(labelKey)
-                    .font(.system(size: floats ? 11 : 15,
-                                  weight: floats ? .semibold : .regular,
-                                  design: .default))
+                    // Dynamic Type-relative on both states: caption-scale +
+                    // semibold when floated, body-scale + regular as a
+                    // placeholder. Sizes track the user's text size so the
+                    // label stays in step with the input as the field grows.
+                    .font(floats ? DSType.caption2 : DSType.body)
                     .foregroundStyle(floats
                         ? (hasError ? DSColor.danger : DSColor.textSecondary)
                         : DSColor.textTertiary)
@@ -132,7 +138,7 @@ struct FloatingTextField: View {
     }
 
     private var fieldBackground: some View {
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
+        RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
             .fill(DSColor.surfaceElevated.opacity(isFocused ? 0.92 : 0.72))
     }
 
@@ -143,7 +149,7 @@ struct FloatingTextField: View {
             if isFocused { return DSColor.accent }
             return DSColor.border.opacity(0.5)
         }()
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
+        RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
             .strokeBorder(borderColor, lineWidth: isFocused || hasError ? 1.5 : 1)
             .shadow(color: isFocused ? DSColor.accent.opacity(0.22) : .clear,
                     radius: 10, y: 0)

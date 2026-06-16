@@ -337,6 +337,7 @@ struct GroupConversationView: View {
             .disabled(viewModel.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                       || viewModel.isSending)
             .opacity(viewModel.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
+            .accessibilityLabel(Text("a11y.send_message"))
         }
         .padding(.horizontal, DSSpacing.md)
         .padding(.bottom, DSSpacing.sm)

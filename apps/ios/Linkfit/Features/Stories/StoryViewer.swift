@@ -39,6 +39,13 @@ import SwiftUI
 struct StoryViewer: View {
     @Bindable var viewModel: StoryViewerViewModel
     @Environment(\.dismiss) private var dismiss
+    /// FAZA 45 — gates every decorative animation and the interactive
+    /// swipe transforms. When the user has Reduce Motion enabled we
+    /// snap state changes instantly (no chrome cross-fade, no spring
+    /// back, no scale/offset/opacity translate) so the viewer doesn't
+    /// produce the large springy decorative movement the guidelines
+    /// ban for motion-sensitive users.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Wave-13 — used to construct `StoryViewersViewModel` for the
     /// viewers sheet, and `ProfileViewModel` for the row-tap push.
     /// StoryViewer is hosted in a fullScreenCover off HomeView, which
@@ -68,6 +75,11 @@ struct StoryViewer: View {
     /// Drives the alert presentation for the destructive delete
     /// action. Stays here rather than on the VM since it's pure UI.
     @State private var showDeleteConfirm: Bool = false
+    /// Tap-to-expand state for the caption pill. Collapsed it shows at
+    /// most 3 lines (with a slight `minimumScaleFactor` so a snug
+    /// overflow still fits); tapping flips this and lets the caption
+    /// run to its full length. Pure UI, so it lives here, not on the VM.
+    @State private var captionExpanded: Bool = false
     /// Set when the viewer taps the "..." menu → "Şikayət et". Drives
     /// the `.reportSheet` modifier; the underlying viewer pauses while
     /// the sheet is up so the timer doesn't advance behind the form.
@@ -107,6 +119,20 @@ struct StoryViewer: View {
         var id: String { userId }
     }
 
+    /// Reduce-motion-aware chrome animation. `nil` (no animation, an
+    /// instant snap) when Reduce Motion is on; otherwise the standard
+    /// 0.18s ease used for the peek cross-fade and spring resets.
+    private var chromeAnimation: Animation? {
+        reduceMotion ? nil : .easeInOut(duration: 0.18)
+    }
+
+    /// Reduce-motion-aware spring used for the drag-release resets.
+    /// `nil` snaps the offset back instantly for motion-sensitive
+    /// users instead of bouncing.
+    private var resetAnimation: Animation? {
+        reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.85)
+    }
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -140,7 +166,7 @@ struct StoryViewer: View {
                     .padding(.bottom, 24)
             }
             .opacity(chromeVisible ? 1 : 0)
-            .animation(.easeInOut(duration: 0.18), value: chromeVisible)
+            .animation(chromeAnimation, value: chromeVisible)
 
             // Gesture catcher — pure tap / press / drag handling.
             // Bottom of the z-stack so chrome buttons (close X,
@@ -160,10 +186,17 @@ struct StoryViewer: View {
         // Interactive swipe-down transform: scale + offset + fade.
         // 1.0 → 0.85 scale, 1.0 → 0.5 opacity over ~400pt of drag.
         // Clamped so a long swipe doesn't keep scaling past 0.85.
-        .scaleEffect(max(0.85, 1 - dragOffset / 1000))
-        .offset(y: max(0, dragOffset))
-        .offset(x: horizontalDragOffset * 0.3) // subtle peek during left/right swipe
-        .opacity(1 - min(0.5, dragOffset / 400))
+        //
+        // FAZA 45 — suppressed entirely under Reduce Motion: the
+        // decorative scale/translate/fade is exactly the kind of
+        // large in-flight movement motion-sensitive users opt out of.
+        // The gesture itself still commits (dismiss / next-group)
+        // because that logic lives in `.onEnded`, independent of these
+        // visual offsets.
+        .scaleEffect(reduceMotion ? 1 : max(0.85, 1 - dragOffset / 1000))
+        .offset(y: reduceMotion ? 0 : max(0, dragOffset))
+        .offset(x: reduceMotion ? 0 : horizontalDragOffset * 0.3) // subtle peek during left/right swipe
+        .opacity(reduceMotion ? 1 : 1 - min(0.5, dragOffset / 400))
         .statusBarHidden(true)
         .preferredColorScheme(.dark)
         // VoiceOver entry — exposes the five gestures as discrete
@@ -193,6 +226,12 @@ struct StoryViewer: View {
         .onDisappear { viewModel.stopTimer() }
         .onChange(of: viewModel.dismissRequested) { _, requested in
             if requested { dismiss() }
+        }
+        // Collapse an expanded caption whenever the frame changes so
+        // the next story's caption starts compact rather than
+        // inheriting the previous one's expanded state.
+        .onChange(of: viewModel.currentStory?.id) { _, _ in
+            captionExpanded = false
         }
         .alert("stories.viewer.confirm.delete.title",
                isPresented: $showDeleteConfirm) {
@@ -415,23 +454,43 @@ struct StoryViewer: View {
                 // Smooth the count animations — the bar's own
                 // count-show/hide already has a transition, but
                 // animating the parent ensures the pill resizes
-                // gracefully when a count crosses 0↔1.
-                .animation(.spring(response: 0.3, dampingFraction: 0.7),
+                // gracefully when a count crosses 0↔1. Reduce Motion
+                // snaps the resize instantly.
+                .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7),
                            value: story.reactions)
-                .animation(.spring(response: 0.3, dampingFraction: 0.7),
+                .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7),
                            value: story.my_reaction)
             }
 
             if let caption = viewModel.currentStory?.caption,
                !caption.trimmingCharacters(in: .whitespaces).isEmpty {
+                // Tap-to-expand caption. Collapsed it caps at 3 lines
+                // with a small `minimumScaleFactor` so a snug overflow
+                // still fits without truncation; tapping reveals the
+                // full text. A rounded rect is used when expanded (a
+                // Capsule's pill corners look wrong on multi-line
+                // blocks); the collapsed pill keeps the Capsule.
+                let isExpanded = captionExpanded
                 Text(caption)
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
+                    .lineLimit(isExpanded ? nil : 3)
+                    .minimumScaleFactor(isExpanded ? 1 : 0.8)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(Color.black.opacity(0.4), in: Capsule())
-                    .lineLimit(3)
+                    .background(
+                        Color.black.opacity(0.4),
+                        in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    )
+                    .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .onTapGesture {
+                        Haptics.selection()
+                        withAnimation(chromeAnimation) {
+                            captionExpanded.toggle()
+                        }
+                    }
+                    .accessibilityHint(Text("stories.viewer.caption.expand_hint"))
             }
 
             if viewModel.ownsCurrent {
@@ -546,7 +605,7 @@ struct StoryViewer: View {
                             // keyboard region shouldn't trigger peek.
                             guard !viewModel.composerActive else { return }
                             viewModel.setPaused(true)
-                            withAnimation(.easeInOut(duration: 0.18)) {
+                            withAnimation(chromeAnimation) {
                                 chromeVisible = false
                             }
                         default:
@@ -555,7 +614,7 @@ struct StoryViewer: View {
                     }
                     .onEnded { _ in
                         viewModel.setPaused(false)
-                        withAnimation(.easeInOut(duration: 0.18)) {
+                        withAnimation(chromeAnimation) {
                             chromeVisible = true
                         }
                     }
@@ -639,7 +698,7 @@ struct StoryViewer: View {
                                 Haptics.soft()
                                 viewModel.requestDismiss()
                             } else {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                                withAnimation(resetAnimation) {
                                     dragOffset = 0
                                 }
                             }
@@ -650,19 +709,19 @@ struct StoryViewer: View {
                                 // Swipe left → next user.
                                 Haptics.selection()
                                 viewModel.nextGroup()
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                                withAnimation(resetAnimation) {
                                     horizontalDragOffset = 0
                                 }
                             } else if dx > commitX || vx > 500 {
                                 // Swipe right → previous user.
                                 Haptics.selection()
                                 viewModel.previousGroup()
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                                withAnimation(resetAnimation) {
                                     horizontalDragOffset = 0
                                 }
                             } else {
                                 // Under threshold — spring back.
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                                withAnimation(resetAnimation) {
                                     horizontalDragOffset = 0
                                 }
                             }

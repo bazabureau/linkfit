@@ -132,6 +132,16 @@ struct HomeView: View {
     @State private var inboxNotificationsVM: NotificationsViewModel?
     @State private var inboxInvitationsVM: InvitationsViewModel?
 
+    /// Drives the feed comments sheet (`FeedCommentsSheet`) for the
+    /// "Friend activity" mini-section. Holds the tapped event's id so the
+    /// sheet's view-model can be constructed lazily with the right
+    /// `eventId` at present-time (item-bound `.sheet(item:)`). `nil` when
+    /// no comments sheet is pending. Without this wiring the whole
+    /// comments feature was unreachable from home — the card rendered the
+    /// "şərh" affordance only when `onTapComments` was non-nil, and it
+    /// never was.
+    @State private var commentsEventId: FeedCommentsTarget?
+
     var body: some View {
         nativeTabs
             .sheet(isPresented: $showCreate, onDismiss: {
@@ -398,6 +408,25 @@ struct HomeView: View {
                         )
                     }
                 }
+            }
+            // Feed comments thread for the "Friend activity" mini-section.
+            // Item-bound so the view-model is built lazily with the tapped
+            // event's id (mirrors `postCreateInviteFor`). The viewer
+            // identity is threaded so optimistic inserts render the
+            // current user's name + avatar before the server echoes back.
+            .sheet(item: $commentsEventId) { target in
+                FeedCommentsSheet(
+                    viewModel: FeedCommentsViewModel(
+                        apiClient: container.apiClient,
+                        eventId: target.eventId
+                    ),
+                    currentUserId: container.currentUser?.id,
+                    currentDisplayName: container.currentUser?.display_name,
+                    currentAvatarURL: container.currentUser?.photo_url
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(.ultraThinMaterial)
             }
         .task {
             await viewModel.onAppear()
@@ -942,7 +971,7 @@ struct HomeView: View {
             HStack(spacing: 10) {
                 statTile(value: primaryElo.map(String.init) ?? "—", labelKey: "home.stat.rating", color: DSColor.accent)
                 statTile(value: "\(gamesPlayed)", labelKey: "home.stat.games", color: DSColor.textPrimary)
-                statTile(value: winRateLabel, labelKey: "home.stat.winrate", color: DSColor.success)
+                statTile(value: winRateLabel, labelKey: "home.stat.winrate", color: winRateColor)
             }
             .padding(.horizontal, DSSpacing.md)
         }
@@ -953,10 +982,23 @@ struct HomeView: View {
         return "\(Int((Double(gamesWon) / Double(gamesPlayed) * 100).rounded()))%"
     }
 
+    /// Win-rate tile colour. Neutral by default — `DSColor.success`
+    /// (green) is a *state* token and shouldn't read as "good" for a
+    /// 12% win rate. We only tint it green once the player is winning
+    /// more than half their games (a genuinely positive signal);
+    /// otherwise the value sits in `textPrimary` like the games tile.
+    private var winRateColor: Color {
+        guard gamesPlayed > 0 else { return DSColor.textPrimary }
+        let pct = Double(gamesWon) / Double(gamesPlayed) * 100
+        return pct > 50 ? DSColor.success : DSColor.textPrimary
+    }
+
     private func statTile(value: String, labelKey: LocalizedStringKey, color: Color) -> some View {
         VStack(spacing: 2) {
             Text(value).font(DSType.statValue).foregroundStyle(color)
-                .rollingNumber(value)   // digits roll when the stat updates
+                .lineLimit(1)              // keep the value on one line…
+                .minimumScaleFactor(0.6)   // …and shrink instead of clipping at large Dynamic Type
+                .rollingNumber(value)      // digits roll when the stat updates
             Text(labelKey).font(DSType.caption2).foregroundStyle(DSColor.textSecondary)
         }
         .frame(maxWidth: .infinity)
@@ -1224,14 +1266,22 @@ struct HomeView: View {
 
                 VStack(spacing: DSSpacing.xs) {
                     ForEach(viewModel.quickFeed.prefix(3)) { event in
-                        FeedEventCard(event: event) { target in
-                            switch target {
-                            case .game(let id):    homePath.append(HomeRoute.game(id))
-                            case .profile(let id): homePath.append(HomeRoute.profile(id))
-                            case .tournament:      break
-                            case .none:            break
-                            }
-                        }
+                        FeedEventCard(
+                            event: event,
+                            onTap: { target in
+                                switch target {
+                                case .game(let id):    homePath.append(HomeRoute.game(id))
+                                case .profile(let id): homePath.append(HomeRoute.profile(id))
+                                case .tournament:      break
+                                case .none:            break
+                                }
+                            },
+                            // Present the comments thread for this event.
+                            // Wiring this closure is what makes the
+                            // FeedCommentsSheet reachable at all — the card
+                            // hides its comments affordance when it's nil.
+                            onTapComments: { commentsEventId = FeedCommentsTarget(eventId: event.id) }
+                        )
                     }
                 }
                 .padding(.horizontal, DSSpacing.md)
@@ -1556,6 +1606,15 @@ extension View {
 }
 
 // MARK: - Core Route models & Null API satisfy stubs
+
+/// Identifiable wrapper around a feed event id so it can drive an
+/// item-bound `.sheet(item:)` for the comments thread. `String` isn't
+/// `Identifiable` on its own; this keeps the present-time view-model
+/// construction lazy (one VM per tapped event, not per re-render).
+struct FeedCommentsTarget: Identifiable, Hashable {
+    let eventId: String
+    var id: String { eventId }
+}
 
 enum HomeRoute: Hashable {
     case game(String)

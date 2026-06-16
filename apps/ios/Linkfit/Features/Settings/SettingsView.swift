@@ -18,6 +18,24 @@ struct SettingsView: View {
     @State private var showCalendar = false
     @State private var showInviteFriends = false
 
+    // Targets pushed from inside Leaderboards / Calendar via their tap
+    // callbacks. Identifiable-payload state drives `.navigationDestination`
+    // so a row tap inside those screens performs real navigation instead of
+    // being a dead-end chevron. Identifiable wrappers (matching
+    // `BlockedUsersView`) let the stack re-push a fresh screen after back-out.
+    @State private var pushedProfile: PushedID?
+    @State private var pushedGame: PushedID?
+    @State private var pushedTournament: PushedID?
+
+    fileprivate struct PushedID: Identifiable, Hashable {
+        let value: String
+        var id: String { value }
+    }
+
+    /// Disables the sign-out control + shows a spinner while `performLogout()`
+    /// is in flight, so the user can't double-tap during the network call.
+    @State private var isLoggingOut = false
+
     private var versionString: String {
         let dict = Bundle.main.infoDictionary
         let short = (dict?["CFBundleShortVersionString"] as? String) ?? "—"
@@ -257,15 +275,21 @@ struct SettingsView: View {
                         UISelectionFeedbackGenerator().selectionChanged()
                         confirmLogout = true
                     } label: {
-                        HStack {
+                        HStack(spacing: 8) {
                             Spacer()
-                            Image(systemName: "rectangle.portrait.and.arrow.right")
-                                .font(.system(size: 14, weight: .bold))
+                            if isLoggingOut {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .tint(DSColor.danger)
+                            } else {
+                                Image(systemName: "rectangle.portrait.and.arrow.right")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
                             Text("common.signout")
                                 .font(.system(size: 14, weight: .black))
                             Spacer()
                         }
-                        .foregroundStyle(DSColor.danger)
+                        .foregroundStyle(DSColor.danger.opacity(isLoggingOut ? 0.5 : 1))
                         .frame(maxWidth: .infinity, minHeight: 46)
                         .background(
                             Capsule().fill(DSColor.danger.opacity(0.08))
@@ -275,6 +299,7 @@ struct SettingsView: View {
                         )
                     }
                     .buttonStyle(BounceButtonStyle())
+                    .disabled(isLoggingOut)
                     .padding(.top, 8)
                     
                     Spacer().frame(height: 56)
@@ -336,12 +361,41 @@ struct SettingsView: View {
         .navigationDestination(isPresented: $showLeaderboards) {
             LeaderboardsView(
                 viewModel: LeaderboardsViewModel(apiClient: container.apiClient),
-                onTapPlayer: { _ in }
+                onTapPlayer: { userId in pushedProfile = PushedID(value: userId) }
             )
         }
         .navigationDestination(isPresented: $showCalendar) {
             AgendaCalendarView(
-                viewModel: AgendaCalendarViewModel(apiClient: container.apiClient)
+                viewModel: AgendaCalendarViewModel(apiClient: container.apiClient),
+                onTapGame: { item in pushedGame = PushedID(value: item.id) },
+                onTapBooking: { _ in showMyBookings = true },
+                onTapTournament: { item in pushedTournament = PushedID(value: item.id) }
+            )
+        }
+        .navigationDestination(item: $pushedProfile) { pushed in
+            ProfileView(
+                viewModel: ProfileViewModel(
+                    apiClient: container.apiClient,
+                    userId: pushed.value,
+                    container: container
+                )
+            )
+        }
+        .navigationDestination(item: $pushedGame) { pushed in
+            GameDetailView(
+                viewModel: GameDetailViewModel(
+                    apiClient: container.apiClient,
+                    gameId: pushed.value,
+                    currentUserId: container.currentUser?.id
+                )
+            )
+        }
+        .navigationDestination(item: $pushedTournament) { pushed in
+            TournamentDetailView(
+                viewModel: TournamentDetailViewModel(
+                    apiClient: container.apiClient,
+                    tournamentId: pushed.value
+                )
             )
         }
         .navigationDestination(isPresented: $showInviteFriends) {
@@ -406,6 +460,7 @@ struct SettingsView: View {
 
     private func performLogout() async {
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        isLoggingOut = true
         guard let refresh = container.tokenStore.refreshToken() else {
             container.clearSession()
             return

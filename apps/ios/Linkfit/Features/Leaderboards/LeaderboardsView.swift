@@ -171,7 +171,7 @@ struct LeaderboardsView: View {
             EmptyStateView(
                 icon: "trophy",
                 title: String(localized: "leaderboards.empty.title"),
-                message: String(localized: "rankings.empty.message")
+                message: String(localized: "leaderboards.empty.message")
             )
             .frame(minHeight: 320)
         case .error(let message):
@@ -397,9 +397,19 @@ private struct LeaderboardRow: View {
 
     private var accessibilityLabel: String {
         let winPct = Int((item.win_rate * 100).rounded())
-        // Composed at runtime so screen readers get a coherent
-        // sentence rather than three disjoint labels.
-        return "\(item.display_name), rank \(item.rank), \(resolvedSkill.localizedName), \(item.games_played) games, \(resolvedWins) wins, \(winPct)% wins"
+        // Composed from a positional, localized format so screen readers
+        // get a coherent sentence in the user's language rather than three
+        // disjoint hardcoded-English labels. Order: name, rank, skill,
+        // games, wins, win%.
+        return String(
+            format: String(localized: "leaderboards.row.a11y_format"),
+            item.display_name,
+            item.rank,
+            resolvedSkill.localizedName,
+            item.games_played,
+            resolvedWins,
+            winPct
+        )
     }
 
     private func initials(_ name: String) -> String {

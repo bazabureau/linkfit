@@ -172,9 +172,15 @@ final class CreateGameViewModel {
     func setSkillBand(_ value: SkillBand) { skillBand = value }
     func setVisibility(_ value: Visibility) { visibility = value }
 
+    /// The CTA stays live as long as a sport is chosen and we're not
+    /// mid-flight. We deliberately do NOT gate on `startsAt > Date()`
+    /// here: a button that silently disables itself when the chosen
+    /// time has slipped into the past (e.g. the "tonight" quick-start
+    /// anchor staling across midnight while the sheet sits open) reads
+    /// as broken. Time validity is checked in `submit()` instead, which
+    /// surfaces an inline hint the user can act on.
     var canSubmit: Bool {
-        guard let _ = selectedSport else { return false }
-        guard startsAt > Date() else { return false }
+        guard selectedSport != nil else { return false }
         return !isSubmitting
     }
 
@@ -189,30 +195,55 @@ final class CreateGameViewModel {
     func submit(viewerHome: CLLocationCoordinate2D?) async -> GameDetail? {
         guard let sport = selectedSport else { return nil }
         formError = nil
+
+        // Validate the start time lazily, against a *fresh* `Date()` at
+        // tap time — not via a disabled button. The quick-start anchors
+        // are minted once in `init`, so "tonight" can drift into the past
+        // if the sheet lingers open across the cutoff. Surface an inline
+        // hint the user can fix rather than a dead, unexplained CTA.
+        guard startsAt > Date() else {
+            formError = String(localized: "create_game.error.start_in_past")
+            return nil
+        }
+
         isSubmitting = true
         defer { isSubmitting = false }
 
         let coord = selectedVenue?.coordinate ?? viewerHome ?? fallbackCoordinate
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        let body = CreateGameBody(
-            sport_id: sport.id,
-            court_id: nil,
-            lat: coord.latitude,
-            lng: coord.longitude,
+        // The `visibility` choice (public / invite-only) IS honoured by the
+        // backend — it's a first-class field on the game read models — but
+        // `CreateGameBody` omits it, so invite-only was silently shipping a
+        // public game. `CreateGameBody` lives in another file we mustn't
+        // touch, so we assemble the POST payload here and include
+        // `visibility` alongside the canonical body fields.
+        var payload: [String: Any] = [
+            "sport_id": sport.id,
+            "lat": coord.latitude,
+            "lng": coord.longitude,
             // Symmetric with `Date.fromISO` on the read side — both
             // ends of the contract now agree on the fractional-seconds
             // ISO 8601 shape the backend ships.
-            starts_at: startsAt.toISO(),
-            duration_minutes: durationMinutes,
-            capacity: capacity,
-            skill_min_elo: skillBand.range?.min,
-            skill_max_elo: skillBand.range?.max,
-            notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
-            idempotency_key: idempotencyKey
+            "starts_at": startsAt.toISO(),
+            "duration_minutes": durationMinutes,
+            "capacity": capacity,
+            "visibility": visibility.rawValue,
+            "idempotency_key": idempotencyKey,
+        ]
+        if let lo = skillBand.range?.min { payload["skill_min_elo"] = lo }
+        if let hi = skillBand.range?.max { payload["skill_max_elo"] = hi }
+        if !trimmedNotes.isEmpty { payload["notes"] = trimmedNotes }
+
+        let endpoint = Endpoint<GameDetail>(
+            method: .post,
+            path: "/api/v1/games",
+            body: try? JSONSerialization.data(withJSONObject: payload),
+            requiresAuth: true
         )
+
         do {
-            let detail = try await apiClient.send(.createGame(body))
+            let detail = try await apiClient.send(endpoint)
             // Key consumed — mint a fresh one so the next game created from
             // this view model isn't deduplicated against this one.
             idempotencyKey = UUID().uuidString

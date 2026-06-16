@@ -162,9 +162,9 @@ struct StoryRailCell: View {
                     if isOwn, let onCreateStory {
                         // "+" badge in the corner. Always tappable — even when the
                         // user has an existing stack, the badge is the explicit
-                        // create entry-point. Hit area is small (24pt) so it
-                        // doesn't fight the parent tap; users who want to "open"
-                        // tap the avatar, users who want to "create" tap the +.
+                        // create entry-point. The visible glyph is 22pt but the
+                        // tap target is expanded to 44pt below; users who want to
+                        // "open" tap the avatar, users who want to "create" tap the +.
                         Button(action: onCreateStory) {
                             ZStack {
                                 Circle()
@@ -177,12 +177,21 @@ struct StoryRailCell: View {
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundStyle(DSColor.textOnAccent)
                             }
+                            // The visual badge is 22pt, but it is the primary
+                            // entry point to the creator — give it a >=44x44
+                            // hit target so it meets the minimum tap size
+                            // without growing the badge itself.
+                            .frame(width: 44, height: 44)
+                            .contentShape(Circle())
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(Text("stories.your_story"))
                         // Offset so the badge sits half-on-half-off the ring,
-                        // matching Instagram's geometry.
-                        .offset(x: 2, y: -4)
+                        // matching Instagram's geometry. The 44pt hit frame is
+                        // 11pt larger per side than the visible 22pt badge, so
+                        // we add ~11pt back (x) / subtract ~11pt (y) on top of
+                        // the original +2 / -4 to keep the glyph in the same spot.
+                        .offset(x: 13, y: -15)
                     }
                 }
 
@@ -249,7 +258,7 @@ struct StoryRailCell: View {
                     endPoint: .bottomTrailing
                 ))
             Text(initials(from: name))
-                .font(.system(size: 20, weight: .bold, design: .default))
+                .font(DSType.caption2)
                 .foregroundStyle(DSColor.textPrimary)
         }
     }
@@ -276,7 +285,7 @@ struct StoryRailCell: View {
             }
         }()
         text
-            .font(.system(size: 12, weight: .medium))
+            .font(DSType.metaCaption)
             .foregroundStyle(DSColor.textPrimary)
             .lineLimit(1)
             .minimumScaleFactor(0.75)

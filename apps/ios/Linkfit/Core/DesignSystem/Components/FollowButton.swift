@@ -56,10 +56,15 @@ struct FollowButton: View {
                         design: .default,
                         weight: .semibold
                     ))
-                    .lineLimit(1)
+                    // Drop lineLimit(1): az/ru labels ("İzlənilir" / "Подписки")
+                    // are longer than en and were truncating. Allow a small
+                    // shrink and let the capsule hug the intrinsic width.
+                    .minimumScaleFactor(0.85)
+                    .fixedSize(horizontal: true, vertical: false)
             }
             .foregroundStyle(isFollowing ? DSColor.textPrimary : DSColor.textOnAccent)
             .padding(.horizontal, size == .compact ? DSSpacing.sm : DSSpacing.md)
+            // Visual capsule keeps its compact 30 / regular 38pt look…
             .frame(height: size == .compact ? 30 : 38)
             .background(
                 Capsule().fill(isFollowing ? Color.clear : DSColor.accent)
@@ -70,6 +75,10 @@ struct FollowButton: View {
                     lineWidth: 1
                 )
             )
+            // …but the tap target expands to the HIG-minimum 44pt. The
+            // content shape is applied AFTER the min-height frame so the
+            // whole 44pt band is hittable, not just the visible capsule.
+            .frame(minHeight: 44)
             .contentShape(Capsule())
             .opacity(isLoading ? 0.85 : 1.0)
         }

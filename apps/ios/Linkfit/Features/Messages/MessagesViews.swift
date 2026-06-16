@@ -396,15 +396,18 @@ private struct PremiumConversationRow: View {
 
     /// Two-colour gradient derived from the name's hash so the disc
     /// stays consistent across launches but doesn't require any
-    /// per-user art from design.
+    /// per-user art from design. Every stop is mixed from the brand ramp
+    /// (royal-blue accent + its soft variant + the lime-yellow secondary)
+    /// rather than the old hardcoded rainbow `Color(hex:)` set — the discs
+    /// stay distinct and stable while reading as on-brand instead of noise.
     private var avatarColors: [Color] {
         let seed = conversation.other_display_name.hash
         let palette: [[Color]] = [
-            [DSColor.accent, DSColor.accentSoft], // Royal Blue gradient
-            [Color(hex: 0xFF9F43), Color(hex: 0xFF5252)], // Orange-Red gradient
-            [Color(hex: 0x1DD1A1), Color(hex: 0x10AC84)], // Emerald gradient
-            [Color(hex: 0x9B5DE5), Color(hex: 0xF15BB5)], // Purple-Pink gradient
-            [DSColor.accent, DSColor.secondary], // Brand accent mix (Royal Blue + Lime-Yellow)
+            [DSColor.accent, DSColor.accentSoft],                 // royal blue → soft blue
+            [DSColor.accent, DSColor.secondary],                  // royal blue → lime-yellow
+            [DSColor.accentSoft, DSColor.secondary],              // soft blue → lime-yellow
+            [DSColor.secondary, DSColor.accent],                  // lime-yellow → royal blue
+            [DSColor.accentSoft, DSColor.accent],                 // soft blue → royal blue
         ]
         return palette[abs(seed) % palette.count]
     }
@@ -1263,10 +1266,20 @@ struct ConversationThreadView: View {
         ZStack {
             DSColor.background.ignoresSafeArea()
             VStack(spacing: 0) {
-                threadHeader
-                Divider().overlay(DSColor.border)
                 messages
                 composer
+            }
+        }
+        // Title/avatar live in the native nav bar (principal toolbar item)
+        // instead of a hand-rolled in-content header — see FAZA 45 §13.4
+        // (native chrome, inline display mode). `.navigationTitle` supplies
+        // the accessibility/back-affordance label; the principal item draws
+        // the avatar + name to match the rest of the app's pushed details.
+        .navigationTitle(threadDisplayName)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                threadTitle
             }
         }
         .task {
@@ -1295,26 +1308,39 @@ struct ConversationThreadView: View {
         }
     }
 
-    private var threadHeader: some View {
-        HStack(spacing: DSSpacing.sm) {
-            if case .loaded(let t) = viewModel.state {
+    /// Plain-text title backing `.navigationTitle` — drives the
+    /// accessibility label and the back-button affordance on the pushed
+    /// stack. The visible avatar + name are drawn by `threadTitle` in the
+    /// principal toolbar slot.
+    private var threadDisplayName: String {
+        if case .loaded(let t) = viewModel.state { return t.other_display_name }
+        return ""
+    }
+
+    /// Principal nav-bar content — compact avatar disc + name. Replaces the
+    /// former in-content `threadHeader`; sits inline in the system nav bar
+    /// so we keep native back-swipe, long-press-back, and status-bar
+    /// tap-to-top. The avatar mirrors the inbox row's brand-ramp disc.
+    @ViewBuilder
+    private var threadTitle: some View {
+        if case .loaded(let t) = viewModel.state {
+            HStack(spacing: DSSpacing.xs) {
                 ZStack {
                     Circle().fill(LinearGradient(
                         colors: [DSColor.accent, DSColor.accentSoft],
                         startPoint: .topLeading, endPoint: .bottomTrailing
-                    )).frame(width: 40, height: 40)
+                    )).frame(width: 28, height: 28)
                     Text(initials(t.other_display_name))
-                        .font(.system(.footnote, design: .default, weight: .bold))
+                        .font(.system(size: 11, weight: .bold, design: .default))
                         .foregroundStyle(DSColor.textOnAccent)
                 }
                 Text(t.other_display_name)
                     .font(.system(.headline, design: .default, weight: .semibold))
                     .foregroundStyle(DSColor.textPrimary)
+                    .lineLimit(1)
             }
-            Spacer()
+            .accessibilityElement(children: .combine)
         }
-        .padding(.horizontal, DSSpacing.md)
-        .padding(.vertical, DSSpacing.sm)
     }
 
     @ViewBuilder

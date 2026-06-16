@@ -127,13 +127,12 @@ struct EmailVerificationGateView: View {
 
     private var actions: some View {
         VStack(spacing: DSSpacing.sm) {
+            // Primary path: enter the 6-digit code we emailed.
             PrimaryButton(
-                title: String(localized: "email.gate.refresh"),
-                icon: "checkmark.seal",
-                isLoading: isRefreshing,
-                isEnabled: !isRefreshing
+                title: String(localized: "email.banner.enter_token"),
+                icon: "keyboard"
             ) {
-                Task { await refresh(announce: true) }
+                showEnterToken = true
             }
 
             HStack(spacing: DSSpacing.sm) {
@@ -153,17 +152,21 @@ struct EmailVerificationGateView: View {
                 .buttonStyle(.plain)
                 .disabled(viewModel.isSending)
 
-                Button {
-                    Haptics.selection()
-                    showEnterToken = true
-                } label: {
-                    Text("email.banner.enter_token")
-                        .font(DSType.button)
-                        .foregroundStyle(DSColor.accent)
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                        .overlay(Capsule().stroke(DSColor.accent.opacity(0.4), lineWidth: 1))
+                Button { Task { await refresh(announce: true) } } label: {
+                    Group {
+                        if isRefreshing {
+                            ProgressView().controlSize(.small).tint(DSColor.accent)
+                        } else {
+                            Text("email.gate.refresh")
+                        }
+                    }
+                    .font(DSType.button)
+                    .foregroundStyle(DSColor.accent)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .overlay(Capsule().stroke(DSColor.accent.opacity(0.4), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
+                .disabled(isRefreshing)
             }
 
             Button(role: .destructive) {

@@ -161,7 +161,7 @@ struct MatchmakingView: View {
                     .foregroundStyle(DSColor.textSecondary)
             }
 
-            reasonsChips(p.reasons)
+            playerReasonsChips(p)
                 .padding(.top, DSSpacing.xxs)
         }
         .padding(DSSpacing.md)
@@ -203,6 +203,38 @@ struct MatchmakingView: View {
             .foregroundStyle(DSColor.accent)
             .clipShape(Capsule())
             .accessibilityLabel(String(format: String(localized: "matchmaking.score.voice_format"), pct))
+    }
+
+    /// Player reasons rendered from the locale-agnostic `reason_codes`
+    /// tokens through `RecommendedPlayerReason.labelKey`, so the chips read
+    /// in the user's language instead of the backend's English `reasons[]`.
+    /// Falls back to the verbatim `reasons[]` strings only when
+    /// `reason_codes` is absent (older/cached responses), matching the
+    /// decode-side back-compat contract on `RecommendedPlayer`.
+    @ViewBuilder
+    private func playerReasonsChips(_ p: RecommendedPlayer) -> some View {
+        let codes = p.reason_codes?.compactMap { RecommendedPlayerReason(rawValue: $0) } ?? []
+        if p.reason_codes != nil {
+            // New backend: localized, decodable codes. (Unknown future
+            // codes are dropped by `compactMap` rather than shown raw.)
+            let visible = Array(codes.prefix(3))
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(visible.enumerated()), id: \.offset) { _, reason in
+                    Text(reason.labelKey)
+                        .font(.system(.caption2, design: .default, weight: .semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(reason.accent.opacity(0.18))
+                        .foregroundStyle(reason.accent)
+                        .clipShape(Capsule())
+                        .lineLimit(1)
+                }
+            }
+        } else {
+            // Older/cached response without codes — keep the verbatim
+            // English fallback so the card still explains its ranking.
+            reasonsChips(p.reasons)
+        }
     }
 
     /// Flow layout simulation — SwiftUI doesn't ship one before iOS 16, but

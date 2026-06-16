@@ -210,6 +210,20 @@ struct BookCourtView: View {
         }
     }
 
+    /// Retry the venue-detail load behind the court step. Clears the
+    /// stale error then re-hydrates from whichever source seeded the
+    /// step: a preset venue id, or the venue the user tapped in the
+    /// picker. Without a known venue id there is nothing to reload, so
+    /// we just drop the error and let the (empty) state re-render.
+    private func retryCourtLoad() async {
+        error = nil
+        if let presetVenueId {
+            await loadPresetVenue(id: presetVenueId, courtId: presetCourtId)
+        } else if let v = venue {
+            await loadVenueDetail(for: v)
+        }
+    }
+
     private var navTitle: LocalizedStringKey {
         confirmed ? "book.confirmed.title" : step.titleKey
     }
@@ -408,7 +422,17 @@ struct BookCourtView: View {
                         }
                     }
                 } else if detail == nil {
-                    LoadingView().frame(height: 200)
+                    // Surface a real failure instead of spinning forever:
+                    // if the detail load errored we show a retry, otherwise
+                    // we're still genuinely loading.
+                    if let error {
+                        ErrorStateView(message: error) {
+                            Task { await retryCourtLoad() }
+                        }
+                        .frame(height: 240)
+                    } else {
+                        LoadingView().frame(height: 200)
+                    }
                 } else {
                     EmptyStateView(
                         icon: "sportscourt",
@@ -574,29 +598,36 @@ struct BookCourtView: View {
                 // Bucket selection
                 VStack(alignment: .leading, spacing: 20) {
                     slotGridHeader
-                    
-                    if !morningSlots.isEmpty {
-                        bucketedSlotSection(
-                            title: String(localized: "book.bucket.morning", defaultValue: "Morning"),
-                            icon: "sun.max.fill",
-                            minutes: morningSlots
-                        )
-                    }
-                    
-                    if !afternoonSlots.isEmpty {
-                        bucketedSlotSection(
-                            title: String(localized: "book.bucket.afternoon", defaultValue: "Afternoon"),
-                            icon: "sun.horizon.fill",
-                            minutes: afternoonSlots
-                        )
-                    }
-                    
-                    if !eveningSlots.isEmpty {
-                        bucketedSlotSection(
-                            title: String(localized: "book.bucket.evening", defaultValue: "Evening"),
-                            icon: "moon.stars.fill",
-                            minutes: eveningSlots
-                        )
+
+                    if morningSlots.isEmpty && afternoonSlots.isEmpty && eveningSlots.isEmpty {
+                        // No bookable slots remain for the chosen day (e.g.
+                        // late in the evening on "today"). Show an inline
+                        // empty state instead of a blank gap under the header.
+                        emptySlotsState
+                    } else {
+                        if !morningSlots.isEmpty {
+                            bucketedSlotSection(
+                                title: String(localized: "book.bucket.morning"),
+                                icon: "sun.max.fill",
+                                minutes: morningSlots
+                            )
+                        }
+
+                        if !afternoonSlots.isEmpty {
+                            bucketedSlotSection(
+                                title: String(localized: "book.bucket.afternoon"),
+                                icon: "sun.horizon.fill",
+                                minutes: afternoonSlots
+                            )
+                        }
+
+                        if !eveningSlots.isEmpty {
+                            bucketedSlotSection(
+                                title: String(localized: "book.bucket.evening"),
+                                icon: "moon.stars.fill",
+                                minutes: eveningSlots
+                            )
+                        }
                     }
                 }
 
@@ -736,6 +767,28 @@ struct BookCourtView: View {
         }
     }
 
+    /// Inline "no times left for this day" state, shown when every bucket
+    /// is empty. Kept lightweight (icon + copy, no card) so it doesn't nest
+    /// a card inside the slot section per FAZA 45 layout rules.
+    private var emptySlotsState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "clock.badge.xmark")
+                .font(.system(size: 28, weight: .regular))
+                .foregroundStyle(DSColor.textTertiary)
+            Text("book.slot.none.title")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(DSColor.textPrimary)
+            Text("book.slot.none.message")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(DSColor.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .padding(.horizontal, 16)
+        .accessibilityElement(children: .combine)
+    }
+
     private func slotLegendDot(color: Color, borderColor: Color) -> some View {
         RoundedRectangle(cornerRadius: 4, style: .continuous)
             .fill(color)
@@ -869,7 +922,13 @@ struct BookCourtView: View {
             bookedSlotMinutes = []
             return
         }
+        // Pin the formatter to a fixed locale + calendar so the query date
+        // is always a clean Gregorian "yyyy-MM-dd". Without en_US_POSIX a
+        // user on a non-Gregorian calendar (or a 12-hour locale quirk) can
+        // produce a date string the API can't parse.
         let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.calendar = Calendar(identifier: .gregorian)
         fmt.dateFormat = "yyyy-MM-dd"
         let dateStr = fmt.string(from: selectedDate)
         
@@ -1282,19 +1341,32 @@ struct BookCourtView: View {
 
     private func select(venue v: Venue) {
         venue = v
-        Task {
-            do {
-                let d = try await container.apiClient.send(.venue(id: v.id))
-                detail = d
-                court = d.courts.count == 1 ? d.courts.first : nil
-                withAnimation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.8)) {
-                    step = .court
-                }
-            } catch let e as APIError {
-                error = e.errorDescription
-            } catch {
-                self.error = error.localizedDescription
-            }
+        // Advance to the court step immediately and load its detail there.
+        // The court step renders LoadingView while detail == nil, and an
+        // ErrorStateView (with retry) if the load fails — so we no longer
+        // strand the user on the venue step when the detail call errors.
+        detail = nil
+        court = nil
+        error = nil
+        withAnimation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.8)) {
+            step = .court
+        }
+        Task { await loadVenueDetail(for: v) }
+    }
+
+    /// Load a venue's detail and seed `detail` / `court`. On failure we
+    /// set `error`, which the court step reads to render its retry state.
+    private func loadVenueDetail(for v: Venue) async {
+        do {
+            let d = try await container.apiClient.send(.venue(id: v.id))
+            detail = d
+            court = d.courts.count == 1 ? d.courts.first : nil
+        } catch is CancellationError {
+            return
+        } catch let e as APIError {
+            error = e.errorDescription
+        } catch {
+            self.error = error.localizedDescription
         }
     }
 
@@ -1320,7 +1392,7 @@ struct BookCourtView: View {
         isConfirming = true
         let body = CreateBookingBody(
             court_id: c.id,
-            starts_at: ISO8601DateFormatter().string(from: when),
+            starts_at: when.toISO(),
             duration_minutes: durationMinutes,
             idempotency_key: idempotencyKey
         )
@@ -1395,6 +1467,9 @@ struct BookCourtView: View {
     }
 
     private func formatPrice(_ minor: Int, _ currency: String) -> String {
-        BookingPriceFormatter.format(minor: minor, currency: currency)
+        // Route every price in this view through the single Money formatter
+        // so manat renders as ₼ with lossless qəpik and a locale-correct
+        // decimal separator (was the divergent BookingPriceFormatter).
+        Money.format(minor: minor, currency: currency)
     }
 }

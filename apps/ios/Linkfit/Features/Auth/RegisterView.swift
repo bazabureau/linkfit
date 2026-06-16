@@ -151,9 +151,14 @@ struct RegisterView: View {
                 errorMessage: viewModel.passwordError
             )
 
-            // The strength meter only earns its space once there is a
-            // password to grade — an empty form stays clean.
-            if !viewModel.password.isEmpty {
+            // Password guidance is ALWAYS visible: when empty we show the
+            // static policy line so the rule is known before typing (and the
+            // disabled CTA has a stated reason); once typing begins, the
+            // 3-segment strength meter takes over. The policy never hides.
+            if viewModel.password.isEmpty {
+                passwordPolicyHint
+                    .transition(.opacity)
+            } else {
                 passwordStrength
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
@@ -235,6 +240,25 @@ struct RegisterView: View {
         .padding(.horizontal, 4)
         .padding(.top, -DSSpacing.xs)
         .animation(.easeInOut(duration: 0.22), value: level)
+    }
+
+    /// Static policy line shown under the empty password field. It states
+    /// the rule up front (so the user knows it before typing) and gives the
+    /// disabled Sign-up button a visible reason to be off. Once typing
+    /// begins, `passwordStrength` replaces this with the live meter.
+    private var passwordPolicyHint: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "info.circle")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(DSColor.textTertiary)
+            Text("auth.password.policy")
+                .font(.system(.caption, design: .default, weight: .medium))
+                .foregroundStyle(DSColor.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
+        .padding(.top, -DSSpacing.xs)
     }
 
     private var primaryCTA: some View {
