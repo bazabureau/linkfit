@@ -76,11 +76,9 @@ targets:
         # validates the host against this entitlement before opening the
         # app; the AASA's `paths` array narrows to the prefixes we
         # actually handle in `DeepLink.from(url:)`.
-        # TODO(infra): linkfit.az must serve the AASA over HTTPS with a
-        # valid cert and `Content-Type: application/json` — the current
-        # production droplet only serves HTTP at 142.93.100.82, so the
-        # domain + cert must be provisioned (Vercel + Let's Encrypt on
-        # the Next.js host) before Universal Links resolve on device.
+        # linkfit.az now serves over HTTPS (Cloudflare, valid cert). Ensure
+        # /.well-known/apple-app-site-association returns the AASA JSON with
+        # `Content-Type: application/json` so Universal Links resolve on device.
         com.apple.developer.associated-domains:
           - applinks:linkfit.az
         aps-environment: development
@@ -146,9 +144,10 @@ targets:
         # upload. Flip to true (and supply the right docs) only when the app
         # ships custom or non-standard cryptography.
         ITSAppUsesNonExemptEncryption: false
-        # Networking — default API endpoint. Xcode schemes/CI can override
-        # at runtime with LINKFIT_API_BASE_URL without rebuilding the app.
-        APIBaseURL: "http://142.93.100.82"
+        # Networking — default API endpoint. The API is served over HTTPS at
+        # api.linkfit.az (behind Cloudflare, valid cert). Xcode schemes/CI can
+        # override at runtime with LINKFIT_API_BASE_URL without rebuilding.
+        APIBaseURL: "https://api.linkfit.az"
         # Sentry DSN — substituted from the `SENTRY_DSN` build setting (see
         # `settings.base` above). Empty by default; an empty value makes
         # `CrashReporter.start(...)` a no-op so the app still boots in dev/CI
@@ -165,18 +164,13 @@ targets:
         # invoking `xcodebuild`, or set the values in CI secrets.
         POSTHOG_API_KEY: "$(POSTHOG_API_KEY)"
         POSTHOG_HOST: "$(POSTHOG_HOST)"
-        # The production droplet currently serves the API over plain HTTP at
-        # a bare IP — App Transport Security blocks both by default. Once we
-        # promote a domain + Let's Encrypt cert this exception can be torn
-        # out entirely. Until then we whitelist localhost (dev) and the
-        # droplet IP, leaving the rest of the app under default ATS.
+        # The API now lives on api.linkfit.az over HTTPS with a valid cert
+        # (Cloudflare), so it needs NO ATS exception — it satisfies default
+        # App Transport Security. We keep arbitrary loads off and only
+        # whitelist localhost for local-backend development.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: false
           NSExceptionDomains:
-            "142.93.100.82":
-              NSExceptionAllowsInsecureHTTPLoads: true
-              NSIncludesSubdomains: false
-              NSExceptionMinimumTLSVersion: "TLSv1.2"
             localhost:
               NSExceptionAllowsInsecureHTTPLoads: true
               NSIncludesSubdomains: false

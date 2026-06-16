@@ -53,10 +53,10 @@ final class AppContainer {
         //   1. `LINKFIT_API_BASE_URL` env var — for dev runs from xcrun / scripts
         //   2. `APIBaseURL` Info.plist key — set by project.yml per build config
         //   3. Hard-coded production host so a fresh build talks to the real
-        //      backend out of the box. Until we promote a real domain this is
-        //      the DigitalOcean droplet — set the env override above to point
-        //      at localhost during local API dev.
-        let fallback = "http://142.93.100.82"
+        //      backend out of the box — the api.linkfit.az HTTPS endpoint.
+        //      Set the env override above to point at localhost during local
+        //      API dev.
+        let fallback = "https://api.linkfit.az"
         let configured = ProcessInfo.processInfo.environment["LINKFIT_API_BASE_URL"]
             ?? Bundle.main.object(forInfoDictionaryKey: "APIBaseURL") as? String
             ?? fallback
