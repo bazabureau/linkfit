@@ -45,10 +45,8 @@ struct AppShell: View {
     // headlines "Oyun tap / Squad qur / Səviyyəni yüksəlt / Bildirişlər")
     // used to be presented here as a `.fullScreenCover` after signup. It
     // was removed in response to user feedback — the pre-signup
-    // `OnboardingView` (photo-first flow with `Illustrations/*` art,
-    // mounted by `RootView`) is the only onboarding we ship. The tour
-    // files remain on disk as dead code for future revival; deleting them
-    // is a separate cleanup pass.
+    // `OnboardingView` (photo-first flow, mounted by `RootView`) is the
+    // only onboarding we ship.
 
     var body: some View {
         HomeView(viewModel: HomeViewModel(apiClient: container.apiClient))
