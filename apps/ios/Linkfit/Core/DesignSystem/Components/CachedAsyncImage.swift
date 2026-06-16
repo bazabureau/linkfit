@@ -30,7 +30,11 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
          transaction: Transaction = Transaction(),
          @ViewBuilder content: @escaping (AsyncImagePhase) -> Content)
     where Placeholder == EmptyView {
-        self.url = url
+        // Upgrade legacy bare-IP HTTP origins to the canonical HTTPS host so
+        // media uploaded before the api.linkfit.az migration isn't silently
+        // blocked by App Transport Security. Non-legacy URLs pass through
+        // unchanged. See `MediaURL`.
+        self.url = MediaURL.resolve(url)
         self.scale = scale
         self.transaction = transaction
         self.content = content
@@ -43,7 +47,8 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
          scale: CGFloat = 1,
          @ViewBuilder content: @escaping (Image) -> Content,
          @ViewBuilder placeholder: @escaping () -> Placeholder) {
-        self.url = url
+        // See the phase-style init above — same legacy-origin upgrade.
+        self.url = MediaURL.resolve(url)
         self.scale = scale
         self.transaction = Transaction()
         // The body never invokes this closure on `.empty / .failure` when a

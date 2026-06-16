@@ -303,6 +303,7 @@
 		E13A962EA9B537356BE08FBD /* StoryMentionPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88AACA03A6499BF36B796F03 /* StoryMentionPickerSheet.swift */; };
 		E1622314A59F5D30DE0681F9 /* MedicalProfileViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D865655993EF13A130493B5A /* MedicalProfileViewModel.swift */; };
 		E17D3188696BA1F747BA8AFC /* EmailVerificationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59474C1D149C48F728FB8DF4 /* EmailVerificationViewModel.swift */; };
+		E1B3EBB53CDC2C008F13BAD0 /* MediaURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01A7A6CBD1AB5BD4FFD95AA8 /* MediaURL.swift */; };
 		E2973B0CA2BF16FE9DB52BEC /* ReferralsHook.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBFC602251D61761F2E2182F /* ReferralsHook.swift */; };
 		E3F686184331762EB10AEDDC /* Endpoint+Leaderboards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1643940D7072CDCBF83B93B4 /* Endpoint+Leaderboards.swift */; };
 		E437E6AA24514D7D05589115 /* SpringPressStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 403815CC8A2BD1B78DDD93D0 /* SpringPressStyle.swift */; };
@@ -388,6 +389,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		01A7A6CBD1AB5BD4FFD95AA8 /* MediaURL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaURL.swift; sourceTree = "<group>"; };
 		02164A41017CE828B6D25F5E /* EmailVerificationToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailVerificationToast.swift; sourceTree = "<group>"; };
 		034C952563785B9F67296ACB /* StoryStickerOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryStickerOverlay.swift; sourceTree = "<group>"; };
 		04ECD0DAFB84F2DB50CD23C5 /* CreateGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateGameView.swift; sourceTree = "<group>"; };
@@ -888,6 +890,7 @@
 				0CEDAC24BE7EC09FDBDEFE06 /* Endpoint+Sessions.swift */,
 				56619063F8EA78FD73BD3CEF /* Endpoint+Stories.swift */,
 				9091B130A76884E003AB1ED2 /* Endpoint+SuggestedFollows.swift */,
+				01A7A6CBD1AB5BD4FFD95AA8 /* MediaURL.swift */,
 				7050CDFD05B8C4217766F2E2 /* RequestRetry.swift */,
 			);
 			path = Networking;
@@ -2083,6 +2086,7 @@
 				55A8AB36B2FB22F657EBA13E /* MatchmakingView.swift in Sources */,
 				0B503969D6AB8A4EB591C1DB /* MatchmakingViewModel.swift in Sources */,
 				912F2AE50364940614EEDEFC /* MaxWidthConstrained.swift in Sources */,
+				E1B3EBB53CDC2C008F13BAD0 /* MediaURL.swift in Sources */,
 				6E078227D913FED0E6822DA8 /* MedicalHook.swift in Sources */,
 				CE4FD2922C2DA59079753BA7 /* MedicalProfileView.swift in Sources */,
 				E1622314A59F5D30DE0681F9 /* MedicalProfileViewModel.swift in Sources */,
