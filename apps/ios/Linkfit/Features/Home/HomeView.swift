@@ -552,7 +552,7 @@ struct HomeView: View {
         }
         .tint(DSColor.accent)
         .glassTabBarMinimize()
-        .background(PremiumAuthBackground())
+        .background(AppGlassBackground())
         .transition(reduceMotion ? .identity : .opacity)
     }
 
@@ -763,7 +763,7 @@ struct HomeView: View {
     @ViewBuilder
     private var homeContent: some View {
         ZStack {
-            PremiumAuthBackground()
+            AppGlassBackground()
             ScrollView {
                 LazyVStack(spacing: 28, pinnedViews: []) { // Uniform 28pt startup spacing
                     homeGreetingHeader

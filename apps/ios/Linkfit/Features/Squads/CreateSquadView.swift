@@ -31,7 +31,7 @@ struct CreateSquadView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            PremiumAuthBackground()
+            AppGlassBackground()
             ScrollView {
                 VStack(spacing: 24) {
                     topBar

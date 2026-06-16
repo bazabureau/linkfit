@@ -11,7 +11,7 @@ struct NotificationsView: View {
 
     var body: some View {
         ZStack {
-            PremiumAuthBackground()
+            AppGlassBackground()
             // The loaded state uses a `List` so we get native
             // `.swipeActions` (iOS-standard swipe-to-delete with full-swipe
             // commit). For non-loaded states, a `ScrollView` keeps the

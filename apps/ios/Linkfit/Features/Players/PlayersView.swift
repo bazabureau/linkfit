@@ -46,7 +46,7 @@ struct PlayersView: View {
 
     var body: some View {
         ZStack {
-            PremiumAuthBackground()
+            AppGlassBackground()
             
             VStack(spacing: 0) {
                 tabSwitcher

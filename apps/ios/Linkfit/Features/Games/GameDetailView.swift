@@ -45,7 +45,7 @@ struct GameDetailView: View {
             // tournaments / profile. Previously this used a flat
             // `DSColor.background` which made game detail feel like a
             // different surface than the rest of the app.
-            PremiumAuthBackground()
+            AppGlassBackground()
             content
         }
         .navigationTitle(Text("game.title"))

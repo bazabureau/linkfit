@@ -23,7 +23,7 @@ struct VenuesView: View {
 
     var body: some View {
         ZStack {
-            PremiumAuthBackground()
+            AppGlassBackground()
             VStack(spacing: 0) {
                 modePicker
                 if mode == .list, viewModel.sports.count > 1 {
@@ -424,7 +424,7 @@ struct VenueDetailView: View {
 
     var body: some View {
         ZStack {
-            PremiumAuthBackground()
+            AppGlassBackground()
             content
         }
         .navigationBarTitleDisplayMode(.inline)

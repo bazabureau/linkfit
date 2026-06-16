@@ -68,7 +68,7 @@ struct RescheduleGameSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                PremiumAuthBackground()
+                AppGlassBackground()
                 ScrollView {
                     VStack(alignment: .leading, spacing: DSSpacing.lg) {
                         whenSection

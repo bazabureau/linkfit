@@ -375,7 +375,7 @@ struct SearchSectionListView: View {
 
     var body: some View {
         ZStack {
-            PremiumAuthBackground()
+            AppGlassBackground()
             ScrollView {
                 LazyVStack(spacing: DSSpacing.sm) {
                     content

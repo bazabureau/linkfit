@@ -65,7 +65,7 @@ struct ConversationsView: View {
 
     var body: some View {
         ZStack {
-            PremiumAuthBackground()
+            AppGlassBackground()
             // Loaded state uses a `List` so we get native `.swipeActions`
             // (iOS-standard swipe-to-delete with full-swipe commit). Other
             // states stay on the existing ScrollView layout so the hero +

@@ -9,7 +9,7 @@ struct InvitationsView: View {
 
     var body: some View {
         ZStack {
-            PremiumAuthBackground()
+            AppGlassBackground()
             ScrollView {
                 VStack(alignment: .leading, spacing: DSSpacing.md) {
                     header

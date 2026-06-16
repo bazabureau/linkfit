@@ -28,7 +28,7 @@ struct SquadDetailView: View {
 
     var body: some View {
         ZStack {
-            PremiumAuthBackground()
+            AppGlassBackground()
             content
         }
         .navigationBarTitleDisplayMode(.inline)

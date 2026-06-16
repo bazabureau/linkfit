@@ -22,7 +22,7 @@ struct VenuePickerSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                PremiumAuthBackground()
+                AppGlassBackground()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
                         searchField

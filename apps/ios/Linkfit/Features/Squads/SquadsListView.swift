@@ -31,7 +31,7 @@ struct SquadsListView: View {
 
     var body: some View {
         ZStack {
-            PremiumAuthBackground()
+            AppGlassBackground()
             content
         }
         .navigationTitle(Text("squads.title"))

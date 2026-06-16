@@ -46,7 +46,7 @@ struct FollowListView: View {
 
     var body: some View {
         ZStack {
-            PremiumAuthBackground()
+            AppGlassBackground()
             content
         }
         .navigationTitle(Text(viewModel.kind.titleKey))

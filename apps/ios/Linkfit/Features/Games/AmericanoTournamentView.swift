@@ -41,7 +41,7 @@ struct AmericanoTournamentView: View {
 
     var body: some View {
         ZStack {
-            PremiumAuthBackground()
+            AppGlassBackground()
                 .ignoresSafeArea()
 
             if let _ = tournamentId {

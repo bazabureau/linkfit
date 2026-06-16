@@ -15,7 +15,7 @@ struct SessionsView: View {
 
     var body: some View {
         ZStack {
-            PremiumAuthBackground()
+            AppGlassBackground()
             content
         }
         .navigationTitle(Text("sessions.title"))
