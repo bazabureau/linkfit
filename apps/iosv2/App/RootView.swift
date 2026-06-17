@@ -1,5 +1,6 @@
 import SwiftUI
 import DesignSystem
+import FeatureAuth
 
 /// Top-level router: shows the splash until launch bootstrap completes (with a
 /// short minimum so it doesn't flash), then routes to auth or the main tabs.
@@ -16,7 +17,11 @@ struct RootView: View {
                 case .checking:
                     SplashView()
                 case .signedOut:
-                    SignedOutPlaceholder()
+                    AuthRootView(
+                        repository: container.authRepository,
+                        google: container.googleAuth,
+                        onAuthenticated: { container.session.didAuthenticate($0) }
+                    )
                 case .signedIn(let user):
                     AppTabView(container: container, user: user)
                 }

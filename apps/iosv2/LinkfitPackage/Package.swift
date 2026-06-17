@@ -43,6 +43,6 @@ let package = Package(
         .testTarget(name: "NetworkingTests", dependencies: ["Networking", "Models", "AppCore"]),
         .testTarget(name: "PersistenceTests", dependencies: ["Persistence", "Models"]),
         .testTarget(name: "DesignSystemTests", dependencies: ["DesignSystem"]),
-        .testTarget(name: "FeatureAuthTests", dependencies: ["FeatureAuth", "Models"]),
+        .testTarget(name: "FeatureAuthTests", dependencies: ["FeatureAuth", "Models", "Networking"]),
     ]
 )

@@ -85,27 +85,3 @@ struct ProfilePlaceholder: View {
         .navigationTitle("tab.profile")
     }
 }
-
-/// Phase 0 signed-out screen. Replaced by `FeatureAuth.AuthRootView` in Phase 1.
-struct SignedOutPlaceholder: View {
-    var body: some View {
-        ZStack {
-            AppBackground()
-            VStack(spacing: DSSpacing.l) {
-                Spacer()
-                LogoWordmark(size: 48)
-                Text("auth.welcome.subtitle")
-                    .font(DSFont.body)
-                    .foregroundStyle(DSColor.textMuted)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, DSSpacing.jumbo)
-                Spacer()
-                Text("Sign in arrives in the next build.")
-                    .font(DSFont.caption)
-                    .foregroundStyle(DSColor.textDim)
-            }
-            .padding(.horizontal, DSSpacing.page)
-            .padding(.bottom, DSSpacing.jumbo)
-        }
-    }
-}
