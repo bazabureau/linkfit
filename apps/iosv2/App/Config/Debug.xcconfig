@@ -1,7 +1,0 @@
-// Debug configuration. The `$()` between the scheme slashes is an xcconfig
-// idiom that prevents `//` from being parsed as a comment, so the URL survives.
-API_BASE_URL = https:/$()/api.linkfit.az
-SENTRY_DSN =
-POSTHOG_API_KEY =
-GOOGLE_CLIENT_ID =
-CERT_PINS =
