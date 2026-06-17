@@ -1,0 +1,7 @@
+// Release configuration. Secrets (Sentry/PostHog/Google/cert pins) are injected
+// by CI into these keys; defaults stay empty so facades no-op if unset.
+API_BASE_URL = https:/$()/api.linkfit.az
+SENTRY_DSN =
+POSTHOG_API_KEY =
+GOOGLE_CLIENT_ID =
+CERT_PINS =

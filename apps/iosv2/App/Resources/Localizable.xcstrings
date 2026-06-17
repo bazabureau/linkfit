@@ -1,0 +1,209 @@
+{
+  "sourceLanguage" : "en",
+  "version" : "1.0",
+  "strings" : {
+    "tab.home" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Əsas" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Home" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Главная" } }
+      }
+    },
+    "tab.games" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Oyunlar" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Games" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Игры" } }
+      }
+    },
+    "tab.book" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Rezervasiya" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Book" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Бронь" } }
+      }
+    },
+    "tab.chat" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Söhbət" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Chat" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Чат" } }
+      }
+    },
+    "tab.profile" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Profil" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Profile" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Профиль" } }
+      }
+    },
+    "splash.tagline" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Oyna. Tanış ol. İnkişaf et." } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Play. Connect. Improve." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Играй. Знакомься. Развивайся." } }
+      }
+    },
+    "common.continue" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Davam et" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Continue" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Продолжить" } }
+      }
+    },
+    "common.cancel" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Ləğv et" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancel" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отмена" } }
+      }
+    },
+    "common.retry" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Yenidən cəhd et" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Try again" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Повторить" } }
+      }
+    },
+    "common.save" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Yadda saxla" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Save" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сохранить" } }
+      }
+    },
+    "auth.welcome.title" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Linkfit-ə xoş gəlmisən" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Welcome to Linkfit" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добро пожаловать в Linkfit" } }
+      }
+    },
+    "auth.welcome.subtitle" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Yaxınlıqda oyun tap, kort rezerv et, oyunçularla bağlan." } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Find games nearby, book courts, connect with players." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Находи игры рядом, бронируй корты, общайся с игроками." } }
+      }
+    },
+    "auth.login.title" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Daxil ol" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sign in" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Войти" } }
+      }
+    },
+    "auth.register.title" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Hesab yarat" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Create account" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Создать аккаунт" } }
+      }
+    },
+    "auth.name" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Ad" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Name" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Имя" } }
+      }
+    },
+    "auth.email" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "E-poçt" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Email" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Эл. почта" } }
+      }
+    },
+    "auth.password" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Şifrə" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Password" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Пароль" } }
+      }
+    },
+    "auth.or_email" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "və ya e-poçt ilə" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "or with email" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "или по эл. почте" } }
+      }
+    },
+    "auth.apple" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Apple ilə davam et" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Continue with Apple" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Продолжить с Apple" } }
+      }
+    },
+    "auth.google" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Google ilə davam et" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Continue with Google" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Продолжить с Google" } }
+      }
+    },
+    "auth.login.cta" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Daxil ol" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sign in" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Войти" } }
+      }
+    },
+    "auth.register.cta" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Hesab yarat" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Create account" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Создать аккаунт" } }
+      }
+    },
+    "auth.forgot" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Şifrəni unutmusan?" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Forgot password?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Забыли пароль?" } }
+      }
+    },
+    "auth.no_account" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Hesabın yoxdur? Hesab yarat" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No account? Create one" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет аккаунта? Создайте" } }
+      }
+    },
+    "auth.have_account" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Artıq hesabın var? Daxil ol" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Already have an account? Sign in" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Уже есть аккаунт? Войти" } }
+      }
+    },
+    "auth.forgot.title" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Şifrəni sıfırla" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reset password" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сброс пароля" } }
+      }
+    },
+    "auth.forgot.subtitle" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "E-poçtunu yaz, sıfırlama linki göndərək." } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Enter your email and we'll send a reset link." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Укажите эл. почту — отправим ссылку для сброса." } }
+      }
+    },
+    "auth.forgot.cta" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Sıfırlama linki göndər" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Send reset link" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отправить ссылку" } }
+      }
+    },
+    "auth.forgot.sent" : {
+      "localizations" : {
+        "az" : { "stringUnit" : { "state" : "translated", "value" : "Əgər bu e-poçt qeydiyyatdadırsa, link göndərildi." } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "If that email exists, a reset link is on its way." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Если такая почта есть, ссылка отправлена." } }
+      }
+    }
+  }
+}
