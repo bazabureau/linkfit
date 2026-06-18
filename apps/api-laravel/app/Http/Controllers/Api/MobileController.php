@@ -64,6 +64,9 @@ class MobileController extends ApiController
         }
 
         $segments = array_values(array_filter(explode('/', $path), fn ($p) => $p !== ''));
+        if (isset($segments[0]) && in_array($segments[0], ['az', 'en', 'ru'], true)) {
+            array_shift($segments);
+        }
         $first = $segments[0] ?? '';
         $second = $segments[1] ?? null;
 
