@@ -137,7 +137,7 @@ struct EnterTokenSheet: View {
             )
             .overlay(
                 Text(filled ? String(chars[index]) : "")
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .font(DSType.statValue)
                     .foregroundStyle(DSColor.textPrimary)
                     .contentTransition(.numericText())
             )

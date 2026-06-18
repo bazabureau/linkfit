@@ -1,19 +1,26 @@
 /**
  * React Query hooks for admin endpoints.
  *
- * Wraps the typed API client (`@/lib/api`) and provides:
- *   - useAdminUsers(params)       — paginated user list with search
- *   - useUpdateUserRole()         — promote/demote a user (admin | moderator | null)
- *   - useSoftDeleteUser()         — soft-delete a user
- *   - useRestoreUser()            — restore a soft-deleted user
- *   - useAdminGames(params)       — paginated game list with filters
- *   - useCancelGame()             — force-cancel a game (admin only)
+ * Wraps the typed API client (`@/lib/api`) and parses on non-2xx (throws).
  *
- * Backend assumptions:
- *   - `GET /admin/users?q=&limit=&offset=` returns { results: User[], count: number }
- *   - `GET /admin/games?status=&from=&to=&limit=&offset=` returns { results: Game[], count: number }
- *   - Mutations return the updated entity (or 204 No Content; we just invalidate).
- *   - The typed `api` client throws on non-2xx and parses JSON automatically.
+ * Users:
+ *   - useAdminUsers(params)        — paginated list: search (q) + role/status/verification/vip + offset
+ *   - useAdminUser(id)             — single user detail (extended stats)
+ *   - useUpdateUserRole()          — POST /role          { role: 'admin' | 'moderator' | null }
+ *   - useUpdateUserVerification()  — POST /email-verification { verified }
+ *   - useUpdateUserVip()           — POST /vip           { is_vip, vip_badge_label?, vip_expires_at? }
+ *   - useSuspendUser()             — POST /suspend       { reason }
+ *   - useUnsuspendUser()           — POST /unsuspend
+ *   - useSoftDeleteUser()          — POST /soft-delete   (optimistic)
+ *   - useRestoreUser()             — POST /restore       (optimistic)
+ *
+ * Games / Bookings: see the matching sections below.
+ *
+ * Backend contracts (Laravel AdminOpsController):
+ *   - `GET /admin/users?q=&role=&status=&verification=&vip=&limit=&offset=`
+ *        → { results: User[], count, summary: UserSummary }
+ *   - User mutations return the updated user payload; list/detail caches are kept
+ *     in sync optimistically and re-validated via `invalidateQueries` on settle.
  */
 
 import {
@@ -46,6 +53,11 @@ export interface User {
   is_vip: boolean;
   vip_badge_label: string | null;
   vip_expires_at: string | null;
+  is_verified: boolean;
+  username: string | null;
+  membership_tier: string;
+  is_premium: boolean;
+  membership_period_end: string | null;
   games_played_total: number;
 }
 
@@ -191,6 +203,14 @@ export interface AdminUsersParams {
   vip?: 'all' | 'vip' | 'standard';
   limit?: number;
   offset?: number;
+}
+
+export interface CreateUserPayload {
+  email: string;
+  display_name: string;
+  password: string;
+  admin_role?: 'admin' | 'moderator' | null;
+  email_verified?: boolean;
 }
 
 export interface AdminGamesParams {
@@ -364,6 +384,48 @@ export function useUpdateUserVerification(
   });
 }
 
+export function useUpdateUserVerifiedBadge(
+  options?: UseMutationOptions<UserDetail, Error, { id: string; is_verified: boolean }>,
+) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, is_verified }) =>
+      api.post<UserDetail>(`/api/v1/admin/users/${id}/verified-badge`, {
+        is_verified,
+      }),
+    onMutate: async ({ id, is_verified }) => {
+      await qc.cancelQueries({ queryKey: adminKeys.usersAll });
+      setCachedUser(qc, id, { is_verified });
+    },
+    onSuccess: (user) => {
+      setCachedUser(qc, user.id, user);
+      qc.setQueryData(adminKeys.user(user.id), user);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: adminKeys.usersAll });
+    },
+    ...options,
+  });
+}
+
+export function useUpdateUserMembership(
+  options?: UseMutationOptions<UserDetail, Error, { id: string; tier: "free" | "plus" | "premium"; months?: number }>,
+) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, tier, months }) =>
+      api.post<UserDetail>(`/api/v1/admin/users/${id}/membership`, { tier, months }),
+    onSuccess: (user) => {
+      setCachedUser(qc, user.id, user);
+      qc.setQueryData(adminKeys.user(user.id), user);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: adminKeys.usersAll });
+    },
+    ...options,
+  });
+}
+
 export function useUpdateUserVip(
   options?: UseMutationOptions<
     UserDetail,
@@ -506,6 +568,19 @@ export function useRestoreUser(
       }
     },
     onSettled: () => {
+      qc.invalidateQueries({ queryKey: adminKeys.usersAll });
+    },
+    ...options,
+  });
+}
+
+export function useCreateUser(
+  options?: UseMutationOptions<User, Error, CreateUserPayload>,
+) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload) => api.post<User>('/api/v1/admin/users', payload),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: adminKeys.usersAll });
     },
     ...options,

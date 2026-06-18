@@ -70,6 +70,9 @@ struct GameDetailView: View {
         .sheet(isPresented: $showShare) {
             if case .loaded(let game) = viewModel.state {
                 ShareSheet(items: [shareString(for: game)])
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+                    .presentationBackground(.ultraThinMaterial)
             }
         }
         // TODO(wiring): present StoryCreator(preset: rendered) — the
@@ -222,6 +225,7 @@ struct GameDetailView: View {
                 RescheduleGameSheet(viewModel: viewModel, game: game)
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
+                    .presentationBackground(.ultraThinMaterial)
             }
         }
     }
@@ -485,7 +489,6 @@ struct GameDetailView: View {
             Annotation(game.venue_name ?? "", coordinate: coord) {
                 ZStack {
                     Circle().fill(DSColor.accent).frame(width: 18, height: 18)
-                        .shadow(color: DSColor.accent.opacity(0.6), radius: 6)
                     Circle().strokeBorder(DSColor.textOnAccent, lineWidth: 2).frame(width: 18, height: 18)
                 }
             }
@@ -701,9 +704,9 @@ struct GameDetailView: View {
             // mode so anyone can audit.
             if shouldShowTrackScore(game) {
                 PrimaryButton(
-                    title: String(localized: game.status == .completed
-                                  ? "scoring.entry.view_final"
-                                  : "scoring.entry.track"),
+                    title: game.status == .completed
+                        ? "scoring.entry.view_final"
+                        : "scoring.entry.track",
                     icon: "scope",
                     isLoading: false, isEnabled: true
                 ) {
@@ -712,7 +715,7 @@ struct GameDetailView: View {
                 }
             }
             if viewModel.canRate {
-                PrimaryButton(title: String(localized: "game.action.rate"), icon: "star.fill",
+                PrimaryButton(title: "game.action.rate", icon: "star.fill",
                               isLoading: false, isEnabled: true) {
                     UISelectionFeedbackGenerator().selectionChanged()
                     showRating = true
@@ -723,11 +726,11 @@ struct GameDetailView: View {
                 // `.open` alone — a full game the host can no longer
                 // join into still needs an inline cancel, matching the
                 // overflow "..." menu's gating.
-                SecondaryButton(title: String(localized: "game.action.cancel"), icon: "xmark.circle") {
+                SecondaryButton(title: "game.action.cancel", icon: "xmark.circle") {
                     confirmCancel = true
                 }
             } else if viewModel.isParticipant && game.status != .completed && game.status != .cancelled {
-                SecondaryButton(title: String(localized: "game.action.leave"), icon: "person.fill.xmark") {
+                SecondaryButton(title: "game.action.leave", icon: "person.fill.xmark") {
                     confirmLeave = true
                 }
             } else if viewModel.isJoinable && container.isAuthenticated {
@@ -737,7 +740,7 @@ struct GameDetailView: View {
                 // their reliability_score drops. Surfacing this up
                 // front sets expectations and reduces ghosting.
                 noShowInfoBanner
-                PrimaryButton(title: String(localized: "game.action.join"),
+                PrimaryButton(title: "game.action.join",
                               icon: "person.fill.checkmark",
                               isLoading: viewModel.actionInFlight,
                               isEnabled: !viewModel.actionInFlight) {

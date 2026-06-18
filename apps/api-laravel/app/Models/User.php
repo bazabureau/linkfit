@@ -40,9 +40,13 @@ class User extends Model
      */
     public function toPublicUser(): array
     {
+        $membership = app(\App\Services\Membership\MembershipService::class)
+            ->resolve($this->id, optional($this->created_at)->toIso8601String());
+
         return [
             'id' => $this->id,
             'email' => $this->email,
+            'username' => $this->username ?? null,
             'display_name' => $this->display_name,
             'photo_url' => $this->photo_url,
             'home_lat' => $this->home_lat !== null ? (float) $this->home_lat : null,
@@ -50,10 +54,16 @@ class User extends Model
             'created_at' => optional($this->created_at)->toIso8601ZuluString('millisecond'),
             'email_verified_at' => optional($this->email_verified_at)->toIso8601ZuluString('millisecond'),
             'is_vip' => (bool) ($this->is_vip ?? false),
+            'is_verified' => (bool) ($this->is_verified ?? false),
             'vip_badge_label' => $this->vip_badge_label,
             'vip_expires_at' => optional($this->vip_expires_at)->toIso8601ZuluString('millisecond'),
             'admin_role' => $this->admin_role ?? null,
             'venue_id' => $this->venue_id ?? null,
+            // Effective subscription state (expiry- + trial-aware) so clients can gate UI.
+            'membership_tier' => $membership->tier,
+            'is_premium' => $membership->is_premium,
+            'on_trial' => $membership->on_trial,
+            'trial_ends_at' => $membership->trial_ends_at,
         ];
     }
 }

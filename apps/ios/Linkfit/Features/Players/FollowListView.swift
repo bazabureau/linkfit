@@ -149,15 +149,7 @@ struct FollowListView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(DSColor.textPrimary.opacity(0.02))
-                .background(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(DSColor.textPrimary.opacity(0.08), lineWidth: 1)
-        )
+        .dsSurfaceCard(radius: 22)
         .padding(.horizontal, 16)
         .padding(.top, 60)
     }
@@ -221,32 +213,22 @@ struct FollowListView: View {
                     ),
                     size: .compact
                 ) { willFollow in
-                    if willFollow {
-                        _ = try await container.apiClient.send(Endpoint<EmptyResponse>.followUser(id: edge.id))
-                        FollowStore.shared.applyCountDelta(forUser: edge.id, delta: 1)
-                        if let currentUserId = container.currentUser?.id {
-                            FollowStore.shared.applyCountDelta(forUser: currentUserId, delta: 1)
-                        }
-                    } else {
-                        _ = try await container.apiClient.send(Endpoint<EmptyResponse>.unfollowUser(id: edge.id))
-                        FollowStore.shared.applyCountDelta(forUser: edge.id, delta: -1)
-                        if let currentUserId = container.currentUser?.id {
-                            FollowStore.shared.applyCountDelta(forUser: currentUserId, delta: -1)
+                    _ = try await FollowStore.shared.performToggle(
+                        targetUserId: edge.id,
+                        viewerUserId: container.currentUser?.id,
+                        follow: willFollow
+                    ) { next in
+                        if next {
+                            _ = try await container.apiClient.send(Endpoint<EmptyResponse>.followUser(id: edge.id))
+                        } else {
+                            _ = try await container.apiClient.send(Endpoint<EmptyResponse>.unfollowUser(id: edge.id))
                         }
                     }
                 }
             }
         }
         .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(DSColor.textPrimary.opacity(0.02))
-                .background(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(DSColor.textPrimary.opacity(0.08), lineWidth: 1)
-        )
+        .dsSurfaceCard(radius: 18)
     }
 
     private func avatar(for edge: FollowEdge) -> some View {

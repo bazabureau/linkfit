@@ -54,13 +54,13 @@ struct IconTextField: View {
                 }
             }
             .padding(.horizontal, DSSpacing.md)
-            .frame(minHeight: 48)
+            .frame(minHeight: 50)
             .background(
-                RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                     .fill(DSColor.surfaceElevated.opacity(0.86))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                     .strokeBorder(borderColor, lineWidth: focused ? 1.5 : 1)
             )
 

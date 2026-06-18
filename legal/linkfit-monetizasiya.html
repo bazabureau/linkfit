@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<title>LinkFit — Oyunçu Monetizasiyası</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap');
+  :root {
+    --accent: #5662D9; --accent-deep: #3F4AC0; --lime: #C5F235; --ink: #0A0D12;
+    --canvas: #F3F5FA; --text: #0B1020; --muted: #4D5478; --dim: #868EB2;
+    --border: #E7EAF3; --border-strong: #D6DCEC; --success: #10B981;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  @page { size: A4; margin: 18mm 16mm; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: 'Onest', system-ui, -apple-system, sans-serif; color: var(--text); font-size: 11pt; line-height: 1.55; }
+  h1, h2, h3 { font-family: 'Unbounded', 'Onest', sans-serif; letter-spacing: -0.01em; }
+
+  .cover { position: relative; height: 252mm; background: var(--ink); color: #fff; border-radius: 22px; overflow: hidden;
+    padding: 26mm 22mm; display: flex; flex-direction: column; justify-content: space-between; page-break-after: always; }
+  .cover::before { content: ""; position: absolute; inset: 0;
+    background: radial-gradient(720px 420px at 88% -8%, rgba(86,98,217,.38), transparent 60%),
+                radial-gradient(560px 420px at -6% 108%, rgba(197,242,53,.12), transparent 55%); }
+  .cover-top, .cover-mid, .cover-bottom { position: relative; }
+  .cover-logo { height: 30px; width: auto; }
+  .cover-kicker { color: var(--lime); font-weight: 700; font-size: 11pt; }
+  .cover-title { font-size: 40pt; font-weight: 800; line-height: 1.04; margin-top: 14px; }
+  .cover-sub { color: rgba(255,255,255,.74); font-size: 13pt; margin-top: 16px; max-width: 130mm; line-height: 1.5; }
+  .cover-bottom { display: flex; justify-content: space-between; align-items: flex-end; color: rgba(255,255,255,.6); font-size: 9.5pt; }
+  .cover-bottom strong { color: #fff; font-weight: 600; }
+  .pill-row { display: flex; gap: 8px; margin-top: 22px; flex-wrap: wrap; }
+  .pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 999px; padding: 6px 13px; font-size: 9.5pt; color: rgba(255,255,255,.9); }
+
+  section { page-break-inside: avoid; margin-bottom: 22px; }
+  .sec-num { color: var(--accent); font-weight: 700; font-size: 10pt; }
+  h2 { font-size: 18pt; font-weight: 800; margin: 4px 0 10px; }
+  h3 { font-size: 12.5pt; font-weight: 700; margin: 14px 0 6px; }
+  p { margin-bottom: 8px; color: #20263c; }
+  .lead { font-size: 11.5pt; color: var(--muted); }
+  ul { margin: 6px 0 8px 0; padding-left: 0; list-style: none; }
+  li { margin-bottom: 6px; padding-left: 20px; position: relative; color: #20263c; }
+  li::before { content: ""; position: absolute; left: 4px; top: 8px; width: 6px; height: 6px; border-radius: 2px; background: var(--lime); }
+  strong { color: var(--text); font-weight: 700; }
+  .divider { height: 3px; width: 46px; background: var(--accent); border-radius: 2px; margin-bottom: 4px; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .card { border: 1px solid var(--border); background: #fff; border-radius: 16px; padding: 14px 15px; page-break-inside: avoid; }
+  .card .tag { display: inline-block; background: var(--accent); color: #fff; font-size: 8.5pt; font-weight: 700; border-radius: 999px; padding: 3px 10px; }
+  .card .tag.lime { background: var(--lime); color: var(--ink); }
+  .card h4 { font-family: 'Onest'; font-size: 11.5pt; font-weight: 700; margin: 9px 0 4px; }
+  .card p { font-size: 9.5pt; color: var(--muted); margin: 0; line-height: 1.45; }
+  .card .hl { font-size: 9pt; color: var(--accent-deep); font-weight: 600; margin-top: 7px; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 9.5pt; }
+  th { background: var(--canvas); text-align: left; padding: 8px 10px; font-weight: 700; border-bottom: 2px solid var(--border-strong); }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); color: #20263c; }
+  tr:nth-child(even) td { background: #fafbfe; }
+  .ctr { text-align: center; }
+  .yes { color: var(--success); font-weight: 800; }
+  .no { color: var(--dim); font-weight: 700; }
+  .pro-col { background: rgba(86,98,217,.06); }
+  .callout { background: var(--canvas); border-left: 3px solid var(--accent); border-radius: 0 12px 12px 0; padding: 12px 16px; margin: 10px 0; }
+  .callout p { margin: 0; font-size: 10pt; }
+  .note { font-size: 8.5pt; color: var(--dim); font-style: italic; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-top"><img class="cover-logo" src="logo-white.png" alt="LinkFit"></div>
+  <div class="cover-mid">
+    <div class="cover-kicker">Oyunçu Monetizasiyası</div>
+    <div class="cover-title">Adi istifadəçilərdən<br>gəlir</div>
+    <div class="cover-sub">Əsas loop pulsuz qalır, böyümə davam edir — gəliri dərinlikdən (Premium) və əməliyyatlardan qazanırıq. Freemium modeli.</div>
+    <div class="pill-row">
+      <span class="pill">Premium abunəlik</span>
+      <span class="pill">Əməliyyat haqları</span>
+      <span class="pill">Wallet</span>
+      <span class="pill">Marketplace</span>
+    </div>
+  </div>
+  <div class="cover-bottom">
+    <div><strong>LinkFit</strong> · linkfit.az<br>info@linkfit.az</div>
+    <div>v1.0 · 2026<br>Məxfi sənəd</div>
+  </div>
+</div>
+
+<!-- 1 -->
+<section>
+  <div class="divider"></div><div class="sec-num">01</div>
+  <h2>Prinsip — Freemium</h2>
+  <p class="lead">Əsas oyun loop-u (oyun tapmaq, qoşulmaq, kort tutmaq) <strong>pulsuz</strong> qalır — bu, böyüməni qidalandırır. Pulu iki yerdən qazanırıq: <strong>dərinlik</strong> (ciddi oyunçular üçün Premium) və <strong>əməliyyatlar</strong> (rezervasiya, dərs, turnir).</p>
+  <div class="callout"><p><strong>Niyə əsas loop pulsuz?</strong> Pulsuz core = daha çox istifadəçi = daha çox əməliyyat və daha çox potensial Premium abunəçi. Core-u paywall etmək böyüməni öldürür.</p></div>
+</section>
+
+<!-- 2 -->
+<section>
+  <div class="divider"></div><div class="sec-num">02</div>
+  <h2>1. Premium abunəlik — əsas mühərrik</h2>
+  <p>Təkrarlanan, yüksək marjalı gəlir. Ciddi oyunçular abunə olur. Arxasına qoyulanlar:</p>
+  <ul>
+    <li><strong>Qabaqcıl statistika</strong> — ELO tarixçəsi, qalibiyyət/rəqib analizi, inkişaf qrafikləri (insights modulu artıq hazırdır).</li>
+    <li><strong>Komissiyasız / endirimli rezervasiya</strong> — Premium-a keçməyin ən güclü səbəbi.</li>
+    <li><strong>Prioritet giriş</strong> — populyar slotlara erkən, daha çox oyun dəvəti.</li>
+    <li><strong>Reklamsız</strong> təcrübə.</li>
+    <li><strong>VIP nişanı + profil fərdiləşdirməsi</strong> — status, icmada güclü işləyir.</li>
+  </ul>
+  <div class="callout"><p><strong>Qiymət (AZ):</strong> ~9.90 ₼/ay və ya ~99 ₼/il. Padel premium idmandır — oyunçular ödəmə qabiliyyətindədir.</p></div>
+</section>
+
+<!-- 3 -->
+<section>
+  <div class="divider"></div><div class="sec-num">03</div>
+  <h2>2. Əməliyyat haqları</h2>
+  <div class="grid2">
+    <div class="card"><span class="tag">Rezervasiya</span><h4>Xidmət haqqı</h4><p>Hər kort tutuluşundan ~1-2 ₼ və ya 5%. Premium-da pulsuz → Premium-a itələyir.</p></div>
+    <div class="card"><span class="tag">Dərs</span><h4>Təlim komissiyası</h4><p>Məşqçi dərslərindən %10-15 (Öyrən modulu hazırdır).</p></div>
+    <div class="card"><span class="tag">Turnir</span><h4>Giriş haqqı payı</h4><p>Turnir/liqa ödənişindən komissiya.</p></div>
+    <div class="card"><span class="tag">Etibarlılıq</span><h4>Gec ləğv / gəlməmə</h4><p>Kiçik cərimə — həm gəlir, həm etibarlılığı artırır.</p></div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section>
+  <div class="divider"></div><div class="sec-num">04</div>
+  <h2>3-5. Wallet, marketplace və icma gəlirləri</h2>
+  <div class="grid2">
+    <div class="card"><span class="tag lime">Float</span><h4>Wallet / kredit</h4><p>Oyunçu balans yükləyir, rezervasiya/dərsə xərcləyir. Pul səndə qalır + paket satışı (50 ₼ yüklə, 55 ₼ al).</p></div>
+    <div class="card"><span class="tag">Affiliate</span><h4>Avadanlıq marketplace</h4><p>Raketka, top, ayaqqabı — yerli mağaza ilə komissiya və ya birbaşa satış.</p></div>
+    <div class="card"><span class="tag">İcma</span><h4>Pulsuz liqalar / mövsüm</h4><p>Giriş haqqı + mükafat, sən marja saxlayırsan.</p></div>
+    <div class="card"><span class="tag">Brend</span><h4>Merch + boost</h4><p>LinkFit geyimi (gəlir + reklam); tərəf axtaran üçün profil görünürlüyü.</p></div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section>
+  <div class="divider"></div><div class="sec-num">05</div>
+  <h2>Pulsuz vs Pro</h2>
+  <table>
+    <thead><tr><th>Funksiya</th><th class="ctr">Pulsuz</th><th class="ctr pro-col">Pro</th></tr></thead>
+    <tbody>
+      <tr><td>Oyun tap &amp; qoşul</td><td class="ctr yes">✓</td><td class="ctr pro-col yes">✓</td></tr>
+      <tr><td>Kort rezervasiyası</td><td class="ctr yes">✓</td><td class="ctr pro-col yes">✓ komissiyasız</td></tr>
+      <tr><td>Profil &amp; əsas ELO</td><td class="ctr yes">✓</td><td class="ctr pro-col yes">✓</td></tr>
+      <tr><td>Qabaqcıl statistika &amp; analitika</td><td class="ctr no">—</td><td class="ctr pro-col yes">✓</td></tr>
+      <tr><td>Rəqib analizi</td><td class="ctr no">—</td><td class="ctr pro-col yes">✓</td></tr>
+      <tr><td>Prioritet slot &amp; dəvət</td><td class="ctr no">—</td><td class="ctr pro-col yes">✓</td></tr>
+      <tr><td>Reklamsız təcrübə</td><td class="ctr no">—</td><td class="ctr pro-col yes">✓</td></tr>
+      <tr><td>VIP nişanı &amp; profil fərdiləşdirmə</td><td class="ctr no">—</td><td class="ctr pro-col yes">✓</td></tr>
+      <tr><td>Erkən turnir qeydiyyatı</td><td class="ctr no">—</td><td class="ctr pro-col yes">✓</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Core funksiyalar pulsuz; Pro = dərinlik + rahatlıq + status.</p>
+</section>
+
+<!-- 6 -->
+<section>
+  <div class="divider"></div><div class="sec-num">06</div>
+  <h2>Nə indi başlaya bilər?</h2>
+  <table>
+    <thead><tr><th>İndi (ödəniş sistemi olmadan)</th><th>Yerli PSP-dən sonra (Payriff/Epoint)</th></tr></thead>
+    <tbody>
+      <tr><td>Premium (bank köçürməsi / manual — ilk müştərilər)</td><td>Komissiyalı rezervasiya</td></tr>
+      <tr><td>Turnir / dərs (məkanda ödəniş)</td><td>Wallet + in-app ödəniş</td></tr>
+      <tr><td>Merch satışı</td><td>Avtomatik abunə yenilənməsi</td></tr>
+    </tbody>
+  </table>
+  <h3>Tövsiyə olunan sıra</h3>
+  <ul>
+    <li><strong>1.</strong> Premium-u işə sal (qabaqcıl statistika + komissiyasız rezervasiya) — ən təmiz, təkrarlanan gəlir.</li>
+    <li><strong>2.</strong> Yerli ödənişi (Payriff/Epoint) qoş — komissiya + wallet-i açır (ən böyük miqyas).</li>
+    <li><strong>3.</strong> Dərs / turnir komissiyası — marketplace gəliri.</li>
+    <li><strong>4.</strong> Marketplace / merch.</li>
+  </ul>
+  <div class="callout"><p><strong>Yekun:</strong> əsas loop-u pulsuz saxla, böyü; gəliri Premium + əməliyyatlardan qazan. Ödəniş sistemi qoşulan kimi komissiya və wallet ilə miqyaslan.</p></div>
+</section>
+
+</body>
+</html>

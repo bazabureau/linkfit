@@ -90,6 +90,10 @@ class BookingsController extends ApiController
                 'minutes_from_midnight' => (int) ($local->hour * 60 + $local->minute),
                 'start_at' => $startIso,
                 'end_at' => $endIso,
+                // `starts_at`/`ends_at` aliases so the mobile slot decoder (which
+                // reads the plural form, matching every other time field) works.
+                'starts_at' => $startIso,
+                'ends_at' => $endIso,
                 'status' => $status,
                 'booked' => in_array($status, ['booked', 'blocked', 'held'], true),
                 'booking_id' => $match->id ?? null,
@@ -180,17 +184,22 @@ class BookingsController extends ApiController
     public function store(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
+        // Freemium gate: free users have a monthly booking cap (premium = unlimited).
+        app(\App\Services\Membership\MembershipService::class)->ensureCanBook($user->id);
         $data = $this->validateBody($request, [
             'court_id' => ['required', 'uuid'],
             'starts_at' => ['required', 'date'],
             'duration_minutes' => ['required', 'integer', 'min:15', 'max:480'],
-            'idempotency_key' => ['required', 'string', 'min:8', 'max:200'],
+            'idempotency_key' => ['sometimes', 'nullable', 'string', 'min:8', 'max:200'],
             'game_id' => ['sometimes', 'nullable', 'uuid'],
             'payment_method' => ['sometimes', 'nullable', 'in:cash,bank_transfer,manual,onsite'],
             'source' => ['sometimes', 'in:app,web'],
             'hold_id' => ['sometimes', 'nullable', 'uuid'],
             'promo_code' => ['sometimes', 'nullable', 'string', 'max:64'],
         ]);
+        // Accept the idempotency key from the Idempotency-Key header too — the
+        // mobile client sends it as a header, not a body field.
+        $data['idempotency_key'] = $this->resolveIdempotencyKey($request, $data['idempotency_key'] ?? null);
 
         $court = $this->bookableCourtById((string) $data['court_id']);
         if ($court === null) {
@@ -217,38 +226,60 @@ class BookingsController extends ApiController
         $promo = $this->promoDiscount($data['promo_code'] ?? null, (string) $user->id, $subtotal, (string) $court->currency);
 
         $id = (string) Str::uuid();
-        DB::table('bookings')->insert([
-            'id' => $id,
-            'game_id' => $data['game_id'] ?? null,
-            'court_id' => $data['court_id'],
-            'user_id' => $user->id,
-            'starts_at' => $starts,
-            'duration_minutes' => $data['duration_minutes'],
-            'subtotal_minor' => $subtotal,
-            'discount_minor' => $promo['discount_minor'],
-            'promo_code_id' => $promo['promo_id'],
-            'total_minor' => max(0, $subtotal - $promo['discount_minor']),
-            'currency' => $court->currency,
-            'status' => 'pending_payment',
-            'source' => $data['source'] ?? 'app',
-            'payment_method' => $data['payment_method'] ?? 'onsite',
-            'created_by_user_id' => $user->id,
-            'idempotency_key' => $data['idempotency_key'],
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        if ($holdId !== null) {
-            DB::table('booking_holds')->where('id', $holdId)->delete();
-        }
-        if ($promo['promo_id'] !== null && $promo['discount_minor'] > 0) {
-            DB::table('booking_promo_redemptions')->insert([
-                'id' => (string) Str::uuid(),
-                'promo_code_id' => $promo['promo_id'],
-                'booking_id' => $id,
-                'user_id' => $user->id,
-                'discount_minor' => $promo['discount_minor'],
-                'created_at' => now(),
-            ]);
+        try {
+            // Booking insert + hold release + promo redemption commit atomically:
+            // a crash mid-way must not leave a booking with its promo redemption
+            // un-recorded (which would under-count per_user_limit / max_redemptions).
+            DB::transaction(function () use ($id, $data, $user, $court, $starts, $subtotal, $promo, $holdId) {
+                DB::table('bookings')->insert([
+                    'id' => $id,
+                    'game_id' => $data['game_id'] ?? null,
+                    'court_id' => $data['court_id'],
+                    'user_id' => $user->id,
+                    'starts_at' => $starts,
+                    'duration_minutes' => $data['duration_minutes'],
+                    'subtotal_minor' => $subtotal,
+                    'discount_minor' => $promo['discount_minor'],
+                    'promo_code_id' => $promo['promo_id'],
+                    'total_minor' => max(0, $subtotal - $promo['discount_minor']),
+                    'currency' => $court->currency,
+                    'status' => 'pending_payment',
+                    'source' => $data['source'] ?? 'app',
+                    'payment_method' => $data['payment_method'] ?? 'onsite',
+                    'created_by_user_id' => $user->id,
+                    'idempotency_key' => $data['idempotency_key'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                if ($holdId !== null) {
+                    DB::table('booking_holds')->where('id', $holdId)->delete();
+                }
+                if ($promo['promo_id'] !== null && $promo['discount_minor'] > 0) {
+                    DB::table('booking_promo_redemptions')->insert([
+                        'id' => (string) Str::uuid(),
+                        'promo_code_id' => $promo['promo_id'],
+                        'booking_id' => $id,
+                        'user_id' => $user->id,
+                        'discount_minor' => $promo['discount_minor'],
+                        'created_at' => now(),
+                    ]);
+                }
+            });
+        } catch (\Illuminate\Database\QueryException $e) {
+            // 23P01 = GiST slot-overlap EXCLUDE (race), 23505 = idempotency_key unique.
+            $sqlState = (string) ($e->errorInfo[0] ?? '');
+            if ($sqlState === '23P01') {
+                throw ApiException::conflict('Court is already booked for this time');
+            }
+            if ($sqlState === '23505') {
+                // Idempotent replay — return the booking already created for this key.
+                $prior = DB::table('bookings')->where('idempotency_key', $data['idempotency_key'])->first();
+                if ($prior !== null) {
+                    return response()->json($this->bookingPayload($prior), 200);
+                }
+                throw ApiException::conflict('Duplicate booking request');
+            }
+            throw $e;
         }
         $this->notifyBookingCreated($id, (string) $court->venue_id, (string) $user->id);
 
@@ -289,10 +320,13 @@ class BookingsController extends ApiController
             'court_id' => ['required', 'uuid'],
             'starts_at' => ['required', 'date'],
             'duration_minutes' => ['required', 'integer', 'min:15', 'max:480'],
-            'idempotency_key' => ['required', 'string', 'min:8', 'max:200'],
+            'idempotency_key' => ['sometimes', 'nullable', 'string', 'min:8', 'max:200'],
             'source' => ['sometimes', 'in:app,web'],
             'ttl_seconds' => ['sometimes', 'integer', 'min:60', 'max:900'],
         ]);
+        // Header fallback (mobile sends Idempotency-Key as a header); generate one
+        // if absent so a hold request never 400s on a missing key.
+        $data['idempotency_key'] = $this->resolveIdempotencyKey($request, $data['idempotency_key'] ?? null, true);
         $this->cleanupExpiredHolds();
 
         $existing = DB::table('booking_holds')
@@ -1095,6 +1129,25 @@ class BookingsController extends ApiController
         if (Schema::hasTable('booking_holds')) {
             DB::table('booking_holds')->where('expires_at', '<=', now())->delete();
         }
+    }
+
+    /**
+     * Resolve an idempotency key from the request body, then the Idempotency-Key
+     * header (mobile sends it there). Generates one when absent so a booking/hold
+     * never fails purely because the client didn't supply a key — duplicate
+     * slots are still blocked by the bookings EXCLUDE constraint regardless.
+     */
+    private function resolveIdempotencyKey(Request $request, ?string $bodyKey, bool $generateIfMissing = true): string
+    {
+        $key = $bodyKey ?: (string) ($request->header('Idempotency-Key') ?? '');
+        $key = trim($key);
+        if (strlen($key) >= 8) {
+            return mb_substr($key, 0, 200);
+        }
+        if ($generateIfMissing) {
+            return (string) Str::uuid();
+        }
+        throw ApiException::validation('idempotency_key is required (request body or Idempotency-Key header)');
     }
 
     private function bookingTotalMinor(object $court, int $durationMinutes): int

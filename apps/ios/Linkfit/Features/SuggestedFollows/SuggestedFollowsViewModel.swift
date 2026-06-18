@@ -102,16 +102,21 @@ final class SuggestedFollowsViewModel {
     func follow(item: SuggestedFollowItem) async {
         guard case .loaded(let items) = state else { return }
         guard let idx = items.firstIndex(where: { $0.id == item.id }) else { return }
+        guard !FollowStore.shared.isPending(userId: item.user_id) else { return }
 
         // Optimistic: snapshot for revert, then mutate.
         var next = items
         next.remove(at: idx)
         state = next.isEmpty ? .empty : .loaded(items: next)
-        FollowStore.shared.setFollowing(userId: item.user_id, isFollowing: true)
-        FollowStore.shared.applyCountDelta(forUser: item.user_id, delta: 1)
 
         do {
-            _ = try await apiClient.send(Endpoint.followUser(id: item.user_id))
+            _ = try await FollowStore.shared.performToggle(
+                targetUserId: item.user_id,
+                viewerUserId: nil,
+                follow: true
+            ) { _ in
+                _ = try await apiClient.send(Endpoint.followUser(id: item.user_id))
+            }
             // Analytics — `source: .suggested` because this VM backs the
             // "Suggested Follows" rail / list. See AnalyticsEvent.swift
             // for the closed source enum.
@@ -120,11 +125,7 @@ final class SuggestedFollowsViewModel {
             revert(item: item, originalIndex: idx, originalItems: items)
             actionError = error.localizedMessage
         } catch is CancellationError {
-            // The view (or app) tore down mid-flight. Don't revert —
-            // a re-mount would see the optimistic state and the user
-            // would think the follow succeeded. Leave the card hidden;
-            // the backend either accepted the request before cancel
-            // (most common) or the next session refresh will re-seed.
+            revert(item: item, originalIndex: idx, originalItems: items)
             return
         } catch {
             revert(item: item, originalIndex: idx, originalItems: items)
@@ -150,7 +151,5 @@ final class SuggestedFollowsViewModel {
             restored.insert(item, at: clamped)
         }
         state = .loaded(items: restored)
-        FollowStore.shared.setFollowing(userId: item.user_id, isFollowing: false)
-        FollowStore.shared.applyCountDelta(forUser: item.user_id, delta: -1)
     }
 }

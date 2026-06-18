@@ -55,6 +55,7 @@ final class StoriesRailViewModel {
     private(set) var isLoading: Bool = false
 
     private let apiClient: APIClient
+    private var expiryTask: Task<Void, Never>?
 
     init(apiClient: APIClient) {
         self.apiClient = apiClient
@@ -108,6 +109,7 @@ final class StoriesRailViewModel {
     /// to re-pull `feed` would feel sluggish. A subsequent `refresh()`
     /// from pull-to-refresh resolves any drift.
     func prepend(story: Story, viewer: PublicUser) {
+        guard story.isActive() else { return }
         let now = ISO8601DateFormatter().string(from: Date())
         if let idx = groups.firstIndex(where: { $0.user_id == viewer.id }) {
             // Existing group — append the new story to the stack
@@ -139,7 +141,7 @@ final class StoriesRailViewModel {
             )
             groups.insert(group, at: 0)
         }
-        recomputeOtherGroups()
+        normalizeGroups()
     }
 
     /// Remove a story by id after a successful delete in StoryViewer.
@@ -163,7 +165,7 @@ final class StoriesRailViewModel {
             ))
         }
         groups = next
-        recomputeOtherGroups()
+        normalizeGroups()
     }
 
     /// Mark a single frame as viewed and recompute the owning group's
@@ -177,14 +179,7 @@ final class StoriesRailViewModel {
         var newStack: [Story] = []
         for story in group.stories {
             if story.id == storyId, !story.viewed_by_me {
-                newStack.append(Story(
-                    id: story.id,
-                    media_url: story.media_url,
-                    media_type: story.media_type,
-                    caption: story.caption,
-                    created_at: story.created_at,
-                    viewed_by_me: true
-                ))
+                newStack.append(story.replacingViewedByMe(true))
             } else {
                 newStack.append(story)
             }
@@ -198,7 +193,7 @@ final class StoriesRailViewModel {
             latest_story_at: group.latest_story_at,
             stories: newStack
         )
-        recomputeOtherGroups()
+        normalizeGroups()
     }
 
     // MARK: - Internals
@@ -211,7 +206,7 @@ final class StoriesRailViewModel {
             let response = try await apiClient.send(Endpoint.storiesFeed())
             if Task.isCancelled { return }
             groups = response.items
-            recomputeOtherGroups()
+            normalizeGroups()
             didLoad = true
         } catch is CancellationError {
             // Tab swap or app background — keep the existing rail data,
@@ -223,6 +218,29 @@ final class StoriesRailViewModel {
             // loaded once already we keep that data; on cold load we
             // simply leave `groups` empty (rail hides).
             didLoad = true
+        }
+    }
+
+    private func normalizeGroups(referenceDate: Date = Date()) {
+        groups = StoryGroup.removingExpiredStories(from: groups, referenceDate: referenceDate)
+        recomputeOtherGroups()
+        scheduleExpirySweep(referenceDate: referenceDate)
+    }
+
+    private func scheduleExpirySweep(referenceDate: Date = Date()) {
+        expiryTask?.cancel()
+        guard let nextExpiry = StoryGroup.nextExpirationDate(in: groups, referenceDate: referenceDate) else {
+            expiryTask = nil
+            return
+        }
+        let delaySeconds = max(0, nextExpiry.timeIntervalSince(referenceDate) + 0.5)
+        let delayNanoseconds = UInt64(delaySeconds * 1_000_000_000)
+        expiryTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: delayNanoseconds)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                self?.normalizeGroups()
+            }
         }
     }
 }

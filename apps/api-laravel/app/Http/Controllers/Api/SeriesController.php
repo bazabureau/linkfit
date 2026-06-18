@@ -44,7 +44,15 @@ class SeriesController extends ApiController
 
     public function cancel(Request $request, string $id): JsonResponse
     {
-        $this->authUser($request);
+        $user = $this->authUser($request);
+        // Only the series host may cancel it (and its future occurrences).
+        $series = DB::table('game_series')->where('id', $id)->first(['id', 'host_user_id']);
+        if ($series === null) {
+            throw ApiException::notFound('Series not found');
+        }
+        if ((string) $series->host_user_id !== (string) $user->id) {
+            throw ApiException::forbidden('Only the host can cancel this series');
+        }
         DB::table('game_series')->where('id', $id)->update(['status' => 'cancelled']);
         $cancelledCount = DB::table('games')
             ->where('series_id', $id)

@@ -206,7 +206,7 @@ struct AgendaCalendarView: View {
             .padding(.top, DSSpacing.sm)
     }
 
-    /// Premium-glass empty card matching the design-system pattern used
+    /// Empty card matching the design-system pattern used
     /// across Messages / Insights / Streaks — calendar medallion +
     /// heading + supporting line. Renders both for the rare `.empty`
     /// state and the inline "loaded-but-empty" hint below the grid so
@@ -238,14 +238,7 @@ struct AgendaCalendarView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
-                .fill(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
-        )
+        .dsSurfaceCard(radius: DSRadius.xxl)
     }
 
     // MARK: - Swipe between months

@@ -11,6 +11,7 @@ final class ProfileViewModel {
     /// re-renders the button automatically when somebody else mutates the
     /// edge — no manual notification plumbing.
     var isFollowing: Bool { FollowStore.shared.isFollowing(userId: userId) }
+    var isFollowPending: Bool { FollowStore.shared.isPending(userId: userId) }
     /// Set when an optimistic follow/unfollow is reverted because the network
     /// call failed. ProfileView observes this (mirroring `blockError`) to show
     /// an alert/toast so the silent revert isn't invisible to the user.
@@ -64,55 +65,26 @@ final class ProfileViewModel {
     /// without bespoke per-screen state.
     func toggleFollow() async {
         guard !isMe, container.isAuthenticated else { return }
-        let previous = FollowStore.shared.isFollowing(userId: userId)
-        let next = !previous
-        let delta = next ? 1 : -1
-        let viewerId = container.currentUser?.id ?? ""
-
-        // Optimistic flip — edge + both counter deltas.
-        FollowStore.shared.setFollowing(userId: userId, isFollowing: next)
-        if !viewerId.isEmpty {
-            // Viewer's own following_count moves.
-            FollowStore.shared.applyCountDelta(forUser: viewerId, delta: delta)
-        }
-        // Target's followers_count moves.
-        FollowStore.shared.applyCountDelta(forUser: userId, delta: delta)
 
         do {
-            if next {
-                _ = try await apiClient.send(Endpoint<EmptyResponse>.followUser(id: userId))
-                // Analytics — wave-10 follow event. Only fires on the
-                // follow direction (an unfollow is a UX-symmetric action
-                // but a meaningless funnel signal). `source: .profile`
-                // because this toggle lives inside the profile sheet —
-                // other surfaces (PlayersView, SuggestedFollows) instrument
-                // their own follow paths with the appropriate source value.
+            let didFollow = try await FollowStore.shared.performToggle(
+                targetUserId: userId,
+                viewerUserId: container.currentUser?.id
+            ) { willFollow in
+                if willFollow {
+                    _ = try await apiClient.send(Endpoint<EmptyResponse>.followUser(id: userId))
+                } else {
+                    _ = try await apiClient.send(Endpoint<EmptyResponse>.unfollowUser(id: userId))
+                }
+            }
+            if didFollow {
                 Analytics.track(.followUser(targetUserId: userId, source: .profile))
-            } else {
-                _ = try await apiClient.send(Endpoint<EmptyResponse>.unfollowUser(id: userId))
             }
         } catch is CancellationError {
-            // A cancelled toggle (e.g. the sheet dismissed mid-flight) is not a
-            // failure the user needs to see — undo the optimistic mutation
-            // silently and leave `followError` clear. Revert order doesn't
-            // matter; we just need to undo every mutation we made.
-            FollowStore.shared.setFollowing(userId: userId, isFollowing: previous)
-            if !viewerId.isEmpty {
-                FollowStore.shared.applyCountDelta(forUser: viewerId, delta: -delta)
-            }
-            FollowStore.shared.applyCountDelta(forUser: userId, delta: -delta)
+            return
         } catch {
-            // Revert on failure and surface it. Revert order doesn't matter;
-            // we just need to undo every mutation we made, then publish an
-            // error string ProfileView shows as an alert/toast (mirrors
-            // `blockError`) so the revert isn't invisible.
-            FollowStore.shared.setFollowing(userId: userId, isFollowing: previous)
-            if !viewerId.isEmpty {
-                FollowStore.shared.applyCountDelta(forUser: viewerId, delta: -delta)
-            }
-            FollowStore.shared.applyCountDelta(forUser: userId, delta: -delta)
             if let apiError = error as? APIError {
-                followError = apiError.errorDescription ?? String(localized: "profile.follow.failed")
+                followError = apiError.localizedMessage
             } else {
                 followError = error.localizedDescription
             }

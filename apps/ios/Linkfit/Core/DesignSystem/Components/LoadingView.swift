@@ -11,10 +11,11 @@ struct LoadingView: View {
             if let label {
                 Text(label)
                     .font(DSType.footnote)
-                    .foregroundStyle(DSColor.textSecondary)
+                .foregroundStyle(DSColor.textSecondary)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(DSSpacing.lg)
+        .frame(maxWidth: .infinity)
         .accessibilityLabel(label ?? String(localized: "loading.default"))
     }
 }

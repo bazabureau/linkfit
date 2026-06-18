@@ -63,11 +63,29 @@ class TournamentsController extends ApiController
         $payload = $this->payload($row);
         // iOS TournamentEntry needs captain_display_name + player_names + a real
         // player_ids JSON array — none of which are on the raw entries row.
-        $payload['entries'] = DB::table('tournament_entries')
+        $entries = DB::table('tournament_entries')
             ->where('tournament_id', $id)
             ->orderBy('created_at')
-            ->get()
-            ->map(fn ($e) => $this->entryPayload($e))
+            ->get();
+
+        // Batch every captain + player name/photo across ALL entries in ONE query
+        // (replaces entryPayload's prior 2-queries-per-entry N+1).
+        $userIds = [];
+        foreach ($entries as $e) {
+            $userIds[] = $e->captain_user_id;
+            foreach ($this->parseUuidArray($e->player_ids ?? null) as $pid) {
+                $userIds[] = $pid;
+            }
+        }
+        $userMap = empty($userIds)
+            ? collect()
+            : DB::table('users')
+                ->whereIn('id', array_values(array_unique($userIds)))
+                ->get(['id', 'display_name', 'photo_url'])
+                ->keyBy('id');
+
+        $payload['entries'] = $entries
+            ->map(fn ($e) => $this->entryPayload($e, $userMap))
             ->values();
 
         // iOS TournamentDetail requires a non-optional `can_register` Bool;
@@ -103,58 +121,68 @@ class TournamentsController extends ApiController
     {
         $user = $this->authUser($request);
         $data = $this->validateBody($request, [
-            'squad_name' => ['required', 'string', 'min:1', 'max:120'],
+            'squad_name' => ['sometimes', 'nullable', 'string', 'min:1', 'max:120'],
             'player_ids' => ['sometimes', 'array'],
             'player_ids.*' => ['uuid', 'distinct'],
         ]);
+        // squad_name is optional for a mobile-first solo entry — default to the
+        // captain's display name so the app can enter without a name-entry step.
+        $data['squad_name'] = trim((string) ($data['squad_name'] ?? '')) ?: (trim((string) ($user->display_name ?? '')) ?: 'Squad');
 
-        $tournament = $this->tournamentRow($id);
-        $this->assertRegistrationOpen($tournament, $user->id);
-        $playerIds = $this->validatedPlayerIds($data['player_ids'] ?? [], $user->id, (int) $tournament->squad_size);
-        $existing = DB::table('tournament_entries')
-            ->where('tournament_id', $id)
-            ->where('captain_user_id', $user->id)
-            ->first(['id', 'status']);
+        // Serialise concurrent registrations by locking the parent tournament
+        // row before counting entries. Postgres forbids "count(*) ... FOR
+        // UPDATE" (aggregate + row lock), so we lock the row, then count.
+        DB::transaction(function () use ($id, $user, $data) {
+            DB::table('tournaments')->where('id', $id)->lockForUpdate()->first();
 
-        if (
-            DB::table('tournament_entries')
+            $tournament = $this->tournamentRow($id);
+            $this->assertRegistrationOpen($tournament, $user->id);
+            $playerIds = $this->validatedPlayerIds($data['player_ids'] ?? [], $user->id, (int) $tournament->squad_size);
+            $existing = DB::table('tournament_entries')
                 ->where('tournament_id', $id)
-                ->where('squad_name', $data['squad_name'])
-                ->when($existing !== null, fn ($q) => $q->where('id', '!=', $existing->id))
-                ->where('status', '!=', 'withdrawn')
-                ->exists()
-        ) {
-            throw ApiException::conflict('Squad name is already taken');
-        }
-
-        $entryId = (string) ($existing->id ?? Str::uuid());
-        if ($existing === null) {
-            DB::table('tournament_entries')->insert([
-                'id' => $entryId,
-                'tournament_id' => $id,
-                'captain_user_id' => $user->id,
-                'squad_name' => $data['squad_name'],
-                'player_ids' => $this->uuidArray($playerIds),
-                'status' => 'pending',
-                'created_at' => now(),
-            ]);
-            $action = 'tournament.entry.create';
-        } else {
-            DB::table('tournament_entries')
-                ->where('id', $entryId)
                 ->where('captain_user_id', $user->id)
-                ->update([
+                ->first(['id', 'status']);
+
+            if (
+                DB::table('tournament_entries')
+                    ->where('tournament_id', $id)
+                    ->where('squad_name', $data['squad_name'])
+                    ->when($existing !== null, fn ($q) => $q->where('id', '!=', $existing->id))
+                    ->where('status', '!=', 'withdrawn')
+                    ->exists()
+            ) {
+                throw ApiException::conflict('Squad name is already taken');
+            }
+
+            $entryId = (string) ($existing->id ?? Str::uuid());
+            if ($existing === null) {
+                DB::table('tournament_entries')->insert([
+                    'id' => $entryId,
+                    'tournament_id' => $id,
+                    'captain_user_id' => $user->id,
                     'squad_name' => $data['squad_name'],
                     'player_ids' => $this->uuidArray($playerIds),
-                    'status' => $existing->status === 'withdrawn' ? 'pending' : $existing->status,
+                    'status' => 'pending',
+                    'created_at' => now(),
                 ]);
-            $action = 'tournament.entry.update';
-        }
-        $this->auditWrite($user->id, $action, 'tournament_entries', $entryId, [
-            'tournament_id' => $id,
-            'squad_name' => $data['squad_name'],
-            'player_count' => count($playerIds) + 1,
-        ]);
+                $action = 'tournament.entry.create';
+            } else {
+                DB::table('tournament_entries')
+                    ->where('id', $entryId)
+                    ->where('captain_user_id', $user->id)
+                    ->update([
+                        'squad_name' => $data['squad_name'],
+                        'player_ids' => $this->uuidArray($playerIds),
+                        'status' => $existing->status === 'withdrawn' ? 'pending' : $existing->status,
+                    ]);
+                $action = 'tournament.entry.update';
+            }
+            $this->auditWrite($user->id, $action, 'tournament_entries', $entryId, [
+                'tournament_id' => $id,
+                'squad_name' => $data['squad_name'],
+                'player_count' => count($playerIds) + 1,
+            ]);
+        });
 
         $entry = DB::table('tournament_entries')
             ->where('tournament_id', $id)
@@ -253,19 +281,23 @@ class TournamentsController extends ApiController
         return DB::raw("'".$playerArray."'::uuid[]");
     }
 
-    private function entryPayload(object $e): array
+    private function entryPayload(object $e, $userMap = null): array
     {
         $playerIds = $this->parseUuidArray($e->player_ids ?? null);
+        if ($userMap === null) {
+            // Single-entry callers (enter / my_entry) fetch only their own ids in
+            // one query — not an N+1. show()'s entry LIST passes a batched map.
+            $ids = array_values(array_unique(array_merge($playerIds, [$e->captain_user_id])));
+            $userMap = DB::table('users')->whereIn('id', $ids)->get(['id', 'display_name', 'photo_url'])->keyBy('id');
+        }
         $playerNames = [];
-        if ($playerIds !== []) {
-            $byId = DB::table('users')->whereIn('id', $playerIds)->pluck('display_name', 'id');
-            foreach ($playerIds as $pid) {
-                if (isset($byId[$pid])) {
-                    $playerNames[] = (string) $byId[$pid];
-                }
+        foreach ($playerIds as $pid) {
+            $u = $userMap->get($pid);
+            if ($u !== null) {
+                $playerNames[] = (string) $u->display_name;
             }
         }
-        $captain = DB::table('users')->where('id', $e->captain_user_id)->first(['display_name', 'photo_url']);
+        $captain = $userMap->get($e->captain_user_id);
 
         return [
             'id' => $e->id,

@@ -382,7 +382,9 @@ class AdminOpsController extends ApiController
     public function createStaffAccount(Request $request): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "staff");
+        // Admin-only: creating a staff account can mint a new admin, so this
+        // must not be reachable via the grantable "staff" moderator permission.
+        $this->staff($request);
         $data = $this->validateBody($request, [
             'email' => ['required', 'email', 'max:254'],
             'display_name' => ['required', 'string', 'min:1', 'max:80'],
@@ -416,7 +418,9 @@ class AdminOpsController extends ApiController
     public function updateStaffAccount(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "staff");
+        // Admin-only: editing a staff account can promote to admin / change a
+        // password, so it must not be reachable via a grantable moderator perm.
+        $this->staff($request);
         $data = $this->validateBody($request, [
             'email' => ['sometimes', 'email', 'max:254'],
             'display_name' => ['sometimes', 'string', 'min:1', 'max:80'],
@@ -473,7 +477,8 @@ class AdminOpsController extends ApiController
     public function deleteStaffAccount(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "staff");
+        // Admin-only: deleting staff accounts is a privilege action.
+        $this->staff($request);
         if ((string) $admin->id === $id) {
             throw ApiException::conflict('You cannot delete your own admin account');
         }
@@ -528,7 +533,9 @@ class AdminOpsController extends ApiController
     public function setRole(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "users");
+        // Granting/revoking staff roles is admin-ONLY — a moderator (even with the
+        // "users" permission) must not be able to escalate anyone to admin.
+        $this->staff($request);
         $data = $this->validateBody($request, [
             'role' => ['nullable', 'in:admin,moderator'],
         ]);
@@ -648,6 +655,67 @@ class AdminOpsController extends ApiController
         $this->auditWrite($admin->id, $isVip ? 'user.vip.enable' : 'user.vip.disable', 'users', $id, [
             'vip_badge_label' => $isVip ? ($data['vip_badge_label'] ?? 'VIP') : null,
             'vip_expires_at' => $isVip ? ($data['vip_expires_at'] ?? null) : null,
+        ]);
+
+        return $this->user($request, $id);
+    }
+
+    /**
+     * Toggle the admin-granted "verified / official" badge (distinct from email
+     * verification). Surfaces as a blue check next to the player everywhere.
+     */
+    public function setVerifiedBadge(Request $request, string $id): JsonResponse
+    {
+        $admin = $this->authUser($request);
+        $this->staff($request, "users");
+        $data = $this->validateBody($request, [
+            'is_verified' => ['required', 'boolean'],
+        ]);
+        $exists = DB::table('users')->where('id', $id)->exists();
+        if (! $exists) {
+            throw ApiException::notFound('User not found');
+        }
+        DB::table('users')->where('id', $id)->update([
+            'is_verified' => (bool) $data['is_verified'],
+            'updated_at' => now(),
+        ]);
+        $this->auditWrite($admin->id, $data['is_verified'] ? 'user.verified.enable' : 'user.verified.disable', 'users', $id);
+
+        return $this->user($request, $id);
+    }
+
+    /**
+     * Set a user's membership tier (free / plus / premium). A paid tier is
+     * granted for `months` (default 1); 'free' clears the period.
+     */
+    public function setMembership(Request $request, string $id): JsonResponse
+    {
+        $admin = $this->authUser($request);
+        $this->staff($request, "users");
+        $data = $this->validateBody($request, [
+            'tier' => ['required', 'in:free,plus,premium'],
+            'months' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:36'],
+        ]);
+        if (! DB::table('users')->where('id', $id)->exists()) {
+            throw ApiException::notFound('User not found');
+        }
+
+        $isPaid = $data['tier'] !== 'free';
+        $months = (int) ($data['months'] ?? 1);
+        $periodEnd = $isPaid ? now()->addMonths($months) : null;
+
+        DB::table('memberships')->updateOrInsert(
+            ['user_id' => $id],
+            [
+                'tier' => $data['tier'],
+                'current_period_end' => $periodEnd,
+                'cancel_at_period_end' => false,
+                'updated_at' => now(),
+            ],
+        );
+        $this->auditWrite($admin->id, $isPaid ? 'user.membership.grant' : 'user.membership.revoke', 'users', $id, [
+            'tier' => $data['tier'],
+            'months' => $isPaid ? $months : null,
         ]);
 
         return $this->user($request, $id);
@@ -853,9 +921,19 @@ class AdminOpsController extends ApiController
             ->when($request->query('q'), fn ($q, $term) => $q->where('t.name', 'ilike', '%'.$term.'%'))
             ->orderByDesc('t.created_at');
         $limit = min(max((int) $request->query('limit', 50), 1), 100);
+        $offset = max((int) $request->query('offset', 0), 0);
+
+        $total = (clone $query)->count('t.id');
+        $items = $query
+            ->offset($offset)
+            ->limit($limit)
+            ->get()
+            ->map(fn ($t) => $this->tournamentPayload($t))
+            ->values();
 
         return response()->json([
-            'items' => $query->limit($limit)->get()->map(fn ($t) => $this->tournamentPayload($t)),
+            'items' => $items,
+            'total' => $total,
             'next_cursor' => null,
         ]);
     }
@@ -2316,7 +2394,11 @@ class AdminOpsController extends ApiController
     public function markPaid(Request $request, string $id): JsonResponse
     {
         $this->staffOrBookingPartner($request, $id);
+        if (! DB::table('bookings')->where('id', $id)->exists()) {
+            throw ApiException::notFound('Booking not found');
+        }
         DB::table('bookings')->where('id', $id)->update(['status' => 'paid', 'paid_at' => now(), 'updated_at' => now()]);
+        $this->auditWrite($this->authUser($request)->id, 'booking.mark_paid', 'bookings', $id);
 
         return response()->json(['ok' => true]);
     }
@@ -2332,13 +2414,21 @@ class AdminOpsController extends ApiController
     {
         $admin = $this->authUser($request);
         $this->staff($request, "reports");
-        $action = $request->input('action', 'dismiss');
-        DB::table('reports')->where('id', $id)->update([
+        $data = $this->validateBody($request, [
+            'action' => ['sometimes', 'in:dismiss,review'],
+            'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
+        ]);
+        $action = $data['action'] ?? 'dismiss';
+        $updated = DB::table('reports')->where('id', $id)->update([
             'status' => $action === 'dismiss' ? 'dismissed' : 'reviewed',
-            'notes' => $request->input('notes'),
+            'notes' => $data['notes'] ?? null,
             'reviewed_by_user_id' => $admin->id,
             'reviewed_at' => now(),
         ]);
+        if ($updated === 0) {
+            throw ApiException::notFound('Report not found');
+        }
+        $this->auditWrite($admin->id, 'report.review', 'reports', $id, ['action' => $action]);
 
         return response()->json(DB::table('reports')->where('id', $id)->first());
     }
@@ -2364,8 +2454,13 @@ class AdminOpsController extends ApiController
 
     public function deactivateUser(Request $request, string $id): JsonResponse
     {
+        $admin = $this->authUser($request);
         $this->staff($request, "reports");
+        if (! DB::table('users')->where('id', $id)->exists()) {
+            throw ApiException::notFound('User not found');
+        }
         DB::table('users')->where('id', $id)->update(['deleted_at' => now(), 'updated_at' => now()]);
+        $this->auditWrite($admin->id, 'user.deactivate', 'users', $id);
 
         return response()->json(null, 204);
     }
@@ -2379,8 +2474,15 @@ class AdminOpsController extends ApiController
 
     public function cancelDeletion(Request $request, string $userId): JsonResponse
     {
-        $this->staff($request, "operations");
-        DB::table('account_deletion_requests')->where('user_id', $userId)->update(['status' => 'cancelled', 'cancelled_at' => now()]);
+        $admin = $this->staff($request, "operations");
+        $updated = DB::table('account_deletion_requests')
+            ->where('user_id', $userId)
+            ->where('status', 'scheduled')
+            ->update(['status' => 'cancelled', 'cancelled_at' => now()]);
+        if ($updated === 0) {
+            throw ApiException::notFound('Scheduled deletion request not found');
+        }
+        $this->auditWrite($admin->id, 'account_deletion.cancel', 'account_deletion_requests', $userId);
 
         return response()->json(null, 204);
     }
@@ -2685,6 +2787,55 @@ class AdminOpsController extends ApiController
         ]);
     }
 
+    public function createUser(Request $request): JsonResponse
+    {
+        $admin = $this->authUser($request);
+        $this->staff($request, "users");
+        $data = $this->validateBody($request, [
+            'email' => ['required', 'string', 'email', 'max:254'],
+            'display_name' => ['required', 'string', 'min:1', 'max:80'],
+            'password' => ['required', 'string', 'min:12', 'max:200'],
+            'admin_role' => ['sometimes', 'nullable', 'in:admin,moderator'],
+            'email_verified' => ['sometimes', 'boolean'],
+        ]);
+        // Granting an admin/moderator role at creation is a privilege action —
+        // require full admin, so a moderator with only the "users" permission
+        // can't mint a staff account (matches the setRole hardening).
+        if (! empty($data['admin_role'])) {
+            $this->staff($request);
+        }
+        $email = mb_strtolower(trim($data['email']));
+        $displayName = trim($data['display_name']);
+        $this->assertPasswordPolicy($data['password']);
+        if (DB::table('users')->where('email', $email)->exists()) {
+            throw ApiException::conflict('Email is already registered');
+        }
+
+        $userId = (string) Str::uuid();
+        DB::table('users')->insert([
+            'id' => $userId,
+            'email' => $email,
+            'password_hash' => app(PasswordService::class)->hash($data['password']),
+            'display_name' => $displayName,
+            'admin_role' => $data['admin_role'] ?? null,
+            'email_verified_at' => ! empty($data['email_verified']) ? now() : null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->auditWrite($admin->id, 'user.create', 'users', $userId, [
+            'email' => $email,
+            'admin_role' => $data['admin_role'] ?? null,
+        ]);
+
+        return response()->json([
+            'id' => $userId,
+            'email' => $email,
+            'display_name' => $displayName,
+            'admin_role' => $data['admin_role'] ?? null,
+            'created_at' => $this->iso(now()),
+        ], 201);
+    }
+
     public function createPartnerAccount(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
@@ -2809,6 +2960,7 @@ class AdminOpsController extends ApiController
     {
         return [
             'id' => (string) $u->id,
+            'username' => $u->username ?? null,
             'email' => (string) $u->email,
             'display_name' => (string) $u->display_name,
             'admin_role' => $u->admin_role,
@@ -2825,6 +2977,11 @@ class AdminOpsController extends ApiController
             'is_vip' => (bool) ($u->is_vip ?? false),
             'vip_badge_label' => $u->vip_badge_label ?? null,
             'vip_expires_at' => $this->iso($u->vip_expires_at ?? null),
+            'is_verified' => (bool) ($u->is_verified ?? false),
+            'membership_tier' => ($m = app(\App\Services\Membership\MembershipService::class)->resolve((string) $u->id, isset($u->created_at) ? (string) $u->created_at : null))->tier,
+            'is_premium' => $m->is_premium,
+            'on_trial' => $m->on_trial,
+            'membership_period_end' => $this->iso($m->current_period_end),
             'games_played_total' => (int) ($u->games_played_total ?? 0),
         ];
     }

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<title>LinkFit — Biznes Planı</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap');
+
+  :root {
+    --accent: #5662D9;
+    --accent-deep: #3F4AC0;
+    --lime: #C5F235;
+    --ink: #0A0D12;
+    --ink-2: #12161F;
+    --canvas: #F3F5FA;
+    --text: #0B1020;
+    --muted: #4D5478;
+    --dim: #868EB2;
+    --border: #E7EAF3;
+    --border-strong: #D6DCEC;
+    --success: #10B981;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  @page { size: A4; margin: 18mm 16mm; }
+
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  body {
+    font-family: 'Onest', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    font-size: 11pt;
+    line-height: 1.55;
+  }
+
+  h1, h2, h3 { font-family: 'Unbounded', 'Onest', sans-serif; letter-spacing: -0.01em; }
+
+  /* ---- Cover ---- */
+  .cover {
+    position: relative;
+    height: 252mm;
+    background: var(--ink);
+    color: #fff;
+    border-radius: 22px;
+    overflow: hidden;
+    padding: 26mm 22mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    page-break-after: always;
+  }
+  .cover::before {
+    content: ""; position: absolute; inset: 0;
+    background:
+      radial-gradient(720px 420px at 88% -8%, rgba(86,98,217,.38), transparent 60%),
+      radial-gradient(560px 420px at -6% 108%, rgba(197,242,53,.12), transparent 55%);
+  }
+  .cover-top { position: relative; }
+  .cover-logo { height: 30px; width: auto; }
+  .cover-mid { position: relative; }
+  .cover-kicker { color: var(--lime); font-weight: 700; font-size: 11pt; }
+  .cover-title { font-size: 40pt; font-weight: 800; line-height: 1.04; margin-top: 14px; }
+  .cover-sub { color: rgba(255,255,255,.74); font-size: 13pt; margin-top: 16px; max-width: 130mm; line-height: 1.5; }
+  .cover-bottom { position: relative; display: flex; justify-content: space-between; align-items: flex-end; color: rgba(255,255,255,.6); font-size: 9.5pt; }
+  .cover-bottom strong { color: #fff; font-weight: 600; }
+  .pill-row { display: flex; gap: 8px; margin-top: 22px; flex-wrap: wrap; }
+  .pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 999px; padding: 6px 13px; font-size: 9.5pt; color: rgba(255,255,255,.9); }
+
+  /* ---- Content ---- */
+  section { page-break-inside: avoid; margin-bottom: 22px; }
+  .sec-num { color: var(--accent); font-weight: 700; font-size: 10pt; }
+  h2 { font-size: 18pt; font-weight: 800; margin: 4px 0 10px; color: var(--text); }
+  h3 { font-size: 12.5pt; font-weight: 700; margin: 14px 0 6px; color: var(--text); }
+  p { margin-bottom: 8px; color: #20263c; }
+  .lead { font-size: 11.5pt; color: var(--muted); }
+  ul { margin: 6px 0 8px 0; padding-left: 0; list-style: none; }
+  li { margin-bottom: 6px; padding-left: 20px; position: relative; color: #20263c; }
+  li::before { content: ""; position: absolute; left: 4px; top: 8px; width: 6px; height: 6px; border-radius: 2px; background: var(--lime); }
+  strong { color: var(--text); font-weight: 700; }
+
+  .divider { height: 3px; width: 46px; background: var(--accent); border-radius: 2px; margin-bottom: 4px; }
+
+  /* revenue cards */
+  .rev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .rev-card { border: 1px solid var(--border); background: #fff; border-radius: 16px; padding: 14px 15px; page-break-inside: avoid; }
+  .rev-card .tag { display: inline-block; background: var(--accent); color: #fff; font-size: 8.5pt; font-weight: 700; border-radius: 999px; padding: 3px 10px; }
+  .rev-card .tag.b2c { background: var(--lime); color: var(--ink); }
+  .rev-card h4 { font-family: 'Onest'; font-size: 11.5pt; font-weight: 700; margin: 9px 0 4px; }
+  .rev-card p { font-size: 9.5pt; color: var(--muted); margin: 0; line-height: 1.45; }
+  .rev-card .how { font-size: 9pt; color: var(--accent-deep); font-weight: 600; margin-top: 7px; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 9.5pt; }
+  th { background: var(--canvas); text-align: left; padding: 8px 10px; font-weight: 700; color: var(--text); border-bottom: 2px solid var(--border-strong); }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); color: #20263c; }
+  tr:nth-child(even) td { background: #fafbfe; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .callout { background: var(--canvas); border-left: 3px solid var(--accent); border-radius: 0 12px 12px 0; padding: 12px 16px; margin: 10px 0; }
+  .callout p { margin: 0; font-size: 10pt; }
+
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .note { font-size: 8.5pt; color: var(--dim); font-style: italic; margin-top: 6px; }
+
+  .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 18px; margin-top: 8px; }
+  .status-grid div { font-size: 9.5pt; padding-left: 20px; position: relative; color: #20263c; }
+  .status-grid div::before { content: "✓"; position: absolute; left: 2px; color: var(--success); font-weight: 800; }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-top"><img class="cover-logo" src="logo-white.png" alt="LinkFit"></div>
+  <div class="cover-mid">
+    <div class="cover-kicker">Biznes Planı</div>
+    <div class="cover-title">Azərbaycanın padel &amp;<br>tennis platforması</div>
+    <div class="cover-sub">Oyunçuları, klubları və məşqçiləri bir araya gətirən marketplace — oyun tapma, kort rezervasiyası, reytinq, turnirlər və təlim. Biz necə pul qazanırıq və qazana bilərik.</div>
+    <div class="pill-row">
+      <span class="pill">Klub SaaS</span>
+      <span class="pill">Rezervasiya komissiyası</span>
+      <span class="pill">Premium abunəlik</span>
+      <span class="pill">Turnir &amp; təlim</span>
+    </div>
+  </div>
+  <div class="cover-bottom">
+    <div><strong>LinkFit</strong> · linkfit.az<br>info@linkfit.az</div>
+    <div>v1.0 · 2026<br>Məxfi sənəd</div>
+  </div>
+</div>
+
+<!-- 1. İCMAL -->
+<section>
+  <div class="divider"></div>
+  <div class="sec-num">01</div>
+  <h2>İcmal</h2>
+  <p class="lead">LinkFit — padel və tennis üçün Azərbaycanda ilk tam funksional rəqəmsal platformadır: oyunçular yaxınlıqdakı oyunları tapır, səviyyəyə (ELO) görə eşləşir, kort rezerv edir, turnirlərdə və məşqçi dərslərində iştirak edir; klublar isə kortlarını, rezervasiyalarını və müştərilərini idarə edir.</p>
+  <p>Biznes modeli iki tərəfli marketplace-dir: <strong>klublara abunə əsaslı idarəetmə proqramı (SaaS)</strong> satırıq, <strong>rezervasiya və xidmətlərdən komissiya</strong> alırıq, və <strong>oyunçulara premium abunəlik</strong> təklif edirik. Bu, qlobal səviyyədə sübut olunmuş Playtomic modelidir (1+ mlrd. $ dəyərləndirmə) — biz onu Azərbaycan bazarına uyğunlaşdırırıq: yerli dil, yerli ödəniş, məkanda-ödəniş modeli.</p>
+  <div class="callout"><p><strong>Vəziyyət:</strong> Platforma artıq qurulub və işləkdir — veb sayt, klub paneli, admin paneli, mobil tətbiq və 390+ API endpoint daxil olmaqla. Yəni biz “ideya” yox, hazır məhsulla bazara çıxırıq.</p></div>
+</section>
+
+<!-- 2. PROBLEM -->
+<section>
+  <div class="divider"></div>
+  <div class="sec-num">02</div>
+  <h2>Problem və imkan</h2>
+  <div class="twocol">
+    <div>
+      <h3>Oyunçular üçün</h3>
+      <ul>
+        <li>Tərəf-müqabil tapmaq çətindir — kim, harada, hansı səviyyədə oynayır bilinmir.</li>
+        <li>Kort rezervasiyası telefon/WhatsApp ilə dağınıq və qeyri-şəffafdır.</li>
+        <li>Səviyyə, statistika və reytinq sistemi yoxdur — inkişaf ölçülmür.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Klublar üçün</h3>
+      <ul>
+        <li>Rezervasiya idarəetməsi əl ilə (dəftər/Excel) aparılır — boş kort = itirilmiş gəlir.</li>
+        <li>Müştəri bazası və marketinq alətləri yoxdur.</li>
+        <li>Yeni oyunçulara çatmaq üçün rəqəmsal kanal yoxdur.</li>
+      </ul>
+    </div>
+  </div>
+  <p style="margin-top:10px">Padel dünyada ən sürətlə böyüyən idman növüdür; region və Azərbaycanda yeni kortlar açılır, tələb artır. Lakin bu tələbi idarə edən <strong>lokal rəqəmsal infrastruktur yoxdur</strong>. Bu, boş bazardır.</p>
+</section>
+
+<!-- 3. HƏLL -->
+<section>
+  <div class="divider"></div>
+  <div class="sec-num">03</div>
+  <h2>Həll — LinkFit nədir</h2>
+  <p>Bir ekosistem, üç istifadəçi: <strong>oyunçu</strong> (mobil + veb), <strong>klub/məkan</strong> (idarəetmə paneli), <strong>admin</strong> (platforma idarəetməsi).</p>
+  <ul>
+    <li><strong>Oyun tap:</strong> yaxınlıqda açıq oyunlar, ELO səviyyəsinə görə eşləşmə, “casual/competitive” filtr, bir kliklə qoşulma.</li>
+    <li><strong>Kort tut:</strong> real vaxtda boşluq cədvəli, slot seçimi, rezervasiya (məkanda-ödəniş, gələcəkdə onlayn ödəniş).</li>
+    <li><strong>Reytinq:</strong> ELO + etibarlılıq balı — oyunçunu motivasiya edən, geri qaytaran mexanizm.</li>
+    <li><strong>Turnirlər:</strong> Americano və digər formatlar, qeydiyyat, nəticələr.</li>
+    <li><strong>Öyrən:</strong> sertifikatlı məşqçilər, fərdi və qrup dərsləri, rezervasiya.</li>
+    <li><strong>Sosial:</strong> oyunçu profilləri (VIP/təsdiqli nişanlar), izləmə, söhbət, liderbord.</li>
+  </ul>
+</section>
+
+<!-- 4. BAZAR -->
+<section>
+  <div class="divider"></div>
+  <div class="sec-num">04</div>
+  <h2>Bazar</h2>
+  <p>Hədəf: Azərbaycanda (ilk növbədə Bakı) padel və tennis klubları və onların oyunçuları; sonra region (Gürcüstan, Qazaxıstan, Türkiyə şəhərləri).</p>
+  <ul>
+    <li><strong>B2B (klublar):</strong> hər klub təkrarlanan abunə gəliridir — az sayda müştəri ilə sabit gəlir.</li>
+    <li><strong>B2C (oyunçular):</strong> hər klubun arxasında onlarla–yüzlərlə aktiv oyunçu — komissiya və premium üçün baza.</li>
+    <li>Padel kortlarının sayı artdıqca platformanın dəyəri (şəbəkə effekti) sürətlə böyüyür.</li>
+  </ul>
+  <p class="note">Bazar rəqəmləri ilkin qiymətləndirmədir; dəqiq kort/oyunçu sayımı pilot mərhələdə toplanacaq.</p>
+</section>
+
+<!-- 5. GƏLİR MODELİ -->
+<section>
+  <div class="divider"></div>
+  <div class="sec-num">05</div>
+  <h2>Gəlir modeli — biz necə pul qazanırıq</h2>
+  <p class="lead">Beş tamamlayıcı gəlir axını. Əsas dayaq — klublardan təkrarlanan SaaS gəliri (Azərbaycanda dərhal işləyir, ödəniş infrastrukturu tələb etmir).</p>
+  <div class="rev-grid">
+    <div class="rev-card">
+      <span class="tag">B2B · əsas</span>
+      <h4>1. Klub SaaS abunəliyi</h4>
+      <p>Klublar kort cədvəli, rezervasiya, müştəri, dərs və turnir idarəetməsi üçün aylıq/illik abunə ödəyir.</p>
+      <div class="how">~50–200 ₼/ay (kort sayına görə tier) · təkrarlanan, sabit gəlir</div>
+    </div>
+    <div class="rev-card">
+      <span class="tag">B2B/B2C</span>
+      <h4>2. Rezervasiya komissiyası</h4>
+      <p>Hər onlayn kort rezervasiyasından kiçik faiz və ya sabit haqq. Həcm artdıqca böyüyür.</p>
+      <div class="how">~5–10% və ya 1–2 ₼/rezervasiya · yerli PSP inteqrasiyasından sonra</div>
+    </div>
+    <div class="rev-card">
+      <span class="tag b2c">B2C</span>
+      <h4>3. Player Premium abunəliyi</h4>
+      <p>Oyunçular üçün: qabaqcıl statistika, komissiyasız rezervasiya, prioritet giriş, reklamsız təcrübə.</p>
+      <div class="how">~5–10 ₼/ay · yüksək marja, təkrarlanan</div>
+    </div>
+    <div class="rev-card">
+      <span class="tag">Marketplace</span>
+      <h4>4. Turnir &amp; təlim haqları</h4>
+      <p>Turnir giriş haqqından və məşqçi dərslərinin rezervasiyasından komissiya.</p>
+      <div class="how">~10–15% komissiya · tələbə bağlı, mövsümi artım</div>
+    </div>
+    <div class="rev-card">
+      <span class="tag">Reklam</span>
+      <h4>5. Tanıtım / Featured</h4>
+      <p>Klublar və məşqçilər axtarışda öndə görünmək üçün ödənişli yerləşdirmə alır.</p>
+      <div class="how">aylıq paket · əlavə marjalı gəlir</div>
+    </div>
+    <div class="rev-card">
+      <span class="tag">Gələcək</span>
+      <h4>6. Genişlənmə</h4>
+      <p>Avadanlıq marketplace-i, korporativ paketlər (şirkət turnirləri), sponsorluq və data/analitika.</p>
+      <div class="how">platforma böyüdükcə açılan kanallar</div>
+    </div>
+  </div>
+  <div class="callout"><p><strong>Niyə bu model işləyir:</strong> SaaS gəliri ödəniş sistemi olmadan (bank köçürməsi/nağd abunə) bu gün başlaya bilər. Komissiya və premium isə yerli ödəniş (Payriff/Epoint/Kapital) qoşulduqdan sonra miqyaslanır. Beləliklə gəlir <strong>1-ci gündən</strong> mümkündür, sonra mərhələli böyüyür.</p></div>
+</section>
+
+<!-- 6. PROYEKSİYA -->
+<section>
+  <div class="divider"></div>
+  <div class="sec-num">06</div>
+  <h2>İllüstrativ maliyyə proyeksiyası</h2>
+  <p>Aşağıdakı rəqəmlər mühafizəkar fərziyyələrə əsaslanan nümunədir (real rəqəmlər pilotla dəqiqləşəcək).</p>
+  <table>
+    <thead>
+      <tr><th>Göstərici</th><th class="num">İl 1</th><th class="num">İl 2</th><th class="num">İl 3</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Abunəçi klublar</td><td class="num">8</td><td class="num">25</td><td class="num">60</td></tr>
+      <tr><td>Aktiv oyunçular</td><td class="num">1 500</td><td class="num">8 000</td><td class="num">25 000</td></tr>
+      <tr><td>Aylıq rezervasiyalar</td><td class="num">1 200</td><td class="num">7 000</td><td class="num">22 000</td></tr>
+      <tr><td>Premium abunəçilər</td><td class="num">120</td><td class="num">900</td><td class="num">3 200</td></tr>
+      <tr><td><strong>İllik gəlir (təx.)</strong></td><td class="num"><strong>~22 000 ₼</strong></td><td class="num"><strong>~130 000 ₼</strong></td><td class="num"><strong>~480 000 ₼</strong></td></tr>
+    </tbody>
+  </table>
+  <p class="note">Gəlir: klub SaaS + komissiya + premium + turnir/təlim. Fərziyyələr mühafizəkardır; məqsəd böyüklük tərtibini göstərməkdir, dəqiq rəqəm deyil.</p>
+</section>
+
+<!-- 7. VƏZİYYƏT -->
+<section>
+  <div class="divider"></div>
+  <div class="sec-num">07</div>
+  <h2>Hazırkı vəziyyət — artıq qurulub</h2>
+  <p>“Sıfırdan başlayan” deyilik. Tam funksional məhsul canlıdır:</p>
+  <div class="status-grid">
+    <div>İctimai veb sayt (linkfit.az) — 3 dildə</div>
+    <div>Klub idarəetmə paneli (owner)</div>
+    <div>Tam admin paneli</div>
+    <div>Mobil tətbiq (Flutter, hazırlanır)</div>
+    <div>Backend: 390+ API endpoint</div>
+    <div>Kort rezervasiyası + boşluq cədvəli</div>
+    <div>Oyun tapma + ELO reytinq sistemi</div>
+    <div>Turnirlər (Americano)</div>
+    <div>Məşqçi/dərs (“Öyrən”) modulu</div>
+    <div>Söhbət, bildirişlər, sosial profil</div>
+    <div>Premium/abunəlik infrastrukturu</div>
+    <div>Təhlükəsizlik: firewall, rate-limit, JWT, HSTS</div>
+  </div>
+</section>
+
+<!-- 8. RİSK + ADDIMLAR -->
+<section>
+  <div class="divider"></div>
+  <div class="sec-num">08</div>
+  <h2>Risklər və növbəti addımlar</h2>
+  <div class="twocol">
+    <div>
+      <h3>Risklər və azaltma</h3>
+      <ul>
+        <li><strong>Klub cəlbi:</strong> ödənişsiz pilot + əl ilə onboarding ilə ilk klubları qazanmaq.</li>
+        <li><strong>Ödəniş:</strong> yerli PSP yoxdursa, məkanda-ödəniş modeli ilə başlamaq.</li>
+        <li><strong>Şəbəkə effekti:</strong> bir şəhərə (Bakı) fokuslanıb sıxlıq yaratmaq.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Növbəti addımlar</h3>
+      <ul>
+        <li>3–5 pilot klubu canlı sistemə keçirmək.</li>
+        <li>Yerli ödəniş inteqrasiyası (komissiya gəlirini açmaq).</li>
+        <li>Mobil tətbiqi App Store / Google Play-də yayımlamaq.</li>
+        <li>Premium abunəliyi işə salmaq.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

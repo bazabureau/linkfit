@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomInt } from "node:crypto";
 
 /**
  * Magic-link tokens are 256 bits of CSPRNG entropy, base64url-encoded for
@@ -25,4 +25,20 @@ export function generateEmailToken(): NewEmailToken {
 
 export function hashEmailToken(token: string): Buffer {
   return createHash("sha256").update(token, "utf8").digest();
+}
+
+export interface NewVerificationCode {
+  /** Six decimal digits sent to the user. Never log this. */
+  code: string;
+  /** HMAC-SHA256 digest stored in DB; safe against offline 6-digit brute force. */
+  hash: Buffer;
+}
+
+export function generateVerificationCode(secret: string): NewVerificationCode {
+  const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
+  return { code, hash: hashVerificationCode(code, secret) };
+}
+
+export function hashVerificationCode(code: string, secret: string): Buffer {
+  return createHmac("sha256", secret).update(code, "utf8").digest();
 }

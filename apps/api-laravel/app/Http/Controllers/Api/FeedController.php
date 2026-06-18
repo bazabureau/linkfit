@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
+use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,17 +13,35 @@ use Illuminate\Support\Str;
 class FeedController extends ApiController
 {
     use AuthorizesAdminPermissions;
+    use FiltersBlockedUsers;
 
     public function index(Request $request): JsonResponse
     {
         $query = $this->validateQuery($request, [
             'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'cursor' => ['nullable', 'string', 'max:500'],
         ]);
         $viewerId = $this->optionalViewerId($request);
         $limit = (int) ($query['limit'] ?? 50);
+        $cursor = $this->decodeCursor($query['cursor'] ?? null);
+
+        // Fold the per-row like/comment counts + the viewer's own "liked_by_me"
+        // into the main query (was 3 queries PER ROW in eventPayload). Aggregates
+        // are grouped subqueries COALESCE'd to 0; liked_by_me is a correlated
+        // EXISTS bound to the viewer (a non-matching sentinel when anonymous, so
+        // it's always false — matching the old short-circuit).
+        $likeAgg = DB::table('feed_event_reactions')
+            ->selectRaw('feed_event_id, count(*) as like_count')
+            ->groupBy('feed_event_id');
+        $commentAgg = DB::table('feed_comments')
+            ->selectRaw('event_id, count(*) as comment_count')
+            ->groupBy('event_id');
+        $likedByMeId = $viewerId ?? '00000000-0000-0000-0000-000000000000';
 
         $rows = DB::table('feed_events as f')
             ->join('users as u', 'u.id', '=', 'f.actor_user_id')
+            ->leftJoinSub($likeAgg, 'lc', 'lc.feed_event_id', '=', 'f.id')
+            ->leftJoinSub($commentAgg, 'cc', 'cc.event_id', '=', 'f.id')
             ->whereNull('u.deleted_at')
             ->where(function ($q) use ($viewerId) {
                 $q->where('f.visibility', 'public');
@@ -36,9 +55,18 @@ class FeedController extends ApiController
                         });
                 }
             })
+            ->when($viewerId !== null, fn ($q) => $this->whereNotBlocked($q, $viewerId, 'f.actor_user_id'))
+            // Keyset pagination: rows strictly older than the cursor (created_at,
+            // id) so the client can actually page past the first screen.
+            ->when($cursor !== null, fn ($q) => $q->where(function ($w) use ($cursor) {
+                $w->where('f.created_at', '<', $cursor['ts'])
+                    ->orWhere(fn ($x) => $x->where('f.created_at', $cursor['ts'])->where('f.id', '<', $cursor['id']));
+            }))
             ->orderByDesc('f.created_at')
+            ->orderByDesc('f.id')
             ->limit($limit + 1)
-            ->get([
+            ->selectRaw('exists (select 1 from feed_event_reactions r where r.feed_event_id = f.id and r.user_id = ?) as liked_by_me', [$likedByMeId])
+            ->addSelect([
                 'f.id',
                 'f.type',
                 'f.actor_user_id',
@@ -47,13 +75,18 @@ class FeedController extends ApiController
                 'f.payload',
                 'f.visibility',
                 'f.created_at',
-            ]);
+                DB::raw('coalesce(lc.like_count, 0) as like_count'),
+                DB::raw('coalesce(cc.comment_count, 0) as comment_count'),
+            ])
+            ->get();
 
-        $items = $rows->take($limit)->map(fn ($r) => $this->eventPayload($r, $viewerId))->values();
+        $hasMore = $rows->count() > $limit;
+        $pageRows = $rows->take($limit)->values();
+        $items = $pageRows->map(fn ($r) => $this->eventPayload($r, $viewerId))->values();
 
         return response()->json([
             'items' => $items,
-            'next_cursor' => $rows->count() > $limit ? base64_encode((string) $rows[$limit - 1]->id) : null,
+            'next_cursor' => $hasMore ? $this->encodeCursor($pageRows->last()) : null,
         ]);
     }
 
@@ -84,9 +117,11 @@ class FeedController extends ApiController
     public function comments(Request $request, string $eventId): JsonResponse
     {
         $limit = min(max((int) $request->query('limit', 50), 1), 100);
+        $viewerId = $this->optionalViewerId($request);
         $rows = DB::table('feed_comments as c')
             ->join('users as u', 'u.id', '=', 'c.user_id')
             ->where('c.event_id', $eventId)
+            ->when($viewerId !== null, fn ($q) => $this->whereNotBlocked($q, $viewerId, 'c.user_id'))
             ->orderByDesc('c.created_at')
             ->limit($limit + 1)
             ->get(['c.id', 'c.user_id', 'u.display_name', 'u.photo_url', 'c.body', 'c.created_at']);
@@ -164,8 +199,9 @@ class FeedController extends ApiController
     private function eventPayload(object $r, ?string $viewerId): array
     {
         $data = json_decode($r->payload ?? '{}', true) ?: [];
-        $likeCount = $this->likesCount($r->id);
-        $commentCount = (int) DB::table('feed_comments')->where('event_id', $r->id)->count();
+        // Counts + liked_by_me are folded into index()'s query (no per-row queries).
+        $likeCount = (int) ($r->like_count ?? 0);
+        $commentCount = (int) ($r->comment_count ?? 0);
 
         return [
             'id' => $r->id,
@@ -189,7 +225,7 @@ class FeedController extends ApiController
             'like_count' => $likeCount,
             'comment_count' => $commentCount,
             'likes_count' => $likeCount,
-            'liked_by_me' => $viewerId !== null && DB::table('feed_event_reactions')->where('feed_event_id', $r->id)->where('user_id', $viewerId)->exists(),
+            'liked_by_me' => $viewerId !== null && (bool) ($r->liked_by_me ?? false),
         ];
     }
 

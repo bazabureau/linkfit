@@ -7,20 +7,35 @@ struct SecondaryButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: DSSpacing.xs) {
-                if let icon { Image(systemName: icon) }
-                Text(title).font(DSType.buttonLabel)
-            }
-            .foregroundStyle(DSColor.accent)
-            .frame(maxWidth: .infinity, minHeight: 48)
-            .background(
-                RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
-                    .strokeBorder(DSColor.accent, lineWidth: 1.5)
-            )
-            .contentShape(Rectangle())
+            buttonLabel
         }
-        .buttonStyle(SpringPressStyle())   // match PrimaryButton press feedback
-        .accessibilityLabel(title)
+        .dsGlassButtonStyle()
+        .accessibilityLabel(Text(LocalizedStringKey(title)))
         .accessibilityAddTraits(.isButton)
+    }
+
+    @ViewBuilder
+    private var buttonLabel: some View {
+        let shape = RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
+
+        if #available(iOS 26.0, *) {
+            labelContent
+                .foregroundStyle(DSColor.accent)
+                .frame(maxWidth: .infinity, minHeight: 52)
+                .contentShape(shape)
+        } else {
+            labelContent
+                .foregroundStyle(DSColor.accent)
+                .frame(maxWidth: .infinity, minHeight: 52)
+                .background(shape.strokeBorder(DSColor.accent, lineWidth: 1.5))
+                .contentShape(shape)
+        }
+    }
+
+    private var labelContent: some View {
+        HStack(spacing: DSSpacing.xs) {
+            if let icon { Image(systemName: icon) }
+            Text(LocalizedStringKey(title)).font(DSType.buttonLabel)
+        }
     }
 }

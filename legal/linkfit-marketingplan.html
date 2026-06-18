@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<title>LinkFit — Marketinq Planı</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap');
+  :root {
+    --accent: #5662D9; --accent-deep: #3F4AC0; --lime: #C5F235; --ink: #0A0D12; --ink-2: #12161F;
+    --canvas: #F3F5FA; --text: #0B1020; --muted: #4D5478; --dim: #868EB2;
+    --border: #E7EAF3; --border-strong: #D6DCEC; --success: #10B981;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  @page { size: A4; margin: 18mm 16mm; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: 'Onest', system-ui, -apple-system, sans-serif; color: var(--text); font-size: 11pt; line-height: 1.55; }
+  h1, h2, h3 { font-family: 'Unbounded', 'Onest', sans-serif; letter-spacing: -0.01em; }
+
+  .cover { position: relative; height: 252mm; background: var(--ink); color: #fff; border-radius: 22px; overflow: hidden;
+    padding: 26mm 22mm; display: flex; flex-direction: column; justify-content: space-between; page-break-after: always; }
+  .cover::before { content: ""; position: absolute; inset: 0;
+    background: radial-gradient(720px 420px at 88% -8%, rgba(86,98,217,.38), transparent 60%),
+                radial-gradient(560px 420px at -6% 108%, rgba(197,242,53,.12), transparent 55%); }
+  .cover-top, .cover-mid, .cover-bottom { position: relative; }
+  .cover-logo { height: 30px; width: auto; }
+  .cover-kicker { color: var(--lime); font-weight: 700; font-size: 11pt; }
+  .cover-title { font-size: 40pt; font-weight: 800; line-height: 1.04; margin-top: 14px; }
+  .cover-sub { color: rgba(255,255,255,.74); font-size: 13pt; margin-top: 16px; max-width: 130mm; line-height: 1.5; }
+  .cover-bottom { display: flex; justify-content: space-between; align-items: flex-end; color: rgba(255,255,255,.6); font-size: 9.5pt; }
+  .cover-bottom strong { color: #fff; font-weight: 600; }
+  .pill-row { display: flex; gap: 8px; margin-top: 22px; flex-wrap: wrap; }
+  .pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 999px; padding: 6px 13px; font-size: 9.5pt; color: rgba(255,255,255,.9); }
+
+  section { page-break-inside: avoid; margin-bottom: 22px; }
+  .sec-num { color: var(--accent); font-weight: 700; font-size: 10pt; }
+  h2 { font-size: 18pt; font-weight: 800; margin: 4px 0 10px; }
+  h3 { font-size: 12.5pt; font-weight: 700; margin: 14px 0 6px; }
+  p { margin-bottom: 8px; color: #20263c; }
+  .lead { font-size: 11.5pt; color: var(--muted); }
+  ul { margin: 6px 0 8px 0; padding-left: 0; list-style: none; }
+  li { margin-bottom: 6px; padding-left: 20px; position: relative; color: #20263c; }
+  li::before { content: ""; position: absolute; left: 4px; top: 8px; width: 6px; height: 6px; border-radius: 2px; background: var(--lime); }
+  strong { color: var(--text); font-weight: 700; }
+  .divider { height: 3px; width: 46px; background: var(--accent); border-radius: 2px; margin-bottom: 4px; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .card { border: 1px solid var(--border); background: #fff; border-radius: 16px; padding: 14px 15px; page-break-inside: avoid; }
+  .card .tag { display: inline-block; background: var(--accent); color: #fff; font-size: 8.5pt; font-weight: 700; border-radius: 999px; padding: 3px 10px; }
+  .card .tag.lime { background: var(--lime); color: var(--ink); }
+  .card h4 { font-family: 'Onest'; font-size: 11.5pt; font-weight: 700; margin: 9px 0 4px; }
+  .card p { font-size: 9.5pt; color: var(--muted); margin: 0; line-height: 1.45; }
+  .card .hl { font-size: 9pt; color: var(--accent-deep); font-weight: 600; margin-top: 7px; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 9.5pt; }
+  th { background: var(--canvas); text-align: left; padding: 8px 10px; font-weight: 700; border-bottom: 2px solid var(--border-strong); }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); color: #20263c; }
+  tr:nth-child(even) td { background: #fafbfe; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .callout { background: var(--canvas); border-left: 3px solid var(--accent); border-radius: 0 12px 12px 0; padding: 12px 16px; margin: 10px 0; }
+  .callout p { margin: 0; font-size: 10pt; }
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .note { font-size: 8.5pt; color: var(--dim); font-style: italic; margin-top: 6px; }
+
+  .funnel { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .funnel-row { display: flex; align-items: center; gap: 12px; }
+  .funnel-stage { color: #fff; font-weight: 700; font-size: 10pt; border-radius: 10px; padding: 9px 14px; white-space: nowrap; }
+  .funnel-desc { font-size: 9.5pt; color: #20263c; }
+  .s1 { background: #3F4AC0; width: 46mm; }
+  .s2 { background: #5662D9; width: 40mm; }
+  .s3 { background: #6E79E2; width: 34mm; }
+  .s4 { background: #8A93E8; width: 28mm; }
+  .s5 { background: var(--lime); color: var(--ink); width: 22mm; }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-top"><img class="cover-logo" src="logo-white.png" alt="LinkFit"></div>
+  <div class="cover-mid">
+    <div class="cover-kicker">Marketinq Planı</div>
+    <div class="cover-title">Bazara çıxış<br>və böyümə</div>
+    <div class="cover-sub">İlk il üçün strategiya: klubları cəlb etmək, oyunçu icması qurmaq və Bakıda padel ekosisteminin standartına çevrilmək.</div>
+    <div class="pill-row">
+      <span class="pill">Klub partnyorluğu</span>
+      <span class="pill">Sosial &amp; influenser</span>
+      <span class="pill">Referral</span>
+      <span class="pill">Turnir-marketinq</span>
+    </div>
+  </div>
+  <div class="cover-bottom">
+    <div><strong>LinkFit</strong> · linkfit.az<br>info@linkfit.az</div>
+    <div>v1.0 · 2026<br>Məxfi sənəd</div>
+  </div>
+</div>
+
+<!-- 1 -->
+<section>
+  <div class="divider"></div><div class="sec-num">01</div>
+  <h2>İcmal və məqsədlər</h2>
+  <p class="lead">Strategiyamız “klub-öncəlikli”dir: hər klub özü ilə onlarla aktiv oyunçu gətirir. Klubu qazanırıq → oyunçuları platformaya keçiririk → icma və şəbəkə effekti yaranır.</p>
+  <div class="grid3">
+    <div class="card"><span class="tag">İl 1 hədəf</span><h4>50–60 klub</h4><p>Bakı + region klublarını paneldə canlı sistemə keçirmək.</p></div>
+    <div class="card"><span class="tag">İl 1 hədəf</span><h4>20–25k oyunçu</h4><p>Qeydiyyatlı, aktiv oyunçu bazası qurmaq.</p></div>
+    <div class="card"><span class="tag lime">İl 1 hədəf</span><h4>Aktiv icma</h4><p>Həftəlik oyun, turnir və dərs axını ilə geri qayıdan istifadəçilər.</p></div>
+  </div>
+</section>
+
+<!-- 2 -->
+<section>
+  <div class="divider"></div><div class="sec-num">02</div>
+  <h2>Hədəf auditoriya</h2>
+  <div class="grid2">
+    <div class="card"><span class="tag">B2C</span><h4>Kazual oyunçular</h4><p>Yeni başlayan, sosial motivli — “tərəf-müqabil tap, asan rezerv et, dostlarla oyna”. Instagram/TikTok ilə cəlb olunur.</p></div>
+    <div class="card"><span class="tag">B2C</span><h4>Rəqabətçi oyunçular</h4><p>Reytinq, turnir və inkişafa fokuslu — ELO, liderbord və turnirlər onları saxlayır.</p></div>
+    <div class="card"><span class="tag">B2B</span><h4>Klublar / məkanlar</h4><p>Boş kortu doldurmaq, müştəri idarə etmək istəyən sahibkarlar — birbaşa satış + pulsuz pilot.</p></div>
+    <div class="card"><span class="tag">B2B</span><h4>Məşqçilər</h4><p>Dərslərini doldurmaq istəyən mütəxəssislər — “Öyrən” modulu ilə görünürlük.</p></div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section>
+  <div class="divider"></div><div class="sec-num">03</div>
+  <h2>Mövqeləndirmə və mesaj</h2>
+  <p><strong>Brend vədi:</strong> “Padel oynamaq heç vaxt bu qədər asan olmayıb.” Premium, sadə, yerli.</p>
+  <ul>
+    <li><strong>Oyunçuya:</strong> “Səviyyənə uyğun oyun tap, bir kliklə kort tut, inkişafını izlə.”</li>
+    <li><strong>Kluba:</strong> “Boş kortları doldur, müştərini rəqəmsal idarə et — dəftər/Excel-i unud.”</li>
+    <li><strong>Məşqçiyə:</strong> “Dərslərini doldur, daha çox oyunçuya çat.”</li>
+  </ul>
+</section>
+
+<!-- 4 -->
+<section>
+  <div class="divider"></div><div class="sec-num">04</div>
+  <h2>Marketinq qıfı (funnel)</h2>
+  <div class="funnel">
+    <div class="funnel-row"><div class="funnel-stage s1">Görünürlük</div><div class="funnel-desc">Sosial kontent, influenser, turnir tədbirləri, PR.</div></div>
+    <div class="funnel-row"><div class="funnel-stage s2">Cəlb</div><div class="funnel-desc">Klub vasitəsilə qeydiyyat, referral linki, ödənişli reklam.</div></div>
+    <div class="funnel-row"><div class="funnel-stage s3">Aktivasiya</div><div class="funnel-desc">İlk oyun / ilk rezervasiya — onboarding + ilk oyunun rahatlığı.</div></div>
+    <div class="funnel-row"><div class="funnel-stage s4">Saxlama</div><div class="funnel-desc">ELO, bildirişlər, liderbord, həftəlik oyunlar.</div></div>
+    <div class="funnel-row"><div class="funnel-stage s5">Tövsiyə</div><div class="funnel-desc">Dostu dəvət et → hər ikisinə fayda (referral).</div></div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section>
+  <div class="divider"></div><div class="sec-num">05</div>
+  <h2>Kanallar</h2>
+  <div class="grid2">
+    <div class="card"><span class="tag lime">Ən güclü</span><h4>Klub partnyorluğu (B2B2C)</h4><p>Klubun mövcud oyunçularını QR/link ilə platformaya gətirmək. Hər klub = hazır auditoriya.</p><div class="hl">Aşağı xərc · yüksək konversiya</div></div>
+    <div class="card"><span class="tag">Organik</span><h4>Instagram &amp; TikTok</h4><p>Padel çox vizual və “viral” idmandır — oyun klipləri, ən yaxşı ratsetlər, oyunçu hekayələri.</p><div class="hl">Brend + cəlb</div></div>
+    <div class="card"><span class="tag">İcma</span><h4>İnfluenser / ambassador</h4><p>Yerli idmançılar və tanınan padel oyunçuları ilə partnyorluq, referral kodları.</p><div class="hl">Etibar + çatım</div></div>
+    <div class="card"><span class="tag">Viral</span><h4>Referral proqramı</h4><p>Dostu dəvət et — hər ikisi bonus alır (oyun, premium gün, endirim).</p><div class="hl">Aşağı CAC · şəbəkə effekti</div></div>
+    <div class="card"><span class="tag">Tədbir</span><h4>Turnir-marketinq</h4><p>LinkFit brendli turnirlər = həm cəlb, həm məzmun, həm icma.</p><div class="hl">Oflayn → onlayn</div></div>
+    <div class="card"><span class="tag">Ödənişli</span><h4>Meta / Google reklam</h4><p>Bakı geo-hədəfli, idman/padel marağına görə — aktivasiyaya yönəlmiş.</p><div class="hl">Miqyaslanan, ölçülən</div></div>
+    <div class="card"><span class="tag">Birbaşa</span><h4>Telegram / WhatsApp icma</h4><p>Şəhər üzrə oyunçu qrupları, oyun elanları, sürətli əlaqə.</p><div class="hl">Saxlama + cəlb</div></div>
+    <div class="card"><span class="tag">Uzunmüddətli</span><h4>SEO &amp; kontent</h4><p>linkfit.az — “Bakıda padel”, klub səhifələri, bloq; üzvi axtarış trafiki.</p><div class="hl">Sabit, ödənişsiz trafik</div></div>
+  </div>
+</section>
+
+<!-- 6 -->
+<section>
+  <div class="divider"></div><div class="sec-num">06</div>
+  <h2>90 günlük launch planı</h2>
+  <table>
+    <thead><tr><th>Faza</th><th>Vaxt</th><th>Fokus</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Faza 1 — Pilot</strong></td><td>0–30 gün</td><td>3–5 klubu canlı sistemə keçir, ilk oyunçuları dəvət et, məhsulu real istifadədə cilala.</td></tr>
+      <tr><td><strong>Faza 2 — Bakı launch</strong></td><td>30–60 gün</td><td>Sosial kampaniya, influenser, ilk LinkFit turniri, referral işə düşür, mobil tətbiq yayımı.</td></tr>
+      <tr><td><strong>Faza 3 — Miqyas</strong></td><td>60–90 gün</td><td>Daha çox klub, ödənişli reklam, premium işə salınması, region şəhərlərə baxış.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 7 -->
+<section>
+  <div class="divider"></div><div class="sec-num">07</div>
+  <h2>KPI-lar və büdcə</h2>
+  <div class="twocol">
+    <div>
+      <h3>Əsas göstəricilər</h3>
+      <ul>
+        <li><strong>CAC</strong> — oyunçu cəlb xərci (klub kanalı ilə minimal).</li>
+        <li><strong>Aktivasiya</strong> — ilk 7 gündə ilk oyun/rezervasiya %.</li>
+        <li><strong>Saxlama</strong> — 30/90 günlük geri qayıdma.</li>
+        <li><strong>Klub onboarding</strong> — aylıq yeni klub sayı.</li>
+        <li><strong>Referral əmsalı</strong> — hər istifadəçinin gətirdiyi yeni istifadəçi.</li>
+        <li><strong>MAU</strong> — aylıq aktiv oyunçu.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>İllüstrativ büdcə bölgüsü</h3>
+      <table>
+        <tbody>
+          <tr><td>Sosial &amp; kontent</td><td class="num">30%</td></tr>
+          <tr><td>Influenser / ambassador</td><td class="num">20%</td></tr>
+          <tr><td>Turnir / tədbirlər</td><td class="num">20%</td></tr>
+          <tr><td>Ödənişli reklam</td><td class="num">20%</td></tr>
+          <tr><td>Referral bonusları</td><td class="num">10%</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Faizlər ilkin paylanmadır; nəticələrə görə ən yaxşı kanallara yenidən bölünəcək.</p>
+    </div>
+  </div>
+  <div class="callout"><p><strong>Əsas prinsip:</strong> ən ucuz və ən güclü kanal — klublar. Əvvəlcə klubları qazan, onların oyunçularını gətir, sonra sosial + referral ilə üzvi böyü. Ödənişli reklam yalnız işləyən qıfın üstünə yanacaq kimi əlavə olunur.</p></div>
+</section>
+
+</body>
+</html>

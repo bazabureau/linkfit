@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,8 @@ use Illuminate\Support\Str;
 
 class GamesController extends ApiController
 {
+    use FiltersBlockedUsers;
+
     public function index(Request $request): JsonResponse
     {
         $query = $this->validateQuery($request, [
@@ -20,7 +23,9 @@ class GamesController extends ApiController
             'sport' => ['nullable', 'string', 'max:80'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date'],
+            'match_type' => ['nullable', 'in:casual,competitive'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'cursor' => ['nullable', 'string', 'max:500'],
         ]);
         if ((isset($query['lat']) || isset($query['lng']) || isset($query['radius_km']))
             && ! isset($query['lat'], $query['lng'], $query['radius_km'])) {
@@ -31,19 +36,32 @@ class GamesController extends ApiController
         }
 
         $limit = (int) ($query['limit'] ?? 20);
+        $cursor = $this->decodeCursor($query['cursor'] ?? null);
         $rows = $this->gameSummaryQuery($query)
+            // Keyset on the (starts_at ASC, id ASC) order: rows strictly after the
+            // cursor, so the app can page past the first screen (it already sends
+            // ?cursor and reads next_cursor — the param used to be ignored).
+            ->when($cursor !== null, fn ($q) => $q->where(function ($w) use ($cursor) {
+                $w->where('g.starts_at', '>', $cursor['ts'])
+                    ->orWhere(fn ($x) => $x->where('g.starts_at', $cursor['ts'])->where('g.id', '>', $cursor['id']));
+            }))
             ->limit($limit + 1)
             ->get();
 
+        $hasMore = $rows->count() > $limit;
+        $pageRows = $rows->take($limit)->values();
+
         return response()->json([
-            'items' => $rows->take($limit)->map(fn ($r) => $this->summaryPayload($r))->values(),
-            'next_cursor' => $rows->count() > $limit ? base64_encode((string) $rows[$limit - 1]->id) : null,
+            'items' => $pageRows->map(fn ($r) => $this->summaryPayload($r))->values(),
+            'next_cursor' => $hasMore ? $this->encodeCursor($pageRows->last(), 'starts_at') : null,
         ]);
     }
 
     public function store(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
+        // Freemium gate: free users have a monthly hosted-game cap (premium = unlimited).
+        app(\App\Services\Membership\MembershipService::class)->ensureCanHostGame($user->id);
         $data = $this->validateBody($request, [
             'sport_id' => ['required', 'uuid'],
             'court_id' => ['sometimes', 'nullable', 'uuid'],
@@ -55,6 +73,7 @@ class GamesController extends ApiController
             'skill_min_elo' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:4000'],
             'skill_max_elo' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:4000'],
             'visibility' => ['sometimes', 'in:public,invite'],
+            'match_type' => ['sometimes', 'in:casual,competitive'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:500'],
             'idempotency_key' => ['sometimes', 'uuid'],
         ]);
@@ -112,6 +131,7 @@ class GamesController extends ApiController
                 'skill_min_elo' => $data['skill_min_elo'] ?? null,
                 'skill_max_elo' => $data['skill_max_elo'] ?? null,
                 'visibility' => $data['visibility'] ?? 'public',
+                'match_type' => $data['match_type'] ?? 'casual',
                 'notes' => $data['notes'] ?? null,
                 'idempotency_key' => $data['idempotency_key'] ?? null,
                 'created_at' => now(),
@@ -208,9 +228,16 @@ class GamesController extends ApiController
         if (! in_array($game->status, ['open', 'full'], true)) {
             throw ApiException::conflict('Game is not joinable');
         }
+        if ($this->isBlockedBy((string) $user->id, (string) $game->host_user_id)) {
+            throw ApiException::forbidden('You cannot join this game');
+        }
 
         DB::transaction(function () use ($id, $user, $game) {
-            $count = DB::table('game_participants')->where('game_id', $id)->where('status', 'confirmed')->lockForUpdate()->count();
+            // Serialise concurrent joins by locking the games row. PostgreSQL
+            // forbids "SELECT count(*) ... FOR UPDATE" (aggregate + row lock),
+            // so we lock the parent row and then count without a lock.
+            DB::table('games')->where('id', $id)->lockForUpdate()->first();
+            $count = DB::table('game_participants')->where('game_id', $id)->where('status', 'confirmed')->count();
             if ($count >= $game->capacity) {
                 throw ApiException::conflict('Game is full');
             }
@@ -324,13 +351,16 @@ class GamesController extends ApiController
                 hps.elo_rating as host_elo, g.court_id, c.name as court_name,
                 v.id as venue_id, v.name as venue_name, v.address as venue_address,
                 v.photo_url as venue_photo_url, g.lat, g.lng, g.starts_at,
-                g.duration_minutes, g.capacity, g.status, g.visibility,
+                g.duration_minutes, g.capacity, g.status, g.visibility, g.match_type,
                 g.skill_min_elo, g.skill_max_elo, g.notes, g.created_at,
                 (select count(*) from game_participants gp where gp.game_id = g.id and gp.status = 'confirmed')::int as participants_count
             ");
 
         if (! empty($filters['sport'])) {
             $q->where('s.slug', $filters['sport']);
+        }
+        if (! empty($filters['match_type'])) {
+            $q->where('g.match_type', $filters['match_type']);
         }
         if (! empty($filters['from'])) {
             $q->where('g.starts_at', '>=', $filters['from']);
@@ -386,6 +416,7 @@ class GamesController extends ApiController
             'participants_count' => (int) $r->participants_count,
             'status' => $r->status,
             'visibility' => $r->visibility,
+            'match_type' => $r->match_type ?? 'casual',
             'skill_min_elo' => $r->skill_min_elo !== null ? (int) $r->skill_min_elo : null,
             'skill_max_elo' => $r->skill_max_elo !== null ? (int) $r->skill_max_elo : null,
             'distance_km' => $r->distance_m !== null ? round(((float) $r->distance_m) / 1000, 2) : null,

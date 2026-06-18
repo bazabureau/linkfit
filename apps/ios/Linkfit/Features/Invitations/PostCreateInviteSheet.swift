@@ -156,7 +156,9 @@ struct PostCreateInviteSheet: View {
                 }
             }
         }
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(.ultraThinMaterial)
         .task {
             // Single fetch on appear. If the user has 0 followers we
             // auto-dismiss after a beat so we don't leave them

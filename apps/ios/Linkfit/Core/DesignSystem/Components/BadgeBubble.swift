@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// Two visual states:
 ///   * `unlocked == true`  — accent-tinted background, full-color SF Symbol
-///     in `DSColor.accent`, subtle outer glow.
+///     in `DSColor.accent`.
 ///   * `unlocked == false` — desaturated surface background, grey symbol
 ///     at reduced opacity. Lock semantics are conveyed through color/
 ///     opacity, not a separate icon — the silhouette stays consistent so
@@ -46,11 +46,6 @@ struct BadgeBubble: View {
                     .offset(x: 2, y: 2)
             }
         }
-        .shadow(
-            color: unlocked ? DSColor.accent.opacity(0.35) : .clear,
-            radius: unlocked ? 8 : 0,
-            x: 0, y: 0
-        )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(unlocked
             ? String(localized: "achievements.a11y.unlocked")

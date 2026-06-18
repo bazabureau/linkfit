@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Top-level container for the Inbox sheet. Hosts a tab picker switching
 /// between the existing Notifications stream and the new Invitations
-/// inbox. The container is redesigned to look exceptionally premium
-/// and startup-grade, utilizing a smooth sliding active indicator capsule.
+/// inbox. Uses the native iOS segmented control so this sheet follows
+/// system tab-switching behavior instead of a custom pill control.
 struct InboxView: View {
     enum Tab: String, CaseIterable, Identifiable, Hashable {
         case notifications
@@ -13,12 +13,6 @@ struct InboxView: View {
             switch self {
             case .notifications: return "inbox.tab.notifications"
             case .invitations:   return "inbox.tab.invitations"
-            }
-        }
-        var icon: String {
-            switch self {
-            case .notifications: return "bell"
-            case .invitations:   return "envelope"
             }
         }
     }
@@ -33,8 +27,6 @@ struct InboxView: View {
     /// view-model's first load; updates when the user accepts/declines
     /// rows so the badge zeroes in the same frame.
     var invitationsBadge: Int
-    @Namespace private var pickerNamespace
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -45,70 +37,19 @@ struct InboxView: View {
     }
 
     private var tabPicker: some View {
-        HStack(spacing: 0) {
-            ForEach(Tab.allCases) { tab in
-                let isActive = selection == tab
-                let showsBadge = tab == .invitations && invitationsBadge > 0
-                Button {
-                    UISelectionFeedbackGenerator().selectionChanged()
-                    // Gate the sliding-capsule animation on Reduce Motion —
-                    // the matchedGeometryEffect below produces a horizontal
-                    // slide that should snap instantly when the user has
-                    // motion reduced.
-                    withAnimation(
-                        reduceMotion ? nil : .spring(response: 0.30, dampingFraction: 0.78)
-                    ) {
-                        selection = tab
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: isActive ? "\(tab.icon).fill" : tab.icon)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(isActive ? DSColor.accent : DSColor.textSecondary)
-                        Text(String(localized: tab.titleKey))
-                            .font(.system(size: 13, weight: .heavy))
-                            .lineLimit(1)
-                            .foregroundStyle(isActive ? DSColor.textPrimary : DSColor.textSecondary)
-                        if showsBadge {
-                            Text("\(invitationsBadge)")
-                                .font(.system(size: 10, weight: .heavy))
-                                .foregroundStyle(DSColor.textOnAccent)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Capsule().fill(DSColor.accent))
-                        }
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 32)
-                    .padding(.vertical, 6)
-                    .contentShape(Rectangle())
-                    .background {
-                        if isActive {
-                            RoundedRectangle(cornerRadius: 11, style: .continuous)
-                                .fill(DSColor.surface)
-                                .shadow(color: Color.black.opacity(0.08), radius: 3.5, x: 0, y: 1.5)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 11, style: .continuous)
-                                        .strokeBorder(DSColor.border, lineWidth: 1)
-                                )
-                                .matchedGeometryEffect(id: "activeTabCapsule", in: pickerNamespace)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(isActive ? .isSelected : [])
-            }
-        }
-        .padding(4)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(DSColor.surfaceElevated)
+        NativeInboxSegmentedControl(
+            selection: $selection,
+            titles: Dictionary(uniqueKeysWithValues: Tab.allCases.map { ($0, title(for: $0)) })
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.3), lineWidth: 1)
-        )
+        .frame(height: 34)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+    }
+
+    private func title(for tab: Tab) -> String {
+        let title = String(localized: tab.titleKey)
+        guard tab == .invitations, invitationsBadge > 0 else { return title }
+        return "\(title) (\(invitationsBadge))"
     }
 
     @ViewBuilder
@@ -121,6 +62,76 @@ struct InboxView: View {
             )
         case .invitations:
             InvitationsView(viewModel: invitationsViewModel)
+        }
+    }
+}
+
+private struct NativeInboxSegmentedControl: UIViewRepresentable {
+    @Binding var selection: InboxView.Tab
+    let titles: [InboxView.Tab: String]
+
+    func makeUIView(context: Context) -> UISegmentedControl {
+        let control = UISegmentedControl()
+        control.selectedSegmentTintColor = UIColor(DSColor.accent)
+        control.backgroundColor = UIColor(DSColor.surfaceElevated)
+        control.setTitleTextAttributes(
+            [
+                .foregroundColor: UIColor(DSColor.textPrimary),
+                .font: UIFont.systemFont(ofSize: 13, weight: .semibold)
+            ],
+            for: .normal
+        )
+        control.setTitleTextAttributes(
+            [
+                .foregroundColor: UIColor(DSColor.textOnAccent),
+                .font: UIFont.systemFont(ofSize: 13, weight: .semibold)
+            ],
+            for: .selected
+        )
+        control.addTarget(
+            context.coordinator,
+            action: #selector(Coordinator.valueChanged(_:)),
+            for: .valueChanged
+        )
+        return control
+    }
+
+    func updateUIView(_ control: UISegmentedControl, context: Context) {
+        let tabs = InboxView.Tab.allCases
+        if control.numberOfSegments != tabs.count {
+            control.removeAllSegments()
+            for (index, tab) in tabs.enumerated() {
+                control.insertSegment(withTitle: titles[tab], at: index, animated: false)
+            }
+        } else {
+            for (index, tab) in tabs.enumerated() {
+                control.setTitle(titles[tab], forSegmentAt: index)
+            }
+        }
+
+        control.selectedSegmentIndex = tabs.firstIndex(of: selection) ?? 0
+        control.selectedSegmentTintColor = UIColor(DSColor.accent)
+        control.backgroundColor = UIColor(DSColor.surfaceElevated)
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(selection: $selection)
+    }
+
+    final class Coordinator: NSObject {
+        private var selection: Binding<InboxView.Tab>
+
+        init(selection: Binding<InboxView.Tab>) {
+            self.selection = selection
+        }
+
+        @MainActor
+        @objc
+        func valueChanged(_ sender: UISegmentedControl) {
+            let tabs = InboxView.Tab.allCases
+            guard tabs.indices.contains(sender.selectedSegmentIndex) else { return }
+            UISelectionFeedbackGenerator().selectionChanged()
+            selection.wrappedValue = tabs[sender.selectedSegmentIndex]
         }
     }
 }

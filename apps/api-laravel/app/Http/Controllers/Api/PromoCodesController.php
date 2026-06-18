@@ -20,7 +20,6 @@ class PromoCodesController extends ApiController
             'code' => ['required', 'string', 'max:64'],
             'amount_minor' => ['required', 'integer', 'min:0', 'max:100000000'],
             'currency' => ['sometimes', 'nullable', 'string', 'max:8'],
-            'user_id' => ['sometimes', 'nullable', 'uuid'],
         ]);
 
         $promo = $this->activePromo($data['code']);
@@ -28,8 +27,12 @@ class PromoCodesController extends ApiController
             throw ApiException::validation('Promo code is not valid');
         }
 
+        // Per-user usage is checked only for the authenticated caller (from the
+        // optional Bearer token) — never a client-supplied user_id, which would
+        // let anyone probe another user's redemptions.
+        $viewerId = $this->optionalViewerId($request);
         $discount = $this->discountMinor($promo, (int) $data['amount_minor'], $data['currency'] ?? $promo->currency);
-        $this->assertUsageLimits($promo, $data['user_id'] ?? null);
+        $this->assertUsageLimits($promo, $viewerId);
 
         return response()->json([
             'promo' => $this->payload($promo),

@@ -196,7 +196,7 @@ struct MembershipView: View {
             // current PAID tier; the upgrade/switch button only appears on
             // other cards.
             if isCurrent && isPaid && !state.cancel_at_period_end {
-                SecondaryButton(title: String(localized: "membership.cta.cancel")) {
+                SecondaryButton(title: "membership.cta.cancel") {
                     if !viewModel.isMutating { showCancelConfirm = true }
                 }
                 .opacity(viewModel.isMutating ? 0.5 : 1)
@@ -337,7 +337,7 @@ struct MembershipView: View {
         .overlay(
             Capsule().strokeBorder(DSColor.border, lineWidth: 1),
         )
-        .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
+        .shadow(color: DSColor.inkSurface.opacity(0.15), radius: 8, y: 4)
     }
 }
 

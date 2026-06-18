@@ -352,7 +352,7 @@ struct InsightsView: View {
 
     // MARK: - Empty state
 
-    /// Premium-glass empty card used when the user has zero recorded games
+    /// Empty card used when the user has zero recorded games
     /// for the selected sport / window. Mirrors the design system pattern
     /// in `MessagesViews` (medallion + heading + supporting line) and adds
     /// a CTA that pops back to the home tab.
@@ -397,14 +397,7 @@ struct InsightsView: View {
         }
         .padding(DSSpacing.lg)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial),
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1),
-        )
+        .dsSurfaceCard(radius: 18)
     }
 
     private func notEnoughGamesCard(_ resp: InsightsResponse) -> some View {

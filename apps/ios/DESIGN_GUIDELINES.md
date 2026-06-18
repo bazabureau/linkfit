@@ -1,13 +1,12 @@
 # Linkfit iOS Design Guidelines
 
-> **Status**: Updated 2026-05-20 with the Premium pattern after Login /
-> Register / Forgot / Home / 4-tab redesign.
+> **Status**: Updated 2026-06-17 for the native 2026 UI pass.
 >
 > **This file is the single source of truth.** Every new screen MUST
 > follow the components and rules below. Deviations need explicit
 > justification in the PR description.
 
-Linkfit feels like a real sports product: practical, fast, premium, restrained. We avoid generic "AI app" styling (near-black canvas + neon lime washes + glass everywhere). The current brand language is **adaptive light/dark surfaces + royal-blue accent (#5662D9) + lime-yellow secondary (#DCF166)** — see `Premium Pattern` below. The lime-yellow is reserved for the brand mark and small highlights; royal blue carries interactive meaning.
+Linkfit feels like a real sports product: practical, fast, premium, restrained. We avoid generic "AI app" styling: no neon washes, no animated glow blobs, no glass on every card, no oversized decorative hero panels. The current brand language is **adaptive light/dark surfaces + royal-blue accent (#5662D9) + lime-yellow secondary (#DCF166)**. The lime-yellow is reserved for the brand mark and rare highlights; royal blue carries interactive meaning.
 
 ---
 
@@ -21,22 +20,22 @@ Linkfit feels like a real sports product: practical, fast, premium, restrained. 
 
 ---
 
-## 2. Premium Pattern (CANONICAL)
+## 2. Native 2026 Pattern (CANONICAL)
 
-This is the layout language every full-screen flow uses. If you can't justify deviating, **don't**.
+This is the layout language every full-screen flow uses. It follows Apple's current direction: content first, native navigation, Liquid Glass only for chrome/controls, and restrained materials.
 
 ### 2.1 Page scaffold
 
 ```swift
 ZStack {
-    PremiumAuthBackground()        // mesh gradient + animated lime/blue glow
+    AppGlassBackground()           // adaptive solid app background
 
     ScrollView {
         VStack(spacing: 24) {
-            // optional top bar (e.g. close button, language picker)
-            // PremiumPageHero (icon medallion + heavy title + subtitle)
-            // content sections — keep each section to one concern
-            // primary CTA (PrimaryAuthButton)
+            // native navigation title / toolbar owns chrome
+            // optional compact hero only when it helps orientation
+            // content sections — one concern each
+            // primary CTA if the screen has a clear commit action
         }
         .padding(.horizontal, 20)
     }
@@ -49,7 +48,7 @@ ZStack {
 
 | Component | When to use | Key knobs |
 |-----------|-------------|-----------|
-| `PremiumAuthBackground` | All full-screen flows | none — animation respects Reduce Motion |
+| `AppGlassBackground` / `PremiumAuthBackground` | Full-screen backgrounds | solid adaptive canvas; no glow animation |
 | `PremiumPageHero` | Top of every full-screen flow | `icon`, `titleKey`, `subtitleKey`, `alignment` (`.leading` default, `.center` for sheets) |
 | `FloatingTextField` | Any text input on auth / forms | `labelKey`, `icon`, `text`, `contentType`, `isSecure`, `errorMessage` |
 | `PrimaryAuthButton` | Single hero action per screen | `titleKey`, `isLoading`, `isEnabled`, `action` |
@@ -58,7 +57,7 @@ ZStack {
 
 ### 2.3 Animation pattern
 
-**Entrance**: staggered spring per section. Use the four-step pattern from `LoginView.stagger()`:
+**Entrance**: use only when it clarifies state change. Auth may keep a short stagger; high-frequency app screens should appear immediately. If a stagger is justified, use the four-step pattern from `LoginView.stagger()`:
 
 ```swift
 withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
@@ -72,7 +71,7 @@ DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
 // …continue at 0.10s intervals
 ```
 
-Always honor Reduce Motion (`UIAccessibility.isReduceMotionEnabled`).
+Always honor Reduce Motion (`UIAccessibility.isReduceMotionEnabled`). Do not animate background decoration.
 
 ### 2.4 Haptic ladder
 
@@ -112,8 +111,8 @@ All tokens are **adaptive** (light/dark via `Color(light:dark:)`). Never assume 
 - **Hero title**: 26–30pt **heavy**, system default
 - **Section title**: 17pt semibold, system default
 - **Body**: 15–16pt regular
-- **Caption / label**: 11–13pt semibold, slight tracking (0.4–1.0pt) for uppercase microlabels
-- **Tagline / overline**: 11pt heavy, uppercase, tracking 1.4pt
+- **Caption / label**: 11–13pt semibold, sentence case, no tracking
+- **Tagline / overline**: 11pt heavy, sentence case, no tracking
 
 Use **default San Francisco** for product surfaces. **Rounded** only for small badges or sport-specific emphasis (never primary CTAs).
 
@@ -135,10 +134,10 @@ All quick-action tiles share the single brand accent (`DSColor.accent`). We trie
 
 Set once globally in `AppearanceBootstrap` (UIKit appearance proxies):
 
-- **Tab bar**: system material blur, adaptive to light/dark
+- **Tab bar**: system material / Liquid Glass where available, adaptive to light/dark
 - **Selected tab**: filled SF Symbol + accent tint + heavy 11pt
 - **Unselected**: outline icon + secondary text colour + semibold 11pt
-- **Nav bar**: same blur + heavy title (17pt small, 32pt large)
+- **Nav bar**: native material / Liquid Glass where available + heavy title (17pt small, 32pt large)
 - **Tint color**: `DSColor.accent` — auto-tints back chevron + bar items
 
 ---

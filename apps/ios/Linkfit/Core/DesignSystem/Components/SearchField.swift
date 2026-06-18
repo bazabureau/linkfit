@@ -18,8 +18,8 @@ struct SearchField: View {
     var body: some View {
         HStack(spacing: DSSpacing.sm) {
             Image(systemName: "magnifyingglass")
-                .font(DSType.body)
-                .foregroundStyle(DSColor.textSecondary)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(DSColor.textTertiary)
                 .accessibilityHidden(true)
             TextField(
                 "",
@@ -48,12 +48,16 @@ struct SearchField: View {
                 .accessibilityLabel(Text("common.clear"))
             }
         }
-        .padding(.horizontal, DSSpacing.md)
-        .frame(height: 50)
-        .background(Capsule().fill(DSColor.surface))
+        .padding(.horizontal, 14)
+        .frame(height: 44)
+        .background(
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
+                .fill(DSColor.surface)
+        )
         .overlay(
-            Capsule().strokeBorder(focused ? DSColor.accent : DSColor.border,
-                                   lineWidth: focused ? 1.5 : 1)
+            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
+                .strokeBorder(focused ? DSColor.accent : DSColor.border,
+                              lineWidth: focused ? 1.5 : 1)
         )
         .onAppear {
             if autofocus {

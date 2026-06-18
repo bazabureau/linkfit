@@ -44,7 +44,9 @@ struct GameMedicalSheet: View {
             }
             .task { await viewModel.load(gameId: gameId) }
         }
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(.ultraThinMaterial)
     }
 
     private var header: some View {

@@ -4,7 +4,7 @@ import SwiftUI
 /// LoginView / RegisterView.
 ///
 /// Visual layout:
-///   1. PremiumAuthBackground (mesh gradient with animated lime/blue glow)
+///   1. PremiumAuthBackground (solid adaptive app canvas)
 ///   2. Hero: lock icon + heading + supporting line
 ///   3. FloatingTextField for the email
 ///   4. PrimaryAuthButton ("Send reset link")

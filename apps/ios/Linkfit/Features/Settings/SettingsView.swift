@@ -46,19 +46,8 @@ struct SettingsView: View {
     var body: some View {
         @Bindable var language = language
         ZStack {
-            // Pure white minimal background
             DSColor.background.ignoresSafeArea()
-            
-            // Soft top brand glow
-            RadialGradient(
-                colors: [DSColor.accent.opacity(0.04), Color.clear],
-                center: .topTrailing,
-                startRadius: 10,
-                endRadius: 360
-            )
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
-            
+
             ScrollView {
                 VStack(spacing: 24) {
                     // Category 1: Account
@@ -78,7 +67,7 @@ struct SettingsView: View {
                         }
                         .background(RoundedRectangle(cornerRadius: 20).fill(DSColor.surface))
                         .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(DSColor.border, lineWidth: 1))
-                        .shadow(color: Color.black.opacity(0.015), radius: 6, y: 3)
+                        .shadow(color: DSColor.inkSurface.opacity(0.015), radius: 6, y: 3)
                     }
                     
                     // Category 2: Discover
@@ -92,7 +81,7 @@ struct SettingsView: View {
                         }
                         .background(RoundedRectangle(cornerRadius: 20).fill(DSColor.surface))
                         .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(DSColor.border, lineWidth: 1))
-                        .shadow(color: Color.black.opacity(0.015), radius: 6, y: 3)
+                        .shadow(color: DSColor.inkSurface.opacity(0.015), radius: 6, y: 3)
                     }
                     
                     // Category 3: Social
@@ -104,7 +93,7 @@ struct SettingsView: View {
                         }
                         .background(RoundedRectangle(cornerRadius: 20).fill(DSColor.surface))
                         .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(DSColor.border, lineWidth: 1))
-                        .shadow(color: Color.black.opacity(0.015), radius: 6, y: 3)
+                        .shadow(color: DSColor.inkSurface.opacity(0.015), radius: 6, y: 3)
                     }
                     
                     // Category 4: Notifications & Privacy
@@ -172,7 +161,7 @@ struct SettingsView: View {
                         }
                         .background(RoundedRectangle(cornerRadius: 20).fill(DSColor.surface))
                         .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(DSColor.border, lineWidth: 1))
-                        .shadow(color: Color.black.opacity(0.015), radius: 6, y: 3)
+                        .shadow(color: DSColor.inkSurface.opacity(0.015), radius: 6, y: 3)
                     }
                     
                     // Category 5: Preferences & About
@@ -267,7 +256,7 @@ struct SettingsView: View {
                         }
                         .background(RoundedRectangle(cornerRadius: 20).fill(DSColor.surface))
                         .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(DSColor.border, lineWidth: 1))
-                        .shadow(color: Color.black.opacity(0.015), radius: 6, y: 3)
+                        .shadow(color: DSColor.inkSurface.opacity(0.015), radius: 6, y: 3)
                     }
                     
                     // Logout full-width capsule button

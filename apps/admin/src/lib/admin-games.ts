@@ -58,7 +58,10 @@ export const AdminGameParticipantSchema = z.object({
   user_id: z.string().uuid(),
   display_name: z.string(),
   photo_url: z.string().nullable(),
-  status: z.enum(["confirmed", "cancelled", "no_show", "played"]),
+  // Accept any backend status — an unexpected value must NOT throw a ZodError
+  // and crash the whole game-detail page. Known values keep their badge;
+  // unknowns fall through as a plain string.
+  status: z.enum(["confirmed", "cancelled", "no_show", "played"]).or(z.string()),
   joined_at: z.string(),
   status_changed_at: z.string(),
 });

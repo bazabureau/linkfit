@@ -156,11 +156,11 @@ struct SuggestedFollowsView: View {
                 HStack(spacing: 10) {
                     ForEach(0..<3, id: \.self) { _ in
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(.ultraThinMaterial)
+                            .fill(DSColor.surface)
                             .frame(width: cardWidth, height: cardHeight)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .strokeBorder(DSColor.border.opacity(0.3), lineWidth: 1)
+                                    .strokeBorder(DSColor.border, lineWidth: 1)
                             )
                     }
                 }
@@ -254,14 +254,7 @@ private struct SuggestedFollowCard: View {
         }
         .padding(12)
         .frame(width: cardWidth)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.35), lineWidth: 1)
-        )
+        .dsSurfaceCard(radius: 16)
         .contentShape(Rectangle())
         // Tap on the whole card body routes to the profile.
         // The follow button below has its own gesture and consumes

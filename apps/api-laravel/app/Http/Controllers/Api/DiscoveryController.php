@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class DiscoveryController extends ApiController
 {
+    use FiltersBlockedUsers;
+
     public function agenda(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
@@ -121,7 +124,7 @@ class DiscoveryController extends ApiController
                 ->whereRaw('(ms.team_a_user_ids @> ARRAY[?]::uuid[] OR ms.team_b_user_ids @> ARRAY[?]::uuid[])', [$user->id, $user->id])
                 ->orderBy('ms.completed_at')
                 ->get([
-                    'ms.completed_at', 'ms.current_game_a', 'ms.current_game_b',
+                    'ms.completed_at', 'ms.sets',
                     'ms.team_a_user_ids', 'ms.team_b_user_ids', 'ms.elo_delta_by_user',
                 ])->all();
         }
@@ -132,11 +135,13 @@ class DiscoveryController extends ApiController
             $teamA = $this->pgUuidArray($r->team_a_user_ids);
             $teamB = $this->pgUuidArray($r->team_b_user_ids);
             $userTeam = in_array($user->id, $teamA, true) ? 'a' : 'b';
-            $winningTeam = ((int) $r->current_game_a >= (int) $r->current_game_b) ? 'a' : 'b';
+            // Winner is decided by sets won (matches MatchController), not by a
+            // single game tally — the old current_game_a>=b defaulted to 'a'.
+            $winningTeam = $this->winnerFromSets($r->sets);
             $deltas = json_decode($r->elo_delta_by_user ?? '{}', true) ?: [];
             $matches[] = [
                 'at' => \Illuminate\Support\Carbon::parse($r->completed_at),
-                'won' => $userTeam === $winningTeam,
+                'won' => $winningTeam !== null && $userTeam === $winningTeam,
                 'delta' => (int) ($deltas[$user->id] ?? 0),
                 'opponents' => $userTeam === 'a' ? $teamB : $teamA,
             ];
@@ -217,6 +222,10 @@ class DiscoveryController extends ApiController
             $opponents = array_slice($opponents, 0, 12);
         }
 
+        // Free vs premium: headline stats + ELO/win-rate curves stay free; the
+        // deeper analytics (rival breakdown, weekly volume) are premium-only.
+        $isPremium = app(\App\Services\Membership\MembershipService::class)->isPremium($user->id);
+
         return response()->json([
             'sport_slug' => $slug,
             'days' => $days,
@@ -225,9 +234,11 @@ class DiscoveryController extends ApiController
             'current_reliability' => $currentReliability,
             'elo_series' => $eloSeries,
             'win_rate_series' => $winRateSeries,
-            'games_per_week' => $gamesPerWeek,
-            'opponents' => $opponents,
+            'games_per_week' => $isPremium ? $gamesPerWeek : [],
+            'opponents' => $isPremium ? $opponents : [],
             'reliability_series' => [],
+            'is_premium' => $isPremium,
+            'premium_locked' => ! $isPremium,
         ]);
     }
 
@@ -245,6 +256,241 @@ class DiscoveryController extends ApiController
         return array_values(array_filter(array_map(fn ($s) => trim($s, '"'), explode(',', $raw))));
     }
 
+    /** Winner by sets won; null on a genuine tie (never a false 'a' default). */
+    private function winnerFromSets(mixed $setsJson): ?string
+    {
+        $sets = is_array($setsJson) ? $setsJson : (json_decode((string) ($setsJson ?? '[]'), true) ?: []);
+        $a = 0;
+        $b = 0;
+        foreach ($sets as $s) {
+            if ((int) ($s['a'] ?? 0) > (int) ($s['b'] ?? 0)) {
+                $a++;
+            } elseif ((int) ($s['b'] ?? 0) > (int) ($s['a'] ?? 0)) {
+                $b++;
+            }
+        }
+
+        return $a === $b ? null : ($a > $b ? 'a' : 'b');
+    }
+
+    /**
+     * GET /api/v1/me/home — one round-trip aggregate for the home screen. Each
+     * sub-block reuses the SAME query logic + item shapes as its standalone
+     * endpoint and is independently fail-open (→ null/[]) so one failing query
+     * can never blank the whole screen.
+     */
+    public function home(Request $request): JsonResponse
+    {
+        $user = $this->authUser($request);
+
+        $me = null;
+        try {
+            $me = $user->toPublicUser();
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        $membership = null;
+        try {
+            $m = app(\App\Services\Membership\MembershipService::class)
+                ->resolve($user->id, optional($user->created_at)->toIso8601String());
+            $membership = [
+                'tier' => $m->tier,
+                'is_premium' => $m->is_premium,
+                'is_plus' => $m->is_plus,
+                'on_trial' => $m->on_trial,
+                'trial_ends_at' => $m->trial_ends_at,
+                'current_period_end' => $this->iso($m->current_period_end),
+                'cancel_at_period_end' => $m->cancel_at_period_end,
+            ];
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        $unread = null;
+        try {
+            $unread = $this->unreadCountsFor((string) $user->id);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        $agenda = null;
+        try {
+            $agenda = $this->agendaData((string) $user->id);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        $nearbyGames = [];
+        try {
+            $nearbyGames = $this->nearbyGamesData((string) $user->id);
+        } catch (\Throwable $e) {
+            report($e);
+            $nearbyGames = [];
+        }
+
+        $suggestedFollows = [];
+        try {
+            $suggestedFollows = $this->suggestedFollowsData((string) $user->id);
+        } catch (\Throwable $e) {
+            report($e);
+            $suggestedFollows = [];
+        }
+
+        $insightsSummary = null;
+        try {
+            $insightsSummary = $this->insightsSummaryData((string) $user->id);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return response()->json([
+            'me' => $me,
+            'membership' => $membership,
+            'unread' => $unread,
+            'agenda' => $agenda,
+            'nearby_games' => $nearbyGames,
+            'suggested_follows' => $suggestedFollows,
+            'insights_summary' => $insightsSummary,
+            'server_time' => now()->toIso8601ZuluString('millisecond'),
+        ]);
+    }
+
+    /** Mirrors MessagingController::unreadCounts — {messages, notifications, invites, total}. */
+    private function unreadCountsFor(string $userId): array
+    {
+        $messages = DB::table('conversation_participants as me')
+            ->join('conversations as c', 'c.id', '=', 'me.conversation_id')
+            ->where('me.user_id', $userId)
+            ->whereNull('me.left_at')
+            ->whereNotNull('c.last_message_at')
+            ->where(function ($q) {
+                $q->whereNull('me.last_read_at')
+                    ->orWhereColumn('c.last_message_at', '>', 'me.last_read_at');
+            })
+            ->count();
+
+        $notifications = DB::table('notifications')
+            ->where('user_id', $userId)
+            ->whereNull('read_at')
+            ->count();
+
+        $invites = DB::table('game_invitations')
+            ->where('invitee_user_id', $userId)
+            ->where('status', 'pending')
+            ->count();
+
+        return [
+            'messages' => $messages,
+            'notifications' => $notifications,
+            'invites' => $invites,
+            'total' => $messages + $notifications + $invites,
+        ];
+    }
+
+    /** Mirrors agenda() — confirmed upcoming games + upcoming bookings. */
+    private function agendaData(string $userId): array
+    {
+        $games = DB::table('game_participants as gp')
+            ->join('games as g', 'g.id', '=', 'gp.game_id')
+            ->join('sports as s', 's.id', '=', 'g.sport_id')
+            ->where('gp.user_id', $userId)
+            ->where('gp.status', 'confirmed')
+            ->where('g.starts_at', '>=', now()->subDay())
+            ->whereIn('s.slug', ['padel', 'tennis'])
+            ->orderBy('g.starts_at')
+            ->limit(50)
+            ->get(['g.id', 'g.starts_at', 'g.status', 's.slug as sport_slug']);
+        $bookings = DB::table('bookings')
+            ->where('user_id', $userId)
+            ->where('starts_at', '>=', now()->subDay())
+            ->orderBy('starts_at')
+            ->limit(50)
+            ->get();
+
+        return ['games' => $games, 'bookings' => $bookings];
+    }
+
+    /** Mirrors matchmakingGames() — open public upcoming games not hosted/blocked. */
+    private function nearbyGamesData(string $userId): array
+    {
+        return DB::table('games as g')
+            ->join('sports as s', 's.id', '=', 'g.sport_id')
+            ->where('g.host_user_id', '!=', $userId)
+            ->where('g.status', 'open')
+            ->where('g.visibility', 'public')
+            ->where('g.starts_at', '>=', now())
+            ->whereIn('s.slug', ['padel', 'tennis'])
+            ->when(true, fn ($q) => $this->whereNotBlocked($q, $userId, 'g.host_user_id'))
+            ->orderBy('g.starts_at')
+            ->limit(50)
+            ->get(['g.id', 'g.sport_id', 's.slug as sport_slug', 'g.starts_at', 'g.capacity', 'g.lat', 'g.lng'])
+            ->all();
+    }
+
+    /** Mirrors suggestedFollows() item shape exactly. */
+    private function suggestedFollowsData(string $userId): array
+    {
+        $rows = DB::table('users as u')
+            ->where('u.id', '!=', $userId)
+            ->whereNull('u.deleted_at')
+            ->whereNotExists(function ($q) use ($userId) {
+                $q->selectRaw('1')->from('follows as f')
+                    ->whereColumn('f.followed_user_id', 'u.id')
+                    ->where('f.follower_user_id', $userId);
+            })
+            ->when(true, fn ($q) => $this->whereNotBlocked($q, $userId, 'u.id'))
+            ->orderByDesc('u.created_at')
+            ->limit(20)
+            ->get();
+
+        return $rows->map(fn ($u) => [
+            'id' => $u->id,
+            'user_id' => $u->id,
+            'display_name' => $u->display_name,
+            'photo_url' => $u->photo_url,
+            'primary_elo' => isset($u->primary_elo) ? (int) $u->primary_elo : null,
+            'shared_games_count' => 0,
+            'reason' => 'suggested',
+        ])->all();
+    }
+
+    /** Small free-tier subset of insights() headline stats for the home card. */
+    private function insightsSummaryData(string $userId): array
+    {
+        $slug = 'padel';
+        $days = 30;
+        $windowStart = now()->subDays($days);
+
+        $sport = DB::table('sports')->where('slug', $slug)->first(['id']);
+        $sportId = $sport->id ?? null;
+
+        $stat = $sportId
+            ? DB::table('player_sport_stats')->where('user_id', $userId)->where('sport_id', $sportId)->first()
+            : null;
+        $currentElo = (int) ($stat->elo_rating ?? 1200);
+        $currentReliability = (int) ($stat->reliability_score ?? 100);
+
+        $totalGames = 0;
+        if ($sportId) {
+            $totalGames = DB::table('match_scores as ms')
+                ->join('games as g', 'g.id', '=', 'ms.game_id')
+                ->where('g.sport_id', $sportId)
+                ->where('ms.status', 'completed')
+                ->where('ms.completed_at', '>=', $windowStart)
+                ->whereRaw('(ms.team_a_user_ids @> ARRAY[?]::uuid[] OR ms.team_b_user_ids @> ARRAY[?]::uuid[])', [$userId, $userId])
+                ->count();
+        }
+
+        return [
+            'sport_slug' => $slug,
+            'days' => $days,
+            'total_games' => $totalGames,
+            'current_elo' => $currentElo,
+            'current_reliability' => $currentReliability,
+        ];
+    }
+
     public function suggestedFollows(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
@@ -254,6 +500,7 @@ class DiscoveryController extends ApiController
             ->whereNotExists(function ($q) use ($user) {
                 $q->selectRaw('1')->from('follows as f')->whereColumn('f.followed_user_id', 'u.id')->where('f.follower_user_id', $user->id);
             })
+            ->when(true, fn ($q) => $this->whereNotBlocked($q, (string) $user->id, 'u.id'))
             ->orderByDesc('u.created_at')
             ->limit(20)
             ->get();
@@ -266,6 +513,7 @@ class DiscoveryController extends ApiController
         // Swift `primary_elo: Int?` optional. shared_games_count is a 0 placeholder
         // until the mutual-games join is wired; reason is a non-null string.
         return response()->json(['items' => $rows->map(fn ($u) => [
+            'id' => $u->id,
             'user_id' => $u->id,
             'display_name' => $u->display_name,
             'photo_url' => $u->photo_url,
@@ -285,6 +533,7 @@ class DiscoveryController extends ApiController
             ->where('g.visibility', 'public')
             ->where('g.starts_at', '>=', now())
             ->whereIn('s.slug', ['padel', 'tennis'])
+            ->when(true, fn ($q) => $this->whereNotBlocked($q, (string) $user->id, 'g.host_user_id'))
             ->orderBy('g.starts_at')
             ->limit(50)
             ->get(['g.id', 'g.sport_id', 's.slug as sport_slug', 'g.starts_at', 'g.capacity', 'g.lat', 'g.lng']);
@@ -315,6 +564,7 @@ class DiscoveryController extends ApiController
                     ->whereColumn('f.followed_user_id', 'u.id')
                     ->where('f.follower_user_id', $user->id);
             })
+            ->when(true, fn ($q) => $this->whereNotBlocked($q, (string) $user->id, 'u.id'))
             ->orderByDesc('u.created_at')
             ->limit(20)
             ->get(['u.id', 'u.display_name', 'u.photo_url', 'ps.primary_sport_slug', 'ps.elo_rating', 'ps.reliability_score']);
@@ -322,13 +572,22 @@ class DiscoveryController extends ApiController
         // People the viewer follows — used to count mutual followers per candidate.
         $viewerFollowing = DB::table('follows')->where('follower_user_id', $user->id)->pluck('followed_user_id')->all();
 
+        // Batch the mutual-follower count for ALL listed candidates in ONE query
+        // (replaces the prior per-candidate COUNT(*), an N+1 over the result set).
+        $candidateIds = $rows->pluck('id')->all();
+        $mutualCounts = (empty($viewerFollowing) || empty($candidateIds))
+            ? collect()
+            : DB::table('follows')
+                ->whereIn('followed_user_id', $candidateIds)
+                ->whereIn('follower_user_id', $viewerFollowing)
+                ->groupBy('followed_user_id')
+                ->selectRaw('followed_user_id, count(*) as mutual')
+                ->pluck('mutual', 'followed_user_id');
+
         // iOS `RecommendedPlayer` requires non-optional mutual_followers_count:Int,
         // score:Double and reasons:[String]; the rest are optional.
-        return response()->json(['items' => $rows->map(function ($u) use ($viewerFollowing) {
-            $mutual = empty($viewerFollowing) ? 0 : DB::table('follows')
-                ->where('followed_user_id', $u->id)
-                ->whereIn('follower_user_id', $viewerFollowing)
-                ->count();
+        return response()->json(['items' => $rows->map(function ($u) use ($mutualCounts) {
+            $mutual = (int) ($mutualCounts[$u->id] ?? 0);
             $elo = $u->elo_rating !== null ? (int) $u->elo_rating : null;
 
             $reasons = [];

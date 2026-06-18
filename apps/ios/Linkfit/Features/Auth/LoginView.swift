@@ -62,6 +62,7 @@ struct LoginView: View {
             }
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
+            .presentationBackground(.ultraThinMaterial)
         }
     }
 

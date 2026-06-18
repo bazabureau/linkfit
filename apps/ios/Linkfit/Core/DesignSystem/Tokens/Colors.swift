@@ -8,11 +8,10 @@ import SwiftUI
 /// `UIColor(dynamicProvider:)`, so applying `.preferredColorScheme(_:)`
 /// at the scene root flips the entire palette instantly.
 ///
-/// Dark mode is Linkfit's signature voice — deep ink canvas, glass
-/// surfaces, bright lime accent. Light mode is a polished cream alternative
-/// tuned so every token keeps its semantic role (background recedes,
-/// surface lifts a touch, elevated controls sit subtly inside) while
-/// preserving WCAG AA contrast against the same text tokens.
+/// Linkfit's visual voice is native, quiet, and sport-focused: adaptive
+/// system-like surfaces, royal-blue actions, and a scarce lime brand mark.
+/// Dark mode stays deep and polished; light mode stays clean and neutral.
+/// Both preserve WCAG AA contrast against the same text tokens.
 ///
 /// Public API: `DSColor.background`, `DSColor.surface`, etc. — same names
 /// as the previous dark-only constants, so call sites don't change.
@@ -172,27 +171,7 @@ enum DSColor {
 
 struct AppGlassBackground: View {
     var body: some View {
-        ZStack {
-            DSColor.background
-            RadialGradient(
-                colors: [
-                    DSColor.accent.opacity(0.08),
-                    DSColor.background.opacity(0.0)
-                ],
-                center: .topTrailing,
-                startRadius: 16,
-                endRadius: 320
-            )
-            LinearGradient(
-                colors: [
-                    DSColor.surfaceElevated.opacity(0.1),
-                    DSColor.background.opacity(0.05),
-                    DSColor.background
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        }
+        DSColor.background
         .ignoresSafeArea()
     }
 }

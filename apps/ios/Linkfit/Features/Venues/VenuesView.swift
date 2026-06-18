@@ -106,11 +106,11 @@ struct VenuesView: View {
                 LazyVStack(spacing: 10) {
                     ForEach(0..<6, id: \.self) { _ in
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(.ultraThinMaterial)
+                            .fill(DSColor.surface)
                             .frame(height: 96)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .strokeBorder(DSColor.border.opacity(0.3), lineWidth: 1)
+                                    .strokeBorder(DSColor.border, lineWidth: 1)
                             )
                     }
                 }
@@ -221,14 +221,7 @@ struct VenuesView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
-        )
+        .dsSurfaceCard(radius: 22)
         .padding(.top, 12)
     }
 }
@@ -273,14 +266,7 @@ private struct VenueRowCard: View {
                 .accessibilityHidden(true)
         }
         .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.35), lineWidth: 1)
-        )
+        .dsSurfaceCard(radius: 18)
         // Composite row — VoiceOver reads venue name, partner badge,
         // address, distance, and rating as one continuous element
         // instead of focusing each sub-view in turn. Hint announces
@@ -438,7 +424,9 @@ struct VenueDetailView: View {
                 presetVenueId: viewModel.loadedVenue?.id,
                 presetCourtId: viewModel.loadedVenue?.courts.first?.id
             )
+            .presentationDetents([.large])
             .presentationDragIndicator(.visible)
+            .presentationBackground(.ultraThinMaterial)
         }
     }
 
@@ -567,14 +555,7 @@ struct VenueDetailView: View {
         }
         .padding(.vertical, 14)
         .padding(.horizontal, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
-        )
+        .dsSurfaceCard(radius: 18)
     }
 
     private func statCell(value: String, labelKey: LocalizedStringKey, icon: String) -> some View {
@@ -606,7 +587,7 @@ struct VenueDetailView: View {
     }
 
     /// Description section — no card wrapper, just a header + body
-    /// inset. The premium-glass card was over-engineered for
+    /// inset. A full card wrapper was over-engineered for
     /// what is essentially a single paragraph.
     private func aboutSection(_ description: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -627,14 +608,7 @@ struct VenueDetailView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
-        )
+        .dsSurfaceCard(radius: 18)
     }
 
     private func hero(_ venue: VenueDetail) -> some View {
@@ -833,8 +807,7 @@ struct VenueDetailView: View {
             }
         }
         .padding(DSSpacing.md)
-        .background(RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous).fill(.ultraThinMaterial))
-        .overlay(RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous).strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1))
+        .dsSurfaceCard(radius: DSRadius.lg)
     }
 
     private func mapCard(_ venue: VenueDetail) -> some View {

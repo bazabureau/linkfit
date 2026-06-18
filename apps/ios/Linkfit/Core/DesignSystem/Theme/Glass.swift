@@ -38,6 +38,22 @@ private func linkfitGlass(_ variant: DSGlass, tint: Color?, interactive: Bool) -
 }
 
 extension View {
+    /// Native Liquid Glass button style on iOS 26+, with the existing
+    /// spring-press fallback on older OS versions. Keep this on shared DS
+    /// buttons so feature code doesn't need availability checks.
+    @ViewBuilder
+    func dsGlassButtonStyle(prominent: Bool = false) -> some View {
+        if #available(iOS 26.0, *) {
+            if prominent {
+                self.buttonStyle(.glassProminent)
+            } else {
+                self.buttonStyle(.glass)
+            }
+        } else {
+            self.buttonStyle(SpringPressStyle())
+        }
+    }
+
     /// Clips Linkfit glass to `shape`. Real Liquid Glass on iOS 26+, a material
     /// fallback below. `tint` colors the glass (use sparingly — a tinted glass
     /// reads as "active / branded"); `interactive` lets the glass flex and
@@ -56,7 +72,7 @@ extension View {
                 .overlay {
                     shape.stroke(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.28), Color.white.opacity(0.04)],
+                            colors: [DSColor.textOnAccent.opacity(0.28), DSColor.textOnAccent.opacity(0.04)],
                             startPoint: .top,
                             endPoint: .bottom
                         ),

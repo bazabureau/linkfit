@@ -11,9 +11,9 @@ import {
   CalendarCheck2,
   ClipboardList,
   Gamepad2,
+  GraduationCap,
   LayoutDashboard,
   LogOut,
-  ShieldCheck,
   Trophy,
   Users,
 } from "lucide-react";
@@ -34,12 +34,27 @@ const NAV: NavItem[] = [
   { href: "/users", label: "Users", icon: Users },
   { href: "/games", label: "Games", icon: Gamepad2 },
   { href: "/venues", label: "Venues", icon: Building2 },
+  { href: "/coaches", label: "Coaches", icon: GraduationCap },
   { href: "/tournaments", label: "Tournaments", icon: Trophy },
   { href: "/bookings", label: "Bookings", icon: CalendarCheck2 },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/audit", label: "Audit", icon: ClipboardList },
 ];
 const ADMIN_BASE_PATH = process.env.NEXT_PUBLIC_ADMIN_BASE_PATH || "/admin";
+
+function isActivePath(pathname: string, href: string): boolean {
+  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function initialsOf(name: string | undefined): string {
+  if (!name) return "LF";
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
 export function Shell({ children }: { children: React.ReactNode }): React.JSX.Element {
   const pathname = usePathname();
@@ -49,12 +64,12 @@ export function Shell({ children }: { children: React.ReactNode }): React.JSX.El
   });
 
   return (
-    <div className="flex min-h-screen overflow-x-hidden bg-background">
-      <Sidebar pathname={pathname ?? "/"} />
-      <div className="flex-1 flex flex-col min-w-0">
-        <TopBar user={user} />
+    <div className="flex min-h-screen bg-background">
+      <Sidebar pathname={pathname ?? "/"} user={user} />
+      <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
+        <TopBar pathname={pathname ?? "/"} />
         <MobileNav pathname={pathname ?? "/"} />
-        <main className="min-w-0 flex-1 px-3 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6">
+        <main className="min-w-0 flex-1 px-3 py-5 sm:px-5 sm:py-6 lg:px-8 lg:py-8">
           <div className="mx-auto w-full max-w-[1600px]">{children}</div>
         </main>
       </div>
@@ -62,61 +77,84 @@ export function Shell({ children }: { children: React.ReactNode }): React.JSX.El
   );
 }
 
-function Sidebar({ pathname }: { pathname: string }): React.JSX.Element {
+function Sidebar({ pathname, user }: { pathname: string; user: AdminUser | undefined }): React.JSX.Element {
   const { t } = useI18n();
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-white md:flex">
-      <div className="flex h-16 items-center border-b border-border px-5">
+    <aside
+      aria-label={t("Primary")}
+      className="hidden w-[244px] shrink-0 bg-ink text-white md:block"
+    >
+      <div className="sticky top-0 flex h-screen flex-col">
+      {/* atmospheric top glow */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-40 opacity-60"
+        style={{ background: "radial-gradient(120% 80% at 18% 0%, rgba(183,242,51,0.10), transparent 70%)" }}
+      />
+
+      <div className="relative flex h-16 items-center px-5">
         <Image
-          src={`${ADMIN_BASE_PATH}/brand/logolinkfit-dark.png`}
-          alt="Linkfit"
-          width={160}
-          height={24}
+          src={`${ADMIN_BASE_PATH}/brand/logolinkfit.png`}
+          alt="LinkFit"
+          width={150}
+          height={22}
           priority
           unoptimized
-          className="h-6 w-auto object-contain"
+          className="h-[22px] w-auto object-contain"
         />
       </div>
-      <div className="px-5 pb-2 pt-4">
-        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surfaceElevated px-3 py-1 text-xs font-semibold text-foregroundMuted">
-          <ShieldCheck className="h-3.5 w-3.5 text-accent" />
-          {t("Admin")}
-        </div>
-      </div>
-      <nav className="flex-1 px-3 py-4 space-y-1">
+
+      <nav className="relative flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
+        <p className="px-3 pb-1.5 pt-2 font-display text-[10px] font-semibold   text-white/30">
+          {t("Menu")}
+        </p>
         {NAV.map((item) => {
           const Icon = item.icon;
-          const isActive =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const active = isActivePath(pathname, item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-accent text-[#101820] shadow-sm"
-                  : "text-foregroundMuted hover:bg-surfaceElevated hover:text-foreground",
+                "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-medium transition-all",
+                active
+                  ? "bg-accent text-ink shadow-[0_8px_24px_-8px_rgba(183,242,51,0.6)]"
+                  : "text-white/55 hover:bg-white/[0.06] hover:text-white",
               )}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className={cn("h-[18px] w-[18px] shrink-0 transition-colors", active ? "text-ink" : "text-white/45 group-hover:text-accent")} />
               <span>{t(item.label)}</span>
             </Link>
           );
         })}
       </nav>
-      <div className="border-t border-border px-4 py-3 text-[11px] text-foregroundMuted">
-        v0.2.0
+
+      {/* user identity card */}
+      <div className="relative border-t border-inkBorder px-3 py-3">
+        <div className="flex items-center gap-2.5 rounded-xl bg-white/[0.04] px-2.5 py-2">
+          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent font-display text-[11px] font-bold text-ink">
+            {initialsOf(user?.display_name)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[12.5px] font-semibold leading-tight text-white/90">
+              {user?.display_name ?? t("Loading…")}
+            </p>
+            <p className="truncate text-[10.5px]   text-white/40">
+              {user?.admin_role ?? "admin"}
+            </p>
+          </div>
+        </div>
+      </div>
       </div>
     </aside>
   );
 }
 
-function TopBar({ user }: { user: AdminUser | undefined }): React.JSX.Element {
+function TopBar({ pathname }: { pathname: string }): React.JSX.Element {
   const [busy, setBusy] = React.useState(false);
   const { t } = useI18n();
+  const current = NAV.find((n) => isActivePath(pathname, n.href));
   const onLogout = async (): Promise<void> => {
     setBusy(true);
     try {
@@ -126,36 +164,24 @@ function TopBar({ user }: { user: AdminUser | undefined }): React.JSX.Element {
     }
   };
   return (
-    <header className="sticky top-0 z-40 flex min-h-14 items-center justify-between gap-3 border-b border-border bg-white/90 px-3 py-2 backdrop-blur sm:min-h-16 sm:px-6">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2 md:hidden">
-          <Image
-            src={`${ADMIN_BASE_PATH}/brand/appicon.svg`}
-            alt=""
-            width={32}
-            height={32}
-            priority
-            unoptimized
-            className="h-8 w-8 shrink-0"
-          />
-          <div className="min-w-0">
-            <div className="text-sm font-semibold leading-tight text-foreground">Linkfit</div>
-            <div className="text-[10px] uppercase tracking-wider text-foregroundMuted">
-              {t("Admin")}
-            </div>
-          </div>
-        </div>
-        <div className="hidden truncate text-sm text-foregroundMuted md:block">
-          {user ? `${t("Signed in as")} ${user.display_name}` : t("Loading…")}
-        </div>
+    <header className="sticky top-0 z-40 flex min-h-16 items-center justify-between gap-3 border-b border-border bg-background/85 px-3 py-2 backdrop-blur-md sm:px-6">
+      <div className="flex min-w-0 items-center gap-2.5">
+        {/* mobile brand mark */}
+        <Image
+          src={`${ADMIN_BASE_PATH}/brand/appicon.svg`}
+          alt=""
+          width={30}
+          height={30}
+          priority
+          unoptimized
+          className="h-7 w-7 shrink-0 rounded-lg md:hidden"
+        />
+        <h1 className="truncate font-display text-[17px] font-semibold  text-foreground sm:text-[19px]">
+          {t(current?.label ?? "Overview")}
+        </h1>
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <LanguageSwitcher compact />
-        {user?.admin_role ? (
-          <span className="hidden items-center rounded-full border border-border bg-surfaceElevated px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-foregroundMuted sm:inline-flex">
-            {user.admin_role}
-          </span>
-        ) : null}
         <Button
           variant="secondary"
           size="sm"
@@ -174,26 +200,27 @@ function TopBar({ user }: { user: AdminUser | undefined }): React.JSX.Element {
 function MobileNav({ pathname }: { pathname: string }): React.JSX.Element {
   const { t } = useI18n();
   return (
-    <nav className="sticky top-14 z-30 border-b border-border bg-white/95 px-2 py-2 backdrop-blur md:hidden">
-      <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <nav
+      aria-label={t("Primary")}
+      className="sticky top-16 z-30 border-b border-border bg-background/95 px-2 py-2 backdrop-blur md:hidden"
+    >
+      <div className="flex gap-2 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {NAV.map((item) => {
           const Icon = item.icon;
-          const isActive =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const active = isActivePath(pathname, item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-3 text-sm font-medium transition-colors",
-                isActive
-                  ? "border-accent bg-accent text-[#101820]"
-                  : "border-border bg-white text-foregroundMuted",
+                "inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-3.5 text-[13px] font-semibold transition-colors",
+                active
+                  ? "border-ink bg-ink text-white"
+                  : "border-border bg-surface text-foregroundMuted",
               )}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className={cn("h-4 w-4", active ? "text-accent" : "")} />
               {t(item.label)}
             </Link>
           );

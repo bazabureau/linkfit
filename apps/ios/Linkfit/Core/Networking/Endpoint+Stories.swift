@@ -127,6 +127,7 @@ struct Story: Decodable, Identifiable, Equatable {
     let media_type: String
     let caption: String?
     let created_at: String
+    let expires_at: String?
     let viewed_by_me: Bool
     /// Wire-keyed reaction tally. Missing keys default to zero on the
     /// UI side; the server only ships keys with a non-zero count, so a
@@ -149,6 +150,7 @@ struct Story: Decodable, Identifiable, Equatable {
         media_type: String,
         caption: String?,
         created_at: String,
+        expires_at: String? = nil,
         viewed_by_me: Bool,
         reactions: [String: Int] = [:],
         my_reaction: String? = nil,
@@ -160,6 +162,7 @@ struct Story: Decodable, Identifiable, Equatable {
         self.media_type = media_type
         self.caption = caption
         self.created_at = created_at
+        self.expires_at = expires_at
         self.viewed_by_me = viewed_by_me
         self.reactions = reactions
         self.my_reaction = my_reaction
@@ -174,7 +177,7 @@ struct Story: Decodable, Identifiable, Equatable {
     /// and we degrade to empty arrays on the client. Lets us land the
     /// agent without a server-version handshake.
     private enum CodingKeys: String, CodingKey {
-        case id, media_url, media_type, caption, created_at, viewed_by_me
+        case id, media_url, media_type, caption, created_at, expires_at, viewed_by_me
         case reactions, my_reaction
         case overlays, mentions
     }
@@ -186,6 +189,7 @@ struct Story: Decodable, Identifiable, Equatable {
         self.media_type = try c.decode(String.self, forKey: .media_type)
         self.caption = try c.decodeIfPresent(String.self, forKey: .caption)
         self.created_at = try c.decode(String.self, forKey: .created_at)
+        self.expires_at = try? c.decodeIfPresent(String.self, forKey: .expires_at)
         self.viewed_by_me = try c.decode(Bool.self, forKey: .viewed_by_me)
         self.reactions = (try? c.decodeIfPresent([String: Int].self, forKey: .reactions)) ?? [:]
         self.my_reaction = try? c.decodeIfPresent(String.self, forKey: .my_reaction)

@@ -41,20 +41,6 @@ struct OnboardingTourView: View {
             // Match `OnboardingView`'s pure white canvas.
             DSColor.background.ignoresSafeArea()
 
-            // Soft lime glow in the top-right — echoes the brand accent
-            // without competing with the hero circle.
-            RadialGradient(
-                colors: [
-                    DSColor.accent.opacity(0.18),
-                    Color.clear
-                ],
-                center: .topTrailing,
-                startRadius: 12,
-                endRadius: 360
-            )
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
-
             slidePager
 
             VStack(spacing: 0) {
@@ -104,7 +90,7 @@ struct OnboardingTourView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(
-                        Capsule().fill(.ultraThinMaterial)
+                        Capsule().fill(DSColor.surfaceElevated)
                     )
                     .overlay(
                         Capsule().strokeBorder(DSColor.border, lineWidth: 1)
@@ -215,37 +201,10 @@ private struct OnboardingTourSlideView: View {
     /// rest of the app's hero language.
     private var heroCircle: some View {
         ZStack {
-            // Wide outer halo — fades the lime into the black background.
             Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            DSColor.accent.opacity(0.30),
-                            DSColor.accent.opacity(0.0)
-                        ],
-                        center: .center,
-                        startRadius: 60,
-                        endRadius: 160
-                    )
-                )
-                .frame(width: 280, height: 280)
-
-            // Main lime gradient disc.
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            DSColor.accent,
-                            DSColor.accentSoft
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .fill(DSColor.accent)
                 .frame(width: 168, height: 168)
-                .shadow(color: DSColor.accent.opacity(0.45), radius: 28, y: 12)
 
-            // Subtle inner ring for dimensionality.
             Circle()
                 .strokeBorder(DSColor.textOnAccent.opacity(0.18), lineWidth: 1)
                 .frame(width: 168, height: 168)

@@ -48,7 +48,6 @@ struct HomeView: View {
     @State private var notificationsPath = NavigationPath()
     @State private var activeTab: AppTab = .home
     @State private var showCreate = false
-    @State private var showBookCourt = false
     @State private var showChat = false
     @State private var showNotifications = false
     /// Drives the global search sheet. Toggled from the
@@ -253,12 +252,6 @@ struct HomeView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .presentationBackground(.ultraThinMaterial)
-            }
-            .sheet(isPresented: $showBookCourt) {
-                BookCourtView()
-                    .presentationDetents([.large])
-                    .presentationDragIndicator(.visible)
-                    .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showSearch) {
                 // SearchView is callback-driven and ships its own
@@ -812,8 +805,6 @@ struct HomeView: View {
             AppGlassBackground()
             ScrollView {
                 LazyVStack(spacing: 28, pinnedViews: []) { // Uniform 28pt startup spacing
-                    homeGreetingHeader
-
                     // Stories rail at the very top (Instagram-style).
                     StoriesRail(
                         viewModel: storiesRail,
@@ -858,17 +849,19 @@ struct HomeView: View {
                         .transition(.opacity.combined(with: .move(edge: .top)))
                     }
 
-                    // Next game (or a book-court prompt) — the single anchor.
-                    smartHeroCard
-                        .homeSectionReveal(enabled: !reduceMotion)
+                    if let nextGame = nextGameForHome {
+                        nextGameSection(nextGame)
+                            .homeSectionReveal(enabled: !reduceMotion)
+                    }
 
                     // Your level snapshot (rating / games / win rate).
                     homeStatsSnapshot
 
-                    // Courts first. Linkfit is a padel app, not a social feed —
-                    // nearby clubs sit right under the hero so booking a court is
-                    // the primary path. (Removed the suggested-follows rail and
-                    // the friends'-activity feed: no social-media stream on Home.)
+                    // Open/upcoming games.
+                    upcomingMatchesSection
+                        .homeSectionReveal(enabled: !reduceMotion)
+
+                    // Courts first. Linkfit is a padel app, not a social feed.
                     nearbyClubsSection
                         .homeSectionReveal(enabled: !reduceMotion)
 
@@ -921,7 +914,7 @@ struct HomeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
-            // Brand wordmark pinned top-left; the greeting below personalizes.
+            // Brand wordmark pinned top-left.
             ToolbarItem(placement: .topBarLeading) {
                 LogoWordmark(size: .custom(28))
                     .frame(width: 124)
@@ -944,30 +937,21 @@ struct HomeView: View {
 
     // MARK: - Greeting + stats snapshot
 
-    private var greetingKey: LocalizedStringKey {
-        // Sentence-case "_friendly" variants — the plain ones are uppercase
-        // (banned by FAZA 45).
-        switch Calendar.current.component(.hour, from: Date()) {
-        case 5..<12:  return "home.greeting.morning_friendly"
-        case 12..<18: return "home.greeting.afternoon_friendly"
-        default:      return "home.greeting.evening_friendly"
-        }
-    }
+    private func nextGameSection(_ game: GameSummary) -> some View {
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
+            Text("home.hero.next_match")
+                .font(.system(size: 18, weight: .heavy))
+                .foregroundStyle(DSColor.textPrimary)
+                .padding(.horizontal, DSSpacing.md)
 
-    private var homeGreetingHeader: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(greetingKey)
-                    .font(DSType.bodyMedium)
-                    .foregroundStyle(DSColor.textSecondary)
-                Text(container.currentUser?.display_name ?? String(localized: "home.greeting.player"))
-                    .font(DSType.heroTitle)
-                    .foregroundStyle(DSColor.textPrimary)
-                    .lineLimit(1)
+            Button {
+                homePath.append(HomeRoute.game(game.id))
+            } label: {
+                GameRow(game: game)
             }
-            Spacer()
+            .buttonStyle(BounceButtonStyle())
+            .padding(.horizontal, DSSpacing.md)
         }
-        .padding(.horizontal, DSSpacing.md)
     }
 
     @ViewBuilder
@@ -1009,151 +993,6 @@ struct HomeView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(DSColor.surfaceElevated))
-    }
-
-    // MARK: - Premium Smart Hero Card
-
-    @ViewBuilder
-    private var smartHeroCard: some View {
-        if let game = upcomingGameForHero {
-            Button {
-                homePath.append(HomeRoute.game(game.id))
-            } label: {
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack {
-                        Text(String(localized: "home.hero.next_match", defaultValue: "Növbəti oyunun"))
-                            .font(.system(size: 11, weight: .heavy))
-                            .foregroundStyle(DSColor.accent)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(Capsule().fill(DSColor.accent.opacity(0.12)))
-                            .overlay(Capsule().strokeBorder(DSColor.accent.opacity(0.35), lineWidth: 1))
-                        
-                        Spacer()
-                        
-                        HStack(spacing: 4) {
-                            Circle().fill(DSColor.accent).frame(width: 6, height: 6)
-                            Text(game.status == .full
-                                 ? String(localized: "game.status.full")
-                                 : String(localized: "game.status.open"))
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(DSColor.textSecondary)
-                        }
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(game.venue_name ?? "")
-                            .font(.system(size: 18, weight: .heavy))
-                            .foregroundStyle(DSColor.textPrimary)
-                            .lineLimit(1)
-                        
-                        HStack(spacing: 6) {
-                            Image(systemName: "calendar")
-                                .font(.system(size: 12))
-                                .foregroundStyle(DSColor.textTertiary)
-                            Text(formattedGameTime(game.starts_at))
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(DSColor.textSecondary)
-                        }
-                    }
-                    
-                    HStack {
-                        HStack(spacing: -8) {
-                            ForEach(0..<min(game.participants_count, 4), id: \.self) { _ in
-                                Circle()
-                                    .fill(DSColor.accent.opacity(0.2))
-                                    .frame(width: 28, height: 28)
-                                    .overlay(
-                                        Circle().strokeBorder(DSColor.background, lineWidth: 1.5)
-                                    )
-                            }
-                            if game.participants_count > 4 {
-                                Text(verbatim: "+\(game.participants_count - 4)")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(DSColor.textSecondary)
-                                    .padding(.leading, 12)
-                            }
-                        }
-                        
-                        Spacer()
-                        
-                        HStack(spacing: 4) {
-                            Text(String(localized: "home.hero.view_details", defaultValue: "Ətraflı bax"))
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(DSColor.accent)
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 10, weight: .heavy))
-                                .foregroundStyle(DSColor.accent)
-                        }
-                    }
-                }
-                .padding(18)
-                .background(
-                    RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
-                        .strokeBorder(DSColor.border.opacity(0.35), lineWidth: 1)
-                )
-            }
-            .buttonStyle(BounceButtonStyle())
-            .padding(.horizontal, DSSpacing.md)
-        } else {
-            Button {
-                showBookCourt = true
-            } label: {
-                HStack(spacing: 14) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(String(localized: "home.hero.live_badge", defaultValue: "Linkfit Live"))
-                            .font(.system(size: 11, weight: .heavy))
-                            .foregroundStyle(DSColor.accent)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(Capsule().fill(DSColor.accent.opacity(0.12)))
-                            .overlay(Capsule().strokeBorder(DSColor.accent.opacity(0.35), lineWidth: 1))
-                        
-                        Text(String(localized: "home.hero.book_now_title", defaultValue: "Kort bron et"))
-                            .font(.system(size: 18, weight: .heavy))
-                            .foregroundStyle(DSColor.textPrimary)
-                        
-                        Text(String(localized: "home.hero.book_now_subtitle", defaultValue: "İstədiyin vaxt padel oyna"))
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(DSColor.textSecondary)
-                    }
-                    
-                    Spacer()
-                    
-                    ZStack {
-                        Circle()
-                            .fill(DSColor.accent.opacity(0.12))
-                            .frame(width: 50, height: 50)
-                        Image(systemName: "figure.tennis")
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(DSColor.accent)
-                    }
-                }
-                .padding(18)
-                .background(
-                    RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
-                        .strokeBorder(DSColor.border.opacity(0.35), lineWidth: 1)
-                )
-            }
-            .buttonStyle(BounceButtonStyle())
-            .padding(.horizontal, DSSpacing.md)
-        }
-    }
-
-    private func formattedGameTime(_ iso: String) -> String {
-        guard let date = Date.fromISO(iso) else { return iso }
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
     }
 
     // MARK: - Toolbar items
@@ -1352,10 +1191,10 @@ struct HomeView: View {
             HStack(spacing: DSSpacing.md) {
                 ForEach(0..<3, id: \.self) { _ in
                     RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
-                        .fill(.ultraThinMaterial)
+                        .fill(DSColor.surface)
                         .overlay(
                             RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
-                                .strokeBorder(DSColor.border.opacity(0.25), lineWidth: 1)
+                                .strokeBorder(DSColor.border, lineWidth: 1)
                         )
                         .shimmer()
                         .frame(width: width, height: height)
@@ -1408,11 +1247,11 @@ struct HomeView: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
-                .fill(.ultraThinMaterial) // Matches the glass treatment of every other home card
+                .fill(DSColor.surface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
+                .strokeBorder(DSColor.border, lineWidth: 1)
         )
     }
 
@@ -1491,19 +1330,27 @@ struct HomeView: View {
         }
     }
 
-    private var upcomingGameForHero: GameSummary? {
+    private var nextGameForHome: GameSummary? {
         guard case .loaded(let games) = viewModel.state else { return nil }
         let now = Date()
         let me = container.currentUser?.id
-        let upcoming = games.filter { game in
-            guard let d = Date.fromISO(game.starts_at), d > now else { return false }
-            return game.status == .open || game.status == .full
-        }
-        if let mine = upcoming.first(where: { $0.host_user_id == me }) {
-            return mine
-        }
-        return upcoming.first
+        return games
+            .filter { game in
+                guard let startsAt = Date.fromISO(game.starts_at), startsAt > now else {
+                    return false
+                }
+                guard game.status == .open || game.status == .full else {
+                    return false
+                }
+                return game.host_user_id == me || joinedGameIds.contains(game.id)
+            }
+            .sorted {
+                (Date.fromISO($0.starts_at) ?? .distantFuture)
+                    < (Date.fromISO($1.starts_at) ?? .distantFuture)
+            }
+            .first
     }
+
 }
 
 // MARK: - Smart Tactile Button Styles & Custom Shimmers
@@ -1577,10 +1424,10 @@ enum HomeRoute: Hashable {
 
 struct HomeNullClient: APIClient {
     func send<R: Decodable>(_ endpoint: Endpoint<R>) async throws -> R {
-        throw APIError.unknown(message: "not yet wired")
+        throw CancellationError()
     }
     func uploadImage(imageData: Data, mimeType: String, filename: String) async throws -> UploadImageResponse {
-        throw APIError.unknown(message: "not yet wired")
+        throw CancellationError()
     }
 }
 
@@ -1594,4 +1441,3 @@ extension ToolbarContent {
         }
     }
 }
-

@@ -152,7 +152,9 @@ class PushDispatcher
             ];
 
             if ($status === 410 || in_array($response->getErrorReason(), ['BadDeviceToken', 'DeviceTokenNotForTopic', 'Unregistered'], true)) {
-                DB::table('device_tokens')->where('token', $token)->update(['revoked_at' => now()]);
+                // Scope to this job's user — the same physical token can exist for
+                // multiple users; never revoke another user's still-valid token.
+                DB::table('device_tokens')->where('token', $token)->where('user_id', $job->user_id)->update(['revoked_at' => now()]);
             }
         }
 

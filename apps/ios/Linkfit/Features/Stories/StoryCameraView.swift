@@ -738,104 +738,12 @@ struct StoryCameraPreview: UIViewRepresentable {
     }
 }
 
-// MARK: - Simulator Viewfinder & Graphics
+// MARK: - Simulator Viewfinder
 
 struct SimulatorViewfinder: View {
     let controller: StoryCameraController
     
     var body: some View {
-        ZStack {
-            // Beautiful rich sports-themed gradient background
-            LinearGradient(
-                colors: [
-                    Color(red: 0.12, green: 0.14, blue: 0.2),
-                    Color(red: 0.06, green: 0.07, blue: 0.1)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-            
-            // Neon glowing line graphic (tennis/padel court feel)
-            PadelCourtLinesOverlay()
-                .opacity(0.12)
-            
-            VStack(spacing: 24) {
-                Spacer()
-                
-                // Pulsing glassmorphic circle with neon padel racket icon
-                ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.06))
-                        .frame(width: 140, height: 140)
-                        .background(
-                            Circle()
-                                .stroke(
-                                    LinearGradient(
-                                        colors: [DSColor.accent.opacity(0.5), .clear, DSColor.accent.opacity(0.2)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 2
-                                )
-                        )
-                        .shadow(color: DSColor.accent.opacity(0.15), radius: 20)
-                    
-                    Image(systemName: "figure.tennis")
-                        .font(.system(size: 64))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [DSColor.accent, DSColor.accentSoft],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                }
-                
-                VStack(spacing: 8) {
-                    Text("stories.camera.simulator.title")
-                        .font(.system(size: 22, weight: .bold, design: .default))
-                        .foregroundStyle(.white)
-
-                    Text("stories.camera.simulator.subtitle")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.6))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                }
-                
-                Spacer()
-            }
-        }
-    }
-}
-
-struct PadelCourtLinesOverlay: View {
-    var body: some View {
-        GeometryReader { proxy in
-            Path { path in
-                let w = proxy.size.width
-                let h = proxy.size.height
-                
-                // Outer court boundary
-                path.addRect(CGRect(x: 40, y: 120, width: w - 80, height: h - 240))
-                
-                // Center line
-                path.move(to: CGPoint(x: w / 2, y: 120))
-                path.addLine(to: CGPoint(x: w / 2, y: h - 120))
-                
-                // Net line
-                path.move(to: CGPoint(x: 40, y: h / 2))
-                path.addLine(to: CGPoint(x: w - 40, y: h / 2))
-                
-                // Service boxes
-                path.move(to: CGPoint(x: 40, y: h / 2 - 180))
-                path.addLine(to: CGPoint(x: w - 40, y: h / 2 - 180))
-                
-                path.move(to: CGPoint(x: 40, y: h / 2 + 180))
-                path.addLine(to: CGPoint(x: w - 40, y: h / 2 + 180))
-            }
-            .stroke(Color.white, lineWidth: 2)
-        }
+        Color.black.ignoresSafeArea()
     }
 }

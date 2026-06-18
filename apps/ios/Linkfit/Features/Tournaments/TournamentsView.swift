@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// Competitions hub ("Yarışlar"). Rebuilt from scratch as a destination —
-/// native large title + format rail (Americano / Turnir / Liqa) + an
-/// immersive featured hero + status-driven sections (Canlı / Qeydiyyat /
-/// Nəticələr) in one scroll. Replaces the old generic
-/// "PremiumPageHero + Upcoming/Live/Past segmented list".
+/// Competitions hub ("Yarışlar"). Local header + format rail (Americano /
+/// Turnir / Liqa) + featured hero + status-driven sections (Canlı /
+/// Qeydiyyat / Nəticələr) in one scroll. The header is kept inside the
+/// content instead of using a large navigation title because iOS 26 can
+/// reserve oversized large-title space when the tab bar owns the root stack.
 struct TournamentsView: View {
     var viewModel: TournamentsViewModel
     @Environment(AppContainer.self) private var container
@@ -13,6 +13,8 @@ struct TournamentsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                header
+
                 CompetitionFormatRail(onAmericano: {
                     Haptics.selection()
                     showAmericano = true
@@ -23,11 +25,12 @@ struct TournamentsView: View {
                 Spacer().frame(height: 100)
             }
             .padding(.horizontal, DSSpacing.md)
-            .padding(.top, DSSpacing.xs)
+            .padding(.top, DSSpacing.md)
         }
         .background(DSColor.background.ignoresSafeArea())
-        .navigationTitle("tournaments.title")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .refreshable { await viewModel.load() }
         .task { await viewModel.load() }
         .navigationDestination(for: TournamentRoute.self) { route in
@@ -44,6 +47,24 @@ struct TournamentsView: View {
         .sheet(isPresented: $showAmericano) {
             AmericanoTournamentView()
         }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("tournaments.title")
+                .font(.system(size: 34, weight: .heavy))
+                .foregroundStyle(DSColor.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+
+            Text("tournaments.subtitle")
+                .font(DSType.bodyMedium)
+                .foregroundStyle(DSColor.textSecondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder

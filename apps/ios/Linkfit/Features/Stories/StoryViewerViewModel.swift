@@ -60,6 +60,7 @@ final class StoryViewerViewModel {
     let onDelete: (String) -> Void
 
     private var timerTask: Task<Void, Never>?
+    private var expiryTask: Task<Void, Never>?
 
     init(
         groups: [StoryGroup],
@@ -73,8 +74,9 @@ final class StoryViewerViewModel {
         // AND use it to derive storyIndex — Swift's init-phase rules
         // forbid `self.groupIndex` access until every stored property
         // is initialised, even when the one we want is already set.
-        let resolvedGroupIndex = max(0, min(startGroupIndex, max(0, groups.count - 1)))
-        self.groups = groups
+        let activeGroups = StoryGroup.removingExpiredStories(from: groups)
+        let resolvedGroupIndex = max(0, min(startGroupIndex, max(0, activeGroups.count - 1)))
+        self.groups = activeGroups
         self.groupIndex = resolvedGroupIndex
         self.viewerId = viewerId
         self.apiClient = apiClient
@@ -85,8 +87,8 @@ final class StoryViewerViewModel {
         // a tap on a group with a partial stack picks up where the
         // viewer left off — matches Instagram. Falls back to index 0
         // if every frame has been viewed.
-        let stack = groups.indices.contains(resolvedGroupIndex)
-            ? groups[resolvedGroupIndex].stories
+        let stack = activeGroups.indices.contains(resolvedGroupIndex)
+            ? activeGroups[resolvedGroupIndex].stories
             : []
         self.storyIndex = stack.firstIndex(where: { !$0.viewed_by_me }) ?? 0
     }
@@ -117,8 +119,14 @@ final class StoryViewerViewModel {
     /// tick after the cursor lands.
     func startTimer() {
         timerTask?.cancel()
+        pruneExpiredStories()
+        guard currentStory != nil else {
+            dismissRequested = true
+            return
+        }
         progress = 0
         markCurrentViewed()
+        scheduleExpirySweep()
         timerTask = Task { [weak self] in
             // 60 ticks/sec is overkill; the progress bar is ~3pt tall
             // so 30 fps reads as smooth. Each tick advances by
@@ -144,6 +152,8 @@ final class StoryViewerViewModel {
     func stopTimer() {
         timerTask?.cancel()
         timerTask = nil
+        expiryTask?.cancel()
+        expiryTask = nil
     }
 
     // MARK: - Gestures
@@ -311,6 +321,11 @@ final class StoryViewerViewModel {
                         myReaction: response.my_reaction
                     )
                 }
+            } catch APIError.notFound {
+                await MainActor.run { [weak self] in
+                    self?.removeStoryLocally(id: storyId, notifyRail: true)
+                    ToastCenter.shared.error(String(localized: "stories.expired.toast"))
+                }
             } catch {
                 await MainActor.run { [weak self] in
                     self?.revertReaction(toSnapshot: snapshot)
@@ -329,16 +344,7 @@ final class StoryViewerViewModel {
         let g = groups[groupIndex]
         guard g.stories.indices.contains(storyIndex) else { return }
         let s = g.stories[storyIndex]
-        let updated = Story(
-            id: s.id,
-            media_url: s.media_url,
-            media_type: s.media_type,
-            caption: s.caption,
-            created_at: s.created_at,
-            viewed_by_me: s.viewed_by_me,
-            reactions: reactions,
-            my_reaction: myReaction
-        )
+        let updated = s.replacingReactions(reactions, myReaction: myReaction)
         var nextStack = g.stories
         nextStack[storyIndex] = updated
         var nextGroups = groups
@@ -360,16 +366,7 @@ final class StoryViewerViewModel {
     /// would clobber its state.
     private func adoptServerReactions(forStoryId id: String, reactions: [String: Int], myReaction: String?) {
         applyToStory(id: id) { s in
-            Story(
-                id: s.id,
-                media_url: s.media_url,
-                media_type: s.media_type,
-                caption: s.caption,
-                created_at: s.created_at,
-                viewed_by_me: s.viewed_by_me,
-                reactions: reactions,
-                my_reaction: myReaction
-            )
+            s.replacingReactions(reactions, myReaction: myReaction)
         }
     }
 
@@ -457,6 +454,12 @@ final class StoryViewerViewModel {
                 String(localized: "stories.reply.success.toast")
             )
             return true
+        } catch APIError.notFound {
+            isSendingReply = false
+            setPaused(priorPaused)
+            removeStoryLocally(id: storyId, notifyRail: true)
+            ToastCenter.shared.error(String(localized: "stories.expired.toast"))
+            return false
         } catch {
             isSendingReply = false
             setPaused(priorPaused)
@@ -534,6 +537,10 @@ final class StoryViewerViewModel {
     private func markCurrentViewed() {
         guard let story = currentStory else { return }
         guard !viewedIds.contains(story.id) else { return }
+        guard story.isActive() else {
+            removeStoryLocally(id: story.id, notifyRail: true)
+            return
+        }
         guard !story.viewed_by_me else {
             // Already viewed by-me on the server side; still track
             // locally so a UI ring color update fires.
@@ -545,6 +552,77 @@ final class StoryViewerViewModel {
         onMarkViewed(story.id)
         Task { [apiClient, id = story.id] in
             _ = try? await apiClient.send(Endpoint.markStoryViewed(id: id))
+        }
+    }
+
+    @discardableResult
+    private func pruneExpiredStories(referenceDate: Date = Date()) -> Bool {
+        let expiredIds = StoryGroup.expiredStoryIds(in: groups, referenceDate: referenceDate)
+        guard !expiredIds.isEmpty else { return false }
+        groups = StoryGroup.removingExpiredStories(from: groups, referenceDate: referenceDate)
+        expiredIds.forEach(onDelete)
+        reanchorAfterLocalRemoval()
+        return true
+    }
+
+    private func removeStoryLocally(id: String, notifyRail: Bool) {
+        let before = currentStory?.id
+        var nextGroups: [StoryGroup] = []
+        for group in groups {
+            let stack = group.stories.filter { $0.id != id }
+            guard !stack.isEmpty else { continue }
+            nextGroups.append(StoryGroup(
+                user_id: group.user_id,
+                display_name: group.display_name,
+                photo_url: group.photo_url,
+                has_unviewed: stack.contains { !$0.viewed_by_me },
+                latest_story_at: stack.last?.created_at ?? group.latest_story_at,
+                stories: stack
+            ))
+        }
+        groups = nextGroups
+        if notifyRail {
+            onDelete(id)
+        }
+        reanchorAfterLocalRemoval()
+        if currentStory?.id != before, currentStory != nil {
+            startTimer()
+        }
+    }
+
+    private func reanchorAfterLocalRemoval() {
+        guard !groups.isEmpty else {
+            dismissRequested = true
+            stopTimer()
+            return
+        }
+        groupIndex = min(groupIndex, groups.count - 1)
+        let storyCount = groups[groupIndex].stories.count
+        storyIndex = min(storyIndex, max(0, storyCount - 1))
+    }
+
+    private func scheduleExpirySweep(referenceDate: Date = Date()) {
+        expiryTask?.cancel()
+        guard let nextExpiry = StoryGroup.nextExpirationDate(in: groups, referenceDate: referenceDate) else {
+            expiryTask = nil
+            return
+        }
+        let delaySeconds = max(0, nextExpiry.timeIntervalSince(referenceDate) + 0.5)
+        let delayNanoseconds = UInt64(delaySeconds * 1_000_000_000)
+        expiryTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: delayNanoseconds)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self else { return }
+                let before = self.currentStory?.id
+                let changed = self.pruneExpiredStories()
+                guard changed, !self.dismissRequested else { return }
+                if self.currentStory?.id != before {
+                    self.startTimer()
+                } else {
+                    self.scheduleExpirySweep()
+                }
+            }
         }
     }
 }

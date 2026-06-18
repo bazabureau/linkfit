@@ -14,29 +14,37 @@ struct PrimaryButton: View {
                 action()
             }
         }) {
-            HStack(spacing: DSSpacing.xs) {
-                if isLoading {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(DSColor.textOnAccent)
-                } else if let icon {
-                    Image(systemName: icon)
-                }
-                Text(title)
-                    .font(DSType.buttonLabel)
-            }
-            .foregroundStyle(DSColor.textOnAccent)
-            .frame(maxWidth: .infinity, minHeight: 48)
-            .background(
-                RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
-                    .fill(isEnabled ? DSColor.accent : DSColor.accent.opacity(0.5))
-            )
-            .contentShape(Rectangle())
+            buttonLabel
         }
-        .buttonStyle(SpringPressStyle())   // subtle press-scale; was .plain (dead feel)
-        .accessibilityLabel(title)
+        .buttonStyle(SpringPressStyle())
+        .accessibilityLabel(Text(LocalizedStringKey(title)))
         .accessibilityAddTraits(.isButton)
         .accessibilityHint(isLoading ? String(localized: "loading.button_hint") : "")
         .disabled(!isEnabled || isLoading)
+    }
+
+    @ViewBuilder
+    private var buttonLabel: some View {
+        let shape = RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
+
+        labelContent
+            .foregroundStyle(DSColor.textOnAccent)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .background(shape.fill(isEnabled ? DSColor.accent : DSColor.accent.opacity(0.5)))
+            .contentShape(shape)
+    }
+
+    private var labelContent: some View {
+        HStack(spacing: DSSpacing.xs) {
+            if isLoading {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(DSColor.textOnAccent)
+            } else if let icon {
+                Image(systemName: icon)
+            }
+            Text(LocalizedStringKey(title))
+                .font(DSType.buttonLabel)
+        }
     }
 }

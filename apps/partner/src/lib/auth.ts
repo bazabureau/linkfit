@@ -41,7 +41,10 @@ export async function loginAdmin(
   );
 
   const role = session.user.admin_role;
-  if (!role || (role !== "admin" && role !== "moderator" && role !== "partner")) {
+  // Only `partner` accounts can use this panel — the API's venue-scoped
+  // endpoints (venueId()) reject admin/moderator, so admitting them here just
+  // produces a broken dashboard that 403s on every data call.
+  if (role !== "partner") {
     // Drop any tokens the API issued — this account isn't allowed here.
     throw new APIError({
       code: "forbidden_not_partner",

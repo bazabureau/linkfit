@@ -442,48 +442,12 @@ struct StoryViewer: View {
 
     // MARK: - Footer
 
-    /// Footer layout (bottom → top):
-    ///   * Optional delete button (owner-only).
-    ///   * Optional caption pill.
-    ///   * Reactions bar.
-    ///
-    /// SwiftUI's VStack stacks top → bottom, but the visual ordering
-    /// we want from the screen's perspective is reactions ABOVE the
-    /// caption (the bar should feel "primary" and sit between the
-    /// caption and the media). We achieve that by listing the bar
-    /// first in the VStack — it ends up above the caption, which is
-    /// the intended layout.
+    /// Footer layout: optional caption, then owner controls or the
+    /// story reply composer. Quick emoji replies live inside the
+    /// composer so the viewer sees a single action row.
     @ViewBuilder
     private var footer: some View {
         VStack(spacing: 12) {
-            // Hide the bar from the story's owner — reacting to your
-            // own story is a no-op on Instagram and would clutter the
-            // owner's view. Non-owner viewers always see the bar.
-            if !viewModel.ownsCurrent, let story = viewModel.currentStory {
-                StoryReactionsBar(
-                    reactions: story.reactions,
-                    myReaction: story.my_reaction,
-                    onTap: { emoji in
-                        viewModel.tapReaction(emoji)
-                    },
-                    onPressStart: {
-                        viewModel.setPaused(true)
-                    },
-                    onPressEnd: {
-                        viewModel.setPaused(false)
-                    }
-                )
-                // Smooth the count animations — the bar's own
-                // count-show/hide already has a transition, but
-                // animating the parent ensures the pill resizes
-                // gracefully when a count crosses 0↔1. Reduce Motion
-                // snaps the resize instantly.
-                .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7),
-                           value: story.reactions)
-                .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7),
-                           value: story.my_reaction)
-            }
-
             if let caption = viewModel.currentStory?.caption,
                !caption.trimmingCharacters(in: .whitespaces).isEmpty {
                 // Tap-to-expand caption. Collapsed it caps at 3 lines
@@ -759,7 +723,7 @@ struct StoryViewer: View {
     /// can't be parsed (best-effort UX — we'd rather show "now" than
     /// a blank cell).
     private func relativeTime(_ iso: String?) -> String {
-        guard let iso, let date = parseISO(iso) else {
+        guard let iso, let date = Date.fromISO(iso) else {
             return String(localized: "stories.relative_time_now")
         }
         let delta = max(0, Int(Date().timeIntervalSince(date)))
@@ -772,17 +736,6 @@ struct StoryViewer: View {
             return String(format: String(localized: "stories.relative_time_format_m"), minutes)
         }
         return String(localized: "stories.relative_time_now")
-    }
-
-    private func parseISO(_ s: String) -> Date? {
-        // Try the fractional-seconds variant first since the server
-        // tends to ship microsecond precision; fall back to plain.
-        let withFrac = ISO8601DateFormatter()
-        withFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = withFrac.date(from: s) { return d }
-        let plain = ISO8601DateFormatter()
-        plain.formatOptions = [.withInternetDateTime]
-        return plain.date(from: s)
     }
 }
 

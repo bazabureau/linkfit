@@ -54,6 +54,11 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // Optional client API key (see App\Http\Middleware\ApiKeyGuard). Disabled
+    // unless REQUIRE_API_KEY=true so existing mobile clients are unaffected.
+    'api_key' => env('API_KEY'),
+    'require_api_key' => (bool) env('REQUIRE_API_KEY', false),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

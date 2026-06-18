@@ -280,6 +280,19 @@ async function linkProvider(
   }
 }
 
+async function markEmailVerified(
+  tx: Executor,
+  userId: string,
+  verifiedAt: Date,
+): Promise<void> {
+  await sql`
+    UPDATE users
+    SET email_verified_at = ${verifiedAt}
+    WHERE id = ${userId}
+      AND email_verified_at IS NULL
+  `.execute(tx);
+}
+
 async function insertOauthUser(
   tx: Executor,
   params: {
@@ -447,7 +460,7 @@ export class OauthService {
       throw new UnauthenticatedError("Google email is not verified");
     }
     const displayName = safeDisplayNameFromEmail(email);
-    return this.upsertAndIssue("google", sub, email, displayName, ctx);
+    return this.upsertAndIssue("google", sub, email, displayName, ctx, true);
   }
 
   // ───────────────────── internals ─────────────────────
@@ -467,29 +480,41 @@ export class OauthService {
     email: string,
     displayName: string,
     ctx: OauthRequestContext,
+    forceEmailVerified = false,
   ): Promise<AuthSession> {
     const row = await withTransaction(this.deps.db.db, async (tx) => {
-      const bySub = await findBySub(tx, provider, sub);
-      if (bySub) return bySub;
-      const byEmail = await findByEmail(tx, email);
-      if (byEmail) {
-        // Link the OAuth identity to the existing local account. We do NOT
-        // overwrite if the same provider was already linked to a different
-        // sub — that's a critical inconsistency and signals account takeover
-        // attempts. Reject with a 409.
-        const existingProviderSub =
-          provider === "apple" ? byEmail.apple_sub : byEmail.google_sub;
-        if (existingProviderSub !== null && existingProviderSub !== sub) {
-          throw new ConflictError(
-            `Account already linked to a different ${provider} identity`,
-          );
+      let row = await findBySub(tx, provider, sub);
+      if (!row) {
+        const byEmail = await findByEmail(tx, email);
+        if (byEmail) {
+          // Link the OAuth identity to the existing local account. We do NOT
+          // overwrite if the same provider was already linked to a different
+          // sub — that's a critical inconsistency and signals account takeover
+          // attempts. Reject with a 409.
+          const existingProviderSub =
+            provider === "apple" ? byEmail.apple_sub : byEmail.google_sub;
+          if (existingProviderSub !== null && existingProviderSub !== sub) {
+            throw new ConflictError(
+              `Account already linked to a different ${provider} identity`,
+            );
+          }
+          if (existingProviderSub === null) {
+            await linkProvider(tx, byEmail.id, provider, sub);
+          }
+          row = {
+            ...byEmail,
+            [provider === "apple" ? "apple_sub" : "google_sub"]: sub,
+          };
+        } else {
+          row = await insertOauthUser(tx, { email, display_name: displayName, provider, sub });
         }
-        if (existingProviderSub === null) {
-          await linkProvider(tx, byEmail.id, provider, sub);
-        }
-        return { ...byEmail, [provider === "apple" ? "apple_sub" : "google_sub"]: sub };
       }
-      return insertOauthUser(tx, { email, display_name: displayName, provider, sub });
+      if (forceEmailVerified && row.email_verified_at === null) {
+        const verifiedAt = new Date();
+        await markEmailVerified(tx, row.id, verifiedAt);
+        return { ...row, email_verified_at: verifiedAt };
+      }
+      return row;
     });
     return this.issueSessionFor(row, ctx);
   }

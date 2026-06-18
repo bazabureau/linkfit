@@ -76,6 +76,7 @@ struct StoryMentionPickerSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(.ultraThinMaterial)
         .task {
             await viewModel.loadIfNeeded(container: container)
         }

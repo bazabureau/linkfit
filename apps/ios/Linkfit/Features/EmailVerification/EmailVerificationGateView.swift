@@ -32,15 +32,7 @@ struct EmailVerificationGateView: View {
 
     var body: some View {
         ZStack {
-            // Clean canvas + soft brand glow — matches the rebuilt surfaces,
-            // not the animated auth mesh.
             DSColor.background.ignoresSafeArea()
-            RadialGradient(
-                colors: [DSColor.accent.opacity(0.10), .clear],
-                center: .top, startRadius: 10, endRadius: 440
-            )
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
 
             VStack(spacing: 0) {
                 Spacer(minLength: DSSpacing.lg)

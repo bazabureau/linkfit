@@ -28,6 +28,20 @@ class AmericanoController extends ApiController
         return response()->json(DB::table('americano_tournaments')->where('id', $id)->first(), 201);
     }
 
+    public function index(Request $request): JsonResponse
+    {
+        $this->authUser($request);
+        $limit = min(max((int) $request->query('limit', 30), 1), 100);
+
+        return response()->json([
+            'items' => DB::table('americano_tournaments')
+                ->whereIn('status', ['open', 'in_progress'])
+                ->orderByDesc('created_at')
+                ->limit($limit)
+                ->get(),
+        ]);
+    }
+
     public function mine(Request $request): JsonResponse
     {
         return response()->json(['items' => DB::table('americano_tournaments')->where('host_id', $this->authUser($request)->id)->orderByDesc('created_at')->get()]);
@@ -74,10 +88,25 @@ class AmericanoController extends ApiController
 
     public function score(Request $request, string $id): JsonResponse
     {
-        $this->authUser($request);
+        $user = $this->authUser($request);
+        $data = $this->validateBody($request, [
+            'score_a' => ['required', 'integer', 'min:0', 'max:99'],
+            'score_b' => ['required', 'integer', 'min:0', 'max:99'],
+        ]);
+        // Only the tournament host may score, and the match must exist.
+        $match = DB::table('americano_matches as m')
+            ->join('americano_tournaments as t', 't.id', '=', 'm.tournament_id')
+            ->where('m.id', $id)
+            ->first(['m.id', 't.host_id']);
+        if ($match === null) {
+            throw ApiException::notFound('Match not found');
+        }
+        if ((string) $match->host_id !== (string) $user->id) {
+            throw ApiException::forbidden('Only the tournament host can submit scores');
+        }
         DB::table('americano_matches')->where('id', $id)->update([
-            'score_a' => $request->input('score_a'),
-            'score_b' => $request->input('score_b'),
+            'score_a' => $data['score_a'],
+            'score_b' => $data['score_b'],
             'status' => 'completed',
         ]);
 

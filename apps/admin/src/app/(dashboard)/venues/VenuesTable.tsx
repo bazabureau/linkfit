@@ -1,22 +1,25 @@
 "use client";
 
+import * as React from "react";
 import Image from "next/image";
-import Link from "next/link";
-import { useQueries } from "@tanstack/react-query";
-import { Building2, ExternalLink, Pencil, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { api } from "@/lib/api";
-import { venuesKeys, type Venue, type VenueDetail } from "@/lib/admin-venues";
+  Building2,
+  Eye,
+  Handshake,
+  MapPin,
+  Pencil,
+  Trash2,
+} from "lucide-react";
+import { type Venue } from "@/lib/admin-venues";
 import { formatDate } from "@/lib/date-format";
+import { useI18n } from "@/lib/i18n";
+import {
+  venueStatus,
+  venueStatusDotClass,
+  venueStatusLabel,
+  venueStatusPillClass,
+} from "./lib";
 
 interface VenuesTableProps {
   venues: Venue[];
@@ -25,15 +28,51 @@ interface VenuesTableProps {
   onDelete: (venue: Venue) => void;
 }
 
+const COL_COUNT = 7;
+
+function QuickAction({
+  title,
+  onClick,
+  children,
+  danger,
+}: {
+  title: string;
+  onClick: (event: React.MouseEvent) => void;
+  children: React.ReactNode;
+  danger?: boolean;
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick(event);
+      }}
+      className={`grid h-8 w-8 place-items-center rounded-lg border transition ${
+        danger
+          ? "border-danger/20 text-danger/80 hover:border-danger/40 hover:bg-danger/10 hover:text-danger"
+          : "border-border text-foregroundMuted hover:border-borderStrong hover:bg-surfaceElevated hover:text-foreground"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function RowSkeleton(): React.JSX.Element {
   return (
-    <TableRow>
-      {Array.from({ length: 7 }).map((_, i) => (
-        <TableCell key={i}>
-          <div className="h-4 w-full max-w-[140px] animate-pulse rounded bg-surfaceElevated" />
-        </TableCell>
+    <tr className="border-b border-border">
+      {Array.from({ length: COL_COUNT }).map((_, index) => (
+        <td key={index} className="px-4 py-3.5">
+          <div
+            className="h-4 animate-pulse rounded bg-surfaceElevated"
+            style={{ width: index === 0 ? 40 : `${50 + ((index * 13) % 45)}%` }}
+          />
+        </td>
       ))}
-    </TableRow>
+    </tr>
   );
 }
 
@@ -43,135 +82,153 @@ export function VenuesTable({
   onEdit,
   onDelete,
 }: VenuesTableProps): React.JSX.Element {
-  // Fetch detail (courts) for each venue to compute sport counts per venue.
-  const detailQueries = useQueries({
-    queries: venues.map((v) => ({
-      queryKey: venuesKeys.detail(v.id),
-      enabled: Boolean(v.id),
-      staleTime: 1000 * 60 * 5,
-      queryFn: async () => api.get<VenueDetail>(`/api/v1/venues/${v.id}`),
-    })),
-  });
+  const { t } = useI18n();
+  const router = useRouter();
 
-  const courtsByVenue = new Map<string, VenueDetail["courts"]>();
-  venues.forEach((v, idx) => {
-    const data = detailQueries[idx]?.data;
-    if (data?.courts) {
-      courtsByVenue.set(v.id, data.courts);
-    }
-  });
+  const headClass =
+    "sticky top-0 z-10 h-11 bg-surfaceElevated px-4 text-left align-middle text-[11px] font-semibold   text-foregroundMuted";
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-16">Photo</TableHead>
-          <TableHead className="min-w-48">Name</TableHead>
-          <TableHead className="min-w-56">Address</TableHead>
-          <TableHead className="min-w-28">Partner</TableHead>
-          <TableHead className="min-w-44">Courts</TableHead>
-          <TableHead className="min-w-28">Created</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {isLoading && (
-          <>
-            <RowSkeleton />
-            <RowSkeleton />
-            <RowSkeleton />
-          </>
-        )}
-        {!isLoading &&
-          venues.map((venue) => {
-            const courts = courtsByVenue.get(venue.id) ?? [];
-            const sportCounts = courts.reduce<Record<string, number>>((acc, c) => {
-              const key = c.sport_slug || c.sport_id;
-              acc[key] = (acc[key] ?? 0) + 1;
-              return acc;
-            }, {});
-            const sportList = Object.entries(sportCounts);
+    <div className="w-full overflow-x-auto overscroll-x-contain">
+      <table className="w-full min-w-[920px] border-separate border-spacing-0 text-sm">
+        <thead>
+          <tr>
+            <th className={`${headClass} rounded-tl-2xl`}>{t("Venue")}</th>
+            <th className={headClass}>{t("Address")}</th>
+            <th className={headClass}>{t("Status")}</th>
+            <th className={headClass}>{t("Courts")}</th>
+            <th className={headClass}>{t("Partner")}</th>
+            <th className={headClass}>{t("Created")}</th>
+            <th className={`${headClass} rounded-tr-2xl text-right`}>{t("Actions")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {isLoading ? (
+            <>
+              <RowSkeleton />
+              <RowSkeleton />
+              <RowSkeleton />
+              <RowSkeleton />
+              <RowSkeleton />
+            </>
+          ) : (
+            venues.map((venue, index) => {
+              const courtsCount = venue.courts_count ?? 0;
+              const status = venueStatus(venue);
 
-            return (
-              <TableRow key={venue.id}>
-                <TableCell>
-                  {venue.photo_url ? (
-                    <div className="relative h-10 w-10 overflow-hidden rounded-md border border-border bg-surfaceElevated">
-                      <Image
-                        src={venue.photo_url}
-                        alt={venue.name}
-                        fill
-                        sizes="40px"
-                        unoptimized
-                        className="object-cover"
-                      />
+              return (
+                <tr
+                  key={venue.id}
+                  onClick={() => router.push(`/venues/${venue.id}`)}
+                  className={`group cursor-pointer border-b border-border transition-colors ${
+                    index % 2 === 1
+                      ? "bg-surfaceElevated/40 hover:bg-surfaceElevated"
+                      : "bg-surface hover:bg-surfaceElevated/70"
+                  }`}
+                >
+                  {/* Venue (photo + name) */}
+                  <td className="px-4 py-3 align-middle">
+                    <div className="flex min-w-[220px] items-center gap-3">
+                      {venue.photo_url ? (
+                        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-border bg-surfaceElevated">
+                          <Image
+                            src={venue.photo_url}
+                            alt={venue.name}
+                            fill
+                            sizes="40px"
+                            unoptimized
+                            className="object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-ink text-accent">
+                          <Building2 className="h-4 w-4" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="truncate font-semibold text-foreground group-hover:text-accent">
+                          {venue.name}
+                        </div>
+                        {venue.phone ? (
+                          <div className="truncate text-xs text-foregroundMuted">{venue.phone}</div>
+                        ) : (
+                          <div className="text-[10px] font-semibold   text-muted">
+                            {venue.id.slice(0, 8)}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-surfaceElevated text-foregroundMuted">
-                      <Building2 className="h-4 w-4" />
+                  </td>
+
+                  {/* Address */}
+                  <td className="px-4 py-3 align-middle">
+                    <div className="flex min-w-[200px] max-w-[280px] items-start gap-1.5 text-foregroundMuted">
+                      <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{venue.address}</span>
                     </div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Link
-                    href={`/venues/${venue.id}`}
-                    className="font-medium text-foreground hover:text-accent inline-flex items-center gap-1"
-                  >
-                    {venue.name}
-                    <ExternalLink className="h-3 w-3 opacity-50" />
-                  </Link>
-                </TableCell>
-                <TableCell className="max-w-[260px] truncate text-foregroundMuted">
-                  {venue.address}
-                </TableCell>
-                <TableCell>
-                  {venue.is_partner ? (
-                    <Badge variant="success">Partner</Badge>
-                  ) : (
-                    <Badge variant="neutral">No</Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {courts.length === 0 ? (
-                    <span className="text-xs text-foregroundMuted">—</span>
-                  ) : (
-                    <div className="flex flex-wrap gap-1">
-                      <Badge variant="info">{courts.length} total</Badge>
-                      {sportList.map(([slug, count]) => (
-                        <Badge key={slug} variant="neutral">
-                          {slug} ({count})
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell className="text-foregroundMuted">
-                  {formatDate(venue.created_at)}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => onEdit(venue)}
+                  </td>
+
+                  {/* Status */}
+                  <td className="px-4 py-3 align-middle">
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${venueStatusPillClass(status)}`}
                     >
-                      <Pencil className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Edit</span>
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => onDelete(venue)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Delete</span>
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-      </TableBody>
-    </Table>
+                      <span className={`h-1.5 w-1.5 rounded-full ${venueStatusDotClass(status)}`} />
+                      {t(venueStatusLabel(status))}
+                    </span>
+                  </td>
+
+                  {/* Courts */}
+                  <td className="px-4 py-3 align-middle">
+                    {courtsCount === 0 ? (
+                      <span className="text-xs text-foregroundMuted">—</span>
+                    ) : (
+                      <span className="font-display text-sm font-bold tabular-nums text-foreground">
+                        {courtsCount}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Partner */}
+                  <td className="px-4 py-3 align-middle">
+                    {venue.is_partner ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[11px] font-semibold text-[#3f6b00]">
+                        <Handshake className="h-3 w-3" />
+                        {t("Partner")}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-foregroundMuted">—</span>
+                    )}
+                  </td>
+
+                  {/* Created */}
+                  <td className="px-4 py-3 align-middle text-foregroundMuted">
+                    {formatDate(venue.created_at)}
+                  </td>
+
+                  {/* Actions */}
+                  <td className="px-4 py-3 align-middle">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <QuickAction
+                        title={t("Open")}
+                        onClick={() => router.push(`/venues/${venue.id}`)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </QuickAction>
+                      <QuickAction title={t("Edit")} onClick={() => onEdit(venue)}>
+                        <Pencil className="h-4 w-4" />
+                      </QuickAction>
+                      <QuickAction title={t("Delete")} danger onClick={() => onDelete(venue)}>
+                        <Trash2 className="h-4 w-4" />
+                      </QuickAction>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 }

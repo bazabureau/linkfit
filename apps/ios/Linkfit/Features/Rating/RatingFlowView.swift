@@ -36,7 +36,9 @@ struct RatingFlowView: View {
                 }
             }
         }
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(.ultraThinMaterial)
     }
 
     @ViewBuilder
@@ -308,7 +310,7 @@ struct RatingFlowView: View {
         }
         .padding(.horizontal, DSSpacing.lg)
         .padding(.vertical, DSSpacing.sm)
-        .background(.ultraThinMaterial)
+        .background(DSColor.background)
     }
 
     // MARK: Helpers

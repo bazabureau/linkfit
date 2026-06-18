@@ -70,7 +70,7 @@ private struct PlayerCarouselCard: View {
             .frame(width: 140)
             .background(
                 RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                    .fill(DSColor.surface)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)

@@ -1,149 +1,86 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { formatDistanceToNow } from "date-fns";
+import * as React from "react";
 import {
   Activity,
   AlertTriangle,
   ChevronDown,
   ChevronRight,
+  Download,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { useToast } from "@/components/ui/toast";
 import { type AuditEntry, useAudit } from "@/lib/admin-audit";
-import { formatDateTime } from "@/lib/date-format";
+import { API_BASE_URL } from "@/lib/api";
+import { ACCESS_TOKEN_COOKIE, getCookie } from "@/lib/cookies";
+import {
+  actionDotClass,
+  actionPillClass,
+  actionTone,
+  entityLabel,
+  formatRelative,
+  formatTimestamp,
+  initials,
+} from "./lib";
 
-export function AuditTable() {
-  const {
-    data,
-    isLoading,
-    isError,
-    refetch,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useAudit(50);
-
-  const entries: AuditEntry[] = useMemo(
-    () => (data?.pages ?? []).flatMap((p) => p.items),
-    [data],
-  );
-
-  const total = data?.pages?.[0]?.total ?? 0;
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-
-  const triggerNext = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) {
-      void fetchNextPage();
-    }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-  useEffect(() => {
-    const node = sentinelRef.current;
-    if (!node) return;
-    const obs = new IntersectionObserver(
-      (es) => {
-        if (es.some((e) => e.isIntersecting)) triggerNext();
-      },
-      { rootMargin: "200px" },
-    );
-    obs.observe(node);
-    return () => obs.disconnect();
-  }, [triggerNext]);
-
+function ActionPill({ action }: { action: string }): React.JSX.Element {
+  const tone = actionTone(action);
   return (
-    <div className="space-y-4">
-      {isError ? (
-        <Card className="border-danger/40 bg-danger/10">
-          <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="h-5 w-5 text-danger" />
-              <p className="text-sm text-foreground">
-                Failed to load audit log.
-              </p>
-            </div>
-            <Button variant="secondary" size="sm" onClick={() => refetch()}>
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
-      ) : null}
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11px] font-semibold ${actionPillClass(tone)}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${actionDotClass(tone)}`} />
+      {action}
+    </span>
+  );
+}
 
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="min-w-44">Timestamp</TableHead>
-              <TableHead className="min-w-56">Actor</TableHead>
-              <TableHead className="min-w-40">Action</TableHead>
-              <TableHead className="min-w-56">Entity</TableHead>
-              <TableHead className="w-10" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading && entries.length === 0 ? (
-              [...Array(8)].map((_, i) => (
-                <TableRow key={i}>
-                  {[...Array(5)].map((__, j) => (
-                    <TableCell key={j}>
-                      <div className="h-4 w-full animate-pulse rounded bg-surfaceElevated" />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : entries.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5}>
-                  <div className="flex flex-col items-center gap-2 py-12 text-center">
-                    <Activity className="h-8 w-8 text-foregroundMuted" />
-                    <p className="text-sm text-foregroundMuted">
-                      No audit entries yet.
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              entries.map((entry) => <AuditRow key={entry.id} entry={entry} />)
-            )}
-          </TableBody>
-        </Table>
-      </Card>
-
-      <div
-        ref={sentinelRef}
-        className="flex items-center justify-center gap-3 py-4 text-sm text-foregroundMuted"
-      >
-        {isFetchingNextPage ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading more…
-          </>
-        ) : hasNextPage ? (
-          <Button variant="secondary" size="sm" onClick={() => triggerNext()}>
-            Load more
-          </Button>
-        ) : entries.length > 0 ? (
-          <span>
-            End of log · {entries.length} of {total}
-          </span>
-        ) : null}
-      </div>
+function StatTile({
+  label,
+  value,
+  loading,
+}: {
+  label: string;
+  value: string | number;
+  loading?: boolean;
+}): React.JSX.Element {
+  return (
+    <div className="rounded-2xl border border-border bg-surface p-4 shadow-card">
+      <span className="text-[11px] font-semibold   text-foregroundMuted">
+        {label}
+      </span>
+      {loading ? (
+        <div className="mt-3 h-7 w-16 animate-pulse rounded-md bg-surfaceElevated" />
+      ) : (
+        <p className="mt-2 font-display text-[1.6rem] font-bold leading-none tabular-nums text-foreground">
+          {value}
+        </p>
+      )}
     </div>
   );
 }
 
-function AuditRow({ entry }: { entry: AuditEntry }) {
-  const [expanded, setExpanded] = useState(false);
+const COL_COUNT = 5;
+
+function RowSkeleton(): React.JSX.Element {
+  return (
+    <tr className="border-b border-border">
+      {Array.from({ length: COL_COUNT }).map((_, index) => (
+        <td key={index} className="px-4 py-3.5">
+          <div
+            className="h-4 animate-pulse rounded bg-surfaceElevated"
+            style={{ width: index === COL_COUNT - 1 ? 16 : `${45 + ((index * 19) % 45)}%` }}
+          />
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+function AuditRow({ entry }: { entry: AuditEntry }): React.JSX.Element {
+  const [expanded, setExpanded] = React.useState(false);
   const hasMetadata =
     entry.metadata !== null &&
     entry.metadata !== undefined &&
@@ -152,86 +89,299 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
 
   return (
     <>
-      <TableRow
-        onClick={() => hasMetadata && setExpanded((e) => !e)}
-        className={hasMetadata ? "cursor-pointer" : ""}
+      <tr
+        onClick={() => hasMetadata && setExpanded((value) => !value)}
+        className={`group border-b border-border bg-surface transition-colors hover:bg-surfaceElevated/70 ${
+          hasMetadata ? "cursor-pointer" : ""
+        }`}
       >
-        <TableCell>
-          <div className="flex flex-col">
-            <span className="text-xs text-foreground">
+        {/* Timestamp */}
+        <td className="px-4 py-3 align-middle">
+          <div className="min-w-[150px]">
+            <div className="text-sm font-medium text-foreground">
               {formatTimestamp(entry.created_at)}
-            </span>
-            <span className="text-[11px] text-foregroundMuted">
+            </div>
+            <div className="text-xs text-foregroundMuted">
               {formatRelative(entry.created_at)}
-            </span>
+            </div>
           </div>
-        </TableCell>
-        <TableCell>
-          <div className="flex flex-col">
-            <span className="text-sm text-foreground">
-              {entry.actor_display_name ?? "Unknown actor"}
+        </td>
+
+        {/* Actor */}
+        <td className="px-4 py-3 align-middle">
+          <div className="flex min-w-[200px] items-center gap-3">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink text-[11px] font-bold text-accent">
+              {initials(entry.actor_display_name)}
             </span>
-            <span className="font-mono text-[11px] text-foregroundMuted break-all">
-              {entry.actor_user_id}
-            </span>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium text-foreground">
+                {entry.actor_display_name ?? "Unknown actor"}
+              </div>
+              <div className="truncate font-mono text-[11px] text-foregroundMuted">
+                {entry.actor_user_id}
+              </div>
+            </div>
           </div>
-        </TableCell>
-        <TableCell>
-          <ActionBadge action={entry.action} />
-        </TableCell>
-        <TableCell>
-          <div className="flex flex-col">
-            <span className="text-sm text-foreground">{entry.entity}</span>
-            <span className="font-mono text-[11px] text-foregroundMuted break-all">
+        </td>
+
+        {/* Action */}
+        <td className="px-4 py-3 align-middle">
+          <ActionPill action={entry.action} />
+        </td>
+
+        {/* Entity */}
+        <td className="px-4 py-3 align-middle">
+          <div className="min-w-[180px]">
+            <div className="text-sm font-medium text-foreground">
+              {entityLabel(entry.entity)}
+            </div>
+            <div className="truncate font-mono text-[11px] text-foregroundMuted">
               {entry.entity_id}
-            </span>
+            </div>
           </div>
-        </TableCell>
-        <TableCell>
+        </td>
+
+        {/* Expand affordance */}
+        <td className="px-4 py-3 text-right align-middle">
           {hasMetadata ? (
-            expanded ? (
-              <ChevronDown className="h-4 w-4 text-foregroundMuted" />
-            ) : (
-              <ChevronRight className="h-4 w-4 text-foregroundMuted" />
-            )
+            <span className="inline-grid h-7 w-7 place-items-center rounded-lg text-foregroundMuted transition group-hover:bg-surface">
+              {expanded ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+            </span>
           ) : null}
-        </TableCell>
-      </TableRow>
+        </td>
+      </tr>
       {hasMetadata && expanded ? (
-        <TableRow className="bg-background/50">
-          <TableCell colSpan={5}>
-            <pre className="overflow-x-auto rounded-lg border border-border bg-surfaceElevated p-3 font-mono text-xs leading-relaxed text-foreground">
+        <tr className="border-b border-border bg-surfaceElevated/40">
+          <td colSpan={COL_COUNT} className="px-4 py-3">
+            <pre className="overflow-x-auto rounded-xl border border-border bg-ink p-3.5 font-mono text-xs leading-relaxed text-accent/90">
               {JSON.stringify(entry.metadata, null, 2)}
             </pre>
-          </TableCell>
-        </TableRow>
+          </td>
+        </tr>
       ) : null}
     </>
   );
 }
 
-function ActionBadge({ action }: { action: string }) {
-  const lower = action.toLowerCase();
-  let variant: "success" | "warning" | "danger" | "info" | "neutral" =
-    "neutral";
-  if (lower.includes("create") || lower.includes("add")) variant = "success";
-  else if (lower.includes("delete") || lower.includes("remove"))
-    variant = "danger";
-  else if (lower.includes("update") || lower.includes("edit"))
-    variant = "info";
-  else if (lower.includes("review") || lower.includes("dismiss"))
-    variant = "warning";
-  return <Badge variant={variant}>{action}</Badge>;
-}
+export function AuditTable(): React.JSX.Element {
+  const toast = useToast();
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    isFetching,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useAudit(50);
 
-function formatTimestamp(iso: string) {
-  return formatDateTime(iso);
-}
+  const entries: AuditEntry[] = React.useMemo(
+    () => (data?.pages ?? []).flatMap((page) => page.items),
+    [data],
+  );
 
-function formatRelative(iso: string) {
-  try {
-    return formatDistanceToNow(new Date(iso), { addSuffix: true });
-  } catch {
-    return "";
-  }
+  const total = data?.pages?.[0]?.total ?? 0;
+  const sentinelRef = React.useRef<HTMLDivElement | null>(null);
+  const [exporting, setExporting] = React.useState(false);
+
+  // Lightweight insight strip derived from what is already loaded.
+  const insights = React.useMemo(() => {
+    const actors = new Set<string>();
+    const entities = new Set<string>();
+    let destructive = 0;
+    for (const entry of entries) {
+      if (entry.actor_user_id) actors.add(entry.actor_user_id);
+      if (entry.entity) entities.add(entry.entity);
+      if (actionTone(entry.action) === "danger") destructive += 1;
+    }
+    return { actors: actors.size, entities: entities.size, destructive };
+  }, [entries]);
+
+  const exportCsv = React.useCallback(async () => {
+    setExporting(true);
+    try {
+      const token = getCookie(ACCESS_TOKEN_COOKIE);
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/audit/export`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!response.ok) throw new Error("Export file could not be generated");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `linkfit-audit-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success("Export ready", "Audit log CSV downloaded.");
+    } catch (error) {
+      toast.error(
+        "Export failed",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setExporting(false);
+    }
+  }, [toast]);
+
+  const triggerNext = React.useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  React.useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node) return undefined;
+    const observer = new IntersectionObserver(
+      (es) => {
+        if (es.some((e) => e.isIntersecting)) triggerNext();
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [triggerNext]);
+
+  const headClass =
+    "sticky top-0 z-10 h-11 bg-surfaceElevated px-4 text-left align-middle text-[11px] font-semibold   text-foregroundMuted";
+
+  return (
+    <div className="space-y-5">
+      {/* Insight strip */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatTile label="Total entries" value={total} loading={isLoading && !data} />
+        <StatTile label="Loaded" value={entries.length} loading={isLoading && !data} />
+        <StatTile label="Actors" value={insights.actors} loading={isLoading && !data} />
+        <StatTile
+          label="Destructive"
+          value={insights.destructive}
+          loading={isLoading && !data}
+        />
+      </div>
+
+      {isError ? (
+        <div className="flex flex-col gap-4 rounded-2xl border border-danger/40 bg-danger/10 px-4 py-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-danger" />
+            <p className="text-sm text-foreground">Failed to load audit log.</p>
+          </div>
+          <Button variant="secondary" size="sm" onClick={() => void refetch()}>
+            Retry
+          </Button>
+        </div>
+      ) : null}
+
+      {/* Table card */}
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3.5">
+          <div>
+            <h2 className="font-display text-sm font-bold text-foreground">Activity feed</h2>
+            <p className="text-xs text-foregroundMuted">
+              {total > 0
+                ? `${entries.length} of ${total} loaded`
+                : isLoading
+                  ? "Loading…"
+                  : "No entries"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {isFetching && !isFetchingNextPage ? (
+              <span className="hidden items-center gap-1.5 rounded-full bg-info/10 px-2.5 py-1 text-xs font-semibold text-info sm:inline-flex">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                Refreshing
+              </span>
+            ) : null}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+            >
+              <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void exportCsv()}
+              disabled={exporting}
+            >
+              <Download className="h-4 w-4" />
+              {exporting ? "Exporting…" : "CSV"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="w-full overflow-x-auto overscroll-x-contain">
+          <table className="w-full min-w-[820px] border-separate border-spacing-0 text-sm">
+            <thead>
+              <tr>
+                <th className={`${headClass} rounded-tl-2xl`}>Timestamp</th>
+                <th className={headClass}>Actor</th>
+                <th className={headClass}>Action</th>
+                <th className={headClass}>Entity</th>
+                <th className={`${headClass} w-12 rounded-tr-2xl`} />
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading && entries.length === 0 ? (
+                <>
+                  <RowSkeleton />
+                  <RowSkeleton />
+                  <RowSkeleton />
+                  <RowSkeleton />
+                  <RowSkeleton />
+                  <RowSkeleton />
+                </>
+              ) : (
+                entries.map((entry) => <AuditRow key={entry.id} entry={entry} />)
+              )}
+            </tbody>
+          </table>
+
+          {!isLoading && entries.length === 0 && !isError ? (
+            <div className="flex flex-col items-center justify-center gap-3 px-6 py-20 text-center">
+              <div className="grid h-16 w-16 place-items-center rounded-2xl bg-accent/10">
+                <Activity className="h-7 w-7 text-accent" />
+              </div>
+              <div>
+                <h3 className="font-display text-base font-bold text-foreground">
+                  No audit entries
+                </h3>
+                <p className="mt-1 max-w-xs text-sm text-foregroundMuted">
+                  Try adjusting the filters or check back later.
+                </p>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Infinite-load footer */}
+        {entries.length > 0 ? (
+          <div
+            ref={sentinelRef}
+            className="flex items-center justify-center gap-3 border-t border-border px-5 py-4 text-sm text-foregroundMuted"
+          >
+            {isFetchingNextPage ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading more…
+              </>
+            ) : hasNextPage ? (
+              <Button variant="secondary" size="sm" onClick={() => triggerNext()}>
+                Load more
+              </Button>
+            ) : (
+              <span>
+                End of log · {entries.length} of {total}
+              </span>
+            )}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 }

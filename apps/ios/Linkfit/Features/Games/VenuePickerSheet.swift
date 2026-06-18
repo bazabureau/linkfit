@@ -82,14 +82,7 @@ struct VenuePickerSheet: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
-        )
+        .dsSurfaceCard(radius: 14)
     }
 
     /// Always-visible row at the top of the list: "Don't pin to a
@@ -127,10 +120,7 @@ struct VenuePickerSheet: View {
                 }
             }
             .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial)
-            )
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surface))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .strokeBorder(
@@ -206,10 +196,7 @@ struct VenuePickerSheet: View {
                 }
             }
             .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial)
-            )
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surface))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .strokeBorder(

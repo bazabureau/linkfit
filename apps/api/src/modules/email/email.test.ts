@@ -16,9 +16,8 @@ import {
  * Postgres (provided by globalSetup.ts via Testcontainers) and a fake
  * MailTransport that simply collects outgoing messages.
  *
- * Token extraction strategy: the service embeds the raw token in both
- * the link query string AND a separate "Token: <value>" line. We grep the
- * text body for "Token: <value>" because that substring is stable.
+ * Code extraction strategy: verification emails now contain a six-digit
+ * code. Password reset still uses the legacy "Token: <value>" line.
  */
 
 const env = buildTestEnv();
@@ -58,6 +57,14 @@ function extractToken(body: string): string {
   const match = /Token:\s+([A-Za-z0-9_-]+)/.exec(body);
   if (!match?.[1]) {
     throw new Error(`No token found in email body:\n${body}`);
+  }
+  return match[1];
+}
+
+function extractCode(body: string): string {
+  const match = /\b(\d{6})\b/.exec(body);
+  if (!match?.[1]) {
+    throw new Error(`No 6-digit code found in email body:\n${body}`);
   }
   return match[1];
 }
@@ -108,7 +115,7 @@ describe("email module — verification + password reset", () => {
   // ───────────────────────── send-verification ─────────────────────────
 
   describe("POST /api/v1/auth/send-verification", () => {
-    it("emails a fresh verification token to a logged-in unverified user", async () => {
+    it("emails a fresh verification code to a logged-in unverified user", async () => {
       const email = uniqueEmail();
       const session = await register(app, email);
       expect(session.user.email_verified_at).toBeNull();
@@ -123,8 +130,8 @@ describe("email module — verification + password reset", () => {
 
       const message = transport.lastFor(email.toLowerCase());
       expect(message).toBeDefined();
-      expect(message?.subject).toContain("Verify");
-      expect(() => extractToken(message?.text ?? "")).not.toThrow();
+      expect(message?.subject).toMatch(/\d{6}/);
+      expect(extractCode(message?.text ?? "")).toMatch(/^\d{6}$/);
     });
 
     it("rejects unauthenticated callers with 401", async () => {
@@ -161,11 +168,12 @@ describe("email module — verification + password reset", () => {
         url: "/api/v1/auth/send-verification",
         headers: { authorization: `Bearer ${session.access_token}` },
       });
-      const token = extractToken(transport.lastFor(email.toLowerCase())?.text ?? "");
+      const code = extractCode(transport.lastFor(email.toLowerCase())?.text ?? "");
       await app.inject({
         method: "POST",
         url: "/api/v1/auth/verify-email",
-        payload: { token },
+        headers: { authorization: `Bearer ${session.access_token}` },
+        payload: { token: code },
       });
       transport.clear();
       const res = await app.inject({
@@ -190,11 +198,12 @@ describe("email module — verification + password reset", () => {
         url: "/api/v1/auth/send-verification",
         headers: { authorization: `Bearer ${session.access_token}` },
       });
-      const token = extractToken(transport.lastFor(email.toLowerCase())?.text ?? "");
+      const code = extractCode(transport.lastFor(email.toLowerCase())?.text ?? "");
       const res = await app.inject({
         method: "POST",
         url: "/api/v1/auth/verify-email",
-        payload: { token },
+        headers: { authorization: `Bearer ${session.access_token}` },
+        payload: { token: code },
       });
       expect(res.statusCode).toBe(200);
       expect(res.json<{ verified: boolean }>().verified).toBe(true);
@@ -208,17 +217,16 @@ describe("email module — verification + password reset", () => {
       expect(body.email_verified_at).not.toBeNull();
     });
 
-    it("rejects an unknown token with 400", async () => {
+    it("requires auth", async () => {
       const res = await app.inject({
         method: "POST",
         url: "/api/v1/auth/verify-email",
-        payload: { token: "not-a-real-token-zzzzzzz" },
+        payload: { token: "123456" },
       });
-      expect(res.statusCode).toBe(400);
-      expect(res.json<ErrorBody>().error.code).toBe("VALIDATION_ERROR");
+      expect(res.statusCode).toBe(401);
     });
 
-    it("rejects a re-used token with 400", async () => {
+    it("returns verified=false for a wrong code and invalidates after five failures", async () => {
       const email = uniqueEmail();
       const session = await register(app, email);
       await app.inject({
@@ -226,19 +234,52 @@ describe("email module — verification + password reset", () => {
         url: "/api/v1/auth/send-verification",
         headers: { authorization: `Bearer ${session.access_token}` },
       });
-      const token = extractToken(transport.lastFor(email.toLowerCase())?.text ?? "");
+      const code = extractCode(transport.lastFor(email.toLowerCase())?.text ?? "");
+      const wrongCode = code === "000000" ? "000001" : "000000";
+      for (let i = 0; i < 5; i += 1) {
+        const wrong = await app.inject({
+          method: "POST",
+          url: "/api/v1/auth/verify-email",
+          headers: { authorization: `Bearer ${session.access_token}` },
+          payload: { token: wrongCode },
+        });
+        expect(wrong.statusCode).toBe(200);
+        expect(wrong.json<{ verified: boolean }>().verified).toBe(false);
+      }
+      const correctAfterInvalidation = await app.inject({
+        method: "POST",
+        url: "/api/v1/auth/verify-email",
+        headers: { authorization: `Bearer ${session.access_token}` },
+        payload: { token: code },
+      });
+      expect(correctAfterInvalidation.statusCode).toBe(200);
+      expect(correctAfterInvalidation.json<{ verified: boolean }>().verified).toBe(false);
+    });
+
+    it("returns verified=false for a re-used code", async () => {
+      const email = uniqueEmail();
+      const session = await register(app, email);
+      await app.inject({
+        method: "POST",
+        url: "/api/v1/auth/send-verification",
+        headers: { authorization: `Bearer ${session.access_token}` },
+      });
+      const code = extractCode(transport.lastFor(email.toLowerCase())?.text ?? "");
       const first = await app.inject({
         method: "POST",
         url: "/api/v1/auth/verify-email",
-        payload: { token },
+        headers: { authorization: `Bearer ${session.access_token}` },
+        payload: { token: code },
       });
       expect(first.statusCode).toBe(200);
       const second = await app.inject({
         method: "POST",
         url: "/api/v1/auth/verify-email",
-        payload: { token },
+        headers: { authorization: `Bearer ${session.access_token}` },
+        payload: { token: code },
       });
-      expect(second.statusCode).toBe(400);
+      expect(second.statusCode).toBe(200);
+      expect(second.json<{ verified: boolean }>().verified).toBe(false);
     });
   });
 

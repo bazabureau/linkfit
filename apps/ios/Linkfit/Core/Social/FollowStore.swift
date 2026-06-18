@@ -60,6 +60,11 @@ final class FollowStore {
     /// open. See `applyCountDelta(forUser:delta:)` for accumulation rules.
     private(set) var followingCountDelta: [String: Int] = [:]
 
+    /// User ids with an in-flight follow/unfollow request. Prevents a rapid
+    /// double-tap from sending POST+DELETE races that leave the UI and server
+    /// disagreeing about the final edge.
+    private(set) var pendingUserIds: Set<String> = []
+
     init() {}
 
     // MARK: - Follow edges
@@ -100,11 +105,62 @@ final class FollowStore {
         followingCountDelta[userId, default: 0] += delta
     }
 
+    var isMutatingAnyFollow: Bool {
+        !pendingUserIds.isEmpty
+    }
+
+    func isPending(userId: String) -> Bool {
+        pendingUserIds.contains(userId)
+    }
+
+    /// Shared optimistic follow mutation used by Profile, Players, and
+    /// Follows lists. The caller supplies the API call so analytics/source-
+    /// specific behavior can stay at the feature layer, while this store owns
+    /// the edge flip, count deltas, in-flight guard, and rollback.
+    @discardableResult
+    func performToggle(
+        targetUserId: String,
+        viewerUserId: String?,
+        follow: Bool? = nil,
+        request: (_ willFollow: Bool) async throws -> Void
+    ) async throws -> Bool {
+        guard !pendingUserIds.contains(targetUserId) else {
+            return isFollowing(userId: targetUserId)
+        }
+
+        let previous = isFollowing(userId: targetUserId)
+        let next = follow ?? !previous
+        guard previous != next else { return next }
+
+        let delta = next ? 1 : -1
+        pendingUserIds.insert(targetUserId)
+        setFollowing(userId: targetUserId, isFollowing: next)
+        if let viewerUserId, !viewerUserId.isEmpty {
+            applyCountDelta(forUser: viewerUserId, delta: delta)
+        }
+        applyCountDelta(forUser: targetUserId, delta: delta)
+
+        do {
+            try await request(next)
+            pendingUserIds.remove(targetUserId)
+            return next
+        } catch {
+            setFollowing(userId: targetUserId, isFollowing: previous)
+            if let viewerUserId, !viewerUserId.isEmpty {
+                applyCountDelta(forUser: viewerUserId, delta: -delta)
+            }
+            applyCountDelta(forUser: targetUserId, delta: -delta)
+            pendingUserIds.remove(targetUserId)
+            throw error
+        }
+    }
+
     /// Wipe everything. Call on logout so the next signed-in user starts
     /// with a clean slate and doesn't see leftover follow flags from the
     /// previous account.
     func reset() {
         followingByUserId.removeAll()
         followingCountDelta.removeAll()
+        pendingUserIds.removeAll()
     }
 }

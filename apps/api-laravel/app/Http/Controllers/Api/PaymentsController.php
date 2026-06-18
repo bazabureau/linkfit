@@ -97,17 +97,21 @@ class PaymentsController extends ApiController
         if ($booking->user_id !== $user->id && ! $this->canManageBookingPayment($request, $user, $booking)) {
             throw ApiException::forbidden('Forbidden');
         }
+        // Only a fully-paid booking is `succeeded`. `partially_paid` is an
+        // outstanding-balance state — collapsing it to succeeded would make a
+        // poller stop collecting the remainder, so it stays `pending`.
         $status = match ($booking->status) {
-            'paid', 'partially_paid' => 'succeeded',
+            'paid' => 'succeeded',
             'failed', 'cancelled', 'refunded' => 'failed',
             default => 'pending',
         };
-        $payload = ['status' => $status];
-        if ($booking->paid_at !== null) {
-            $payload['paid_at'] = $this->iso($booking->paid_at);
-        }
-
-        return response()->json($payload);
+        // Always emit paid_at (null unless actually paid) so strict mobile/iOS
+        // decoders never crash on an absent key, and a stale paid_at is never
+        // leaked for an unpaid booking.
+        return response()->json([
+            'status' => $status,
+            'paid_at' => $booking->status === 'paid' ? $this->iso($booking->paid_at) : null,
+        ]);
     }
 
     public function tournamentIntent(Request $request, string $tournamentId): JsonResponse
@@ -328,8 +332,11 @@ class PaymentsController extends ApiController
 
     private function paymentSummaryForItems($items): array
     {
-        $paid = $items->filter(fn ($item) => in_array($item['status'], ['paid', 'partially_paid', 'succeeded'], true));
-        $pending = $items->filter(fn ($item) => in_array($item['status'], ['pending', 'pending_payment'], true));
+        // Only fully-settled items count as paid. `partially_paid` carries an
+        // outstanding balance, so summing its full amount_minor here would
+        // overstate the paid total — bucket it with the unpaid/pending items.
+        $paid = $items->filter(fn ($item) => in_array($item['status'], ['paid', 'succeeded'], true));
+        $pending = $items->filter(fn ($item) => in_array($item['status'], ['pending', 'pending_payment', 'partially_paid'], true));
 
         return [
             'items_total' => $items->count(),

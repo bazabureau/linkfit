@@ -49,7 +49,7 @@ struct ReachabilityBanner: View {
     private var bannerStrip: some View {
         Text("reachability.offline")
             .font(DSType.caption)
-            .foregroundStyle(.white)
+            .foregroundStyle(DSColor.textOnAccent)
             .frame(maxWidth: .infinity)
             .frame(height: 32)
             .background(

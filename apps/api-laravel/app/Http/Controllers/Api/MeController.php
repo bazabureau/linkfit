@@ -183,15 +183,25 @@ class MeController extends ApiController
             'platform' => ['required', 'in:ios,android'],
         ]);
 
-        DB::table('device_tokens')->updateOrInsert(
-            ['user_id' => $user->id, 'token' => $data['token']],
-            [
+        // Preserve the original registration date on re-registration (the app
+        // calls this on every launch) — only set created_at on first insert.
+        $exists = DB::table('device_tokens')->where('user_id', $user->id)->where('token', $data['token'])->exists();
+        if ($exists) {
+            DB::table('device_tokens')->where('user_id', $user->id)->where('token', $data['token'])->update([
+                'platform' => $data['platform'],
+                'last_seen' => now(),
+                'revoked_at' => null,
+            ]);
+        } else {
+            DB::table('device_tokens')->insert([
+                'user_id' => $user->id,
+                'token' => $data['token'],
                 'platform' => $data['platform'],
                 'last_seen' => now(),
                 'revoked_at' => null,
                 'created_at' => now(),
-            ],
-        );
+            ]);
+        }
 
         return response()->json(['ok' => true]);
     }

@@ -39,18 +39,11 @@ enum AppearanceBootstrap {
 
     private static func configureNavigationBar() {
         let appearance = UINavigationBarAppearance()
-        // FULLY transparent nav bar — no blur, no tint, no hairline.
-        // The user's hard requirement was "her yerde bu headerin boz
-        // yigsdir olmasin hec yerde" (no grey header anywhere). With
-        // `configureWithTransparentBackground()` AND explicitly
-        // clearing backgroundEffect + backgroundColor, the mesh
-        // gradient flows uninterrupted through the bar across every
-        // screen in the app. iOS still reserves the safe-area height
-        // for the bar, so toolbar items and back chevrons stay
-        // tappable on top of the gradient.
+        // Native material chrome. The bar should feel like iOS, not a custom
+        // gray slab and not a transparent hero overlay.
         appearance.configureWithTransparentBackground()
-        appearance.backgroundEffect = nil
-        appearance.backgroundColor = .clear
+        appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
+        appearance.backgroundColor = UIColor(DSColor.background).withAlphaComponent(0.72)
         appearance.shadowColor = .clear
         appearance.titleTextAttributes = [
             .foregroundColor: UIColor(DSColor.textPrimary),

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,8 @@ use Illuminate\Support\Str;
 
 class InvitationsController extends ApiController
 {
+    use FiltersBlockedUsers;
+
     public function create(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
@@ -24,6 +27,9 @@ class InvitationsController extends ApiController
         }
         if ($data['invitee_user_id'] === $user->id) {
             throw ApiException::validation('Cannot invite yourself');
+        }
+        if ($this->blockExistsBetween((string) $user->id, (string) $data['invitee_user_id'])) {
+            throw ApiException::forbidden('Cannot invite this user');
         }
 
         $inviteId = (string) Str::uuid();
@@ -53,7 +59,7 @@ class InvitationsController extends ApiController
         $sent = 0;
         $blocked = 0;
         foreach ((array) $request->input('user_ids', []) as $uid) {
-            if ($uid === $user->id) {
+            if ($uid === $user->id || $this->blockExistsBetween((string) $user->id, (string) $uid)) {
                 $blocked++;
 
                 continue;
@@ -110,11 +116,15 @@ class InvitationsController extends ApiController
     public function decline(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
-        DB::table('game_invitations')->where('id', $id)->where('invitee_user_id', $user->id)->update(['status' => 'declined', 'responded_at' => now()]);
-        $fresh = DB::table('game_invitations')->where('id', $id)->first();
-        if ($fresh === null) {
+        // Scope to the caller's own invitation FIRST — never read/act on another
+        // user's invitation (the previous code leaked it on a 0-row update).
+        $inv = DB::table('game_invitations')->where('id', $id)->where('invitee_user_id', $user->id)->first();
+        if ($inv === null) {
             throw ApiException::notFound('Invitation not found');
         }
+        DB::table('game_invitations')->where('id', $id)->where('invitee_user_id', $user->id)
+            ->update(['status' => 'declined', 'responded_at' => now()]);
+        $fresh = DB::table('game_invitations')->where('id', $id)->where('invitee_user_id', $user->id)->first();
 
         return response()->json(['invitation' => $this->payload($fresh)]);
     }

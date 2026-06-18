@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -9,6 +10,8 @@ use Illuminate\Support\Facades\DB;
 
 class SocialController extends ApiController
 {
+    use FiltersBlockedUsers;
+
     public function players(Request $request): JsonResponse
     {
         $query = $this->validateQuery($request, [
@@ -21,6 +24,7 @@ class SocialController extends ApiController
 
         $rows = $this->playersBaseQuery()
             ->when(! empty($query['q']), fn ($q) => $q->where('u.display_name', 'ilike', '%'.$query['q'].'%'))
+            ->when($viewerId !== null, fn ($q) => $this->whereNotBlocked($q, $viewerId, 'u.id'))
             ->orderBy('u.display_name')
             ->limit((int) ($query['limit'] ?? 50))
             ->get();
@@ -37,11 +41,13 @@ class SocialController extends ApiController
         $q = (string) $request->query('q', '');
         $type = $request->query('type');
         $limit = min(max((int) $request->query('limit', 20), 1), 50);
+        $viewerId = $this->optionalViewerId($request);
 
         $players = collect();
         if ($type === null || $type === 'players') {
             $players = $this->playersBaseQuery()
                 ->where('u.display_name', 'ilike', '%'.$q.'%')
+                ->when($viewerId !== null, fn ($qq) => $this->whereNotBlocked($qq, $viewerId, 'u.id'))
                 ->orderBy('u.display_name')
                 ->limit($limit)
                 ->get()
@@ -145,13 +151,24 @@ class SocialController extends ApiController
 
     public function profile(Request $request, string $id): JsonResponse
     {
-        $user = DB::table('users')->where('id', $id)->whereNull('deleted_at')->first();
+        // The route param may be either a UUID or a human-readable username.
+        $isUuid = (bool) preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $id);
+        $user = DB::table('users')
+            ->when($isUuid, fn ($q) => $q->where('id', $id), fn ($q) => $q->where('username', $id))
+            ->whereNull('deleted_at')
+            ->first();
         if ($user === null) {
             throw ApiException::notFound('User not found');
         }
+        // Downstream queries key off the resolved UUID, not the route param.
+        $id = (string) $user->id;
 
         // Optional viewer (route is public; a Bearer token is read if present).
         $viewerId = $this->optionalViewerId($request);
+        // A blocked relationship (either direction) hides the profile entirely.
+        if ($viewerId !== null && (string) $viewerId !== $id && $this->blockExistsBetween((string) $viewerId, $id)) {
+            throw ApiException::notFound('User not found');
+        }
 
         $followersCount = (int) DB::table('follows')->where('followed_user_id', $id)->count();
         $followingCount = (int) DB::table('follows')->where('follower_user_id', $id)->count();
@@ -199,6 +216,18 @@ class SocialController extends ApiController
     public function follow(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        if ((string) $id === (string) $user->id) {
+            throw ApiException::validation('You cannot follow yourself');
+        }
+        // Target must be a real, non-deleted user with no block either way
+        // (you can't follow someone who blocked you, nor someone you blocked).
+        if (! DB::table('users')->where('id', $id)->whereNull('deleted_at')->exists()) {
+            throw ApiException::notFound('User not found');
+        }
+        if ($this->blockExistsBetween((string) $user->id, (string) $id)) {
+            throw ApiException::forbidden('You cannot follow this user');
+        }
+
         DB::table('follows')->updateOrInsert([
             'follower_user_id' => $user->id,
             'followed_user_id' => $id,
@@ -217,14 +246,16 @@ class SocialController extends ApiController
         return response()->json(null, 204);
     }
 
-    public function followers(string $id): JsonResponse
+    public function followers(Request $request, string $id): JsonResponse
     {
         $limit = min(max((int) request()->query('limit', 30), 1), 100);
         $offset = max((int) request()->query('offset', 0), 0);
+        $viewerId = $this->optionalViewerId($request);
         $rows = DB::table('follows as f')
             ->join('users as u', 'u.id', '=', 'f.follower_user_id')
             ->where('f.followed_user_id', $id)
             ->whereNull('u.deleted_at')
+            ->when($viewerId !== null, fn ($q) => $this->whereNotBlocked($q, $viewerId, 'u.id'))
             ->orderByDesc('f.created_at')
             ->offset($offset)
             ->limit($limit + 1)
@@ -246,14 +277,16 @@ class SocialController extends ApiController
         return response()->json(null, 204);
     }
 
-    public function following(string $id): JsonResponse
+    public function following(Request $request, string $id): JsonResponse
     {
         $limit = min(max((int) request()->query('limit', 30), 1), 100);
         $offset = max((int) request()->query('offset', 0), 0);
+        $viewerId = $this->optionalViewerId($request);
         $rows = DB::table('follows as f')
             ->join('users as u', 'u.id', '=', 'f.followed_user_id')
             ->where('f.follower_user_id', $id)
             ->whereNull('u.deleted_at')
+            ->when($viewerId !== null, fn ($q) => $this->whereNotBlocked($q, $viewerId, 'u.id'))
             ->orderByDesc('f.created_at')
             ->offset($offset)
             ->limit($limit + 1)
@@ -299,18 +332,38 @@ class SocialController extends ApiController
         ]);
     }
 
+    /**
+     * Public badge flags shared by every user-shaped payload (profile, player
+     * cards, leaderboards). VIP is "active" only while not expired; `is_verified`
+     * is the admin-granted official badge (distinct from email verification).
+     * Null-safe so it works whether or not the migration columns exist yet.
+     *
+     * @return array<string,mixed>
+     */
+    private function badgeFields(object $u): array
+    {
+        $vipActive = (bool) ($u->is_vip ?? false)
+            && (empty($u->vip_expires_at) || strtotime((string) $u->vip_expires_at) > time());
+
+        return [
+            'is_vip' => $vipActive,
+            'vip_label' => $vipActive ? (trim((string) ($u->vip_badge_label ?? '')) ?: 'VIP') : null,
+            'is_verified' => (bool) ($u->is_verified ?? false),
+        ];
+    }
+
     private function publicUser(object $u): array
     {
+        // PUBLIC profile (any caller, even unauthenticated) — must NOT leak PII.
+        // Email, exact home coordinates and email-verification state are private;
+        // the viewer gets their own from /me.
         return [
             'id' => $u->id,
-            'email' => $u->email,
+            'username' => $u->username ?? null,
             'display_name' => $u->display_name,
             'photo_url' => $u->photo_url,
-            'home_lat' => $u->home_lat !== null ? (float) $u->home_lat : null,
-            'home_lng' => $u->home_lng !== null ? (float) $u->home_lng : null,
             'created_at' => $this->iso($u->created_at),
-            'email_verified_at' => $this->iso($u->email_verified_at ?? null),
-            'admin_role' => $u->admin_role ?? null,
+            ...$this->badgeFields($u),
         ];
     }
 
@@ -329,9 +382,14 @@ class SocialController extends ApiController
             ->whereNull('u.deleted_at')
             ->select([
                 'u.id',
+                'u.username',
                 'u.display_name',
                 'u.photo_url',
                 'u.last_seen_at',
+                'u.is_vip',
+                'u.vip_expires_at',
+                'u.vip_badge_label',
+                'u.is_verified',
                 'primary_stats.primary_sport',
                 'primary_stats.primary_elo',
                 'primary_stats.reliability_score',
@@ -349,6 +407,7 @@ class SocialController extends ApiController
     {
         return [
             'id' => $u->id,
+            'username' => $u->username ?? null,
             'display_name' => $u->display_name,
             'photo_url' => $u->photo_url,
             'primary_sport' => $u->primary_sport,
@@ -358,6 +417,7 @@ class SocialController extends ApiController
             'is_followed_by_me' => isset($followedIds[$u->id]),
             'followers_count' => (int) $u->followers_count,
             'last_seen_at' => $this->iso($u->last_seen_at ?? null),
+            ...$this->badgeFields($u),
         ];
     }
 

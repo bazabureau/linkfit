@@ -4,28 +4,18 @@ import React, { useMemo } from "react";
 import {
   CalendarDays,
   CheckCircle2,
-  DollarSign,
+  Wallet,
   Percent,
   RefreshCw,
   XCircle,
   AlertCircle,
-  Building,
+  ArrowUpRight,
   TrendingUp,
-  CreditCard,
   Activity,
   BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Card, CardContent } from "@/components/ui/card";
 import { usePartnerStats, usePartnerBookings } from "@/lib/partner-queries";
 import { formatDateTime, formatShortDate } from "@/lib/date-format";
 import {
@@ -37,28 +27,50 @@ import {
   AreaChart,
   Area,
 } from "recharts";
+import {
+  getBookerName,
+  getBookerEmail,
+  initialsOf,
+  StatusPill,
+} from "./bookings/booking-utils";
 
 const numberFmt = new Intl.NumberFormat("az-AZ");
+const ACCENT = "#C5F235";
 
 type Kpi = {
   label: string;
   value: string | number | undefined;
   icon: React.ComponentType<{ className?: string }>;
   hint?: string;
-  colorClass?: string;
+  tone: string;
+  /** Render the value with the display font (big number look). */
+  big?: boolean;
 };
 
 export default function PartnerOverviewPage(): React.JSX.Element {
-  const { data: statsData, isLoading: statsLoading, isError: statsError, refetch: refetchStats, isFetching: statsFetching } = usePartnerStats();
-  const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = usePartnerBookings({ limit: 100 });
+  const {
+    data: statsData,
+    isLoading: statsLoading,
+    isError: statsError,
+    refetch: refetchStats,
+    isFetching: statsFetching,
+  } = usePartnerStats();
+  const {
+    data: bookingsData,
+    isLoading: bookingsLoading,
+    refetch: refetchBookings,
+  } = usePartnerBookings({ limit: 100 });
 
   const bookings = useMemo(() => bookingsData?.results ?? [], [bookingsData]);
-  const paidBookings = useMemo(() => bookings.filter((b) => b.status === "paid"), [bookings]);
+  const paidBookings = useMemo(
+    () => bookings.filter((b) => b.status === "paid"),
+    [bookings],
+  );
 
   // Aggregate daily, weekly, monthly revenue dynamically
   const revenueStats = useMemo(() => {
     const todayStr = new Date().toDateString();
-    
+
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -87,7 +99,7 @@ export default function PartnerOverviewPage(): React.JSX.Element {
   // Dynamic Chart Data for the last 7 days of revenue
   const chartData = useMemo(() => {
     const dataMap: Record<string, number> = {};
-    
+
     // Initialize past 7 days with zero values
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
@@ -107,59 +119,67 @@ export default function PartnerOverviewPage(): React.JSX.Element {
 
     return Object.entries(dataMap).map(([day, amount]) => ({
       day,
-      "Gəlir (AZN)": parseFloat(amount.toFixed(2)),
+      revenue: parseFloat(amount.toFixed(2)),
     }));
   }, [paidBookings]);
 
-  const recentTransactions = useMemo(() => {
-    return bookings.slice(0, 5);
-  }, [bookings]);
+  const peakRevenue = useMemo(
+    () => Math.max(0, ...chartData.map((d) => d.revenue)),
+    [chartData],
+  );
 
-  const overallRevenue = statsData ? (statsData.total_revenue_minor / 100).toFixed(2) : "0.00";
+  const recentTransactions = useMemo(() => bookings.slice(0, 6), [bookings]);
+
+  const overallRevenue = statsData
+    ? ((statsData.total_revenue_minor ?? 0) / 100).toFixed(2)
+    : "0.00";
   const currencySymbol = statsData?.currency || "AZN";
 
   const kpis: Kpi[] = [
     {
       label: "Ümumi Gəlir",
       value: statsData ? `${overallRevenue} ${currencySymbol}` : undefined,
-      icon: DollarSign,
+      icon: Wallet,
       hint: "Uğurlu ödənişlərin cəmi",
-      colorClass: "bg-emerald-500/10 text-emerald-500",
+      tone: "bg-accent/12 text-accent",
+      big: true,
     },
     {
       label: "Doluluq Nisbəti",
-      value: statsData ? `${statsData.occupancy_rate}%` : undefined,
+      value: statsData ? `${statsData.occupancy_rate ?? 0}%` : undefined,
       icon: Percent,
       hint: "Məkanın ümumi doluluq faizi",
-      colorClass: "bg-blue-500/10 text-blue-500",
+      tone: "bg-info/12 text-info",
+      big: true,
     },
     {
       label: "Cəmi Rezervasiyalar",
       value: statsData?.total_bookings,
       icon: CalendarDays,
-      hint: "Məkan üzrə yaradılmış cəmi slot sayı",
-      colorClass: "bg-accent/10 text-accent",
+      hint: "Yaradılmış cəmi slot sayı",
+      tone: "bg-accent/12 text-accent",
+      big: true,
     },
     {
       label: "Ödənilmiş Sifarişlər",
       value: statsData?.paid_bookings,
       icon: CheckCircle2,
       hint: "Tam ödənişi tamamlanmış slotlar",
-      colorClass: "bg-emerald-500/10 text-emerald-500",
+      tone: "bg-accent/12 text-accent",
     },
     {
       label: "Ödəniş Gözləyənlər",
       value: statsData?.pending_bookings,
       icon: AlertCircle,
       hint: "Təsdiq və ya ödəniş gözləyən slotlar",
-      colorClass: "bg-amber-500/10 text-amber-500",
+      tone: "bg-warning/12 text-warning",
     },
     {
       label: "Ləğv Edilmiş Sifarişlər",
       value: statsData?.cancelled_bookings,
       icon: XCircle,
       hint: "İmtina və ya ləğv edilmiş slotlar",
-      colorClass: "bg-rose-500/10 text-rose-500",
+      tone: "bg-danger/12 text-danger",
     },
   ];
 
@@ -170,15 +190,35 @@ export default function PartnerOverviewPage(): React.JSX.Element {
 
   const isAnyLoading = statsLoading || bookingsLoading;
 
+  const periods = [
+    {
+      label: "Bugünkü Gəlir",
+      hint: "Son 24 saat ərzində",
+      value: revenueStats.daily,
+    },
+    {
+      label: "Həftəlik Gəlir",
+      hint: "Son 7 gün ərzində",
+      value: revenueStats.weekly,
+    },
+    {
+      label: "Aylıq Gəlir",
+      hint: "Son 30 gün ərzində",
+      value: revenueStats.monthly,
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      <header className="flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Məkan İdarəetmə Paneli
+      {/* ─── Header ──────────────────────────────────────────────────────── */}
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-1.5">
+          <h1 className="font-display text-[1.6rem] font-bold leading-tight  text-foreground">
+            İdarəetmə Paneli
           </h1>
-          <p className="text-sm text-foregroundMuted">
-            Məkanınızın ümumi fəaliyyəti, saatlıq doluluq dərəcəsi və gəlir statistikası.
+          <p className="max-w-xl text-sm leading-relaxed text-foregroundMuted">
+            Məkanınızın ümumi fəaliyyəti, doluluq dərəcəsi və gəlir
+            statistikasına ümumi baxış.
           </p>
         </div>
         <Button
@@ -186,53 +226,68 @@ export default function PartnerOverviewPage(): React.JSX.Element {
           size="sm"
           onClick={handleRefresh}
           disabled={statsFetching}
+          className="gap-1.5 self-start sm:self-auto"
         >
           <RefreshCw
-            className={`mr-2 h-4 w-4 ${statsFetching ? "animate-spin" : ""}`}
+            className={`h-4 w-4 ${statsFetching ? "animate-spin" : ""}`}
           />
           Yenilə
         </Button>
       </header>
 
+      {/* ─── Error banner ────────────────────────────────────────────────── */}
       {statsError ? (
-        <Card className="border-danger/40 bg-danger/10">
-          <CardContent className="flex items-center justify-between gap-4 p-6">
-            <div className="flex items-center gap-3">
-              <XCircle className="h-5 w-5 text-danger" />
-              <div>
-                <p className="font-medium text-foreground">
-                  Göstəriciləri yükləmək mümkün olmadı
-                </p>
-                <p className="text-sm text-foregroundMuted">
-                  Şəbəkə bağlantınızı yoxlayın və yenidən cəhd edin.
-                </p>
-              </div>
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-danger/30 bg-danger/[0.07] p-5">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-danger/15 text-danger">
+              <XCircle className="h-5 w-5" />
             </div>
-            <Button variant="secondary" size="sm" onClick={handleRefresh}>
-              Yenidən Cəhd Et
-            </Button>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="font-semibold text-foreground">
+                Göstəriciləri yükləmək mümkün olmadı
+              </p>
+              <p className="text-sm text-foregroundMuted">
+                Şəbəkə bağlantınızı yoxlayın və yenidən cəhd edin.
+              </p>
+            </div>
+          </div>
+          <Button variant="secondary" size="sm" onClick={handleRefresh}>
+            Yenidən Cəhd Et
+          </Button>
+        </div>
       ) : null}
 
-      {/* KPI Section */}
+      {/* ─── KPI Stat Grid ───────────────────────────────────────────────── */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {kpis.map((k) => (
-          <Card key={k.label}>
-            <CardContent className="flex flex-col gap-3 p-6">
+          <Card
+            key={k.label}
+            className="group relative overflow-hidden transition-premium hover:border-borderStrong hover:shadow-lift"
+          >
+            <CardContent className="flex flex-col gap-3 p-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium uppercase tracking-wide text-foregroundMuted">
+                <span className="text-[10px] font-bold   text-foregroundMuted">
                   {k.label}
                 </span>
-                <span className={`rounded-md p-1.5 ${k.colorClass || "bg-accent/10 text-accent"}`}>
-                  <k.icon className="h-4 w-4" />
+                <span
+                  className={`grid h-9 w-9 place-items-center rounded-xl ${k.tone}`}
+                >
+                  <k.icon className="h-[1.1rem] w-[1.1rem]" />
                 </span>
               </div>
               {isAnyLoading ? (
-                <div className="h-9 w-24 animate-pulse rounded-md bg-surfaceElevated" />
+                <div className="h-9 w-28 animate-pulse rounded-lg bg-surfaceElevated" />
               ) : (
-                <div className="text-3xl font-semibold tabular-nums text-foreground">
-                  {typeof k.value === "number" ? numberFmt.format(k.value) : k.value ?? "0"}
+                <div
+                  className={`text-foreground tabular-nums ${
+                    k.big
+                      ? "font-display text-3xl font-bold "
+                      : "font-display text-3xl font-bold "
+                  }`}
+                >
+                  {typeof k.value === "number"
+                    ? numberFmt.format(k.value)
+                    : k.value ?? "0"}
                 </div>
               )}
               {k.hint ? (
@@ -243,206 +298,282 @@ export default function PartnerOverviewPage(): React.JSX.Element {
         ))}
       </section>
 
-      {/* Advanced Revenue Statistics Breakdown */}
-      <section className="grid gap-6 md:grid-cols-3">
-        {/* Dynamic Periodical Revenue Card */}
-        <Card className="border border-border bg-surface md:col-span-1">
-          <CardHeader className="p-6 pb-4">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-emerald-400" />
-              Dövrlər Üzrə Gəlir
-            </CardTitle>
-            <CardDescription>
-              Fərqli zaman intervalları üzrə xalis gəlir.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-6 pt-0 space-y-4">
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-surfaceElevated/50 border border-border">
-              <div className="space-y-0.5">
-                <span className="text-xs text-foregroundMuted font-medium">Bugünkü Gəlir</span>
-                <p className="text-xs text-foregroundMuted italic">Son 24 saat ərzində</p>
-              </div>
-              <div className="text-right">
-                <span className="text-lg font-bold text-emerald-400 tabular-nums">
-                  {revenueStats.daily} {currencySymbol}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-surfaceElevated/50 border border-border">
-              <div className="space-y-0.5">
-                <span className="text-xs text-foregroundMuted font-medium">Həftəlik Gəlir</span>
-                <p className="text-xs text-foregroundMuted italic">Son 7 gün ərzində</p>
-              </div>
-              <div className="text-right">
-                <span className="text-lg font-bold text-emerald-400 tabular-nums">
-                  {revenueStats.weekly} {currencySymbol}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-surfaceElevated/50 border border-border">
-              <div className="space-y-0.5">
-                <span className="text-xs text-foregroundMuted font-medium">Aylıq Gəlir</span>
-                <p className="text-xs text-foregroundMuted italic">Son 30 gün ərzində</p>
-              </div>
-              <div className="text-right">
-                <span className="text-lg font-bold text-emerald-400 tabular-nums">
-                  {revenueStats.monthly} {currencySymbol}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Dynamic Recharts Chart */}
-        <Card className="border border-border bg-surface md:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-accent" />
-              Son 7 Günün Gəlir Qrafiki
-            </CardTitle>
-            <CardDescription>
-              Uğurlu ödənişlər əsasında formalaşan gündəlik gəlir axını.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="h-[230px] w-full pr-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="day" stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} />
-                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#1e293b", borderColor: "#334155", color: "#f8fafc" }}
-                  labelStyle={{ fontWeight: "bold" }}
-                />
-                <Area type="monotone" dataKey="Gəlir (AZN)" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Transaction History & Recent Bookings Table */}
-      <Card className="border border-border bg-surface overflow-hidden">
-        <CardHeader className="border-b border-border bg-surfaceElevated/10">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <CreditCard className="h-4 w-4 text-accent" />
-            Son Əməliyyatlar və Sifariş Tarixçəsi
-          </CardTitle>
-          <CardDescription>
-            Məkanınız üzrə edilən son 5 rezervasiya və onların ödəniş statusları.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          {recentTransactions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-accent/10">
-                <Activity className="h-5 w-5 text-accent" />
-              </div>
+      {/* ─── Revenue: periods + chart ────────────────────────────────────── */}
+      <section className="grid gap-4 lg:grid-cols-3">
+        {/* Periodical Revenue */}
+        <Card className="p-0 lg:col-span-1">
+          <div className="border-b border-border px-5 py-4">
+            <div className="flex items-center gap-2">
+              <span className="grid h-7 w-7 place-items-center rounded-lg bg-accent/12 text-accent">
+                <TrendingUp className="h-4 w-4" />
+              </span>
               <div>
-                <h3 className="text-sm font-semibold text-foreground">Sifariş Tapılmadı</h3>
-                <p className="text-xs text-foregroundMuted">
-                  Məkanınızda hələ heç bir rezervasiya qeydə alınmayıb.
+                <h2 className="text-sm font-semibold text-foreground">
+                  Dövrlər Üzrə Gəlir
+                </h2>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-2.5 p-5">
+            {periods.map((p) => (
+              <div
+                key={p.label}
+                className="flex items-center justify-between rounded-xl border border-border bg-surfaceElevated/40 px-4 py-3"
+              >
+                <div>
+                  <p className="text-xs font-semibold text-foreground">
+                    {p.label}
+                  </p>
+                  <p className="text-[11px] text-foregroundMuted">{p.hint}</p>
+                </div>
+                {isAnyLoading ? (
+                  <div className="h-6 w-20 animate-pulse rounded bg-surfaceElevated" />
+                ) : (
+                  <span className="font-display text-base font-bold tabular-nums text-accent">
+                    {p.value}{" "}
+                    <span className="text-xs font-semibold text-foregroundMuted">
+                      {currencySymbol}
+                    </span>
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Revenue Chart */}
+        <Card className="p-0 lg:col-span-2">
+          <div className="flex items-center justify-between border-b border-border px-5 py-4">
+            <div className="flex items-center gap-2">
+              <span className="grid h-7 w-7 place-items-center rounded-lg bg-accent/12 text-accent">
+                <BarChart3 className="h-4 w-4" />
+              </span>
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">
+                  Son 7 Günün Gəlir Qrafiki
+                </h2>
+                <p className="text-[11px] text-foregroundMuted">
+                  Uğurlu ödənişlər əsasında gündəlik gəlir axını
                 </p>
               </div>
             </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-6">Müştəri</TableHead>
-                  <TableHead>Kort</TableHead>
-                  <TableHead>Sifariş Vaxtı</TableHead>
-                  <TableHead>Müddət</TableHead>
-                  <TableHead>Məbləğ</TableHead>
-                  <TableHead className="pr-6 text-right">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            {peakRevenue > 0 ? (
+              <div className="hidden text-right sm:block">
+                <p className="text-[10px] font-bold   text-foregroundMuted">
+                  Pik
+                </p>
+                <p className="font-display text-sm font-bold tabular-nums text-foreground">
+                  {peakRevenue.toFixed(0)} {currencySymbol}
+                </p>
+              </div>
+            ) : null}
+          </div>
+          <div className="h-[240px] w-full px-2 py-4 pr-4">
+            {isAnyLoading ? (
+              <div className="flex h-full items-end gap-2 px-4 pb-6">
+                {Array.from({ length: 7 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 animate-pulse rounded-t-md bg-surfaceElevated"
+                    style={{ height: `${30 + ((i * 37) % 60)}%` }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={chartData}
+                  margin={{ top: 10, right: 8, left: -18, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={ACCENT} stopOpacity={0.28} />
+                      <stop offset="95%" stopColor={ACCENT} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="rgba(255,255,255,0.05)"
+                  />
+                  <XAxis
+                    dataKey="day"
+                    stroke="rgba(156,166,184,0.5)"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    stroke="rgba(156,166,184,0.5)"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip
+                    cursor={{ stroke: "rgba(197,242,53,0.25)", strokeWidth: 1 }}
+                    contentStyle={{
+                      backgroundColor: "#1E2530",
+                      borderColor: "#33404F",
+                      borderRadius: 12,
+                      color: "#E6EAF2",
+                      fontSize: 12,
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+                    }}
+                    labelStyle={{ fontWeight: 700, color: "#9CA6B8" }}
+                    formatter={(value: number) => [
+                      `${value.toFixed(2)} ${currencySymbol}`,
+                      "Gəlir",
+                    ]}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke={ACCENT}
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#revFill)"
+                    dot={{ r: 0 }}
+                    activeDot={{
+                      r: 4,
+                      fill: ACCENT,
+                      stroke: "#0A0D12",
+                      strokeWidth: 2,
+                    }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </Card>
+      </section>
+
+      {/* ─── Recent Bookings ─────────────────────────────────────────────── */}
+      <Card className="overflow-hidden p-0">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <div className="flex items-center gap-2">
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-accent/12 text-accent">
+              <Activity className="h-4 w-4" />
+            </span>
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">
+                Son Rezervasiyalar
+              </h2>
+              <p className="text-[11px] text-foregroundMuted">
+                Məkanınız üzrə ən son 6 sifariş və ödəniş statusu
+              </p>
+            </div>
+          </div>
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="gap-1 text-xs font-semibold text-accent hover:bg-accent/10"
+          >
+            <a href="/bookings">
+              Hamısı
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </a>
+          </Button>
+        </div>
+
+        {isAnyLoading ? (
+          <div className="divide-y divide-border">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 px-5 py-3.5">
+                <div className="h-9 w-9 animate-pulse rounded-lg bg-surfaceElevated" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3.5 w-32 animate-pulse rounded bg-surfaceElevated" />
+                  <div className="h-2.5 w-44 animate-pulse rounded bg-surfaceElevated/70" />
+                </div>
+                <div className="h-6 w-20 animate-pulse rounded-full bg-surfaceElevated" />
+              </div>
+            ))}
+          </div>
+        ) : recentTransactions.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-accent/10">
+              <Activity className="h-5 w-5 text-accent" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">
+                Sifariş Tapılmadı
+              </h3>
+              <p className="text-xs text-foregroundMuted">
+                Məkanınızda hələ heç bir rezervasiya qeydə alınmayıb.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] border-collapse text-left">
+              <thead>
+                <tr className="border-b border-border">
+                  {["Müştəri", "Kort", "Sifariş Vaxtı", "Müddət"].map((h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-3 text-left text-[10px] font-bold   text-foregroundMuted first:pl-5"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                  <th className="px-4 py-3 text-right text-[10px] font-bold   text-foregroundMuted">
+                    Məbləğ
+                  </th>
+                  <th className="px-4 py-3 pr-5 text-right text-[10px] font-bold   text-foregroundMuted">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
                 {recentTransactions.map((booking) => {
-                  const localStart = formatDateTime(booking.starts_at);
-                  const price = (booking.total_minor / 100).toFixed(2);
-
-                  let badgeVariant: "success" | "warning" | "danger" | "neutral" = "neutral";
-                  let statusLabel: string = booking.status;
-                  if (booking.status === "paid") {
-                    badgeVariant = "success";
-                    statusLabel = "Ödənilib";
-                  } else if (booking.status === "pending_payment") {
-                    badgeVariant = "warning";
-                    statusLabel = "Ödəniş Gözləyir";
-                  } else if (booking.status === "partially_paid") {
-                    badgeVariant = "warning";
-                    statusLabel = "Qismən Ödənilib";
-                  } else if (booking.status === "cancelled") {
-                    badgeVariant = "danger";
-                    statusLabel = "Ləğv edilib";
-                  } else if (booking.status === "refunded") {
-                    badgeVariant = "neutral";
-                    statusLabel = "Geri qaytarılıb";
-                  } else if (booking.status === "failed") {
-                    badgeVariant = "danger";
-                    statusLabel = "Uğursuz";
-                  }
-
+                  const name = getBookerName(booking);
                   return (
-                    <TableRow key={booking.id} className="hover:bg-surfaceElevated/5">
-                      <TableCell className="pl-6">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-foreground text-sm">
-                            {booking.booker_display_name}
-                          </span>
-                          <span className="text-[11px] text-foregroundMuted">
-                            {booking.booker_email}
-                          </span>
+                    <tr
+                      key={booking.id}
+                      className="border-b border-border transition-colors last:border-b-0 hover:bg-surfaceElevated/40"
+                    >
+                      <td className="py-3 pl-5 pr-4">
+                        <div className="flex items-center gap-3">
+                          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent/10 font-display text-[11px] font-bold text-accent">
+                            {initialsOf(name)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-foreground">
+                              {name}
+                            </p>
+                            <p className="truncate text-[11px] text-foregroundMuted">
+                              {getBookerEmail(booking) || "—"}
+                            </p>
+                          </div>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-semibold text-accent text-sm">
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm font-semibold text-accent">
                           {booking.court_name}
                         </span>
-                      </TableCell>
-                      <TableCell className="font-medium text-foreground text-sm">
-                        {localStart}
-                      </TableCell>
-                      <TableCell className="text-foregroundMuted text-sm">
-                        {booking.duration_minutes} dəqiqə
-                      </TableCell>
-                      <TableCell className="font-bold text-foreground text-sm">
-                        {price} {booking.currency}
-                      </TableCell>
-                      <TableCell className="pr-6 text-right">
-                        <Badge variant={badgeVariant} className="text-xs">
-                          {statusLabel}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium tabular-nums text-foreground">
+                        {formatDateTime(booking.starts_at)}
+                      </td>
+                      <td className="px-4 py-3 text-sm tabular-nums text-foregroundMuted">
+                        {booking.duration_minutes} dəq
+                      </td>
+                      <td className="px-4 py-3 text-right font-display text-sm font-bold tabular-nums text-foreground">
+                        {(booking.total_minor / 100).toFixed(2)}{" "}
+                        <span className="text-xs font-semibold text-foregroundMuted">
+                          {booking.currency}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 pr-5 text-right">
+                        <StatusPill status={booking.status} />
+                      </td>
+                    </tr>
                   );
                 })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Localized Welcome Card */}
-      <Card className="border border-border bg-surface p-6 flex flex-col md:flex-row items-center gap-6">
-        <div className="p-4 rounded-2xl bg-accent/10 text-accent">
-          <Building className="h-10 w-10" />
-        </div>
-        <div className="space-y-1 text-center md:text-left flex-1">
-          <h3 className="text-lg font-bold text-foreground">Linkfit Tərəfdaş Portalına Xoş Gəlmisiniz!</h3>
-          <p className="text-sm text-foregroundMuted">
-            Buradan kortlarınızın doluluq qrafiklərini izləyə bilər, yeni saatlıq meydança tariflərini təyin edə bilər və walk-in yerində sifarişləri birbaşa təqvimlə inteqrasiya edərək idarə edə bilərsiniz. Yardıma ehtiyacınız olarsa, sol menyudan Ayarlar və Dəstək bölməsinə keçin.
-          </p>
-        </div>
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
     </div>
   );

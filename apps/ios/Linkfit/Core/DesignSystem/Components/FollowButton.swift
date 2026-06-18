@@ -5,12 +5,9 @@ import SwiftUI
 /// - Filled accent "Follow" when `isFollowing == false`.
 /// - Outlined "Following" when `isFollowing == true`.
 ///
-/// The button drives optimistic UI: it flips its visual state immediately on
-/// tap, runs `action` (which is expected to perform the network round-trip),
-/// and reverts the visual state if `action` throws. The caller owns the
-/// authoritative `isFollowing` binding, so when the round-trip ultimately
-/// succeeds the caller updates the source of truth and this view stays in
-/// sync.
+/// The caller owns optimistic state and rollback. This button only handles
+/// presentation, haptics, and a local loading affordance so follow state has
+/// one source of truth.
 struct FollowButton: View {
     /// Authoritative follow state, owned by the caller.
     @Binding var isFollowing: Bool
@@ -23,7 +20,7 @@ struct FollowButton: View {
     }
     var size: Size = .compact
 
-    /// Async action invoked after the optimistic flip. If it throws we revert.
+    /// Async action invoked with the desired next value.
     var action: (_ newValue: Bool) async throws -> Void
 
     @State private var isLoading: Bool = false
@@ -91,11 +88,7 @@ struct FollowButton: View {
 
     private func tap() {
         Haptics.soft()   // gentle social-toggle tick (light tier of the ladder)
-        // Optimistic flip — the caller's binding is updated immediately so the
-        // entire UI (badge counts, etc.) can react in step with the button.
-        let previous = isFollowing
-        let next = !previous
-        isFollowing = next
+        let next = !isFollowing
         isLoading = true
 
         Task { @MainActor in
@@ -103,9 +96,7 @@ struct FollowButton: View {
             do {
                 try await action(next)
             } catch {
-                // Revert on failure. The caller owns showing a toast / error
-                // surface; we just put the button back to its prior state.
-                isFollowing = previous
+                ToastCenter.shared.error(String(localized: "profile.follow.failed"))
             }
         }
     }

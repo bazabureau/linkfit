@@ -73,22 +73,13 @@ export default function LoginPage(): React.JSX.Element {
             className="absolute inset-0 h-full w-full object-cover"
           />
           <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(4,10,18,0.82),rgba(4,10,18,0.38)_58%,rgba(4,10,18,0.08))]" />
-          <div className="relative flex h-full flex-col justify-between p-12">
-            <Image
-              src={`${ADMIN_BASE_PATH}/brand/logolinkfit.png`}
-              alt="Linkfit"
-              width={260}
-              height={36}
-              priority
-              unoptimized
-              className="h-9 w-auto object-contain"
-            />
+          <div className="relative flex h-full flex-col justify-end p-12">
             <div className="max-w-xl pb-8 text-white">
               <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm backdrop-blur">
                 <ShieldCheck className="h-4 w-4 text-[#b7f233]" />
                 {t("Admin panel")}
               </div>
-              <h1 className="text-5xl font-semibold leading-[1.02] tracking-normal">
+              <h1 className="text-5xl font-semibold leading-[1.02] ">
                 Platforma nəzarəti bir yerdə.
               </h1>
               <p className="mt-5 max-w-md text-base leading-7 text-white/78">
@@ -114,10 +105,10 @@ export default function LoginPage(): React.JSX.Element {
             </div>
 
             <div className="mb-8">
-              <p className="mb-3 text-sm font-semibold uppercase text-[#6b7280]">
+              <p className="mb-3 text-sm font-semibold  text-[#6b7280]">
                 {t("Admin panel")}
               </p>
-              <h2 className="text-4xl font-semibold leading-tight tracking-normal text-[#0f172a]">
+              <h2 className="text-4xl font-semibold leading-tight  text-[#0f172a]">
                 {t("Sign in")}
               </h2>
               <p className="mt-3 text-base leading-7 text-[#5f6b7a]">

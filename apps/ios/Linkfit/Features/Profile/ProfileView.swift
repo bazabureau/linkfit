@@ -39,44 +39,15 @@ struct ProfileView: View {
 
     var body: some View {
         ZStack {
-            // Pure white minimal background
             DSColor.background.ignoresSafeArea()
-            
-            // Soft top brand glow
-            RadialGradient(
-                colors: [DSColor.accent.opacity(0.04), Color.clear],
-                center: .topTrailing,
-                startRadius: 10,
-                endRadius: 360
-            )
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
-            
             content
         }
-        .navigationTitle(Text("tab.profile"))
+        .navigationTitle(viewModel.isMe ? Text("") : Text("tab.profile"))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(viewModel.isMe ? .hidden : .visible, for: .navigationBar)
         .toolbar {
-            ToolbarItemGroup(placement: .navigationBarTrailing) {
-                Button {
-                    UISelectionFeedbackGenerator().selectionChanged()
-                    showShare = true
-                } label: {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 16, weight: .semibold))
-                }
-                .accessibilityLabel(Text("profile.action.share"))
-
-                if viewModel.isMe {
-                    Button {
-                        UISelectionFeedbackGenerator().selectionChanged()
-                        showEdit = true
-                    } label: {
-                        Image(systemName: "pencil")
-                            .font(.system(size: 16, weight: .semibold))
-                    }
-                    .accessibilityLabel(Text("profile.edit"))
-                } else {
+            if !viewModel.isMe {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Menu {
                         if viewModel.isFollowing {
                             Button {
@@ -332,6 +303,10 @@ struct ProfileView: View {
     private func profileContent(_ profile: PublicProfile) -> some View {
         ScrollView {
             VStack(spacing: DSSpacing.lg) {
+                if viewModel.isMe {
+                    profileRootHeader
+                }
+
                 // Minimal Hero Header Block
                 heroBlock(profile)
                 
@@ -350,6 +325,49 @@ struct ProfileView: View {
         .safeAreaPadding(.bottom, 40)
         .scrollIndicators(.hidden)
         .refreshable { await viewModel.load() }
+    }
+
+    private var profileRootHeader: some View {
+        HStack(alignment: .center, spacing: 14) {
+            Text("tab.profile")
+                .font(.system(size: 34, weight: .heavy))
+                .foregroundStyle(DSColor.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+
+            Spacer(minLength: 12)
+
+            HStack(spacing: 10) {
+                profileCircleButton(icon: "square.and.arrow.up",
+                                    label: "profile.action.share") {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    showShare = true
+                }
+
+                profileCircleButton(icon: "pencil",
+                                    label: "profile.edit") {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    showEdit = true
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func profileCircleButton(icon: String,
+                                     label: LocalizedStringKey,
+                                     action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 19, weight: .semibold))
+                .foregroundStyle(DSColor.accent)
+                .frame(width: 46, height: 46)
+                .background(Circle().fill(DSColor.surfaceElevated))
+                .overlay(Circle().strokeBorder(DSColor.border, lineWidth: 1))
+                .contentShape(Circle())
+        }
+        .buttonStyle(SpringPressStyle())
+        .accessibilityLabel(Text(label))
     }
 
     // MARK: - Hero Block
@@ -485,13 +503,20 @@ struct ProfileView: View {
         }()
         return HStack(spacing: 12) {
             Button {
+                guard !viewModel.isFollowPending else { return }
                 UISelectionFeedbackGenerator().selectionChanged()
                 // Follow + unfollow are both instant toggles — no confirmation.
                 Task { await viewModel.toggleFollow() }
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: viewModel.isFollowing ? "checkmark" : "plus")
-                        .font(.system(size: 12, weight: .black))
+                    if viewModel.isFollowPending {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(viewModel.isFollowing ? DSColor.textPrimary : DSColor.textOnAccent)
+                    } else {
+                        Image(systemName: viewModel.isFollowing ? "checkmark" : "plus")
+                            .font(.system(size: 12, weight: .black))
+                    }
                     Text(followTitleKey)
                         .font(.system(size: 13, weight: .black))
                 }
@@ -506,6 +531,7 @@ struct ProfileView: View {
                 )
             }
             .buttonStyle(BounceButtonStyle())
+            .disabled(viewModel.isFollowPending)
             
             Button {
                 UISelectionFeedbackGenerator().selectionChanged()
@@ -594,7 +620,7 @@ struct ProfileView: View {
             RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
                 .strokeBorder(DSColor.border, lineWidth: 1)
         )
-        .shadow(color: Color.black.opacity(0.015), radius: 6, y: 3)
+        .shadow(color: DSColor.inkSurface.opacity(0.015), radius: 6, y: 3)
     }
 
     private var dividerLine: some View {
@@ -629,7 +655,7 @@ struct ProfileView: View {
             }
             .background(RoundedRectangle(cornerRadius: DSRadius.xl).fill(DSColor.surface))
             .overlay(RoundedRectangle(cornerRadius: DSRadius.xl).strokeBorder(DSColor.border, lineWidth: 1))
-            .shadow(color: Color.black.opacity(0.015), radius: 6, y: 3)
+            .shadow(color: DSColor.inkSurface.opacity(0.015), radius: 6, y: 3)
         }
     }
 
@@ -649,7 +675,7 @@ struct ProfileView: View {
             }
             .background(RoundedRectangle(cornerRadius: DSRadius.xl).fill(DSColor.surface))
             .overlay(RoundedRectangle(cornerRadius: DSRadius.xl).strokeBorder(DSColor.border, lineWidth: 1))
-            .shadow(color: Color.black.opacity(0.015), radius: 6, y: 3)
+            .shadow(color: DSColor.inkSurface.opacity(0.015), radius: 6, y: 3)
         }
         .navigationDestination(isPresented: $showSettings) {
             SettingsView()
@@ -761,7 +787,7 @@ struct ProfileView: View {
             }
         }
         .frame(width: size, height: size)
-        .shadow(color: Color.black.opacity(0.03), radius: 8, y: 4)
+        .shadow(color: DSColor.inkSurface.opacity(0.03), radius: 8, y: 4)
         .accessibilityHidden(true)
     }
 

@@ -63,5 +63,5 @@ struct LogoWordmark: View {
         LogoWordmark(size: .xl)
     }
     .padding()
-    .background(Color.black)
+    .background(DSColor.background)
 }

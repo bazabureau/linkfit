@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Spatie\Health\Checks\Checks\CacheCheck;
 use Spatie\Health\Checks\Checks\DatabaseCheck;
@@ -44,5 +47,18 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Health::checks($checks);
+
+        // Global API rate limit. Keyed by JWT session (per-token) when present so
+        // many users behind one carrier/NAT IP don't share a bucket; anonymous
+        // traffic falls back to the real client IP (Cloudflare-resolved). The
+        // limit is generous — it only catches scraping/abuse, not normal use.
+        RateLimiter::for('api', function (Request $request) {
+            $token = $request->bearerToken();
+            $key = $token
+                ? 'tok:'.sha1($token)
+                : 'ip:'.($request->header('CF-Connecting-IP') ?: $request->ip());
+
+            return Limit::perMinute((int) env('API_RATE_LIMIT_PER_MINUTE', 600))->by($key);
+        });
     }
 }

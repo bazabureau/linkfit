@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<title>LinkFit — Kortlardan Gəlir</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap');
+  :root {
+    --accent: #5662D9; --accent-deep: #3F4AC0; --lime: #C5F235; --ink: #0A0D12;
+    --canvas: #F3F5FA; --text: #0B1020; --muted: #4D5478; --dim: #868EB2;
+    --border: #E7EAF3; --border-strong: #D6DCEC; --success: #10B981;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  @page { size: A4; margin: 18mm 16mm; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: 'Onest', system-ui, -apple-system, sans-serif; color: var(--text); font-size: 11pt; line-height: 1.55; }
+  h1, h2, h3 { font-family: 'Unbounded', 'Onest', sans-serif; letter-spacing: -0.01em; }
+
+  .cover { position: relative; height: 252mm; background: var(--ink); color: #fff; border-radius: 22px; overflow: hidden;
+    padding: 26mm 22mm; display: flex; flex-direction: column; justify-content: space-between; page-break-after: always; }
+  .cover::before { content: ""; position: absolute; inset: 0;
+    background: radial-gradient(720px 420px at 88% -8%, rgba(86,98,217,.38), transparent 60%),
+                radial-gradient(560px 420px at -6% 108%, rgba(197,242,53,.12), transparent 55%); }
+  .cover-top, .cover-mid, .cover-bottom { position: relative; }
+  .cover-logo { height: 30px; width: auto; }
+  .cover-kicker { color: var(--lime); font-weight: 700; font-size: 11pt; }
+  .cover-title { font-size: 40pt; font-weight: 800; line-height: 1.04; margin-top: 14px; }
+  .cover-sub { color: rgba(255,255,255,.74); font-size: 13pt; margin-top: 16px; max-width: 130mm; line-height: 1.5; }
+  .cover-bottom { display: flex; justify-content: space-between; align-items: flex-end; color: rgba(255,255,255,.6); font-size: 9.5pt; }
+  .cover-bottom strong { color: #fff; font-weight: 600; }
+  .pill-row { display: flex; gap: 8px; margin-top: 22px; flex-wrap: wrap; }
+  .pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 999px; padding: 6px 13px; font-size: 9.5pt; color: rgba(255,255,255,.9); }
+
+  section { page-break-inside: avoid; margin-bottom: 22px; }
+  .sec-num { color: var(--accent); font-weight: 700; font-size: 10pt; }
+  h2 { font-size: 18pt; font-weight: 800; margin: 4px 0 10px; }
+  h3 { font-size: 12.5pt; font-weight: 700; margin: 14px 0 6px; }
+  p { margin-bottom: 8px; color: #20263c; }
+  .lead { font-size: 11.5pt; color: var(--muted); }
+  ul { margin: 6px 0 8px 0; padding-left: 0; list-style: none; }
+  li { margin-bottom: 6px; padding-left: 20px; position: relative; color: #20263c; }
+  li::before { content: ""; position: absolute; left: 4px; top: 8px; width: 6px; height: 6px; border-radius: 2px; background: var(--lime); }
+  strong { color: var(--text); font-weight: 700; }
+  .divider { height: 3px; width: 46px; background: var(--accent); border-radius: 2px; margin-bottom: 4px; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .card { border: 1px solid var(--border); background: #fff; border-radius: 16px; padding: 14px 15px; page-break-inside: avoid; }
+  .card .tag { display: inline-block; background: var(--accent); color: #fff; font-size: 8.5pt; font-weight: 700; border-radius: 999px; padding: 3px 10px; }
+  .card .tag.lime { background: var(--lime); color: var(--ink); }
+  .card h4 { font-family: 'Onest'; font-size: 11.5pt; font-weight: 700; margin: 9px 0 4px; }
+  .card p { font-size: 9.5pt; color: var(--muted); margin: 0; line-height: 1.45; }
+  .card .hl { font-size: 9pt; color: var(--accent-deep); font-weight: 600; margin-top: 7px; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 9.5pt; }
+  th { background: var(--canvas); text-align: left; padding: 8px 10px; font-weight: 700; border-bottom: 2px solid var(--border-strong); }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); color: #20263c; }
+  tr:nth-child(even) td { background: #fafbfe; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .callout { background: var(--canvas); border-left: 3px solid var(--accent); border-radius: 0 12px 12px 0; padding: 12px 16px; margin: 10px 0; }
+  .callout p { margin: 0; font-size: 10pt; }
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .note { font-size: 8.5pt; color: var(--dim); font-style: italic; margin-top: 6px; }
+
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .stat { background: var(--ink); color: #fff; border-radius: 16px; padding: 16px; }
+  .stat .v { font-family: 'Unbounded'; font-size: 22pt; font-weight: 800; color: var(--lime); }
+  .stat .l { font-size: 9pt; color: rgba(255,255,255,.7); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-top"><img class="cover-logo" src="logo-white.png" alt="LinkFit"></div>
+  <div class="cover-mid">
+    <div class="cover-kicker">Kortlardan Gəlir</div>
+    <div class="cover-title">Boş kortu<br>pula çevirmək</div>
+    <div class="cover-sub">Kort rezervasiyasından necə qazanırıq: klub idarəetmə abunəliyi (SaaS) + hər rezervasiyadan komissiya + boş slotları doldurmaqdan dəyər.</div>
+    <div class="pill-row">
+      <span class="pill">Rezervasiya komissiyası</span>
+      <span class="pill">Klub SaaS</span>
+      <span class="pill">Boş-slot doldurma</span>
+      <span class="pill">Featured</span>
+    </div>
+  </div>
+  <div class="cover-bottom">
+    <div><strong>LinkFit</strong> · linkfit.az<br>info@linkfit.az</div>
+    <div>v1.0 · 2026<br>Məxfi sənəd</div>
+  </div>
+</div>
+
+<!-- 1 -->
+<section>
+  <div class="divider"></div><div class="sec-num">01</div>
+  <h2>İcmal</h2>
+  <p class="lead">Kortlar platformanın əsas “inventarı”dır. Onlardan iki tamamlayıcı yolla qazanırıq: <strong>klublara idarəetmə abunəliyi (SaaS)</strong> satırıq və <strong>hər onlayn rezervasiyadan komissiya</strong> alırıq.</p>
+  <div class="callout"><p><strong>Əsas məntiq:</strong> Boş duran kort heç nə qazandırmır — bu, klub üçün hər saat itirilmiş gəlirdir. LinkFit həmin boş saatları doldurur: klub əlavə gəlir əldə edir, biz isə bu əlavə gəlirdən kiçik pay alırıq. Hər iki tərəf udur.</p></div>
+</section>
+
+<!-- 2 -->
+<section>
+  <div class="divider"></div><div class="sec-num">02</div>
+  <h2>Kort iqtisadiyyatı</h2>
+  <div class="stat-row">
+    <div class="stat"><div class="v">~40 ₼</div><div class="l">tipik kort saatı</div></div>
+    <div class="stat"><div class="v">40-60%</div><div class="l">orta kort doluluğu (boş qalan hissə = imkan)</div></div>
+    <div class="stat"><div class="v">0 ₼</div><div class="l">boş saatın gətirdiyi gəlir</div></div>
+  </div>
+  <p style="margin-top:12px">Klubun ən böyük problemi — <strong>boş saatlar</strong> (xüsusən səhər/günorta off-peak). Biz tələbi (oyunçuları) bu boş saatlara yönəldirik. Bu, klub üçün “tapılmış pul”dur, ona görə komissiya verməyə razıdır.</p>
+</section>
+
+<!-- 3 -->
+<section>
+  <div class="divider"></div><div class="sec-num">03</div>
+  <h2>Gəlir axınları</h2>
+  <div class="grid2">
+    <div class="card"><span class="tag lime">Əsas</span><h4>1. Rezervasiya komissiyası</h4><p>Hər onlayn kort rezervasiyasından pay — ~5-10% və ya 1-2 ₼/rezervasiya. Həcm artdıqca böyüyür.</p><div class="hl">Yerli ödəniş (Payriff/Epoint) ilə avtomatlaşır</div></div>
+    <div class="card"><span class="tag">Sabit</span><h4>2. Klub SaaS abunəliyi</h4><p>Klub kort cədvəli, rezervasiya və müştəri idarəetməsi üçün aylıq abunə ödəyir. Təkrarlanan, sabit gəlir.</p><div class="hl">~50-200 ₼/ay (kort sayına görə)</div></div>
+    <div class="card"><span class="tag">Yield</span><h4>3. Boş-slot doldurma</h4><p>Off-peak/son-dəqiqə endirimli slotlar — klubun heç vaxt satmayacağı saatlar. Doldururuq, payımızı alırıq.</p><div class="hl">Ən təmiz win-win</div></div>
+    <div class="card"><span class="tag">Reklam</span><h4>4. Featured / tanıtım</h4><p>Klublar axtarışda/xəritədə öndə görünmək üçün ödənişli yerləşdirmə alır.</p><div class="hl">Əlavə marjalı gəlir</div></div>
+    <div class="card"><span class="tag">Etibarlılıq</span><h4>5. No-show / gec ləğv</h4><p>Gəlməmə və gec ləğvdən kiçik haqq — həm gəlir, həm kortun boş qalmasının qarşısını alır.</p><div class="hl">Klub itkisini azaldır</div></div>
+    <div class="card"><span class="tag">Əlavə</span><h4>6. Add-on xidmətlər</h4><p>Avadanlıq icarəsi, top maşını, məşqçi əlavəsi — rezervasiya zamanı komissiya ilə.</p><div class="hl">Hər rezervasiyanın dəyərini artırır</div></div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section>
+  <div class="divider"></div><div class="sec-num">04</div>
+  <h2>Komissiyanı kim ödəyir?</h2>
+  <div class="twocol">
+    <div>
+      <h3>Oyunçu xidmət haqqı</h3>
+      <p>Rezervasiyaya kiçik haqq əlavə olunur (məs. 2 ₼). <strong>Premium oyunçularda pulsuz</strong> → Premium-a keçidi stimullaşdırır.</p>
+    </div>
+    <div>
+      <h3>Klub komissiyası</h3>
+      <p>Klub platforma vasitəsilə gələn rezervasiyadan % verir (Booking.com modeli) — çünki bu, onun üçün <strong>yeni</strong> müştəridir.</p>
+    </div>
+  </div>
+  <p style="margin-top:8px">Praktikada hər ikisinin qarışığı işləyir: kiçik oyunçu haqqı + klubdan komissiya. Klub yalnız <strong>real gətirilmiş</strong> rezervasiyaya görə ödəyir — riski yoxdur.</p>
+</section>
+
+<!-- 5 -->
+<section>
+  <div class="divider"></div><div class="sec-num">05</div>
+  <h2>İllüstrativ hesablama</h2>
+  <p>Bir orta klub üçün (mühafizəkar fərziyyə):</p>
+  <table>
+    <thead><tr><th>Göstərici</th><th class="num">Dəyər</th></tr></thead>
+    <tbody>
+      <tr><td>Kort sayı</td><td class="num">4</td></tr>
+      <tr><td>Aylıq onlayn rezervasiya</td><td class="num">500</td></tr>
+      <tr><td>Komissiya / rezervasiya</td><td class="num">2 ₼</td></tr>
+      <tr><td>Rezervasiya komissiyası (aylıq)</td><td class="num">1 000 ₼</td></tr>
+      <tr><td>SaaS abunəliyi (aylıq)</td><td class="num">120 ₼</td></tr>
+      <tr><td><strong>Bir klubdan aylıq gəlir</strong></td><td class="num"><strong>~1 120 ₼</strong></td></tr>
+    </tbody>
+  </table>
+  <div class="stat-row" style="margin-top:14px">
+    <div class="stat"><div class="v">~1 120 ₼</div><div class="l">1 klub / ay</div></div>
+    <div class="stat"><div class="v">~13 ₼k</div><div class="l">1 klub / il</div></div>
+    <div class="stat"><div class="v">~670 ₼k</div><div class="l">50 klub / il</div></div>
+  </div>
+  <p class="note">Rəqəmlər illüstrativdir; məqsəd böyüklük tərtibini göstərməkdir. Real rəqəmlər doluluq və komissiya dərəcəsindən asılıdır.</p>
+</section>
+
+<!-- 6 -->
+<section>
+  <div class="divider"></div><div class="sec-num">06</div>
+  <h2>Nə indi başlaya bilər?</h2>
+  <table>
+    <thead><tr><th>İndi (ödəniş sistemi olmadan)</th><th>Yerli PSP-dən sonra</th></tr></thead>
+    <tbody>
+      <tr><td>Klub SaaS abunəliyi (bank köçürməsi/nağd)</td><td>Avtomatik rezervasiya komissiyası</td></tr>
+      <tr><td>Rezervasiya idarəetməsi (məkanda ödəniş)</td><td>Onlayn ödənişli rezervasiya + wallet</td></tr>
+      <tr><td>Featured / tanıtım</td><td>Premium “komissiyasız” keçidi</td></tr>
+    </tbody>
+  </table>
+  <div class="callout"><p><strong>Yekun:</strong> SaaS gəliri bu gün başlaya bilər (ödəniş sistemi tələb etmir). Yerli ödəniş qoşulan kimi komissiya açılır və əsas miqyas buradan gəlir — çünki hər rezervasiya gəlir gətirir.</p></div>
+</section>
+
+</body>
+</html>

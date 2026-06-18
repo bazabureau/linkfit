@@ -53,47 +53,57 @@ class TokenService
     public function refresh(string $presentedToken, ?string $userAgent = null): array
     {
         $hashHex = hash('sha256', $presentedToken); // hex digest for bytea compare
-        $row = DB::table('refresh_tokens')
-            ->whereRaw('token_hash = decode(?, \'hex\')', [$hashHex])
-            ->first();
 
-        if ($row === null) {
-            throw ApiException::unauthenticated('Invalid refresh token');
-        }
+        // Serialise concurrent refreshes of the SAME token (a normal pattern
+        // when a client fires several requests on cold-start and each 401s →
+        // refresh). Without the row lock both reads see revoked_at = null and
+        // both rotate, creating two live siblings and later a spurious
+        // family-wide "reuse" logout. lockForUpdate makes the loser block until
+        // the winner commits, then see revoked_at set and 401 cleanly.
+        return DB::transaction(function () use ($hashHex, $userAgent) {
+            $row = DB::table('refresh_tokens')
+                ->whereRaw('token_hash = decode(?, \'hex\')', [$hashHex])
+                ->lockForUpdate()
+                ->first();
 
-        // Reuse detection: a revoked token presented again means the family
-        // is compromised — revoke every sibling and reject.
-        if ($row->revoked_at !== null) {
-            DB::table('refresh_tokens')
-                ->where('family_id', $row->family_id)
-                ->whereNull('revoked_at')
-                ->update(['revoked_at' => now()]);
-            throw ApiException::unauthenticated('Refresh token reuse detected');
-        }
+            if ($row === null) {
+                throw ApiException::unauthenticated('Invalid refresh token');
+            }
 
-        if (strtotime($row->expires_at) <= time()) {
-            throw ApiException::unauthenticated('Refresh token expired');
-        }
+            // Reuse detection: a revoked token presented again means the family
+            // is compromised — revoke every sibling and reject.
+            if ($row->revoked_at !== null) {
+                DB::table('refresh_tokens')
+                    ->where('family_id', $row->family_id)
+                    ->whereNull('revoked_at')
+                    ->update(['revoked_at' => now()]);
+                throw ApiException::tokenReuse();
+            }
 
-        $user = User::whereNull('deleted_at')->find($row->user_id);
-        if ($user === null) {
-            throw ApiException::unauthenticated('Account not found');
-        }
+            if (strtotime($row->expires_at) <= time()) {
+                throw ApiException::unauthenticated('Refresh token expired');
+            }
 
-        // Rotate: new token in the same family, old row revoked + linked.
-        $next = $this->createRefreshRow($row->user_id, $row->family_id, $userAgent);
-        $updates = [
-            'revoked_at' => now(),
-            'replaced_by' => $next['id'],
-        ];
-        if (Schema::hasColumn('refresh_tokens', 'last_used_at')) {
-            $updates['last_used_at'] = now();
-        }
-        DB::table('refresh_tokens')->where('id', $row->id)->update($updates);
+            $user = User::whereNull('deleted_at')->find($row->user_id);
+            if ($user === null) {
+                throw ApiException::unauthenticated('Account not found');
+            }
 
-        $access = $this->mintAccessToken($user->id, $row->family_id);
+            // Rotate: new token in the same family, old row revoked + linked.
+            $next = $this->createRefreshRow($row->user_id, $row->family_id, $userAgent);
+            $updates = [
+                'revoked_at' => now(),
+                'replaced_by' => $next['id'],
+            ];
+            if (Schema::hasColumn('refresh_tokens', 'last_used_at')) {
+                $updates['last_used_at'] = now();
+            }
+            DB::table('refresh_tokens')->where('id', $row->id)->update($updates);
 
-        return $this->sessionPayload($user, $access, $next);
+            $access = $this->mintAccessToken($user->id, $row->family_id);
+
+            return $this->sessionPayload($user, $access, $next);
+        });
     }
 
     /** Revoke a presented refresh token (logout). Idempotent. */

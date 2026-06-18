@@ -27,14 +27,12 @@ struct PlayersView: View {
     var onPickPlayer: (PlayerSummary) -> Void
 
     @Environment(AppContainer.self) private var container
-    @FocusState private var searchFocused: Bool
     @State private var followsSheet: FollowsListSheetPayload?
 
     /// Active tab. Lives on the view because the segmented control is a
     /// view-local affordance — only the matchmaking VM cares about the
     /// switch, and only via `.task(id:)` re-triggering its load.
     @State private var activeTab: PlayersTab = .all
-    @Namespace private var tabNamespace
 
     /// Lazily-built matchmaking view-model. Constructed inside `task` once
     /// we have the container so we don't create one for users who never
@@ -45,22 +43,34 @@ struct PlayersView: View {
     @State private var followStore = FollowStore.shared
 
     var body: some View {
-        ZStack {
-            AppGlassBackground()
-            
-            VStack(spacing: 0) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
                 tabSwitcher
-                
+
                 switch activeTab {
                 case .all:
                     content
                 case .matchmaking:
                     matchmakingContent
                 }
+
+                Spacer().frame(height: 100)
+            }
+            .padding(.horizontal, DSSpacing.md)
+            .padding(.top, DSSpacing.xs)
+        }
+        .background(DSColor.background.ignoresSafeArea())
+        .navigationTitle(Text("players.nav.title"))
+        .navigationBarTitleDisplayMode(.large)
+        .scrollDismissesKeyboard(.interactively)
+        .refreshable {
+            switch activeTab {
+            case .all:
+                await viewModel.load()
+            case .matchmaking:
+                await matchmakingVM?.refresh()
             }
         }
-        .navigationTitle(Text("players.nav.title"))
-        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if viewModel.activeFilterCount > 0 {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -117,52 +127,6 @@ struct PlayersView: View {
             .presentationDragIndicator(.visible)
             .presentationBackground(.ultraThinMaterial)
         }
-    }
-
-    // MARK: - Tab switcher
-
-    /// Standardized premium Segmented Control tab switcher — "Hamısı" / "Sənə uyğun".
-    private var tabSwitcher: some View {
-        SegmentedPicker(
-            segments: [
-                (PlayersTab.all, String(localized: "players.tab.all" as String.LocalizationValue), Optional("person.3.fill")),
-                (PlayersTab.matchmaking, String(localized: "players.tab.matchmaking" as String.LocalizationValue), Optional("sparkles"))
-            ],
-            selection: Binding(
-                get: { activeTab },
-                set: { tab in
-                    UISelectionFeedbackGenerator().selectionChanged()
-                    withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
-                        activeTab = tab
-                    }
-                }
-            )
-        )
-        .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 6)
-    }
-
-    // MARK: - Matchmaking tab
-
-    @ViewBuilder
-    private var matchmakingContent: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                if let vm = matchmakingVM {
-                    matchmakingStateView(vm: vm)
-                } else {
-                    matchmakingSkeleton
-                }
-                Spacer().frame(height: 32)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-        }
-        .scrollIndicators(.hidden)
-        .refreshable {
-            await matchmakingVM?.refresh()
-        }
         .task(id: activeTab) {
             guard activeTab == .matchmaking else { return }
             if matchmakingVM == nil {
@@ -177,89 +141,70 @@ struct PlayersView: View {
         }
     }
 
+    // MARK: - Tab switcher
+
+    /// Standardized premium Segmented Control tab switcher — "Hamısı" / "Sənə uyğun".
+    private var tabSwitcher: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 7) {
+                tabChip(.all)
+                tabChip(.matchmaking)
+            }
+        }
+    }
+
+    private func tabChip(_ tab: PlayersTab) -> some View {
+        let isOn = activeTab == tab
+        return Button {
+            Haptics.selection()
+            activeTab = tab
+        } label: {
+            Text(tab.titleKey)
+                .font(DSType.metaCaption)
+                .foregroundStyle(isOn ? DSColor.textOnAccent : DSColor.textSecondary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(Capsule().fill(isOn ? DSColor.accent : DSColor.surfaceElevated))
+        }
+        .buttonStyle(SpringPressStyle())
+    }
+
+    // MARK: - Matchmaking tab
+
+    @ViewBuilder
+    private var matchmakingContent: some View {
+        if let vm = matchmakingVM {
+            matchmakingStateView(vm: vm)
+        } else {
+            loadingSkeleton
+        }
+    }
+
     @ViewBuilder
     private func matchmakingStateView(vm: MatchmakingViewModel) -> some View {
         switch vm.players {
         case .idle, .loading:
-            matchmakingSkeleton
+            loadingSkeleton
         case .error(let message):
-            ErrorStateView(message: message) {
+            errorState(message) {
                 Task { await vm.refresh() }
             }
         case .empty:
-            matchmakingEmptyState
+            emptyShell(
+                icon: "sparkles",
+                title: "players.matchmaking.empty.title",
+                message: "players.matchmaking.empty.message"
+            )
         case .loaded(let items):
-            LazyVStack(spacing: 12) {
+            section(title: countTitle(items.count)) {
                 ForEach(items) { player in
-                    MatchmakerPlayerCard(
+                    RecommendedPlayerNativeRow(
                         player: player,
+                        followStore: followStore,
                         onTap: { onPickPlayer(PlayerSummary.placeholder(id: player.user_id)) },
-                        onFollow: { Task { await vm.toggleFollow(player) } }
+                        onFollow: { await vm.toggleFollow(player) }
                     )
                 }
-            }
-        }
-    }
-
-    private var matchmakingEmptyState: some View {
-        VStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(DSColor.accent.opacity(0.06))
-                    .frame(width: 72, height: 72)
-                Circle()
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [DSColor.accent.opacity(0.2), DSColor.accent.opacity(0.02)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-                    .frame(width: 72, height: 72)
-                Image(systemName: "sparkles")
-                    .font(.system(size: 26, weight: .bold))
-                    .foregroundStyle(DSColor.accent)
-            }
-            .padding(.top, 10)
-            
-            VStack(spacing: 4) {
-                Text("players.matchmaking.empty.title")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(DSColor.textPrimary)
-                    .multilineTextAlignment(.center)
-                Text("players.matchmaking.empty.message")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(DSColor.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(3)
-                    .padding(.horizontal, 12)
-            }
-            .padding(.bottom, 6)
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(DSColor.textPrimary.opacity(0.02))
-                .background(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(DSColor.textPrimary.opacity(0.04), lineWidth: 1)
-        )
-        .padding(.top, 12)
-    }
-
-    private var matchmakingSkeleton: some View {
-        VStack(spacing: 12) {
-            ForEach(0..<4, id: \.self) { _ in
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(DSColor.textPrimary.opacity(0.02))
-                    .frame(height: 108)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(DSColor.textPrimary.opacity(0.04), lineWidth: 1)
-                    )
             }
         }
     }
@@ -268,46 +213,34 @@ struct PlayersView: View {
 
     @ViewBuilder
     private var content: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                searchBar
-                    .padding(.top, 6)
-                filtersStrip
-                SuggestedFollowsHook.makeCarousel(container: container) { userId in
-                    onPickPlayer(PlayerSummary.placeholder(id: userId))
-                }
-                resultMeta
-                stateView
-                Spacer().frame(height: 32)
+        playerSearchField
+        playerFilterChips
+
+        if viewModel.query.isEmpty && viewModel.activeFilterCount == 0 {
+            SuggestedFollowsHook.makeCarousel(container: container) { userId in
+                onPickPlayer(PlayerSummary.placeholder(id: userId))
             }
-            .padding(.horizontal, 16)
         }
-        .scrollIndicators(.hidden)
-        .scrollDismissesKeyboard(.interactively)
-        .refreshable { await viewModel.load() }
+
+        playerStateContent
     }
 
-    // MARK: - Search
-
-    private var searchBar: some View {
+    private var playerSearchField: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(searchFocused ? DSColor.accent : DSColor.textTertiary)
-                .scaleEffect(searchFocused ? 1.05 : 1.0)
-                .animation(.spring(response: 0.2, dampingFraction: 0.7), value: searchFocused)
-            
+                .foregroundStyle(DSColor.textTertiary)
+
             TextField(
-                String(localized: "players.search.placeholder"),
+                "players.search.placeholder",
                 text: Binding(
                     get: { viewModel.query },
                     set: { viewModel.setQuery($0) }
                 )
             )
-            .focused($searchFocused)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
-            .font(.system(size: 14, weight: .medium))
+            .font(DSType.bodyMedium)
             .foregroundStyle(DSColor.textPrimary)
             .submitLabel(.search)
 
@@ -316,7 +249,7 @@ struct PlayersView: View {
                     viewModel.setQuery("")
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 15))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(DSColor.textTertiary)
                 }
                 .buttonStyle(.plain)
@@ -324,59 +257,224 @@ struct PlayersView: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(DSColor.textPrimary.opacity(0.02))
-                .background(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(
-                    searchFocused ? DSColor.accent.opacity(0.4) : DSColor.textPrimary.opacity(0.06),
-                    lineWidth: 1
-                )
-        )
-        .animation(.snappy(duration: 0.15), value: searchFocused)
+        .frame(height: 44)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surface))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(DSColor.border, lineWidth: 1))
     }
 
-    // MARK: - Filters
-
-    private var filtersStrip: some View {
+    private var playerFilterChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: 7) {
+                Menu {
+                    Button {
+                        Task { await viewModel.setSkill(nil) }
+                    } label: {
+                        if viewModel.skill == nil {
+                            Label("players.filter.skill.any", systemImage: "checkmark")
+                        } else {
+                            Text("players.filter.skill.any")
+                        }
+                    }
+
+                    ForEach(PlayerSkillBand.allCases) { band in
+                        Button {
+                            Task { await viewModel.setSkill(band) }
+                        } label: {
+                            Label(
+                                LocalizedStringKey(String(localized: band.titleKey)),
+                                systemImage: viewModel.skill == band ? "checkmark" : bandSymbol(for: band)
+                            )
+                        }
+                    }
+                } label: {
+                    filterChip(selectedSkillTitle, isSelected: viewModel.skill != nil)
+                }
+
                 if viewModel.viewerHome != nil {
-                    filterChip(
-                        titleKey: "players.filter.nearby",
-                        icon: "location.fill",
-                        selected: viewModel.nearbyOnly
-                    ) {
+                    filterChipButton("players.filter.nearby", isSelected: viewModel.nearbyOnly) {
                         Task { await viewModel.setNearbyOnly(!viewModel.nearbyOnly) }
                     }
                 }
-                filterChip(
-                    titleKey: "players.filter.following",
-                    icon: "checkmark.seal.fill",
-                    selected: viewModel.followingOnly
-                ) {
+
+                filterChipButton("players.filter.following", isSelected: viewModel.followingOnly) {
                     viewModel.setFollowingOnly(!viewModel.followingOnly)
                 }
-                ForEach(PlayerSkillBand.allCases) { band in
-                    filterChip(
-                        titleKey: LocalString(band.titleKey),
-                        icon: bandSymbol(for: band),
-                        selected: viewModel.skill == band
-                    ) {
-                        Task {
-                            await viewModel.setSkill(viewModel.skill == band ? nil : band)
-                        }
+
+                if viewModel.activeFilterCount > 0 {
+                    filterChipButton("players.filters.reset", isSelected: false) {
+                        Task { await viewModel.resetFilters() }
                     }
                 }
             }
-            .padding(.horizontal, 2)
-            .padding(.vertical, 2)
         }
     }
+
+    @ViewBuilder
+    private var playerStateContent: some View {
+        switch viewModel.state {
+        case .idle, .loading:
+            loadingSkeleton
+        case .empty:
+            nativeEmptyState
+        case .error(let message):
+            errorState(message) {
+                Task { await viewModel.load() }
+            }
+        case .loaded(let players):
+            section(title: countTitle(players.count)) {
+                ForEach(players) { player in
+                    PlayerNativeRow(
+                        player: player,
+                        followStore: followStore,
+                        onTap: { onPickPlayer(player) },
+                        onFollow: { await viewModel.toggleFollow(player) }
+                    )
+                }
+            }
+        }
+    }
+
+    private var nativeEmptyState: some View {
+        emptyShell(icon: emptySystemImage, title: emptyTitleKey, message: emptyMessageKey) {
+            if viewModel.activeFilterCount > 0 {
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    Task { await viewModel.resetFilters() }
+                } label: {
+                    Text("players.empty.reset_cta")
+                        .font(DSType.button)
+                        .foregroundStyle(DSColor.textOnAccent)
+                        .padding(.horizontal, 22)
+                        .padding(.vertical, 11)
+                        .background(Capsule().fill(DSColor.accent))
+                }
+                .buttonStyle(SpringPressStyle())
+                .padding(.top, 4)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func section<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(DSType.sectionTitle)
+                .foregroundStyle(DSColor.textPrimary)
+            content()
+        }
+    }
+
+    private var loadingSkeleton: some View {
+        VStack(spacing: 14) {
+            ForEach(0..<5, id: \.self) { _ in
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(DSColor.surfaceElevated)
+                    .frame(height: 74)
+            }
+        }
+        .redacted(reason: .placeholder)
+        .accessibilityHidden(true)
+    }
+
+    private func errorState(_ message: String, retry: @escaping () -> Void) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(DSColor.danger)
+            Text(message)
+                .font(DSType.bodyMedium)
+                .foregroundStyle(DSColor.textSecondary)
+                .multilineTextAlignment(.center)
+            Button(action: retry) {
+                Text("matches.error.retry")
+                    .font(DSType.bodyStrong)
+                    .foregroundStyle(DSColor.accent)
+            }
+            .buttonStyle(SpringPressStyle())
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 48)
+        .padding(.horizontal, 24)
+    }
+
+    private func emptyShell<Actions: View>(
+        icon: String,
+        title: LocalizedStringKey,
+        message: LocalizedStringKey,
+        @ViewBuilder actions: () -> Actions
+    ) -> some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Circle().fill(DSColor.accentMuted).frame(width: 64, height: 64)
+                Image(systemName: icon)
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(DSColor.accent)
+            }
+            Text(title)
+                .font(DSType.sectionTitle)
+                .foregroundStyle(DSColor.textPrimary)
+            Text(message)
+                .font(DSType.bodyMedium)
+                .foregroundStyle(DSColor.textSecondary)
+                .multilineTextAlignment(.center)
+            actions()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 40)
+        .padding(.horizontal, 24)
+    }
+
+    private func emptyShell(icon: String, title: LocalizedStringKey, message: LocalizedStringKey) -> some View {
+        emptyShell(icon: icon, title: title, message: message) {
+            EmptyView()
+        }
+    }
+
+    private func filterChipButton(
+        _ titleKey: LocalizedStringKey,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            Haptics.selection()
+            action()
+        } label: {
+            filterChip(Text(titleKey), isSelected: isSelected)
+        }
+        .buttonStyle(SpringPressStyle())
+    }
+
+    private func filterChip(_ title: Text, isSelected: Bool) -> some View {
+        title
+            .font(DSType.metaCaption)
+            .foregroundStyle(isSelected ? DSColor.textOnAccent : DSColor.textSecondary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .background(Capsule().fill(isSelected ? DSColor.accent : DSColor.surfaceElevated))
+    }
+
+    private var selectedSkillTitle: Text {
+        if let skill = viewModel.skill {
+            Text(LocalizedStringKey(String(localized: skill.titleKey)))
+        } else {
+            Text("players.filter.skill.any")
+        }
+    }
+
+    private func countTitle(_ count: Int) -> String {
+        String.localizedStringWithFormat(
+            NSLocalizedString("players.count_format", comment: ""),
+            count
+        )
+    }
+
+    private var emptySystemImage: String {
+        if !viewModel.query.isEmpty { return "magnifyingglass" }
+        if viewModel.followingOnly { return "person.badge.plus" }
+        return viewModel.activeFilterCount > 0 ? "line.3.horizontal.decrease.circle" : "person.2"
+    }
+
+    // MARK: - Symbols
 
     private func bandSymbol(for band: PlayerSkillBand) -> String {
         switch band {
@@ -387,182 +485,290 @@ struct PlayersView: View {
         }
     }
 
-    private func LocalString(_ val: String.LocalizationValue) -> LocalizedStringKey {
-        LocalizedStringKey(String(localized: val))
-    }
-
-    private func filterChip(
-        titleKey: LocalizedStringKey,
-        icon: String?,
-        selected: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button {
-            UISelectionFeedbackGenerator().selectionChanged()
-            action()
-        } label: {
-            HStack(spacing: 4) {
-                if let icon {
-                    Image(systemName: icon)
-                        .font(.system(size: 10, weight: .bold))
-                }
-                Text(titleKey)
-                    .font(.system(size: 12, weight: .semibold))
-            }
-            .foregroundStyle(selected ? DSColor.accent : DSColor.textPrimary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background {
-                Capsule()
-                    .fill(selected ? DSColor.accent.opacity(0.10) : DSColor.textPrimary.opacity(0.03))
-                    .background {
-                        if !selected {
-                            Capsule().fill(.ultraThinMaterial)
-                        }
-                    }
-            }
-            .overlay(
-                Capsule().strokeBorder(
-                    selected ? DSColor.accent.opacity(0.4) : DSColor.textPrimary.opacity(0.06),
-                    lineWidth: 1
-                )
-            )
-        }
-        .buttonStyle(SpringPressStyle())
-    }
-
-    // MARK: - Result meta
-
-    @ViewBuilder
-    private var resultMeta: some View {
-        if case .loaded(let players) = viewModel.state {
-            Text(String.localizedStringWithFormat(
-                NSLocalizedString("players.count_format", comment: ""),
-                players.count
-            ))
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(DSColor.textTertiary)
-            .padding(.horizontal, 2)
-        }
-    }
-
-    // MARK: - State
-
-    @ViewBuilder
-    private var stateView: some View {
-        switch viewModel.state {
-        case .idle, .loading:
-            loadingSkeleton
-        case .empty:
-            emptyState
-        case .error(let message):
-            ErrorStateView(message: message) {
-                Task { await viewModel.load() }
-            }
-        case .loaded(let players):
-            LazyVStack(spacing: 12) {
-                ForEach(players) { player in
-                    PlayerRowCard(
-                        player: player,
-                        onTap: { onPickPlayer(player) },
-                        onFollowChange: { _ in
-                            Task { await viewModel.toggleFollow(player) }
-                        }
-                    )
-                }
-            }
-        }
-    }
-
-    // MARK: - Empty / loading
-
-    private var emptyState: some View {
-        let filtered = viewModel.activeFilterCount > 0
-        return VStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(DSColor.accent.opacity(0.06))
-                    .frame(width: 72, height: 72)
-                Circle()
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [DSColor.accent.opacity(0.2), DSColor.accent.opacity(0.02)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-                    .frame(width: 72, height: 72)
-                Image(systemName: filtered ? "person.2.slash.fill" : "person.2.fill")
-                    .font(.system(size: 26, weight: .bold))
-                    .foregroundStyle(DSColor.accent)
-            }
-            .padding(.top, 10)
-            
-            VStack(spacing: 4) {
-                Text(emptyTitleKey)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(DSColor.textPrimary)
-                    .multilineTextAlignment(.center)
-                Text(emptyMessageKey)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(DSColor.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(3)
-                    .padding(.horizontal, 12)
-            }
-            
-            if filtered {
-                Button {
-                    UISelectionFeedbackGenerator().selectionChanged()
-                    Task { await viewModel.resetFilters() }
-                } label: {
-                    Text("empty.players.cta")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(DSColor.textOnAccent)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 10)
-                        .background(
-                            Capsule().fill(
-                                LinearGradient(
-                                    colors: [DSColor.accent, DSColor.accentSoft],
-                                    startPoint: .topLeading, endPoint: .bottomTrailing
-                                )
-                            )
-                        )
-                        .shadow(color: DSColor.accent.opacity(0.15), radius: 4, y: 2)
-                }
-                .buttonStyle(SpringPressStyle())
-                .padding(.top, 6)
-                .padding(.bottom, 6)
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(DSColor.textPrimary.opacity(0.02))
-                .background(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(DSColor.textPrimary.opacity(0.04), lineWidth: 1)
-        )
-        .padding(.top, 8)
-    }
-
     private var emptyTitleKey: LocalizedStringKey {
-        viewModel.activeFilterCount > 0
-            ? "empty.players.title"
-            : "players.empty.title"
+        if !viewModel.query.isEmpty { return "players.empty.search.title" }
+        if viewModel.followingOnly { return "players.empty.following.title" }
+        if viewModel.activeFilterCount > 0 { return "players.empty.filtered.title" }
+        return "players.empty.title"
     }
     private var emptyMessageKey: LocalizedStringKey {
-        viewModel.activeFilterCount > 0
-            ? "empty.players.body"
-            : "players.empty.message"
+        if !viewModel.query.isEmpty { return "players.empty.search.message" }
+        if viewModel.followingOnly { return "players.empty.following.message" }
+        if viewModel.activeFilterCount > 0 { return "players.empty.filtered.message" }
+        return "players.empty.message"
+    }
+}
+
+// MARK: - Native player row
+
+private struct PlayerNativeRow: View {
+    let player: PlayerSummary
+    let followStore: FollowStore
+    var onTap: () -> Void
+    var onFollow: () async -> Void
+
+    private var isFollowing: Bool {
+        followStore.followingByUserId[player.id] ?? (player.is_followed_by_me ?? false)
     }
 
-    private var loadingSkeleton: some View {
-        SkeletonView(shape: .row, count: 6)
+    private var isActiveNow: Bool {
+        guard let iso = player.last_seen_at else { return false }
+        let formatter = ISO8601DateFormatter()
+        guard let date = formatter.date(from: iso) else { return false }
+        return Date().timeIntervalSince(date) < 300
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button {
+                UISelectionFeedbackGenerator().selectionChanged()
+                onTap()
+            } label: {
+                HStack(spacing: 12) {
+                    avatar
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Text(player.display_name)
+                                .font(.system(.headline, design: .default, weight: .semibold))
+                                .foregroundStyle(DSColor.textPrimary)
+                                .lineLimit(1)
+
+                            if isActiveNow {
+                                Circle()
+                                    .fill(DSColor.success)
+                                    .frame(width: 7, height: 7)
+                                    .accessibilityLabel(Text("players.status.active_now"))
+                            }
+                        }
+
+                        metaLine
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Spacer(minLength: 8)
+
+            FollowButton(
+                isFollowing: Binding(
+                    get: { isFollowing },
+                    set: { _ in }
+                ),
+                size: .compact
+            ) { _ in
+                await onFollow()
+            }
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surface))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(DSColor.border, lineWidth: 1))
+        .accessibilityElement(children: .contain)
+        .accessibilityHint(Text("a11y.player_card.hint"))
+    }
+
+    private var avatar: some View {
+        let url: URL? = {
+            guard let raw = player.photo_url, !raw.hasPrefix("data:") else { return nil }
+            return URL(string: raw)
+        }()
+
+        return ZStack(alignment: .bottomTrailing) {
+            if let url {
+                CachedAsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    initialsCircle
+                }
+            } else {
+                initialsCircle
+            }
+
+            if isActiveNow {
+                Circle()
+                    .fill(DSColor.success)
+                    .frame(width: 11, height: 11)
+                    .overlay(Circle().strokeBorder(DSColor.surfaceElevated, lineWidth: 2))
+            }
+        }
+        .frame(width: 48, height: 48)
+        .clipShape(Circle())
+        .overlay {
+            Circle().strokeBorder(DSColor.accent.opacity(0.45), lineWidth: 1)
+        }
+    }
+
+    private var initialsCircle: some View {
+        ZStack {
+            Circle().fill(DSColor.accent.opacity(0.16))
+            Text(initials)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(DSColor.accent)
+        }
+    }
+
+    private var metaLine: some View {
+        Text(metaParts.joined(separator: " · "))
+        .font(.system(.caption, design: .default))
+        .foregroundStyle(DSColor.textSecondary)
+        .lineLimit(1)
+    }
+
+    private var metaParts: [String] {
+        var parts: [String] = [SkillLevel.from(elo: player.primary_elo).localizedName]
+
+        if let km = player.distance_km {
+            parts.append(distanceLabel(km: km))
+        }
+
+        if isActiveNow {
+            parts.append(String(localized: "players.status.active_now"))
+        }
+
+        if let reliability = player.reliability_score, reliability >= 80 {
+            parts.append("\(reliability)%")
+        }
+
+        if let followers = player.followers_count, followers > 0 {
+            parts.append(String.localizedStringWithFormat(
+                NSLocalizedString("players.followers_count", comment: ""),
+                followers
+            ))
+        }
+
+        return parts
+    }
+
+    private var initials: String {
+        let parts = player.display_name.split(separator: " ").prefix(2)
+        let joined = parts.map { $0.prefix(1).uppercased() }.joined()
+        return joined.isEmpty ? "?" : joined
+    }
+}
+
+private struct RecommendedPlayerNativeRow: View {
+    let player: RecommendedPlayer
+    let followStore: FollowStore
+    var onTap: () -> Void
+    var onFollow: () async -> Void
+
+    private var isFollowing: Bool {
+        followStore.isFollowing(userId: player.user_id)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button {
+                UISelectionFeedbackGenerator().selectionChanged()
+                onTap()
+            } label: {
+                HStack(spacing: 12) {
+                    avatar
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(player.display_name)
+                            .font(.system(.headline, design: .default, weight: .semibold))
+                            .foregroundStyle(DSColor.textPrimary)
+                            .lineLimit(1)
+
+                        Text(metaParts.joined(separator: " · "))
+                            .font(.system(.caption, design: .default))
+                            .foregroundStyle(DSColor.textSecondary)
+                            .lineLimit(1)
+
+                        if !decodedReasons.isEmpty {
+                            reasonChips
+                        }
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Spacer(minLength: 8)
+
+            FollowButton(
+                isFollowing: Binding(
+                    get: { isFollowing },
+                    set: { _ in }
+                ),
+                size: .compact
+            ) { _ in
+                await onFollow()
+            }
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surface))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(DSColor.border, lineWidth: 1))
+        .accessibilityElement(children: .contain)
+        .accessibilityHint(Text("a11y.player_card.hint"))
+    }
+
+    private var avatar: some View {
+        let url: URL? = {
+            guard let raw = player.photo_url, !raw.hasPrefix("data:") else { return nil }
+            return URL(string: raw)
+        }()
+
+        return ZStack {
+            if let url {
+                CachedAsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    initialsCircle
+                }
+            } else {
+                initialsCircle
+            }
+        }
+        .frame(width: 48, height: 48)
+        .clipShape(Circle())
+        .overlay {
+            Circle().strokeBorder(DSColor.accent.opacity(0.45), lineWidth: 1)
+        }
+    }
+
+    private var initialsCircle: some View {
+        ZStack {
+            Circle().fill(DSColor.accent.opacity(0.16))
+            Text(initials)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(DSColor.accent)
+        }
+    }
+
+    private var metaParts: [String] {
+        var parts = [SkillLevel.from(elo: player.elo_rating).localizedName]
+        if let km = player.distance_km {
+            parts.append(distanceLabel(km: km))
+        }
+        return parts
+    }
+
+    private var decodedReasons: [RecommendedPlayerReason] {
+        guard let codes = player.reason_codes else { return [] }
+        return codes.compactMap { RecommendedPlayerReason(rawValue: $0) }
+    }
+
+    private var reasonChips: some View {
+        HStack(spacing: 6) {
+            ForEach(Array(decodedReasons.prefix(2).enumerated()), id: \.offset) { _, reason in
+                Text(reason.labelKey)
+                    .font(.system(size: 10, weight: .semibold, design: .default))
+                    .foregroundStyle(reason.accent)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(reason.accent.opacity(0.08)))
+            }
+        }
+        .lineLimit(1)
+    }
+
+    private var initials: String {
+        let parts = player.display_name.split(separator: " ").prefix(2)
+        let joined = parts.map { $0.prefix(1).uppercased() }.joined()
+        return joined.isEmpty ? "?" : joined
     }
 }
 
@@ -635,27 +841,12 @@ private struct PlayerRowCard: View {
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(DSColor.textPrimary.opacity(0.015))
-                    .background(
-                        RadialGradient(
-                            colors: [
-                                SkillLevel.from(elo: player.primary_elo).accent.opacity(0.03),
-                                Color.clear
-                            ],
-                            center: .topLeading,
-                            startRadius: 8,
-                            endRadius: 96
-                        )
-                    )
-                    .background(.ultraThinMaterial)
+                    .fill(DSColor.surface)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .strokeBorder(
-                        LinearGradient(
-                            colors: [DSColor.textPrimary.opacity(0.08), DSColor.textPrimary.opacity(0.02)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        ),
+                        DSColor.border,
                         lineWidth: 1
                     )
             )
@@ -902,16 +1093,12 @@ private struct MatchmakerPlayerCard: View {
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(DSColor.textPrimary.opacity(0.015))
-                    .background(.ultraThinMaterial)
+                    .fill(DSColor.surface)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .strokeBorder(
-                        LinearGradient(
-                            colors: [DSColor.textPrimary.opacity(0.08), DSColor.textPrimary.opacity(0.02)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        ),
+                        DSColor.border,
                         lineWidth: 1
                     )
             )
@@ -1125,4 +1312,3 @@ extension PlayersViewModel {
         return c
     }
 }
-

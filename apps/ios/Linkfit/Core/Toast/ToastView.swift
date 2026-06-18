@@ -75,7 +75,7 @@ struct ToastView: View {
             RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                 .strokeBorder(accentColor.opacity(0.55), lineWidth: 1)
         )
-        .shadow(color: Color.black.opacity(0.35), radius: 18, x: 0, y: 10)
+        .shadow(color: DSColor.inkSurface.opacity(0.35), radius: 18, x: 0, y: 10)
         .contentShape(RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous))
         // Only the non-retry kinds get tap-to-dismiss on the body — for
         // the retry pill, the user's primary interaction is the inline

@@ -891,15 +891,40 @@ class PartnerOpsController extends ApiController
         $todayEnd = now()->endOfDay();
         $bookings = DB::table('bookings as b')->join('courts as c', 'c.id', '=', 'b.court_id')->where('c.venue_id', $venueId);
 
+        $courtsCount = DB::table('courts')->where('venue_id', $venueId)->count();
+        $totalBookings = (clone $bookings)->count();
+        $paidBookings = (clone $bookings)->where('b.status', 'paid')->count();
+        $pendingBookings = (clone $bookings)->whereIn('b.status', ['pending_payment', 'partially_paid'])->count();
+        $cancelledBookings = (clone $bookings)->whereIn('b.status', ['cancelled', 'refunded', 'failed'])->count();
+        $revenuePaidMinor = (int) (clone $bookings)->where('b.status', 'paid')->sum('b.total_minor');
+        $currency = DB::table('courts')->where('venue_id', $venueId)->value('currency') ?? 'AZN';
+
+        // Occupancy over the next 7 days: booked (non-cancelled) slots vs an
+        // approximate capacity of ~14 bookable hours/day per court.
+        $upcoming7 = (clone $bookings)
+            ->whereBetween('b.starts_at', [now(), now()->addDays(7)])
+            ->whereNotIn('b.status', ['cancelled', 'refunded', 'failed'])
+            ->count();
+        $capacity = $courtsCount * 7 * 14;
+        $occupancyRate = $capacity > 0 ? min(100, (int) round(100 * $upcoming7 / $capacity)) : 0;
+
         return response()->json([
-            'courts' => DB::table('courts')->where('venue_id', $venueId)->count(),
-            'bookings' => (clone $bookings)->count(),
+            'courts' => $courtsCount,
+            'bookings' => $totalBookings,
             'bookings_today' => (clone $bookings)->whereBetween('b.starts_at', [$todayStart, $todayEnd])->count(),
             'bookings_upcoming' => (clone $bookings)->where('b.starts_at', '>=', now())->whereNotIn('b.status', ['cancelled', 'refunded', 'failed'])->count(),
-            'bookings_unpaid' => (clone $bookings)->whereIn('b.status', ['pending_payment', 'partially_paid'])->count(),
-            'revenue_paid_minor' => (int) (clone $bookings)->where('b.status', 'paid')->sum('b.total_minor'),
+            'bookings_unpaid' => $pendingBookings,
+            'revenue_paid_minor' => $revenuePaidMinor,
             'maintenance_blocks' => DB::table('court_blocks as cb')->join('courts as c', 'c.id', '=', 'cb.court_id')->where('c.venue_id', $venueId)->where('cb.ends_at', '>=', now())->count(),
             'staff_accounts' => DB::table('users')->where('admin_role', 'partner')->where('venue_id', $venueId)->whereNull('deleted_at')->count(),
+            // Fields consumed by the owner overview KPIs:
+            'total_bookings' => $totalBookings,
+            'paid_bookings' => $paidBookings,
+            'pending_bookings' => $pendingBookings,
+            'cancelled_bookings' => $cancelledBookings,
+            'total_revenue_minor' => $revenuePaidMinor,
+            'currency' => $currency,
+            'occupancy_rate' => $occupancyRate,
         ]);
     }
 

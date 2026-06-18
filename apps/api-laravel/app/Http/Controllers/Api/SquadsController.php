@@ -73,14 +73,46 @@ class SquadsController extends ApiController
     {
         $this->ownerOnly($request, $id);
         $data = $this->validateBody($request, ['user_id' => ['required', 'uuid']]);
-        DB::table('squad_members')->updateOrInsert(['squad_id' => $id, 'user_id' => $data['user_id']], ['role' => 'member', 'status' => 'pending', 'joined_at' => now()]);
+        // Enforce max_size (active + outstanding invites) under a row lock —
+        // squad_members PK only blocks duplicates, not over-fill.
+        DB::transaction(function () use ($id, $data) {
+            $squad = DB::table('squads')->where('id', $id)->lockForUpdate()->first(['max_size']);
+            $taken = DB::table('squad_members')
+                ->where('squad_id', $id)
+                ->whereIn('status', ['active', 'pending'])
+                ->where('user_id', '!=', $data['user_id'])
+                ->count();
+            if ($squad !== null && $taken >= (int) $squad->max_size) {
+                throw ApiException::conflict('Squad is full');
+            }
+            DB::table('squad_members')->updateOrInsert(
+                ['squad_id' => $id, 'user_id' => $data['user_id']],
+                ['role' => 'member', 'status' => 'pending', 'joined_at' => now()],
+            );
+        });
 
         return $this->show($id);
     }
 
     public function accept(Request $request, string $id): JsonResponse
     {
-        DB::table('squad_members')->where('squad_id', $id)->where('user_id', $this->authUser($request)->id)->update(['status' => 'active', 'joined_at' => now()]);
+        $user = $this->authUser($request);
+        DB::transaction(function () use ($id, $user) {
+            $squad = DB::table('squads')->where('id', $id)->lockForUpdate()->first(['max_size']);
+            if ($squad === null) {
+                throw ApiException::notFound('Squad not found');
+            }
+            $active = DB::table('squad_members')
+                ->where('squad_id', $id)
+                ->where('status', 'active')
+                ->where('user_id', '!=', $user->id)
+                ->count();
+            if ($active >= (int) $squad->max_size) {
+                throw ApiException::conflict('Squad is full');
+            }
+            DB::table('squad_members')->where('squad_id', $id)->where('user_id', $user->id)
+                ->update(['status' => 'active', 'joined_at' => now()]);
+        });
 
         return $this->show($id);
     }
@@ -130,6 +162,19 @@ class SquadsController extends ApiController
             ")
             ->get();
 
+        // Batch "how many squad members are attending each game" in ONE query
+        // (replaces the prior per-game COUNT(*), an N+1 over the games list).
+        $gameIds = $rows->pluck('id')->all();
+        $attending = empty($gameIds)
+            ? collect()
+            : DB::table('game_participants')
+                ->whereIn('game_id', $gameIds)
+                ->whereIn('user_id', $members)
+                ->where('status', 'confirmed')
+                ->groupBy('game_id')
+                ->selectRaw('game_id, count(*) as cnt')
+                ->pluck('cnt', 'game_id');
+
         return response()->json(['games' => $rows->map(fn ($g) => [
             'id' => $g->id,
             'sport_id' => $g->sport_id,
@@ -151,7 +196,7 @@ class SquadsController extends ApiController
             'skill_max_elo' => $g->skill_max_elo !== null ? (int) $g->skill_max_elo : null,
             'distance_km' => null,
             // Squad-specific extra (ignored by the GameSummary decoder).
-            'squad_members_attending' => DB::table('game_participants')->where('game_id', $g->id)->whereIn('user_id', $members)->where('status', 'confirmed')->count(),
+            'squad_members_attending' => (int) ($attending[$g->id] ?? 0),
         ])]);
     }
 

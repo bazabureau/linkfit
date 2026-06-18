@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<title>LinkFit — Prezentasiya</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800;900&display=swap');
+  :root{
+    --accent:#5662D9; --accent-soft:#6E79E2; --lime:#C5F235; --ink:#0A0D12; --ink2:#12161F;
+    --canvas:#F3F5FA; --text:#0B1020; --muted:#4D5478; --dim:#868EB2; --border:#E7EAF3; --success:#10B981;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  @page{ size:297mm 167mm; margin:0; }
+  html{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  body{font-family:'Onest',system-ui,sans-serif;color:var(--text);}
+  h1,h2,h3,.display{font-family:'Unbounded','Onest',sans-serif;letter-spacing:-0.015em;}
+
+  .slide{position:relative;width:297mm;height:167mm;overflow:hidden;page-break-after:always;padding:18mm 20mm;display:flex;flex-direction:column;}
+  .slide.dark{background:var(--ink);color:#fff;}
+  .slide.canvas{background:var(--canvas);}
+  .slide.light{background:#fff;}
+  .kicker{color:var(--accent);font-weight:700;font-size:11pt;}
+  .dark .kicker{color:var(--lime);}
+  .num{position:absolute;bottom:11mm;right:16mm;font-size:9pt;color:var(--dim);}
+  .dark .num{color:rgba(255,255,255,.4);}
+  .brandmark{position:absolute;top:13mm;left:20mm;height:20px;}
+  .ft{position:absolute;bottom:11mm;left:20mm;font-size:9pt;color:var(--dim);}
+  .dark .ft{color:rgba(255,255,255,.5);}
+
+  h1{font-size:40pt;font-weight:800;line-height:1.04;}
+  h2{font-size:30pt;font-weight:800;line-height:1.06;margin-bottom:6mm;}
+  .lead{font-size:14pt;color:var(--muted);line-height:1.5;}
+  .dark .lead{color:rgba(255,255,255,.72);}
+  .em{color:var(--accent);} .dark .em{color:var(--lime);}
+
+  ul{list-style:none;margin-top:4mm;}
+  li{position:relative;padding-left:9mm;margin-bottom:3.5mm;font-size:12.5pt;line-height:1.4;}
+  li::before{content:"";position:absolute;left:0;top:3mm;width:7px;height:7px;border-radius:2px;background:var(--lime);}
+  .dark li{color:rgba(255,255,255,.86);}
+
+  .center{justify-content:center;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:9mm;}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:7mm;}
+  .col h3{font-size:15pt;margin-bottom:3mm;}
+
+  .card{border-radius:16px;padding:7mm 7mm;}
+  .light .card,.canvas .card{background:#fff;border:1px solid var(--border);box-shadow:0 10px 24px -16px rgba(11,16,32,.18);}
+  .dark .card{background:var(--ink2);border:1px solid #232A39;}
+  .card .ic{width:40px;height:40px;border-radius:12px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-family:'Unbounded';font-size:14pt;}
+  .card.lime .ic{background:var(--lime);color:var(--ink);}
+  .card h4{font-size:13pt;font-weight:700;margin:4mm 0 2mm;font-family:'Onest';}
+  .card p{font-size:10pt;color:var(--muted);line-height:1.4;}
+  .dark .card p{color:rgba(255,255,255,.6);}
+
+  .shotframe{border-radius:14px;overflow:hidden;border:1px solid var(--border);box-shadow:0 30px 60px -30px rgba(11,16,32,.4);background:#0A0D12;}
+  .shotframe img{width:100%;display:block;}
+  .bar{height:22px;background:#12161F;display:flex;align-items:center;gap:6px;padding:0 10px;}
+  .bar i{width:8px;height:8px;border-radius:50%;background:#3a4257;display:inline-block;}
+
+  .bgimg{position:absolute;inset:0;z-index:0;}
+  .bgimg img{width:100%;height:100%;object-fit:cover;}
+  .bgimg::after{content:"";position:absolute;inset:0;}
+  .ov-dark::after{background:linear-gradient(90deg,#0A0D12 32%, rgba(10,13,18,.6) 60%, rgba(10,13,18,.2));}
+  .ov-full::after{background:linear-gradient(180deg,rgba(10,13,18,.55),rgba(10,13,18,.82));}
+  .z{position:relative;z-index:1;}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6mm;margin-top:6mm;}
+  .stat .v{font-family:'Unbounded';font-size:26pt;font-weight:800;color:var(--lime);}
+  .dark .stat .v{color:var(--lime);}
+  .light .stat .v,.canvas .stat .v{color:var(--accent);}
+  .stat .l{font-size:9.5pt;color:var(--muted);margin-top:1mm;}
+  .dark .stat .l{color:rgba(255,255,255,.6);}
+
+  .check{display:grid;grid-template-columns:1fr 1fr;gap:2.5mm 9mm;margin-top:4mm;}
+  .check div{font-size:11pt;padding-left:8mm;position:relative;color:#20263c;}
+  .check div::before{content:"✓";position:absolute;left:0;color:var(--success);font-weight:800;}
+
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8mm;margin-top:6mm;}
+  .step .n{font-family:'Unbounded';font-size:34pt;font-weight:900;color:var(--lime);line-height:1;}
+  .step h4{font-size:15pt;margin:3mm 0 2mm;font-family:'Onest';font-weight:700;}
+  .step p{font-size:11pt;color:rgba(255,255,255,.65);line-height:1.4;}
+
+  .pill{display:inline-block;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:5px 13px;font-size:10pt;margin-right:6px;}
+</style>
+</head>
+<body>
+
+<!-- 1 TITLE -->
+<div class="slide dark center">
+  <div class="bgimg ov-dark"><img src="img-player.jpg" alt=""></div>
+  <img class="brandmark" src="logo-white.png" alt="LinkFit" style="filter:none">
+  <div class="z" style="max-width:170mm">
+    <div class="kicker">Padel &amp; tennis platforması</div>
+    <h1 style="margin-top:5mm">Padel-i Azərbaycanda<br>asanlaşdırırıq.</h1>
+    <p class="lead" style="margin-top:6mm;max-width:150mm">Oyunçuları, klubları və məşqçiləri bir araya gətirən ekosistem — oyun tap, kort tut, reytinqdə yüksəl, turnirlərdə oyna.</p>
+    <div style="margin-top:8mm">
+      <span class="pill">Veb · iOS</span>
+      <span class="pill">3 dildə</span>
+      <span class="pill">Artıq canlıda</span>
+    </div>
+  </div>
+  <div class="ft">linkfit.az · info@linkfit.az</div>
+  <div class="num">LinkFit · 2026</div>
+</div>
+
+<!-- 2 PROBLEM -->
+<div class="slide light">
+  <div class="kicker">01 · Problem</div>
+  <h2>Padel böyüyür, amma idarəetmə dağınıqdır</h2>
+  <div class="grid2" style="margin-top:3mm">
+    <div class="col">
+      <h3>Oyunçular üçün</h3>
+      <ul>
+        <li>Tərəf-müqabil tapmaq çətindir — kim, harada, hansı səviyyədə oynayır bilinmir.</li>
+        <li>Kort rezervasiyası telefon/WhatsApp ilə dağınıq və qeyri-şəffafdır.</li>
+        <li>Səviyyə, statistika və reytinq sistemi yoxdur.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3>Klublar üçün</h3>
+      <ul>
+        <li>Rezervasiya əl ilə (dəftər/Excel) aparılır — boş kort = itirilmiş gəlir.</li>
+        <li>Müştəri bazası və marketinq alətləri yoxdur.</li>
+        <li>Yeni oyunçulara çatmaq üçün rəqəmsal kanal yoxdur.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="ft">linkfit.az</div><div class="num">02</div>
+</div>
+
+<!-- 3 SOLUTION -->
+<div class="slide dark">
+  <div class="kicker">02 · Həll</div>
+  <h2>Bir ekosistem, üç istifadəçi</h2>
+  <div class="grid3" style="margin-top:4mm">
+    <div class="card"><div class="ic">1</div><h4>Oyunçu</h4><p>Mobil + veb: oyun tap, kort tut, reytinqdə yüksəl, turnir və dərslərdə iştirak et.</p></div>
+    <div class="card"><div class="ic">2</div><h4>Klub / məkan</h4><p>İdarəetmə paneli: kort cədvəli, rezervasiya, müştəri, dərs və turnir idarəetməsi.</p></div>
+    <div class="card lime"><div class="ic">3</div><h4>Admin</h4><p>Platforma idarəetməsi: istifadəçi, klub, məzmun, moderasiya və analitika.</p></div>
+  </div>
+  <p class="lead" style="margin-top:7mm">Hər klub özü ilə onlarla oyunçu gətirir — <span class="em">şəbəkə effekti</span> sürətlə böyüyür.</p>
+  <div class="ft">linkfit.az</div><div class="num">03</div>
+</div>
+
+<!-- 4 PRODUCT HOME -->
+<div class="slide canvas">
+  <div class="kicker">03 · Məhsul</div>
+  <h2 style="margin-bottom:4mm">Hazır, cilalanmış məhsul</h2>
+  <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:9mm;align-items:center">
+    <div class="shotframe"><div class="bar"><i></i><i></i><i></i></div><img src="shot-home.png" alt="LinkFit ana səhifə"></div>
+    <div>
+      <ul>
+        <li>“Oyun tap” → 30 saniyəyə yaxınlıqdakı oyun.</li>
+        <li>ELO səviyyəsinə görə eşləşmə.</li>
+        <li>Premium, müasir dizayn — 3 dildə (AZ/EN/RU).</li>
+        <li>Veb + iOS tətbiq.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="ft">linkfit.az</div><div class="num">04</div>
+</div>
+
+<!-- 5 PRODUCT DISCOVER -->
+<div class="slide light">
+  <div class="kicker">03 · Məhsul</div>
+  <h2 style="margin-bottom:4mm">Oyun tap, bir kliklə qoşul</h2>
+  <div style="display:grid;grid-template-columns:1fr 1.3fr;gap:9mm;align-items:center">
+    <div>
+      <ul>
+        <li>Sport, tarix, səviyyə və “casual/competitive” filtri.</li>
+        <li>Boş yerli açıq oyunlar — qiymət, məkan, iştirakçılar.</li>
+        <li>Bir kliklə qoşul və ya öz oyununu yarat.</li>
+      </ul>
+    </div>
+    <div class="shotframe"><div class="bar"><i></i><i></i><i></i></div><img src="shot-discover.png" alt="LinkFit oyunlar"></div>
+  </div>
+  <div class="ft">linkfit.az</div><div class="num">05</div>
+</div>
+
+<!-- 6 FEATURES -->
+<div class="slide canvas">
+  <div class="kicker">04 · Funksiyalar</div>
+  <h2>Tam ekosistem</h2>
+  <div class="grid3" style="margin-top:3mm;gap:6mm">
+    <div class="card"><div class="ic">⚡</div><h4>Oyun tap</h4><p>Yaxınlıqda açıq oyunlar, ELO eşləşmə, casual/competitive.</p></div>
+    <div class="card"><div class="ic">◷</div><h4>Kort tut</h4><p>Real-vaxt boşluq cədvəli, slot seçimi, rezervasiya.</p></div>
+    <div class="card"><div class="ic">★</div><h4>ELO reytinq</h4><p>Səviyyə + etibarlılıq balı, liderbord.</p></div>
+    <div class="card"><div class="ic">▲</div><h4>Turnirlər</h4><p>Americano və digər formatlar, qeydiyyat, nəticələr.</p></div>
+    <div class="card lime"><div class="ic">◆</div><h4>Öyrən</h4><p>Sertifikatlı məşqçilər, fərdi və qrup dərsləri.</p></div>
+    <div class="card"><div class="ic">♺</div><h4>Sosial</h4><p>Profil, VIP/təsdiqli nişanlar, izləmə, söhbət.</p></div>
+  </div>
+  <div class="ft">linkfit.az</div><div class="num">06</div>
+</div>
+
+<!-- 7 HOW -->
+<div class="slide dark">
+  <div class="bgimg ov-full"><img src="img-court.jpg" alt=""></div>
+  <div class="z" style="display:flex;flex-direction:column;height:100%">
+    <div class="kicker">05 · Necə işləyir</div>
+    <h2>Üç addım</h2>
+    <div class="steps">
+      <div class="step"><div class="n">01</div><h4>Tap</h4><p>Səviyyənə uyğun oyun və ya kort tap.</p></div>
+      <div class="step"><div class="n">02</div><h4>Rezerv et</h4><p>Bir kliklə qoşul və ya kortu tut.</p></div>
+      <div class="step"><div class="n">03</div><h4>Oyna</h4><p>Oyna, reytinqdə yüksəl, geri qayıt.</p></div>
+    </div>
+  </div>
+  <div class="ft">linkfit.az</div><div class="num">07</div>
+</div>
+
+<!-- 8 BUSINESS MODEL -->
+<div class="slide light">
+  <div class="kicker">06 · Biznes modeli</div>
+  <h2>Biz necə qazanırıq</h2>
+  <div class="grid2" style="grid-template-columns:repeat(4,1fr);gap:6mm;margin-top:3mm">
+    <div class="card"><div class="ic">₼</div><h4>Klub SaaS</h4><p>Klublara aylıq idarəetmə abunəliyi. Sabit, təkrarlanan.</p></div>
+    <div class="card"><div class="ic">%</div><h4>Komissiya</h4><p>Hər rezervasiyadan pay (yerli ödənişlə).</p></div>
+    <div class="card lime"><div class="ic">★</div><h4>Premium</h4><p>Oyunçu abunəliyi: statistika, komissiyasız.</p></div>
+    <div class="card"><div class="ic">▲</div><h4>Turnir/təlim</h4><p>Giriş və dərs komissiyaları.</p></div>
+  </div>
+  <p class="lead" style="margin-top:7mm">SaaS gəliri <span class="em">1-ci gündən</span> başlaya bilər; ödəniş sistemi qoşulduqca komissiya + premium ilə miqyaslanır.</p>
+  <div class="ft">linkfit.az</div><div class="num">08</div>
+</div>
+
+<!-- 9 MARKET -->
+<div class="slide dark">
+  <div class="kicker">07 · Bazar</div>
+  <h2>Doğru vaxt, boş bazar</h2>
+  <p class="lead" style="max-width:170mm">Padel dünyada ən sürətlə böyüyən idmandır; Azərbaycanda yeni kortlar açılır, tələb artır — amma bu tələbi idarə edən <span class="em">lokal rəqəmsal infrastruktur yoxdur.</span></p>
+  <div class="stat-grid">
+    <div class="stat"><div class="v">#1</div><div class="l">AZ-də ilk tam platforma</div></div>
+    <div class="stat"><div class="v">B2B+B2C</div><div class="l">iki tərəfli gəlir</div></div>
+    <div class="stat"><div class="v">Region</div><div class="l">Gürcüstan, Qazaxıstan, Türkiyə</div></div>
+    <div class="stat"><div class="v">Şəbəkə</div><div class="l">hər klub = dəyər artımı</div></div>
+  </div>
+  <div class="ft">linkfit.az</div><div class="num">09</div>
+</div>
+
+<!-- 10 TRACTION -->
+<div class="slide canvas">
+  <div class="kicker">08 · Vəziyyət</div>
+  <h2>“İdeya” yox — artıq qurulub</h2>
+  <div class="check">
+    <div>İctimai veb sayt (linkfit.az) — 3 dildə</div>
+    <div>Klub idarəetmə paneli (owner)</div>
+    <div>Tam admin paneli</div>
+    <div>Mobil tətbiq (iOS)</div>
+    <div>Backend: 390+ API endpoint</div>
+    <div>Kort rezervasiyası + boşluq cədvəli</div>
+    <div>Oyun tapma + ELO reytinq</div>
+    <div>Turnirlər (Americano)</div>
+    <div>Məşqçi/dərs (“Öyrən”) modulu</div>
+    <div>Söhbət, bildirişlər, sosial</div>
+    <div>Premium/abunəlik infrastrukturu</div>
+    <div>Təhlükəsizlik: firewall, JWT, HSTS, rate-limit</div>
+  </div>
+  <div class="ft">linkfit.az</div><div class="num">10</div>
+</div>
+
+<!-- 11 ROADMAP -->
+<div class="slide light">
+  <div class="kicker">09 · Yol xəritəsi</div>
+  <h2>Növbəti addımlar</h2>
+  <div class="grid3" style="margin-top:4mm">
+    <div class="card"><div class="ic">1</div><h4>Pilot</h4><p>3-5 klubu canlı sistemə keçir, ilk oyunçuları cəlb et.</p></div>
+    <div class="card"><div class="ic">2</div><h4>Launch</h4><p>Yerli ödəniş, mobil tətbiq yayımı, premium, ilk turnir.</p></div>
+    <div class="card lime"><div class="ic">3</div><h4>Miqyas</h4><p>Daha çox klub, reklam, region şəhərlərinə genişlənmə.</p></div>
+  </div>
+  <div class="ft">linkfit.az</div><div class="num">11</div>
+</div>
+
+<!-- 12 CLOSING -->
+<div class="slide dark center">
+  <div class="bgimg ov-full"><img src="img-aerial.jpg" alt=""></div>
+  <div class="z" style="text-align:center;width:100%">
+    <img src="logo-white.png" style="height:34px;margin-bottom:9mm" alt="LinkFit">
+    <h1 style="font-size:38pt">Gəlin birlikdə quraq.</h1>
+    <p class="lead" style="margin:6mm auto 0;max-width:150mm">Azərbaycanın padel ekosisteminin standartı.</p>
+    <p style="margin-top:10mm;color:rgba(255,255,255,.8);font-size:13pt;font-weight:600">linkfit.az · info@linkfit.az</p>
+  </div>
+  <div class="num">12</div>
+</div>
+
+</body>
+</html>

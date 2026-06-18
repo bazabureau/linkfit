@@ -83,11 +83,17 @@ export interface TournamentEntry {
   captain_user_id: string;
   captain_display_name: string;
   captain_photo_url: string | null;
+  captain_email?: string | null;
   squad_name: string;
   player_ids: string[];
   player_names: string[];
   status: TournamentEntryStatus;
   created_at: string;
+}
+
+/** Admin tournament detail GET returns the row + an embedded entries array. */
+export interface TournamentDetail extends Tournament {
+  entries?: TournamentEntry[];
 }
 
 export interface TournamentEntriesResponse {
@@ -96,6 +102,8 @@ export interface TournamentEntriesResponse {
 
 export interface TournamentsListPage {
   items: Tournament[];
+  total?: number;
+  /** Backend always returns null here — we page with limit/offset, not cursors. */
   next_cursor: string | null;
 }
 
@@ -142,38 +150,50 @@ export const sportsKeys = {
 
 // ─── Hooks ─────────────────────────────────────────────────────────────
 
-/** Cursor-paginated admin tournaments listing with filter support. */
+/**
+ * Limit/offset-paginated admin tournaments listing. The backend
+ * (AdminOpsController::tournaments) returns `{items, total, next_cursor:null}`
+ * and pages with limit/offset (not cursors), so the next page param is derived
+ * from how many rows we've loaded vs. the reported total.
+ */
 export function useAdminTournaments(
   filters: TournamentListFilters = {},
 ): UseInfiniteQueryResult<{ pages: TournamentsListPage[]; pageParams: unknown[] }, Error> {
+  const limit = filters.limit ?? 25;
   return useInfiniteQuery({
     queryKey: tournamentsKeys.list(filters),
-    initialPageParam: undefined as string | undefined,
+    initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
+      const offset = pageParam as number;
       const params = new URLSearchParams();
       if (filters.status) params.set("status", filters.status);
       if (filters.sport) params.set("sport", filters.sport);
       if (filters.q && filters.q.trim().length > 0) params.set("q", filters.q.trim());
-      if (filters.limit) params.set("limit", String(filters.limit));
-      if (pageParam) params.set("cursor", pageParam);
-      const qs = params.toString();
+      params.set("limit", String(limit));
+      params.set("offset", String(offset));
       const res = await api.get<TournamentsListPage>(
-        `/api/v1/admin/tournaments${qs ? `?${qs}` : ""}`,
+        `/api/v1/admin/tournaments?${params.toString()}`,
       );
       return res;
     },
-    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+    getNextPageParam: (lastPage, allPages) => {
+      if (lastPage.items.length < limit) return undefined;
+      const loaded = allPages.reduce((sum, p) => sum + p.items.length, 0);
+      if (typeof lastPage.total === "number" && loaded >= lastPage.total) return undefined;
+      return loaded; // next offset
+    },
   });
 }
 
-export function useTournament(id: string | undefined): UseQueryResult<Tournament> {
+export function useTournament(id: string | undefined): UseQueryResult<TournamentDetail> {
   return useQuery({
     queryKey: id ? tournamentsKeys.detail(id) : ["admin-tournaments", "detail", "none"],
     enabled: Boolean(id),
     queryFn: async () => {
-      // The admin module doesn't have a single-tournament GET; reuse the
-      // public detail endpoint which returns the same row + extras we ignore.
-      const res = await api.get<Tournament>(`/api/v1/tournaments/${id ?? ""}`);
+      // Admin single-tournament GET returns the admin-shaped row (entries_count,
+      // created_at, …) plus an embedded `entries` array. The public endpoint is
+      // a different shape and omits non-active entries, so we must use this one.
+      const res = await api.get<TournamentDetail>(`/api/v1/admin/tournaments/${id ?? ""}`);
       return res;
     },
   });
@@ -267,6 +287,33 @@ export function useRemoveTournamentEntry(): UseMutationResult<
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: tournamentsKeys.entries(vars.tournamentId) });
+      void qc.invalidateQueries({ queryKey: tournamentsKeys.detail(vars.tournamentId) });
+      void qc.invalidateQueries({ queryKey: tournamentsKeys.all });
+    },
+  });
+}
+
+/**
+ * Set an entry's moderation status — confirm a pending squad, disqualify a
+ * cheater, or re-open a withdrawn one. Backed by
+ * `PATCH /admin/tournaments/:id/entries/:entryId`.
+ */
+export function useUpdateTournamentEntry(): UseMutationResult<
+  TournamentEntry,
+  Error,
+  { tournamentId: string; entryId: string; status: TournamentEntryStatus }
+> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ tournamentId, entryId, status }) => {
+      return api.patch<TournamentEntry>(
+        `/api/v1/admin/tournaments/${tournamentId}/entries/${entryId}`,
+        { status },
+      );
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: tournamentsKeys.entries(vars.tournamentId) });
+      void qc.invalidateQueries({ queryKey: tournamentsKeys.detail(vars.tournamentId) });
       void qc.invalidateQueries({ queryKey: tournamentsKeys.all });
     },
   });

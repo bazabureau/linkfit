@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { type Logger } from "pino";
 import { type DbHandle } from "../../shared/db/pool.js";
 import { withTransaction } from "../../shared/db/withTransaction.js";
@@ -13,7 +14,9 @@ import {
 import { emailRepository } from "./email.repository.js";
 import {
   generateEmailToken,
+  generateVerificationCode,
   hashEmailToken,
+  hashVerificationCode,
 } from "./email.tokens.js";
 import { type MailTransport } from "./email.transport.js";
 
@@ -22,23 +25,24 @@ import { type MailTransport } from "./email.transport.js";
  * because the user has no urgency to act, while reset links are higher-risk
  * if intercepted. Numbers tuned to be friendly without becoming dangerous:
  *
- *  - verify         → 24h
+ *  - verify         → 10m
  *  - reset_password → 1h
  *
  * Cool-down keeps abusive resend loops in check; 60s is the contractual
  * floor (see task spec).
  */
-const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
+const VERIFY_TTL_MS = 10 * 60 * 1000;
 const RESET_TTL_MS = 60 * 60 * 1000;
 const RESEND_COOLDOWN_SECONDS = 60;
+const VERIFY_MAX_ATTEMPTS = 5;
 
 export interface EmailServiceDeps {
   db: DbHandle;
   logger: Logger;
   transport: MailTransport;
-  /** Base URL used to build the magic-link sent in the email body. The link
-   *  is informational — the API doesn't follow it; it tells the user where
-   *  to paste the token (the iOS client supports both URL and code entry). */
+  /** Secret used to HMAC the six-digit verification code before storing it. */
+  verificationCodeSecret: string;
+  /** Base URL used to build the password-reset magic-link sent by email. */
   publicAppUrl: string;
 }
 
@@ -48,11 +52,9 @@ export class EmailService {
   // ───────────────────────── send-verification ─────────────────────────
 
   /**
-   * Mint a verification token and email it. Idempotent within
+   * Mint a six-digit verification code and email it. Idempotent within
    * `RESEND_COOLDOWN_SECONDS` — repeated calls before the cool-down expires
-   * throw `RateLimitedError`. We do NOT silently re-send the previous token
-   * because the prior hash is in the DB; we'd have no way to deliver the
-   * raw value again.
+   * throw `RateLimitedError`. We never store the plain code — only a HMAC.
    */
   async sendVerification(userId: string): Promise<{ sent: boolean }> {
     const user = await emailRepository.findUserById(this.deps.db.db, userId);
@@ -74,34 +76,60 @@ export class EmailService {
       );
     }
 
-    const fresh = generateEmailToken();
+    const fresh = generateVerificationCode(this.deps.verificationCodeSecret);
     const expiresAt = new Date(Date.now() + VERIFY_TTL_MS);
-    await emailRepository.insertToken(this.deps.db.db, {
-      user_id: userId,
-      kind: "verify",
-      token_hash: fresh.hash,
-      expires_at: expiresAt,
+    await withTransaction(this.deps.db.db, async (tx) => {
+      await emailRepository.invalidatePendingForUser(tx, userId, "verify");
+      await emailRepository.insertToken(tx, {
+        user_id: userId,
+        kind: "verify",
+        token_hash: fresh.hash,
+        expires_at: expiresAt,
+      });
     });
 
-    await this.deliverVerify(user.email, fresh.token);
+    await this.deliverVerify(user.email, fresh.code);
     return { sent: true };
   }
 
   // ───────────────────────── verify-email ─────────────────────────
 
-  /** Consume a verification token. Bad / expired / re-used → 400. */
-  async verifyEmail(rawToken: string): Promise<{ verified: boolean }> {
-    const tokenHash = hashEmailToken(rawToken);
+  /**
+   * Verify the authenticated user's six-digit code. Bad / expired / mismatch
+   * intentionally returns HTTP 200 `{ verified: false }` because the shipped
+   * iOS app maps the boolean, not a validation exception.
+   */
+  async verifyEmail(userId: string, rawToken: string): Promise<{ verified: boolean }> {
+    const code = rawToken.trim();
+    const tokenHash = /^\d{6}$/.test(code)
+      ? hashVerificationCode(code, this.deps.verificationCodeSecret)
+      : null;
     return withTransaction(this.deps.db.db, async (tx) => {
-      const row = await emailRepository.findByHash(tx, tokenHash, "verify");
+      const row = await emailRepository.findLatestPendingForUser(tx, userId, "verify");
       if (row === null) {
-        throw new ValidationError("Invalid verification token");
+        return { verified: false };
       }
+      if (row.attempts >= VERIFY_MAX_ATTEMPTS) {
+        await emailRepository.invalidateToken(tx, row.id);
+        return { verified: false };
+      }
+
+      const expired = row.expires_at.getTime() <= Date.now();
+      const matches =
+        tokenHash !== null &&
+        tokenHash.length === row.token_hash.length &&
+        timingSafeEqual(tokenHash, row.token_hash);
+
+      if (expired || !matches) {
+        const attempted = await emailRepository.incrementAttempts(tx, row.id);
+        if (expired || (attempted?.attempts ?? VERIFY_MAX_ATTEMPTS) >= VERIFY_MAX_ATTEMPTS) {
+          await emailRepository.invalidateToken(tx, row.id);
+        }
+        return { verified: false };
+      }
+
       const consumed = await emailRepository.consumeToken(tx, row.id);
-      if (consumed === null) {
-        // Either already used, or expired — uniform error to the client.
-        throw new ValidationError("Token is no longer valid");
-      }
+      if (consumed === null) return { verified: false };
       await emailRepository.markUserVerified(tx, row.user_id);
       return { verified: true };
     });
@@ -185,23 +213,26 @@ export class EmailService {
 
   // ───────────────────────── internals ─────────────────────────
 
-  private async deliverVerify(to: string, token: string): Promise<void> {
-    const link = `${this.deps.publicAppUrl}/verify-email?token=${encodeURIComponent(token)}`;
+  private async deliverVerify(to: string, code: string, locale: "az" | "en" | "ru" = "az"): Promise<void> {
+    const copy = {
+      az: {
+        subject: `Linkfit təsdiq kodu: ${code}`,
+        body: `Hesabını təsdiqləmək üçün kod: ${code}. Kod 10 dəqiqə etibarlıdır, kimsə ilə paylaşma.`,
+      },
+      en: {
+        subject: `Your Linkfit code: ${code}`,
+        body: `Your verification code is ${code}. It expires in 10 minutes. Don't share it.`,
+      },
+      ru: {
+        subject: `Код Linkfit: ${code}`,
+        body: `Ваш код подтверждения: ${code}. Он действует 10 минут. Никому его не сообщайте.`,
+      },
+    }[locale];
     await this.deps.transport.send({
       to,
-      subject: "Verify your Linkfit email",
-      text:
-        `Welcome to Linkfit!\n\n` +
-        `Confirm your address by tapping the link below or pasting the token into the app:\n\n` +
-        `${link}\n\n` +
-        `Token: ${token}\n\n` +
-        `This link expires in 24 hours.`,
-      html:
-        `<p>Welcome to Linkfit!</p>` +
-        `<p>Confirm your address by tapping the link below or pasting the token into the app:</p>` +
-        `<p><a href="${link}"><strong>${link}</strong></a></p>` +
-        `<p>Token: <code>${token}</code></p>` +
-        `<p>This link expires in 24 hours.</p>`,
+      subject: copy.subject,
+      text: copy.body,
+      html: `<p>${copy.body.replace(code, `<strong style="font-size:24px;letter-spacing:0.18em">${code}</strong>`)}</p>`,
     });
   }
 

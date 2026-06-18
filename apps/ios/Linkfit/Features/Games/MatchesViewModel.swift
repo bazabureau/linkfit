@@ -93,14 +93,22 @@ final class MatchesViewModel {
             return
         } catch let error as APIError {
             if case .loaded = state {} else {
-                state = .error(message: error.errorDescription
-                               ?? String(localized: "matches.error.load"))
+                state = .error(message: userFacingLoadError(from: error))
             }
         } catch {
             if case .loaded = state {} else {
-                state = .error(message: error.localizedDescription)
+                state = .error(message: String(localized: "matches.error.load"))
             }
         }
+    }
+
+    private func userFacingLoadError(from error: APIError) -> String {
+        let fallback = String(localized: "matches.error.load")
+        guard let message = error.errorDescription?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !message.isEmpty else {
+            return fallback
+        }
+        return message
     }
 
     /// Pull `/me/agenda` for a forward window and record which games the

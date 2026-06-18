@@ -133,6 +133,7 @@ struct InviteFriendsView: View {
                 )
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+                .presentationBackground(.ultraThinMaterial)
             }
         }
         .overlay(alignment: .top) {
@@ -256,7 +257,7 @@ struct InviteFriendsView: View {
 
     private func shareCTA(enabled: Bool) -> some View {
         PrimaryButton(
-            title: String(localized: "referrals.action.share"),
+            title: "referrals.action.share",
             icon: "square.and.arrow.up.fill",
             isEnabled: enabled,
         ) {

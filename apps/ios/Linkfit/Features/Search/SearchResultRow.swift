@@ -150,14 +150,8 @@ private struct SearchRowShell: View {
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
                         .background(
-                            Capsule().fill(
-                                LinearGradient(
-                                    colors: [DSColor.accent, DSColor.accentSoft],
-                                    startPoint: .topLeading, endPoint: .bottomTrailing
-                                )
-                            )
+                            Capsule().fill(DSColor.accent)
                         )
-                        .shadow(color: DSColor.accent.opacity(0.25), radius: 3)
                 }
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
@@ -166,8 +160,7 @@ private struct SearchRowShell: View {
             .padding(DSSpacing.md)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(DSColor.textPrimary.opacity(0.02))
-                    .background(.ultraThinMaterial)
+                    .fill(DSColor.surface)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -179,7 +172,7 @@ private struct SearchRowShell: View {
                         lineWidth: 1
                     )
             )
-            .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
+            .shadow(color: DSColor.inkSurface.opacity(0.06), radius: 4, x: 0, y: 2)
             .contentShape(Rectangle())
         }
         .buttonStyle(SpringPressStyle())
@@ -195,7 +188,6 @@ private struct SearchRowShell: View {
             Image(systemName: icon)
                 .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(DSColor.accent)
-                .shadow(color: DSColor.accent.opacity(0.3), radius: 2)
         }
         .overlay(
             Circle()

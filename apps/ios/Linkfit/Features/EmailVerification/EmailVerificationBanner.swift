@@ -54,6 +54,7 @@ struct EmailVerificationBanner: View {
                     )
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
+                    .presentationBackground(.ultraThinMaterial)
                 }
                 .overlay(alignment: .top) {
                     if let toast {

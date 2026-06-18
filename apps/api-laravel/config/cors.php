@@ -6,7 +6,7 @@ $configuredOrigins = array_values(array_filter(array_map(
 )));
 
 return [
-    'paths' => ['api/*', 'health', 'health/*', 'realtime/*', 'sanctum/csrf-cookie'],
+    'paths' => ['api/*', 'health', 'health/*', 'realtime/*', 'broadcasting/auth', 'sanctum/csrf-cookie'],
     'allowed_methods' => ['*'],
     'allowed_origins' => $configuredOrigins !== [] ? $configuredOrigins : [
         'http://142.93.100.82',

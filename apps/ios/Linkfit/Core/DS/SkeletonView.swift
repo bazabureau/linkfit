@@ -117,11 +117,11 @@ struct SkeletonView: View {
         .frame(height: 72)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(DSColor.surface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.3), lineWidth: 1)
+                .strokeBorder(DSColor.border, lineWidth: 1)
         )
     }
 
@@ -155,11 +155,11 @@ struct SkeletonView: View {
         .frame(height: 110)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(DSColor.surface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.3), lineWidth: 1)
+                .strokeBorder(DSColor.border, lineWidth: 1)
         )
     }
 
@@ -193,11 +193,11 @@ struct SkeletonView: View {
         .frame(height: 72)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(DSColor.surface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.3), lineWidth: 1)
+                .strokeBorder(DSColor.border, lineWidth: 1)
         )
     }
 }

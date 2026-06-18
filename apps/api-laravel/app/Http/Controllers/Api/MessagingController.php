@@ -3,28 +3,83 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
+use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class MessagingController extends ApiController
 {
     use AuthorizesAdminPermissions;
+    use FiltersBlockedUsers;
 
     public function notifications(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
+        $query = $this->validateQuery($request, [
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'cursor' => ['nullable', 'string', 'max:500'],
+        ]);
+        $limit = (int) ($query['limit'] ?? 20);
+        $cursor = $this->decodeCursor($query['cursor'] ?? null);
+
         $rows = DB::table('notifications')
             ->where('user_id', $user->id)
+            ->when($cursor !== null, fn ($q) => $q->where(function ($w) use ($cursor) {
+                $w->where('created_at', '<', $cursor['ts'])
+                    ->orWhere(fn ($x) => $x->where('created_at', $cursor['ts'])->where('id', '<', $cursor['id']));
+            }))
             ->orderByDesc('created_at')
-            ->limit(100)
+            ->orderByDesc('id')
+            ->limit($limit + 1)
             ->get();
 
+        $hasMore = $rows->count() > $limit;
+        $pageRows = $rows->take($limit)->values();
+
         return response()->json([
-            'items' => $rows->map(fn ($n) => $this->notificationPayload($n)),
-            'unread_count' => DB::table('notifications')->where('user_id', $user->id)->whereNull('read_at')->count(),
+            'items' => $pageRows->map(fn ($n) => $this->notificationPayload($n))->values(),
+            'next_cursor' => $hasMore ? $this->encodeCursor($pageRows->last(), 'created_at') : null,
+            // unread_count is a whole-inbox figure — only on the first page.
+            'unread_count' => $cursor === null
+                ? DB::table('notifications')->where('user_id', $user->id)->whereNull('read_at')->count()
+                : null,
+        ]);
+    }
+
+    public function unreadCounts(Request $request): JsonResponse
+    {
+        $user = $this->authUser($request);
+
+        $messages = DB::table('conversation_participants as me')
+            ->join('conversations as c', 'c.id', '=', 'me.conversation_id')
+            ->where('me.user_id', $user->id)
+            ->whereNull('me.left_at')
+            ->whereNotNull('c.last_message_at')
+            ->where(function ($q) {
+                $q->whereNull('me.last_read_at')
+                    ->orWhereColumn('c.last_message_at', '>', 'me.last_read_at');
+            })
+            ->count();
+
+        $notifications = DB::table('notifications')
+            ->where('user_id', $user->id)
+            ->whereNull('read_at')
+            ->count();
+
+        $invites = DB::table('game_invitations')
+            ->where('invitee_user_id', $user->id)
+            ->where('status', 'pending')
+            ->count();
+
+        return response()->json([
+            'messages' => $messages,
+            'notifications' => $notifications,
+            'invites' => $invites,
+            'total' => $messages + $notifications + $invites,
         ]);
     }
 
@@ -68,6 +123,13 @@ class MessagingController extends ApiController
     public function conversations(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
+        $query = $this->validateQuery($request, [
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'cursor' => ['nullable', 'string', 'max:500'],
+        ]);
+        $limit = (int) ($query['limit'] ?? 20);
+        $cursor = $this->decodeCursor($query['cursor'] ?? null);
+
         $rows = DB::table('conversation_participants as me')
             ->join('conversations as c', 'c.id', '=', 'me.conversation_id')
             ->join('conversation_participants as other_cp', function ($join) {
@@ -77,8 +139,30 @@ class MessagingController extends ApiController
             ->join('users as other', 'other.id', '=', 'other_cp.user_id')
             ->where('me.user_id', $user->id)
             ->whereNull('me.left_at')
+            // Hide 1:1 threads with a blocked user (either direction); group
+            // (game/tournament) threads are shared context and stay visible.
+            ->where(function ($q) use ($user) {
+                $q->where('c.kind', 'group')
+                    ->orWhereNotExists(function ($sq) use ($user) {
+                        $sq->selectRaw('1')->from('user_blocks as ub2')
+                            ->where(fn ($w) => $w->where('ub2.blocker_user_id', $user->id)->whereColumn('ub2.blocked_user_id', 'other.id'))
+                            ->orWhere(fn ($w) => $w->where('ub2.blocked_user_id', $user->id)->whereColumn('ub2.blocker_user_id', 'other.id'));
+                    });
+            })
+            // Keyset on (c.last_message_at DESC, c.id DESC); id-only fallback when
+            // the cursor row had no last_message_at, so NULL-timestamped threads
+            // still page deterministically.
+            ->when($cursor !== null, fn ($q) => $q->where(function ($w) use ($cursor) {
+                if ($cursor['ts'] === null || $cursor['ts'] === '') {
+                    $w->where('c.id', '<', $cursor['id']);
+                } else {
+                    $w->where('c.last_message_at', '<', $cursor['ts'])
+                        ->orWhere(fn ($x) => $x->where('c.last_message_at', $cursor['ts'])->where('c.id', '<', $cursor['id']));
+                }
+            }))
             ->orderByDesc('c.last_message_at')
-            ->orderByDesc('c.created_at')
+            ->orderByDesc('c.id')
+            ->limit($limit + 1)
             ->get([
                 'c.id',
                 'other.id as other_user_id',
@@ -88,9 +172,25 @@ class MessagingController extends ApiController
                 'me.last_read_at',
             ]);
 
+        $hasMore = $rows->count() > $limit;
+        $pageRows = $rows->take($limit)->values();
+
+        // Batch the latest message for every listed conversation in ONE query
+        // (Postgres DISTINCT ON) — replaces the prior per-row last-message lookup.
+        $conversationIds = $pageRows->pluck('id')->all();
+        $lastMessages = empty($conversationIds)
+            ? collect()
+            : DB::table('messages')
+                ->whereIn('conversation_id', $conversationIds)
+                ->orderBy('conversation_id')
+                ->orderByDesc('created_at')
+                ->distinct('conversation_id')
+                ->get(['conversation_id', 'body', 'created_at'])
+                ->keyBy('conversation_id');
+
         return response()->json([
-            'items' => $rows->map(function ($r) {
-                $last = DB::table('messages')->where('conversation_id', $r->id)->orderByDesc('created_at')->first();
+            'items' => $pageRows->map(function ($r) use ($lastMessages) {
+                $last = $lastMessages->get($r->id);
 
                 return [
                     'id' => $r->id,
@@ -101,7 +201,8 @@ class MessagingController extends ApiController
                     'last_message_at' => $this->iso($r->last_message_at),
                     'unread' => $last !== null && ($r->last_read_at === null || $last->created_at > $r->last_read_at),
                 ];
-            }),
+            })->values(),
+            'next_cursor' => $hasMore ? $this->encodeCursor($pageRows->last(), 'last_message_at') : null,
         ]);
     }
 
@@ -117,11 +218,18 @@ class MessagingController extends ApiController
         if (! DB::table('users')->where('id', $data['other_user_id'])->whereNull('deleted_at')->exists()) {
             throw ApiException::notFound('User not found');
         }
+        if ($this->blockExistsBetween((string) $user->id, (string) $data['other_user_id'])) {
+            throw ApiException::forbidden('Cannot message this user');
+        }
 
+        // Only match an existing DIRECT (1:1) conversation — never a group chat
+        // (game/tournament/squad), which shares the same participant table.
         $existing = DB::table('conversation_participants as a')
             ->join('conversation_participants as b', 'b.conversation_id', '=', 'a.conversation_id')
+            ->join('conversations as c', 'c.id', '=', 'a.conversation_id')
             ->where('a.user_id', $user->id)
             ->where('b.user_id', $data['other_user_id'])
+            ->where(fn ($q) => $q->where('c.kind', 'direct')->orWhereNull('c.kind'))
             ->value('a.conversation_id');
         if ($existing !== null) {
             DB::table('conversation_participants')->where('conversation_id', $existing)->whereIn('user_id', [$user->id, $data['other_user_id']])->update(['left_at' => null]);
@@ -131,7 +239,7 @@ class MessagingController extends ApiController
 
         $id = (string) Str::uuid();
         DB::transaction(function () use ($id, $user, $data) {
-            DB::table('conversations')->insert(['id' => $id, 'created_at' => now()]);
+            DB::table('conversations')->insert(['id' => $id, 'kind' => 'direct', 'created_at' => now()]);
             DB::table('conversation_participants')->insert([
                 ['conversation_id' => $id, 'user_id' => $user->id],
                 ['conversation_id' => $id, 'user_id' => $data['other_user_id']],
@@ -336,6 +444,18 @@ class MessagingController extends ApiController
         if (! DB::table('conversation_participants')->where('conversation_id', $id)->where('user_id', $user->id)->whereNull('left_at')->exists()) {
             throw ApiException::forbidden('Conversation not available');
         }
+        // In a 1:1 (direct) thread a block halts messaging both ways. Group
+        // (game/tournament/squad) threads are shared context and stay open.
+        $conv = DB::table('conversations')->where('id', $id)->first(['kind']);
+        if ($conv === null || $conv->kind === null || $conv->kind === 'direct') {
+            $otherId = DB::table('conversation_participants')
+                ->where('conversation_id', $id)
+                ->where('user_id', '!=', $user->id)
+                ->value('user_id');
+            if ($otherId !== null && $this->blockExistsBetween((string) $user->id, (string) $otherId)) {
+                throw ApiException::forbidden('Cannot message this user');
+            }
+        }
         $data = $this->validateBody($request, [
             'body' => ['sometimes', 'nullable', 'string', 'max:4000'],
             'attachment_url' => ['sometimes', 'nullable', 'string', 'max:2048'],
@@ -356,8 +476,41 @@ class MessagingController extends ApiController
             'created_at' => now(),
         ]);
         $row = DB::table('messages')->where('id', $messageId)->first();
+        $payload = $this->messagePayload($row);
 
-        return response()->json($this->messagePayload($row), 201);
+        // Real-time fan-out to the other participants. Guarded + caught so a
+        // broadcasting outage can NEVER fail message delivery (chat also polls).
+        if (! in_array((string) config('broadcasting.default'), ['log', 'null', ''], true)) {
+            try {
+                broadcast(new \App\Events\MessageSent($id, $payload))->toOthers();
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        // Persisted notification + push for every OTHER active participant (group
+        // threads notify all of them; a direct thread has exactly one). Wrapped so
+        // an enqueue failure can NEVER fail message delivery.
+        try {
+            $recipients = DB::table('conversation_participants')
+                ->where('conversation_id', $id)
+                ->where('user_id', '!=', $user->id)
+                ->whereNull('left_at')
+                ->pluck('user_id');
+            foreach ($recipients as $recipientId) {
+                $this->enqueueNotification(
+                    (string) $recipientId,
+                    'message_received',
+                    'New message',
+                    $body !== '' ? $body : 'Sent an attachment',
+                    ['conversation_id' => $id, 'sender_user_id' => $user->id],
+                );
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return response()->json($payload, 201);
     }
 
     public function markConversationRead(Request $request, string $id): JsonResponse
@@ -427,6 +580,32 @@ class MessagingController extends ApiController
         }
 
         return null;
+    }
+
+    private function enqueueNotification(string $userId, string $type, string $title, string $body, array $payload = []): void
+    {
+        DB::table('notifications')->insert([
+            'id' => (string) Str::uuid(),
+            'user_id' => $userId,
+            'type' => $type,
+            'title' => $title,
+            'body' => $body,
+            'payload' => json_encode($payload),
+            'created_at' => now(),
+        ]);
+        if (Schema::hasTable('push_notification_jobs')) {
+            DB::table('push_notification_jobs')->insert([
+                'id' => (string) Str::uuid(),
+                'user_id' => $userId,
+                'type' => $type,
+                'title' => $title,
+                'body' => $body,
+                'payload' => json_encode($payload),
+                'available_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
     }
 
     private function auditWrite(?string $actorUserId, string $action, string $entity, ?string $entityId = null, array $metadata = []): void

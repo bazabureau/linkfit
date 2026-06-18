@@ -8,7 +8,9 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default: "border-border bg-surfaceElevated text-foreground",
-        success: "border-accent/30 bg-accent/10 text-accent",
+        success: "border-accent/40 bg-accent/10 text-accent",
+        // Solid lime emphasis chip — dark ink for readability on the lime fill.
+        accent: "border-transparent bg-accent text-accent-ink font-semibold",
         warning: "border-warning/30 bg-warning/10 text-warning",
         danger: "border-danger/30 bg-danger/10 text-danger",
         // Alias used by feature pages — semantically same as `danger`.

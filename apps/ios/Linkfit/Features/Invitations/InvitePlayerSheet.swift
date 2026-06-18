@@ -50,7 +50,9 @@ struct InvitePlayerSheet: View {
                 }
             }
         }
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(.ultraThinMaterial)
     }
 
     @ViewBuilder

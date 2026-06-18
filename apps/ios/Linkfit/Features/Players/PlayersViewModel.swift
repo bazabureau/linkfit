@@ -247,50 +247,39 @@ final class PlayersViewModel {
     /// any ProfileView opened for the same user picks up the change
     /// immediately, without waiting for its own network round-trip.
     func toggleFollow(_ player: PlayerSummary) async {
+        guard !FollowStore.shared.isPending(userId: player.id) else { return }
         let currentlyFollows = player.is_followed_by_me ?? false
         let willFollow = !currentlyFollows
-        let delta = willFollow ? 1 : -1
         let viewerId = viewerUserId ?? ""
 
         // Optimistic flip — row + global store.
         applyFollowMutation(playerId: player.id, isFollowing: willFollow)
-        FollowStore.shared.setFollowing(userId: player.id, isFollowing: willFollow)
-        if !viewerId.isEmpty {
-            FollowStore.shared.applyCountDelta(forUser: viewerId, delta: delta)
-        }
-        FollowStore.shared.applyCountDelta(forUser: player.id, delta: delta)
 
         do {
-            if willFollow {
-                _ = try await apiClient.send(.followUser(id: player.id))
-            } else {
-                _ = try await apiClient.send(.unfollowUser(id: player.id))
+            _ = try await FollowStore.shared.performToggle(
+                targetUserId: player.id,
+                viewerUserId: viewerId,
+                follow: willFollow
+            ) { next in
+                if next {
+                    _ = try await apiClient.send(.followUser(id: player.id))
+                } else {
+                    _ = try await apiClient.send(.unfollowUser(id: player.id))
+                }
             }
         } catch let error as APIError {
             // Revert + surface the error so the view can show an
             // alert. Previously errors were swallowed by `try?` at
             // the call site, leaving the user staring at a button
             // that flipped and unflipped with no explanation.
-            revertFollow(playerId: player.id, isFollowing: currentlyFollows, viewerId: viewerId, delta: delta)
+            applyFollowMutation(playerId: player.id, isFollowing: currentlyFollows)
             actionError = error.localizedMessage
         } catch is CancellationError {
-            revertFollow(playerId: player.id, isFollowing: currentlyFollows, viewerId: viewerId, delta: delta)
+            applyFollowMutation(playerId: player.id, isFollowing: currentlyFollows)
         } catch {
-            revertFollow(playerId: player.id, isFollowing: currentlyFollows, viewerId: viewerId, delta: delta)
+            applyFollowMutation(playerId: player.id, isFollowing: currentlyFollows)
             actionError = error.localizedDescription
         }
-    }
-
-    /// Undo every mutation `toggleFollow` applied (row + store edge + both
-    /// counter deltas). Kept as a single helper so failure paths don't drift
-    /// from each other.
-    private func revertFollow(playerId: String, isFollowing previous: Bool, viewerId: String, delta: Int) {
-        applyFollowMutation(playerId: playerId, isFollowing: previous)
-        FollowStore.shared.setFollowing(userId: playerId, isFollowing: previous)
-        if !viewerId.isEmpty {
-            FollowStore.shared.applyCountDelta(forUser: viewerId, delta: -delta)
-        }
-        FollowStore.shared.applyCountDelta(forUser: playerId, delta: -delta)
     }
 
     func clearActionError() { actionError = nil }

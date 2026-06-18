@@ -78,6 +78,43 @@ abstract class ApiController extends Controller
         return $validator->validated();
     }
 
+    /**
+     * Decode a keyset pagination cursor (base64 of {ts,id}). Returns null on an
+     * absent or malformed cursor so callers can treat it as "first page".
+     */
+    protected function decodeCursor(?string $raw): ?array
+    {
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+        $json = base64_decode($raw, true);
+        if ($json === false) {
+            return null;
+        }
+        $data = json_decode($json, true);
+        if (! is_array($data) || ! isset($data['ts'], $data['id'])) {
+            return null;
+        }
+
+        return ['ts' => (string) $data['ts'], 'id' => (string) $data['id']];
+    }
+
+    /**
+     * Encode a keyset cursor from the last row of a page (its $tsField + id).
+     * Returns null when there's no further page.
+     */
+    protected function encodeCursor(?object $last, string $tsField = 'created_at'): ?string
+    {
+        if ($last === null) {
+            return null;
+        }
+
+        return base64_encode((string) json_encode([
+            'ts' => $this->iso($last->{$tsField} ?? null),
+            'id' => (string) ($last->id ?? ''),
+        ]));
+    }
+
     protected function iso(mixed $value): ?string
     {
         if ($value === null) {

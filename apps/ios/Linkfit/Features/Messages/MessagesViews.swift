@@ -260,15 +260,7 @@ struct ConversationsView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(DSColor.surface)
-                .shadow(color: Color.black.opacity(0.02), radius: 10, x: 0, y: 5)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(DSColor.border, lineWidth: 1)
-        )
+        .dsSurfaceCard(radius: 22, shadowOpacity: 0.02)
         .padding(.top, 12)
     }
 
@@ -310,8 +302,8 @@ private struct ConversationRowButtonStyle: ButtonStyle {
 /// `ConversationsView` list. We define a `.contentShape(Rectangle())`
 /// over the whole row so the gaps between the avatar and the text
 /// remain tappable (otherwise SwiftUI's hit-test traces only the
-/// rendered subviews, and the glass background — a `.fill(.ultraThinMaterial)`
-/// behind a `RoundedRectangle` — registers as transparent for hit-testing).
+/// rendered subviews, and the decorative row background can register
+/// as transparent for hit-testing).
 /// We deliberately do NOT attach a `simultaneousGesture(DragGesture(minimumDistance: 0))`
 /// for the press-scale effect — in `List` rows with `.swipeActions`, that
 /// gesture races the cell's tap recognizer and the row stops navigating
@@ -346,7 +338,6 @@ private struct PremiumConversationRow: View {
                         Circle()
                             .fill(DSColor.accent)
                             .frame(width: 9, height: 9)
-                            .shadow(color: DSColor.accent.opacity(0.6), radius: 4)
                     }
                 }
             }
@@ -356,7 +347,7 @@ private struct PremiumConversationRow: View {
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(DSColor.surface)
-                .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 3)
+                .shadow(color: DSColor.inkSurface.opacity(0.02), radius: 8, x: 0, y: 3)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -2072,7 +2063,7 @@ private struct ScrollToBottomChip: View {
             Circle()
                 .fill(DSColor.surfaceElevated)
                 .frame(width: 40, height: 40)
-                .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 4)
+                .shadow(color: DSColor.inkSurface.opacity(0.18), radius: 8, x: 0, y: 4)
             Circle()
                 .strokeBorder(DSColor.border, lineWidth: 0.5)
                 .frame(width: 40, height: 40)
@@ -2103,7 +2094,6 @@ private struct NewMessagesPill: View {
         .background(
             Capsule()
                 .fill(DSColor.accent)
-                .shadow(color: DSColor.accent.opacity(0.35), radius: 6, x: 0, y: 3)
         )
         .accessibilityLabel(Text(label))
     }

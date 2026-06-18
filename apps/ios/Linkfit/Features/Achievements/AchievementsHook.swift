@@ -123,6 +123,7 @@ struct RecentlyUnlockedCarousel: View {
                 AchievementDetailSheet(achievement: item)
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
+                    .presentationBackground(.ultraThinMaterial)
             }
         }
     }

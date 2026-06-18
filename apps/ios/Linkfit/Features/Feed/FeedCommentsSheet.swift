@@ -55,7 +55,9 @@ struct FeedCommentsSheet: View {
                 }
             }
         }
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(.ultraThinMaterial)
         .task { await viewModel.onAppear() }
         // Long-press → action sheet → confirm. We use a confirmation
         // dialog (not a plain in-row swipe) because the thread renders

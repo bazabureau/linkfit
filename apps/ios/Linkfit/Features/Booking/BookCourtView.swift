@@ -104,14 +104,7 @@ struct BookCourtView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Clean canvas + soft brand glow — matches the rebuilt tabs.
                 DSColor.background.ignoresSafeArea()
-                RadialGradient(
-                    colors: [DSColor.accent.opacity(0.06), .clear],
-                    center: .topTrailing, startRadius: 10, endRadius: 360
-                )
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
 
                 if confirmed {
                     successCard
@@ -737,7 +730,7 @@ struct BookCourtView: View {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .strokeBorder(selected ? DSColor.accent : DSColor.border, lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(selected ? 0.08 : 0), radius: 6, x: 0, y: 3)
+            .shadow(color: DSColor.inkSurface.opacity(selected ? 0.08 : 0), radius: 6, x: 0, y: 3)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(accessibleDay(day)))
@@ -859,7 +852,6 @@ struct BookCourtView: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(slotBorder(state), lineWidth: isSelected ? 1.5 : 1)
             )
-            .shadow(color: DSColor.accent.opacity(isSelected ? 0.15 : 0), radius: 6, x: 0, y: 3)
             .opacity(state == .past ? 0.35 : 1)
         }
         .buttonStyle(.plain)
@@ -1033,7 +1025,7 @@ struct BookCourtView: View {
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(DSColor.surface)
-                .shadow(color: Color.black.opacity(0.015), radius: 8, x: 0, y: 4)
+                .shadow(color: DSColor.inkSurface.opacity(0.015), radius: 8, x: 0, y: 4)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -1143,7 +1135,7 @@ struct BookCourtView: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(selected ? DSColor.accent : DSColor.border, lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(selected ? 0.08 : 0), radius: 6, x: 0, y: 3)
+            .shadow(color: DSColor.inkSurface.opacity(selected ? 0.08 : 0), radius: 6, x: 0, y: 3)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(a11yKey))
@@ -1171,7 +1163,6 @@ struct BookCourtView: View {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(ready ? DSColor.accent : DSColor.accent.opacity(0.4))
             )
-            .shadow(color: DSColor.accent.opacity(ready ? 0.3 : 0), radius: 12, y: 6)
         }
         .buttonStyle(SpringPressStyle())
         .disabled(isConfirming || !ready)
@@ -1227,8 +1218,7 @@ struct BookCourtView: View {
                 VStack(spacing: 12) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .fill(DSColor.surface.opacity(0.02))
-                            .background(.ultraThinMaterial)
+                            .fill(DSColor.surface)
                             .frame(width: 236, height: 236)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 24, style: .continuous)

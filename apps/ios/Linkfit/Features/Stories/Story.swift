@@ -63,3 +63,109 @@ struct StoryReactionResponse: Decodable, Equatable {
 struct StoryReactRequest: Encodable {
     let emoji: String
 }
+
+// MARK: - Lifetime and local mutations
+
+extension Story {
+    /// Stories are visible for 24 hours. The backend may ship an
+    /// explicit `expires_at`; older payloads only have `created_at`, so
+    /// the client enforces the same lifetime locally as a fallback.
+    static let visibleLifetime: TimeInterval = 24 * 60 * 60
+
+    var createdAtDate: Date? {
+        Date.fromISO(created_at)
+    }
+
+    var expirationDate: Date? {
+        if let expires_at, let expires = Date.fromISO(expires_at) {
+            return expires
+        }
+        return createdAtDate?.addingTimeInterval(Self.visibleLifetime)
+    }
+
+    func isActive(referenceDate: Date = Date()) -> Bool {
+        guard let expirationDate else {
+            // Keep unparseable legacy payloads visible rather than
+            // accidentally deleting real content because of a date
+            // shape mismatch.
+            return true
+        }
+        return expirationDate > referenceDate
+    }
+
+    func replacingViewedByMe(_ viewedByMe: Bool) -> Story {
+        Story(
+            id: id,
+            media_url: media_url,
+            media_type: media_type,
+            caption: caption,
+            created_at: created_at,
+            expires_at: expires_at,
+            viewed_by_me: viewedByMe,
+            reactions: reactions,
+            my_reaction: my_reaction,
+            overlays: overlays,
+            mentions: mentions
+        )
+    }
+
+    func replacingReactions(_ reactions: [String: Int], myReaction: String?) -> Story {
+        Story(
+            id: id,
+            media_url: media_url,
+            media_type: media_type,
+            caption: caption,
+            created_at: created_at,
+            expires_at: expires_at,
+            viewed_by_me: viewed_by_me,
+            reactions: reactions,
+            my_reaction: myReaction,
+            overlays: overlays,
+            mentions: mentions
+        )
+    }
+}
+
+extension StoryGroup {
+    func removingExpiredStories(referenceDate: Date = Date()) -> StoryGroup? {
+        let activeStories = stories.filter { $0.isActive(referenceDate: referenceDate) }
+        guard !activeStories.isEmpty else { return nil }
+        return StoryGroup(
+            user_id: user_id,
+            display_name: display_name,
+            photo_url: photo_url,
+            has_unviewed: activeStories.contains { !$0.viewed_by_me },
+            latest_story_at: activeStories.last?.created_at ?? latest_story_at,
+            stories: activeStories
+        )
+    }
+
+    static func removingExpiredStories(
+        from groups: [StoryGroup],
+        referenceDate: Date = Date()
+    ) -> [StoryGroup] {
+        groups.compactMap { $0.removingExpiredStories(referenceDate: referenceDate) }
+    }
+
+    static func expiredStoryIds(
+        in groups: [StoryGroup],
+        referenceDate: Date = Date()
+    ) -> [String] {
+        groups.flatMap { group in
+            group.stories.compactMap { story in
+                story.isActive(referenceDate: referenceDate) ? nil : story.id
+            }
+        }
+    }
+
+    static func nextExpirationDate(
+        in groups: [StoryGroup],
+        referenceDate: Date = Date()
+    ) -> Date? {
+        groups
+            .flatMap(\.stories)
+            .compactMap(\.expirationDate)
+            .filter { $0 > referenceDate }
+            .min()
+    }
+}

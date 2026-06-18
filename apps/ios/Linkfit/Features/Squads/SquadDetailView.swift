@@ -235,7 +235,7 @@ struct SquadDetailView: View {
                     .clipShape(Circle())
             }
         }
-        .shadow(color: Color.black.opacity(0.10), radius: 12, y: 6)
+        .shadow(color: DSColor.inkSurface.opacity(0.10), radius: 12, y: 6)
     }
 
     private func monogram(_ name: String) -> some View {
@@ -334,7 +334,6 @@ struct SquadDetailView: View {
             .frame(maxWidth: .infinity)
             .frame(height: 48)
             .background(Capsule().fill(DSColor.accent))
-            .shadow(color: DSColor.accent.opacity(0.25), radius: 8, y: 4)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("squads.invite"))
@@ -378,14 +377,7 @@ struct SquadDetailView: View {
         }
         .padding(DSSpacing.md - 2)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
-                .fill(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
-        )
+        .dsSurfaceCard(radius: DSRadius.lg)
     }
 
     // MARK: - Footer actions
@@ -496,14 +488,7 @@ private struct SquadGameRow: View {
                 .monospacedDigit()
         }
         .padding(DSSpacing.sm)
-        .background(
-            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
-                .fill(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
-        )
+        .dsSurfaceCard(radius: DSRadius.lg)
         .accessibilityElement(children: .combine)
     }
 

@@ -115,7 +115,6 @@ private struct VenuePinView: View {
             Circle()
                 .fill(DSColor.accent)
                 .frame(width: 38, height: 38)
-                .shadow(color: DSColor.accent.opacity(0.45), radius: 10, x: 0, y: 4)
             Image(systemName: isPartner ? "star.fill" : "figure.tennis")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(DSColor.textOnAccent)

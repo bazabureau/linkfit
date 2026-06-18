@@ -8155,6 +8155,29 @@
         }
       }
     },
+    "edit_profile.location.enabled_hint": {
+      "comment": "Edit profile home location helper shown when nearby games are enabled.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oyunlar ev məkanına yaxınlığa görə daha uyğun sıralanacaq."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Games will be ranked with your home location in mind."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Игры будут точнее сортироваться по домашней локации."
+          }
+        }
+      }
+    },
     "edit_profile.location.latitude": {
       "localizations": {
         "az": {
@@ -8221,6 +8244,52 @@
         }
       }
     },
+    "edit_profile.location.map_hint": {
+      "comment": "Small helper pill shown over the edit-profile map.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xəritəyə toxun"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap the map"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажми на карту"
+          }
+        }
+      }
+    },
+    "edit_profile.location.selected": {
+      "comment": "Label above the reverse-geocoded home location in edit profile.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seçilmiş məkan"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected location"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбранная локация"
+          }
+        }
+      }
+    },
     "edit_profile.location.toggle": {
       "comment": "Toggle label next to the home-location switch",
       "localizations": {
@@ -8240,6 +8309,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Показывать игры рядом…"
+          }
+        }
+      }
+    },
+    "edit_profile.location.toggle.title": {
+      "comment": "Short edit-profile home-location toggle title.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yaxınlıqdakı oyunlar"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nearby games"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Игры рядом"
           }
         }
       }
@@ -8350,6 +8442,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Заменить"
+          }
+        }
+      }
+    },
+    "edit_profile.photo.subtitle": {
+      "comment": "Compact helper text for the edit-profile photo row.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Komanda yoldaşların səni tez tanısın."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Help teammates recognize you faster."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Помоги партнёрам быстрее узнать тебя."
           }
         }
       }
@@ -17462,6 +17577,28 @@
         }
       }
     },
+    "matches.error.retry": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oyunları yenilə"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh games"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновить игры"
+          }
+        }
+      }
+    },
     "matches.filter.label": {
       "comment": "Label for filter screens or buttons.",
       "localizations": {
@@ -23653,6 +23790,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Любой уровень"
+          }
+        }
+      }
+    },
+    "players.filter.skill.label": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Səviyyə"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skill"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уровень"
           }
         }
       }
@@ -34611,6 +34770,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ответ отправлен 💬"
+          }
+        }
+      }
+    },
+    "stories.expired.toast": {
+      "comment": "Shown when a story has passed its 24-hour lifetime or the server reports it as no longer available.",
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Story artıq aktiv deyil"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This story is no longer available"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эта история больше недоступна"
           }
         }
       }

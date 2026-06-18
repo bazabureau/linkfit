@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\AdminAnalyticsController;
+use App\Http\Controllers\Api\AdminLessonsController;
 use App\Http\Controllers\Api\AdminOpsController;
 use App\Http\Controllers\Api\AmericanoController;
 use App\Http\Controllers\Api\AppInfoController;
@@ -13,6 +15,7 @@ use App\Http\Controllers\Api\FeedController;
 use App\Http\Controllers\Api\GamesController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\InvitationsController;
+use App\Http\Controllers\Api\LessonsController;
 use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\MeController;
 use App\Http\Controllers\Api\MediaController;
@@ -23,6 +26,7 @@ use App\Http\Controllers\Api\MiscController;
 use App\Http\Controllers\Api\OAuthController;
 use App\Http\Controllers\Api\OgController;
 use App\Http\Controllers\Api\OwnerApplicationsController;
+use App\Http\Controllers\Api\PartnerLessonsController;
 use App\Http\Controllers\Api\PartnerOpsController;
 use App\Http\Controllers\Api\PaymentsController;
 use App\Http\Controllers\Api\PreferencesController;
@@ -96,6 +100,12 @@ Route::prefix('api/v1')->group(function () {
     Route::get('users/{id}/streaks', [EngagementController::class, 'streaks']);
     Route::get('venues/{id}/reviews', [VenueReviewsController::class, 'index']);
     Route::get('venues/{id}/rating-summary', [VenueReviewsController::class, 'summary']);
+    // "Learn" — public browse of lessons (classes) + coaches (optional Bearer token).
+    Route::get('lessons', [LessonsController::class, 'index']);
+    Route::get('lessons/{id}', [LessonsController::class, 'show']);
+    Route::get('coaches', [LessonsController::class, 'coaches']);
+    Route::get('coaches/{id}', [LessonsController::class, 'coach']);
+    Route::get('stats', [WebController::class, 'publicStats']);
     Route::get('web/bootstrap', [WebController::class, 'bootstrap']);
     Route::get('web/checkout/courts/{courtId}', [WebController::class, 'checkout']);
 
@@ -147,6 +157,7 @@ Route::prefix('api/v1')->group(function () {
         Route::delete('admin/announcements/{id}', [EngagementController::class, 'deleteAnnouncement']);
         Route::get('me/agenda', [DiscoveryController::class, 'agenda']);
         Route::get('me/insights', [DiscoveryController::class, 'insights']);
+        Route::get('me/home', [DiscoveryController::class, 'home']);
         Route::get('me/suggested-follows', [DiscoveryController::class, 'suggestedFollows']);
         Route::get('me/matchmaking/games', [DiscoveryController::class, 'matchmakingGames']);
         Route::get('me/matchmaking/players', [DiscoveryController::class, 'matchmakingPlayers']);
@@ -177,6 +188,7 @@ Route::prefix('api/v1')->group(function () {
         Route::get('game-series/{id}', [SeriesController::class, 'show']);
         Route::post('game-series/{id}/cancel', [SeriesController::class, 'cancel']);
         Route::post('americano/tournaments', [AmericanoController::class, 'store']);
+        Route::get('americano/tournaments', [AmericanoController::class, 'index']);
         Route::get('americano/tournaments/my', [AmericanoController::class, 'mine']);
         Route::get('americano/tournaments/{id}', [AmericanoController::class, 'show']);
         Route::post('americano/matches/{id}/score', [AmericanoController::class, 'score']);
@@ -191,6 +203,20 @@ Route::prefix('api/v1')->group(function () {
         Route::get('partner/courts/{id}', [PartnerOpsController::class, 'court']);
         Route::put('partner/courts/{id}', [PartnerOpsController::class, 'updateCourt']);
         Route::delete('partner/courts/{id}', [PartnerOpsController::class, 'deleteCourt']);
+
+        // "Learn" — player actions + club-side coach/lesson management.
+        Route::get('me/lessons', [LessonsController::class, 'mine']);
+        Route::post('lessons/{id}/book', [LessonsController::class, 'book']);
+        Route::delete('lessons/{id}/book', [LessonsController::class, 'cancel']);
+        Route::get('partner/coaches', [PartnerLessonsController::class, 'coaches']);
+        Route::post('partner/coaches', [PartnerLessonsController::class, 'createCoach']);
+        Route::put('partner/coaches/{id}', [PartnerLessonsController::class, 'updateCoach']);
+        Route::delete('partner/coaches/{id}', [PartnerLessonsController::class, 'deleteCoach']);
+        Route::get('partner/lessons', [PartnerLessonsController::class, 'lessons']);
+        Route::post('partner/lessons', [PartnerLessonsController::class, 'createLesson']);
+        Route::put('partner/lessons/{id}', [PartnerLessonsController::class, 'updateLesson']);
+        Route::delete('partner/lessons/{id}', [PartnerLessonsController::class, 'deleteLesson']);
+        Route::get('partner/lessons/{id}/bookings', [PartnerLessonsController::class, 'roster']);
         Route::get('partner/today', [PartnerOpsController::class, 'today']);
         Route::get('partner/activity', [PartnerOpsController::class, 'activity']);
         Route::get('partner/customers', [PartnerOpsController::class, 'customers']);
@@ -242,6 +268,12 @@ Route::prefix('api/v1')->group(function () {
         Route::get('admin/lookups', [AdminOpsController::class, 'lookups']);
         Route::get('admin/stats', [AdminOpsController::class, 'stats']);
         Route::get('admin/metrics', [AdminOpsController::class, 'metrics']);
+        // Deeper analytics / dashboard reports.
+        Route::get('admin/analytics/overview', [AdminAnalyticsController::class, 'overview']);
+        Route::get('admin/analytics/growth', [AdminAnalyticsController::class, 'growth']);
+        Route::get('admin/analytics/clubs', [AdminAnalyticsController::class, 'clubs']);
+        Route::get('admin/analytics/engagement', [AdminAnalyticsController::class, 'engagement']);
+        Route::get('admin/analytics/funnel', [AdminAnalyticsController::class, 'funnel']);
         Route::get('admin/search', [AdminOpsController::class, 'search']);
         Route::get('admin/activity', [AdminOpsController::class, 'activity']);
         Route::post('admin/alerts', [AdminOpsController::class, 'createAlert']);
@@ -269,6 +301,7 @@ Route::prefix('api/v1')->group(function () {
         Route::patch('admin/promo-codes/{id}', [PromoCodesController::class, 'adminUpdate']);
         Route::delete('admin/promo-codes/{id}', [PromoCodesController::class, 'adminDelete']);
         Route::get('admin/users', [AdminOpsController::class, 'users']);
+        Route::post('admin/users', [AdminOpsController::class, 'createUser']);
         Route::get('admin/customers', [AdminOpsController::class, 'customers']);
         Route::get('admin/staff', [AdminOpsController::class, 'staffAccounts']);
         Route::post('admin/staff', [AdminOpsController::class, 'createStaffAccount']);
@@ -278,6 +311,18 @@ Route::prefix('api/v1')->group(function () {
         Route::post('admin/users/{id}/role', [AdminOpsController::class, 'setRole']);
         Route::post('admin/users/{id}/email-verification', [AdminOpsController::class, 'setEmailVerification']);
         Route::post('admin/users/{id}/vip', [AdminOpsController::class, 'setVip']);
+        Route::post('admin/users/{id}/verified-badge', [AdminOpsController::class, 'setVerifiedBadge']);
+        Route::post('admin/users/{id}/membership', [AdminOpsController::class, 'setMembership']);
+        // "Learn" — admin-wide coach & lesson management (all venues).
+        Route::get('admin/coaches', [AdminLessonsController::class, 'coaches']);
+        Route::post('admin/coaches', [AdminLessonsController::class, 'createCoach']);
+        Route::put('admin/coaches/{id}', [AdminLessonsController::class, 'updateCoach']);
+        Route::delete('admin/coaches/{id}', [AdminLessonsController::class, 'deleteCoach']);
+        Route::get('admin/lessons', [AdminLessonsController::class, 'lessons']);
+        Route::post('admin/lessons', [AdminLessonsController::class, 'createLesson']);
+        Route::put('admin/lessons/{id}', [AdminLessonsController::class, 'updateLesson']);
+        Route::delete('admin/lessons/{id}', [AdminLessonsController::class, 'deleteLesson']);
+        Route::get('admin/lessons/{id}/bookings', [AdminLessonsController::class, 'roster']);
         Route::post('admin/users/{id}/suspend', [AdminOpsController::class, 'suspendUser']);
         Route::post('admin/users/{id}/unsuspend', [AdminOpsController::class, 'unsuspendUser']);
         Route::post('admin/users/{id}/soft-delete', [AdminOpsController::class, 'softDelete']);
@@ -386,6 +431,7 @@ Route::prefix('api/v1')->group(function () {
         Route::post('feed/{eventId}/comments', [FeedController::class, 'storeComment']);
         Route::delete('feed/comments/{commentId}', [FeedController::class, 'deleteComment']);
         Route::get('notifications', [MessagingController::class, 'notifications']);
+        Route::get('me/unread-counts', [MessagingController::class, 'unreadCounts']);
         Route::post('notifications/{id}/read', [MessagingController::class, 'markNotificationRead']);
         Route::post('notifications/read-all', [MessagingController::class, 'markAllNotificationsRead']);
         Route::delete('notifications/{id}', [MessagingController::class, 'deleteNotification']);

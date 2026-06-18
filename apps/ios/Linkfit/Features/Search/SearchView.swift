@@ -37,14 +37,7 @@ struct SearchView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Clean canvas + soft brand glow — matches the rebuilt tabs.
                 DSColor.background.ignoresSafeArea()
-                RadialGradient(
-                    colors: [DSColor.accent.opacity(0.06), .clear],
-                    center: .topTrailing, startRadius: 10, endRadius: 360
-                )
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
                 ScrollView {
                     VStack(alignment: .leading, spacing: DSSpacing.md) {
                         SearchField(
@@ -132,12 +125,7 @@ struct SearchView: View {
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(selected ? DSColor.accent : DSColor.textPrimary.opacity(0.04))
-                    .background {
-                        if !selected {
-                            Capsule().fill(.ultraThinMaterial)
-                        }
-                    }
+                    .fill(selected ? DSColor.accent : DSColor.surfaceElevated)
             )
             .overlay(
                 Capsule().strokeBorder(

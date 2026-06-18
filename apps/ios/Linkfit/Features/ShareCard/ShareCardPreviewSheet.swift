@@ -79,7 +79,9 @@ struct ShareCardPreviewSheet: View {
                 }
             }
         }
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(.ultraThinMaterial)
     }
 
     // MARK: - Pieces
@@ -143,7 +145,7 @@ struct ShareCardPreviewSheet: View {
                 RoundedRectangle(cornerRadius: 28)
                     .strokeBorder(DSColor.border, lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.4), radius: 24, x: 0, y: 12)
+            .shadow(color: DSColor.inkSurface.opacity(0.4), radius: 24, x: 0, y: 12)
             .animation(reduceMotion ? nil : .snappy(duration: 0.22), value: variant)
     }
 

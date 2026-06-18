@@ -1,71 +1,41 @@
 import SwiftUI
 import MapKit
 
-/// Create Game screen — elegant, high-restraint startup-grade form.
-/// Rebuilt from scratch to implement absolute best practices:
-///   - Eliminates uppercase violations (uses sentence case everywhere per strict guidelines).
-///   - Employs the standard spacing scale and generous 24pt section gaps.
-///   - Groups secondary options (Skill, Visibility, Notes) inside a gorgeous,
-///     collapsible "Əlavə seçimlər" (Advanced Settings) accordion to keep the primary
-///     interface spacious and comfortable.
-///   - Uses flat, consistent material card treatments with zero nesting.
 struct CreateGameView: View {
     @State var viewModel: CreateGameViewModel
     var onCreated: (GameDetail) -> Void
+
     @Environment(\.dismiss) private var dismiss
-    
-    @Environment(AppContainer.self) private var container
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    
+    @Environment(AppContainer.self) private var container
+
     @State private var showVenuePicker = false
     @State private var showAdvanced = false
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            // Clean canvas + soft brand glow — matches the rebuilt tabs,
-            // drops the animated auth mesh (the "AI-wash" FAZA 45 warns about).
+        ZStack {
             DSColor.background.ignoresSafeArea()
-            RadialGradient(
-                colors: [DSColor.accent.opacity(0.06), .clear],
-                center: .topTrailing, startRadius: 10, endRadius: 360
-            )
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
 
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(alignment: .leading, spacing: 18) {
                     topBar
-                    heroHeader
-                    
-                    // Main Form Sections
-                    whenSection
-                    durationSection
-                    venueSection
-                    capacitySection
-                    
-                    // Advanced Settings Accordion
-                    advancedSettingsAccordion
-                    
-                    if showAdvanced {
-                        VStack(spacing: 24) {
-                            skillSection
-                            visibilitySection
-                            notesSection
-                        }
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
-                    
-                    Spacer().frame(height: 120)
+                    gameSummary
+                    whenCard
+                    venueCard
+                    gameShapeCard
+                    hostOptionsCard
+                    Spacer().frame(height: 24)
                 }
+                .padding(.horizontal, DSSpacing.md)
                 .padding(.top, 12)
-                .padding(.bottom, 24)
             }
             .scrollDismissesKeyboard(.interactively)
             .scrollIndicators(.hidden)
-
-            submitBar
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                submitBar
+            }
         }
-        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85), value: showAdvanced)
+        .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.86), value: showAdvanced)
         .task {
             await viewModel.onAppear()
             if let padel = viewModel.sports.first(where: { $0.slug == "padel" }) {
@@ -91,54 +61,129 @@ struct CreateGameView: View {
         }
     }
 
-    // MARK: - Navigation & Header
-
     private var topBar: some View {
-        HStack {
+        HStack(alignment: .center, spacing: 12) {
             Button { dismiss() } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 14, weight: .heavy))
                     .foregroundStyle(DSColor.textPrimary)
-                    .frame(width: 36, height: 36)
-                    .background(Circle().fill(.ultraThinMaterial))
-                    .overlay(Circle().strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1))
+                    .frame(width: 42, height: 42)
+                    .background(Circle().fill(DSColor.surfaceElevated))
+                    .overlay(Circle().strokeBorder(DSColor.border, lineWidth: 1))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(SpringPressStyle())
             .accessibilityLabel(Text("common.close"))
-            Spacer()
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("create_game.title")
+                    .font(.system(size: 28, weight: .heavy))
+                    .foregroundStyle(DSColor.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+                Text("create_game.subtitle")
+                    .font(DSType.metaCaption)
+                    .foregroundStyle(DSColor.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+
+            Spacer(minLength: 8)
+
+            sportChip
         }
-        .padding(.horizontal, 16)
     }
 
-    private var heroHeader: some View {
-        PremiumPageHero(
-            icon: "sportscourt.fill",
-            titleKey: "create_game.title",
-            subtitleKey: "create_game.subtitle",
-            alignment: .center
-        )
-        .padding(.horizontal, 16)
+    private var sportChip: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "figure.tennis")
+            Text(viewModel.selectedSport?.name ?? "Padel")
+                .lineLimit(1)
+        }
+        .font(.system(size: 12, weight: .heavy))
+        .foregroundStyle(DSColor.accent)
+        .padding(.horizontal, 11)
+        .frame(height: 34)
+        .background(Capsule().fill(DSColor.accentMuted))
     }
 
-    // MARK: - 1) When Section (Time & Duration)
+    private var gameSummary: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(DSColor.accent)
+                    Image(systemName: "calendar.badge.plus")
+                        .font(.system(size: 25, weight: .bold))
+                        .foregroundStyle(DSColor.textOnAccent)
+                }
+                .frame(width: 62, height: 62)
 
-    private var whenSection: some View {
-        sectionShell(title: String(localized: "create_game.section.when")) {
-            VStack(spacing: 12) {
-                quickChipRow
-
-                // Exact date & time. The quick chips above cover the common
-                // cases; this is the clean "or pick exactly" control. We drop
-                // the old relative-summary label — it just duplicated what the
-                // picker already shows on the right.
-                HStack(spacing: 12) {
-                    Image(systemName: "calendar")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(DSColor.accent)
-                    Text("create_game.when.exact")
-                        .font(.system(size: 14, weight: .semibold, design: .default))
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(Self.dayFormatter.string(from: viewModel.startsAt))
+                        .font(.system(size: 21, weight: .heavy))
                         .foregroundStyle(DSColor.textPrimary)
-                    Spacer()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+
+                    Text(summaryLine)
+                        .font(DSType.metaCaption)
+                        .foregroundStyle(DSColor.textSecondary)
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 8) {
+                summaryPill(icon: "clock", text: "\(viewModel.durationMinutes) min")
+                summaryPill(icon: "person.2", text: String(format: String(localized: "create_game.capacity.players_format"), viewModel.capacity))
+                summaryPill(icon: viewModel.visibility.icon, text: String(localized: viewModel.visibility.titleKey))
+            }
+        }
+        .padding(16)
+        .dsSurfaceCard(radius: 22, shadowOpacity: 0.02)
+    }
+
+    private var summaryLine: String {
+        let time = Self.timeFormatter.string(from: viewModel.startsAt)
+        let venue = viewModel.selectedVenue?.name ?? String(localized: "create_game.venue.placeholder.title")
+        return "\(time) · \(venue)"
+    }
+
+    private func summaryPill(icon: String, text: String) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .bold))
+            Text(text)
+                .lineLimit(1)
+                .minimumScaleFactor(0.76)
+        }
+        .font(.system(size: 11, weight: .bold))
+        .foregroundStyle(DSColor.textSecondary)
+        .padding(.horizontal, 10)
+        .frame(height: 31)
+        .frame(maxWidth: .infinity)
+        .background(Capsule().fill(DSColor.surfaceElevated))
+    }
+
+    private var whenCard: some View {
+        formCard(title: "create_game.section.when", icon: "clock.badge.checkmark") {
+            VStack(spacing: 14) {
+                quickStarts
+
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("create_game.when.exact")
+                            .font(DSType.bodyStrong)
+                            .foregroundStyle(DSColor.textPrimary)
+                        Text(Self.fullDateFormatter.string(from: viewModel.startsAt))
+                            .font(DSType.metaCaption)
+                            .foregroundStyle(DSColor.textSecondary)
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 8)
+
                     DatePicker(
                         "",
                         selection: $viewModel.startsAt,
@@ -148,69 +193,48 @@ struct CreateGameView: View {
                     .labelsHidden()
                     .tint(DSColor.accent)
                 }
-                .padding(14)
-                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surfaceElevated.opacity(0.6)))
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(DSColor.border.opacity(0.35), lineWidth: 1))
+                .padding(13)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surfaceElevated))
             }
         }
     }
 
-    private var quickChipRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(viewModel.quickStarts) { item in
-                    let selected = closeTo(item.date, viewModel.startsAt)
-                    Button {
-                        withAnimation(reduceMotion ? nil : .spring(response: 0.4)) {
-                            viewModel.startsAt = item.date
-                        }
-                    } label: {
+    private var quickStarts: some View {
+        HStack(spacing: 8) {
+            ForEach(viewModel.quickStarts) { item in
+                let selected = closeTo(item.date, viewModel.startsAt)
+                Button {
+                    viewModel.setStartsAt(item.date)
+                    UISelectionFeedbackGenerator().selectionChanged()
+                } label: {
+                    VStack(spacing: 3) {
                         Text(String(localized: item.key))
-                            .font(.system(size: 12, weight: .bold, design: .default))
-                            .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(Capsule().fill(selected ? DSColor.accent : DSColor.surfaceElevated.opacity(0.6)))
-                            .overlay(Capsule().strokeBorder(selected ? DSColor.accent : DSColor.border.opacity(0.35), lineWidth: 1))
+                            .font(.system(size: 12, weight: .heavy))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.76)
+                        Text(Self.shortTimeFormatter.string(from: item.date))
+                            .font(.system(size: 10, weight: .bold))
+                            .opacity(0.72)
                     }
-                    .buttonStyle(.plain)
+                    .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(selected ? DSColor.accent : DSColor.surfaceElevated)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(selected ? DSColor.accent : DSColor.border, lineWidth: 1)
+                    )
                 }
-            }
-            .padding(.horizontal, 2)
-        }
-    }
-
-    // Duration is its own section now (it used to be a cramped right-aligned
-    // strip inside "Vaxt"). Full-width equal segments = bigger, calmer tap
-    // targets and a cleaner read.
-    private var durationSection: some View {
-        sectionShell(title: String(localized: "create_game.duration")) {
-            HStack(spacing: 8) {
-                ForEach([60, 75, 90, 120], id: \.self) { mins in
-                    let selected = viewModel.durationMinutes == mins
-                    Button {
-                        viewModel.durationMinutes = mins
-                        UISelectionFeedbackGenerator().selectionChanged()
-                    } label: {
-                        Text(String(format: String(localized: "create_game.duration.minutes_format"), mins))
-                            .font(.system(size: 13, weight: .bold, design: .default))
-                            .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 11)
-                            .background(selected ? DSColor.accent : DSColor.surfaceElevated.opacity(0.6))
-                            .clipShape(Capsule())
-                            .overlay(Capsule().strokeBorder(selected ? DSColor.accent : DSColor.border.opacity(0.35), lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                }
+                .buttonStyle(SpringPressStyle())
             }
         }
     }
 
-    // MARK: - 2) Venue Section (Location)
-
-    private var venueSection: some View {
-        sectionShell(title: String(localized: "create_game.section.venue")) {
+    private var venueCard: some View {
+        formCard(title: "create_game.section.venue", icon: "mappin.and.ellipse") {
             Button {
                 UISelectionFeedbackGenerator().selectionChanged()
                 showVenuePicker = true
@@ -218,267 +242,310 @@ struct CreateGameView: View {
                 HStack(spacing: 12) {
                     ZStack {
                         Circle()
-                            .fill(DSColor.accent.opacity(0.18))
-                            .frame(width: 38, height: 38)
-                        Image(systemName: viewModel.selectedVenue == nil ? "mappin.slash" : "mappin.and.ellipse")
-                            .font(.system(size: 14, weight: .bold))
+                            .fill(DSColor.accentMuted)
+                        Image(systemName: viewModel.selectedVenue == nil ? "location" : "checkmark")
+                            .font(.system(size: 15, weight: .heavy))
                             .foregroundStyle(DSColor.accent)
                     }
+                    .frame(width: 42, height: 42)
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        if let venue = viewModel.selectedVenue {
-                            Text(venue.name)
-                                .font(.system(size: 14, weight: .heavy))
-                                .foregroundStyle(DSColor.textPrimary)
-                                .lineLimit(1)
-                            Text(venue.address)
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(DSColor.textSecondary)
-                                .lineLimit(1)
-                        } else {
-                            Text("create_game.venue.placeholder.title")
-                                .font(.system(size: 14, weight: .heavy))
-                                .foregroundStyle(DSColor.textPrimary)
-                            Text("create_game.venue.placeholder.subtitle")
-                                .font(.system(size: 11, weight: .bold))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(viewModel.selectedVenue?.name ?? String(localized: "create_game.venue.placeholder.title"))
+                            .font(DSType.bodyStrong)
+                            .foregroundStyle(DSColor.textPrimary)
+                            .lineLimit(1)
+                        Text(viewModel.selectedVenue?.address ?? String(localized: "create_game.venue.placeholder.subtitle"))
+                            .font(DSType.metaCaption)
+                            .foregroundStyle(DSColor.textSecondary)
+                            .lineLimit(2)
+                    }
+
+                    Spacer(minLength: 6)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .heavy))
+                        .foregroundStyle(DSColor.textTertiary)
+                }
+                .padding(13)
+                .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(DSColor.surfaceElevated))
+            }
+            .buttonStyle(SpringPressStyle())
+        }
+    }
+
+    private var gameShapeCard: some View {
+        formCard(title: "create_game.section.capacity", icon: "person.3.sequence") {
+            VStack(alignment: .leading, spacing: 16) {
+                durationPicker
+
+                Divider().overlay(DSColor.border)
+
+                HStack(alignment: .center, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(String(format: String(localized: "create_game.capacity.players_format"), viewModel.capacity))
+                            .font(.system(size: 20, weight: .heavy))
+                            .foregroundStyle(DSColor.textPrimary)
+                        if let sport = viewModel.selectedSport {
+                            Text(String(format: String(localized: "create_game.capacity.range_format"),
+                                        sport.name, sport.min_players, sport.max_players))
+                                .font(DSType.metaCaption)
                                 .foregroundStyle(DSColor.textSecondary)
                                 .lineLimit(2)
                         }
                     }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .heavy))
-                        .foregroundStyle(DSColor.textTertiary)
+
+                    Spacer(minLength: 8)
+                    stepperControl
                 }
-                .padding(14)
-                .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.ultraThinMaterial))
-                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(DSColor.border.opacity(0.35), lineWidth: 1))
+
+                playerSlots
             }
-            .buttonStyle(.plain)
         }
     }
 
-    // MARK: - 3) Capacity Section (Players Count)
+    private var durationPicker: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("create_game.duration")
+                .font(DSType.bodyStrong)
+                .foregroundStyle(DSColor.textPrimary)
 
-    private var capacitySection: some View {
-        sectionShell(title: String(localized: "create_game.section.capacity")) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text(String(format: String(localized: "create_game.capacity.players_format"), viewModel.capacity))
-                        .font(.system(size: 16, weight: .heavy, design: .default))
-                        .foregroundStyle(DSColor.textPrimary)
-                    Spacer()
-                    premiumStepper
-                }
-                slotRow
-                if let sport = viewModel.selectedSport {
-                    Text(String(format: String(localized: "create_game.capacity.range_format"), sport.name, sport.min_players, sport.max_players))
-                        .font(.system(size: 11, weight: .semibold, design: .default))
-                        .foregroundStyle(DSColor.textSecondary)
+            HStack(spacing: 7) {
+                ForEach([60, 75, 90, 120], id: \.self) { minutes in
+                    let selected = viewModel.durationMinutes == minutes
+                    Button {
+                        viewModel.setDuration(minutes)
+                        UISelectionFeedbackGenerator().selectionChanged()
+                    } label: {
+                        Text(String(format: String(localized: "create_game.duration.minutes_format"), minutes))
+                            .font(.system(size: 12, weight: .heavy))
+                            .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 42)
+                            .background(Capsule().fill(selected ? DSColor.accent : DSColor.surfaceElevated))
+                            .overlay(Capsule().strokeBorder(selected ? DSColor.accent : DSColor.border, lineWidth: 1))
+                    }
+                    .buttonStyle(SpringPressStyle())
                 }
             }
-            .padding(14)
-            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.ultraThinMaterial))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(DSColor.border.opacity(0.35), lineWidth: 1))
         }
     }
 
-    private var premiumStepper: some View {
-        let minP = viewModel.selectedSport?.min_players ?? 2
-        let maxP = viewModel.selectedSport?.max_players ?? 12
-        let canDec = viewModel.capacity > minP
-        let canInc = viewModel.capacity < maxP
+    private var stepperControl: some View {
+        let minPlayers = viewModel.selectedSport?.min_players ?? 2
+        let maxPlayers = viewModel.selectedSport?.max_players ?? 12
+        let canDecrease = viewModel.capacity > minPlayers
+        let canIncrease = viewModel.capacity < maxPlayers
 
         return HStack(spacing: 0) {
-            stepperButton(systemImage: "minus", enabled: canDec) {
-                guard canDec else { return }
-                viewModel.capacity -= 1
-                UISelectionFeedbackGenerator().selectionChanged()
+            stepperButton(systemImage: "minus", enabled: canDecrease) {
+                viewModel.setCapacity(viewModel.capacity - 1)
             }
-            Rectangle()
-                .fill(DSColor.border.opacity(0.4))
-                .frame(width: 1, height: 22)
-            stepperButton(systemImage: "plus", enabled: canInc) {
-                guard canInc else { return }
-                viewModel.capacity += 1
-                UISelectionFeedbackGenerator().selectionChanged()
+
+            Text("\(viewModel.capacity)")
+                .font(.system(size: 16, weight: .heavy))
+                .foregroundStyle(DSColor.textPrimary)
+                .frame(width: 38, height: 40)
+
+            stepperButton(systemImage: "plus", enabled: canIncrease) {
+                viewModel.setCapacity(viewModel.capacity + 1)
             }
         }
-        .background(Capsule().fill(DSColor.surfaceElevated.opacity(0.6)))
-        .overlay(Capsule().strokeBorder(DSColor.border.opacity(0.5), lineWidth: 1))
+        .background(Capsule().fill(DSColor.surfaceElevated))
+        .overlay(Capsule().strokeBorder(DSColor.border, lineWidth: 1))
     }
 
     private func stepperButton(systemImage: String, enabled: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
+            guard enabled else { return }
+            action()
+            UISelectionFeedbackGenerator().selectionChanged()
+        } label: {
             Image(systemName: systemImage)
-                .font(.system(size: 14, weight: .heavy))
+                .font(.system(size: 13, weight: .heavy))
                 .foregroundStyle(enabled ? DSColor.accent : DSColor.textTertiary)
-                .frame(width: 42, height: 36)
+                .frame(width: 40, height: 40)
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
         .accessibilityLabel(Text(systemImage == "plus" ? "common.increment" : "common.decrement"))
     }
 
-    private var slotRow: some View {
-        let max = viewModel.selectedSport?.max_players ?? viewModel.capacity
-        return HStack(spacing: 6) {
-            ForEach(0..<max, id: \.self) { i in
-                let filled = i < viewModel.capacity
-                Circle()
-                    .fill(filled ? DSColor.accent : DSColor.border)
-                    .frame(width: 16, height: 16)
-                    .overlay(Circle().strokeBorder(filled ? DSColor.accent : DSColor.border.opacity(0.5), lineWidth: 1))
-                    .scaleEffect(filled ? 1.0 : 0.85)
-                    .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.7), value: viewModel.capacity)
+    private var playerSlots: some View {
+        let maxPlayers = viewModel.selectedSport?.max_players ?? max(viewModel.capacity, 4)
+        return HStack(spacing: 8) {
+            ForEach(0..<maxPlayers, id: \.self) { index in
+                let filled = index < viewModel.capacity
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(filled ? DSColor.accent : DSColor.surfaceElevated)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .strokeBorder(filled ? DSColor.accent : DSColor.border, lineWidth: 1)
+                    )
+                    .frame(height: 10)
             }
-            Spacer()
+        }
+        .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.82), value: viewModel.capacity)
+    }
+
+    private var hostOptionsCard: some View {
+        formCard(title: "create_game.section.advanced", icon: "slider.horizontal.3") {
+            VStack(spacing: 12) {
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    showAdvanced.toggle()
+                } label: {
+                    HStack {
+                        Text(showAdvanced ? "create_game.section.advanced" : "create_game.section.advanced")
+                            .font(DSType.bodyStrong)
+                            .foregroundStyle(DSColor.textPrimary)
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12, weight: .heavy))
+                            .foregroundStyle(DSColor.textTertiary)
+                            .rotationEffect(.degrees(showAdvanced ? 180 : 0))
+                    }
+                    .frame(height: 36)
+                }
+                .buttonStyle(.plain)
+
+                if showAdvanced {
+                    VStack(spacing: 16) {
+                        skillPicker
+                        visibilityPicker
+                        notesField
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
         }
     }
 
-    // MARK: - Advanced Settings Accordion Accordion Button
+    private var skillPicker: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("create_game.section.skill")
+                .font(DSType.bodyStrong)
+                .foregroundStyle(DSColor.textPrimary)
 
-    private var advancedSettingsAccordion: some View {
-        Button {
-            UISelectionFeedbackGenerator().selectionChanged()
-            withAnimation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85)) {
-                showAdvanced.toggle()
-            }
-        } label: {
-            HStack {
-                Text("create_game.section.advanced")
-                    .font(.system(size: 14, weight: .heavy))
-                    .foregroundStyle(DSColor.textSecondary)
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .heavy))
-                    .foregroundStyle(DSColor.textTertiary)
-                    .rotationEffect(.degrees(showAdvanced ? 90 : 0))
-            }
-            .padding(14)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surfaceElevated.opacity(0.4)))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(DSColor.border.opacity(0.25), lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 16)
-    }
-
-    // MARK: - 4) Skill Level Section
-
-    private var skillSection: some View {
-        sectionShell(title: String(localized: "create_game.section.skill")) {
-            HStack(spacing: 6) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                 ForEach(CreateGameViewModel.SkillBand.allCases) { band in
                     let selected = viewModel.skillBand == band
                     Button {
-                        viewModel.skillBand = band
+                        viewModel.setSkillBand(band)
                         UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
                         Text(skillBandLabel(band))
-                            .font(.system(size: 11, weight: .bold, design: .default))
+                            .font(.system(size: 12, weight: .heavy))
                             .foregroundStyle(selected ? DSColor.textOnAccent : DSColor.textPrimary)
-                            .padding(.vertical, 10)
-                            .frame(maxWidth: .infinity)
-                            .background(selected ? DSColor.accent : DSColor.surfaceElevated.opacity(0.6))
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(selected ? DSColor.accent : DSColor.border.opacity(0.35), lineWidth: 1))
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.78)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity, minHeight: 48)
+                            .padding(.horizontal, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(selected ? DSColor.accent : DSColor.surfaceElevated)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .strokeBorder(selected ? DSColor.accent : DSColor.border, lineWidth: 1)
+                            )
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(SpringPressStyle())
                 }
             }
         }
     }
 
-    // MARK: - 5) Visibility Section
+    private var visibilityPicker: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("create_game.section.visibility")
+                .font(DSType.bodyStrong)
+                .foregroundStyle(DSColor.textPrimary)
 
-    private var visibilitySection: some View {
-        sectionShell(title: String(localized: "create_game.section.visibility")) {
-            VStack(spacing: 8) {
-                ForEach(CreateGameViewModel.Visibility.allCases) { vis in
-                    let selected = viewModel.visibility == vis
-                    Button {
-                        withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8)) {
-                            viewModel.visibility = vis
+            ForEach(CreateGameViewModel.Visibility.allCases, id: \.self) { visibility in
+                let selected = viewModel.visibility == visibility
+                Button {
+                    viewModel.setVisibility(visibility)
+                    UISelectionFeedbackGenerator().selectionChanged()
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: visibility.icon)
+                            .font(.system(size: 14, weight: .heavy))
+                            .foregroundStyle(selected ? DSColor.accent : DSColor.textSecondary)
+                            .frame(width: 34, height: 34)
+                            .background(Circle().fill(selected ? DSColor.accentMuted : DSColor.surfaceElevated))
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(visibilityLabel(visibility))
+                                .font(DSType.bodyStrong)
+                                .foregroundStyle(DSColor.textPrimary)
+                            Text(visibilitySubtitle(visibility))
+                                .font(DSType.metaCaption)
+                                .foregroundStyle(DSColor.textSecondary)
+                                .lineLimit(2)
                         }
-                        UISelectionFeedbackGenerator().selectionChanged()
-                    } label: {
-                        HStack(spacing: 12) {
-                            ZStack {
-                                Circle()
-                                    .fill(selected ? DSColor.accent.opacity(0.18) : DSColor.surfaceElevated.opacity(0.6))
-                                    .frame(width: 36, height: 36)
-                                Image(systemName: vis.icon)
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(selected ? DSColor.accent : DSColor.textSecondary)
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(visibilityLabel(vis))
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(DSColor.textPrimary)
-                                Text(visibilitySubtitle(vis))
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundStyle(DSColor.textSecondary)
-                                    .lineLimit(1)
-                            }
-                            Spacer()
-                            if selected {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundStyle(DSColor.accent)
-                            }
-                        }
-                        .padding(12)
-                        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial))
-                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(selected ? DSColor.accent : DSColor.border.opacity(0.35), lineWidth: 1))
+
+                        Spacer()
+
+                        Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(selected ? DSColor.accent : DSColor.textTertiary)
                     }
-                    .buttonStyle(.plain)
+                    .padding(12)
+                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surfaceElevated))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(selected ? DSColor.accent : DSColor.border, lineWidth: 1)
+                    )
                 }
+                .buttonStyle(SpringPressStyle())
             }
         }
     }
 
-    // MARK: - 6) Notes Section
+    private var notesField: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("create_game.section.notes")
+                .font(DSType.bodyStrong)
+                .foregroundStyle(DSColor.textPrimary)
 
-    private var notesSection: some View {
-        sectionShell(title: String(localized: "create_game.section.notes")) {
             ZStack(alignment: .topLeading) {
                 if viewModel.notes.isEmpty {
                     Text("create_game.notes.placeholder")
-                        .font(.system(size: 13))
+                        .font(DSType.metaCaption)
                         .foregroundStyle(DSColor.textSecondary)
-                        .padding(.horizontal, 6)
-                        .padding(.top, 8)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 13)
                 }
+
                 TextEditor(text: $viewModel.notes)
-                    .font(.system(size: 13))
+                    .font(DSType.metaCaption)
                     .foregroundStyle(DSColor.textPrimary)
                     .scrollContentBackground(.hidden)
-                    .frame(minHeight: 80)
+                    .frame(minHeight: 92)
+                    .padding(8)
             }
-            .padding(10)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surfaceElevated.opacity(0.4)))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(DSColor.border.opacity(0.35), lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.surfaceElevated))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(DSColor.border, lineWidth: 1))
         }
     }
 
-    // MARK: - Submit Bar & CTAs
-
     private var submitBar: some View {
-        VStack(spacing: 0) {
-            if let err = viewModel.formError {
-                HStack(spacing: 6) {
+        VStack(spacing: 10) {
+            if let error = viewModel.formError {
+                HStack(spacing: 7) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 12, weight: .bold))
-                    Text(err)
-                        .font(.system(size: 11, weight: .medium))
+                    Text(error)
+                        .lineLimit(2)
                 }
+                .font(DSType.metaCaption)
                 .foregroundStyle(DSColor.danger)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, DSSpacing.md)
             }
+
             PrimaryButton(
                 title: String(localized: "create_game.submit"),
+                icon: "plus.circle.fill",
                 isLoading: viewModel.isSubmitting,
                 isEnabled: viewModel.canSubmit
             ) {
@@ -495,28 +562,38 @@ struct CreateGameView: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
+            .padding(.horizontal, DSSpacing.md)
+            .padding(.bottom, 14)
         }
+        .padding(.top, 18)
         .background(
-            LinearGradient(colors: [DSColor.background.opacity(0), DSColor.background],
-                           startPoint: .top, endPoint: .bottom)
-                .frame(height: 140)
-                .allowsHitTesting(false),
-            alignment: .bottom
+            LinearGradient(
+                colors: [DSColor.background.opacity(0), DSColor.background, DSColor.background],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .allowsHitTesting(false)
         )
     }
 
-    // MARK: - Shell Helpers
+    private func formCard<Content: View>(title: LocalizedStringKey,
+                                         icon: String,
+                                         @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label {
+                Text(title)
+                    .font(.system(size: 13, weight: .heavy))
+                    .foregroundStyle(DSColor.textSecondary)
+            } icon: {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .heavy))
+                    .foregroundStyle(DSColor.accent)
+            }
 
-    private func sectionShell<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(DSColor.textSecondary)
             content()
         }
-        .padding(.horizontal, 16)
+        .padding(15)
+        .dsSurfaceCard(radius: 22, shadowOpacity: 0.018)
     }
 
     private func skillBandLabel(_ band: CreateGameViewModel.SkillBand) -> LocalizedStringKey {
@@ -528,21 +605,49 @@ struct CreateGameView: View {
         }
     }
 
-    private func visibilityLabel(_ vis: CreateGameViewModel.Visibility) -> LocalizedStringKey {
-        switch vis {
+    private func visibilityLabel(_ visibility: CreateGameViewModel.Visibility) -> LocalizedStringKey {
+        switch visibility {
         case .public: return "create_game.visibility.public"
         case .invite: return "create_game.visibility.invite"
         }
     }
-    
-    private func visibilitySubtitle(_ vis: CreateGameViewModel.Visibility) -> LocalizedStringKey {
-        switch vis {
+
+    private func visibilitySubtitle(_ visibility: CreateGameViewModel.Visibility) -> LocalizedStringKey {
+        switch visibility {
         case .public: return "create_game.visibility.public.sub"
         case .invite: return "create_game.visibility.invite.sub"
         }
     }
 
-    private func closeTo(_ a: Date, _ b: Date) -> Bool {
-        abs(a.timeIntervalSince(b)) < 60 * 15
+    private func closeTo(_ lhs: Date, _ rhs: Date) -> Bool {
+        abs(lhs.timeIntervalSince(rhs)) < 60 * 15
     }
+
+    private static let dayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.setLocalizedDateFormatFromTemplate("EEE d MMM")
+        return formatter
+    }()
+
+    private static let fullDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.setLocalizedDateFormatFromTemplate("EEE d MMM HH:mm")
+        return formatter
+    }()
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.setLocalizedDateFormatFromTemplate("HH:mm")
+        return formatter
+    }()
+
+    private static let shortTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.setLocalizedDateFormatFromTemplate("HH:mm")
+        return formatter
+    }()
 }

@@ -39,7 +39,7 @@ struct StorySharePreviewSheet: View {
                                 RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
                                     .strokeBorder(DSColor.border, lineWidth: 1)
                             )
-                            .shadow(color: .black.opacity(0.25), radius: 20, x: 0, y: 12)
+                            .shadow(color: DSColor.inkSurface.opacity(0.25), radius: 20, x: 0, y: 12)
                             .padding(.horizontal, DSSpacing.lg)
 
                         // Interaction CTAs
@@ -125,7 +125,9 @@ struct StorySharePreviewSheet: View {
                 )
             }
         }
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(.ultraThinMaterial)
     }
 }
 

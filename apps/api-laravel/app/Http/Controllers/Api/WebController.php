@@ -154,6 +154,27 @@ class WebController extends ApiController
         ]);
     }
 
+    /**
+     * Public platform stats for the marketing/about page — real counts, no
+     * hardcoded numbers. Cheap aggregate, no auth.
+     */
+    public function publicStats(): JsonResponse
+    {
+        return response()->json([
+            'active_players' => DB::table('users')->whereNull('deleted_at')->count(),
+            'partner_clubs' => DB::table('venues')
+                ->where(fn ($q) => $q->whereNull('status')->orWhere('status', 'published'))
+                ->count(),
+            'weekly_matches' => DB::table('games as g')
+                ->join('sports as s', 's.id', '=', 'g.sport_id')
+                ->whereIn('s.slug', ['padel', 'tennis'])
+                ->whereNull('g.deleted_at')
+                ->where('g.starts_at', '>=', now()->subDays(7))
+                ->count(),
+            'tournaments' => DB::table('tournaments')->count(),
+        ]);
+    }
+
     public function dashboard(Request $request): JsonResponse
     {
         $user = $this->authUser($request);

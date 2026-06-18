@@ -15,6 +15,8 @@ struct MatchesView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
+                header
+
                 GameFilterChips(selection: viewModel.dateFilter) { value in
                     viewModel.setDateFilter(value)
                 }
@@ -22,39 +24,13 @@ struct MatchesView: View {
                 Spacer().frame(height: 100)
             }
             .padding(.horizontal, DSSpacing.md)
-            .padding(.top, DSSpacing.xs)
+            .padding(.top, DSSpacing.md)
         }
         .background(DSColor.background.ignoresSafeArea())
-        .navigationTitle("games.nav.title")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .refreshable { await viewModel.load() }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button {
-                        UINotificationFeedbackGenerator().notificationOccurred(.success)
-                        onTapCreate()
-                    } label: {
-                        Label("matches.create", systemImage: "figure.tennis")
-                    }
-                    Button {
-                        Haptics.selection()
-                        showRecurring = true
-                    } label: {
-                        Label("recurring.title", systemImage: "repeat")
-                    }
-                    Button {
-                        Haptics.selection()
-                        showAmericano = true
-                    } label: {
-                        Label("americano.hero.title", systemImage: "trophy")
-                    }
-                } label: {
-                    Image(systemName: "plus").fontWeight(.semibold)
-                }
-                .accessibilityLabel(Text("matches.create"))
-            }
-        }
         .task {
             if let me = container.currentUser, let lat = me.home_lat, let lng = me.home_lng {
                 viewModel.viewerHome = .init(latitude: lat, longitude: lng)
@@ -72,6 +48,53 @@ struct MatchesView: View {
         .sheet(isPresented: $showAmericano) {
             AmericanoTournamentView()
         }
+    }
+
+    private var header: some View {
+        HStack(alignment: .center, spacing: 16) {
+            Text("games.nav.title")
+                .font(.system(size: 34, weight: .heavy))
+                .foregroundStyle(DSColor.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+
+            Spacer(minLength: 12)
+
+            createMenu
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var createMenu: some View {
+        Menu {
+            Button {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                onTapCreate()
+            } label: {
+                Label("matches.create", systemImage: "figure.tennis")
+            }
+            Button {
+                Haptics.selection()
+                showRecurring = true
+            } label: {
+                Label("recurring.title", systemImage: "repeat")
+            }
+            Button {
+                Haptics.selection()
+                showAmericano = true
+            } label: {
+                Label("americano.hero.title", systemImage: "trophy")
+            }
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(DSColor.accent)
+                .frame(width: 48, height: 48)
+                .background(Circle().fill(DSColor.surfaceElevated))
+                .overlay(Circle().strokeBorder(DSColor.border, lineWidth: 1))
+                .contentShape(Circle())
+        }
+        .accessibilityLabel(Text("matches.create"))
     }
 
     @ViewBuilder
@@ -181,7 +204,7 @@ struct MatchesView: View {
                 .font(DSType.bodyMedium).foregroundStyle(DSColor.textSecondary)
                 .multilineTextAlignment(.center)
             Button { Task { await viewModel.load() } } label: {
-                Text("tournaments.empty.refresh").font(DSType.bodyStrong).foregroundStyle(DSColor.accent)
+                Text("matches.error.retry").font(DSType.bodyStrong).foregroundStyle(DSColor.accent)
             }
             .buttonStyle(SpringPressStyle())
         }

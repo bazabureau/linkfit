@@ -63,6 +63,7 @@ struct SquadInviteSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(.ultraThinMaterial)
         .task {
             // Lazy-init so the sheet doesn't fire a follows fetch when
             // it's not yet on screen. Once primed, the view-model

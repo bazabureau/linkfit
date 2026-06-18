@@ -11,21 +11,35 @@ class MembershipController extends ApiController
     public function show(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
+        $svc = app(\App\Services\Membership\MembershipService::class);
+        $m = $svc->resolve($user->id);
 
-        return response()->json($this->statePayload($this->membershipForUser($user->id)));
+        $state = $this->statePayload($this->membershipForUser($user->id));
+        // Reflect EFFECTIVE access (incl. the free trial) so the client gates correctly.
+        $state['is_premium'] = $m->is_premium;
+        $state['on_trial'] = $m->on_trial;
+        $state['trial_ends_at'] = $m->trial_ends_at;
+        if ($m->is_premium) {
+            $state['benefits'] = $this->tierBenefits('premium');
+        }
+        $state['usage'] = $svc->usage($user->id);
+
+        return response()->json($state);
     }
 
     public function subscribe(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
         $data = $this->validateBody($request, [
-            'tier' => ['required', 'in:plus,premium'],
+            'tier' => ['sometimes', 'in:plus,premium'],
         ]);
+        // Mobile "Subscribe" sends no body — default to premium.
+        $tier = $data['tier'] ?? 'premium';
         $periodEnd = now()->addMonth();
 
         $this->membershipForUser($user->id);
         DB::table('memberships')->where('user_id', $user->id)->update([
-            'tier' => $data['tier'],
+            'tier' => $tier,
             'current_period_end' => $periodEnd,
             'cancel_at_period_end' => false,
             'updated_at' => now(),
@@ -34,7 +48,7 @@ class MembershipController extends ApiController
         return response()->json([
             'mode' => 'demo',
             'checkout_url' => null,
-            'tier' => $data['tier'],
+            'tier' => $tier,
             'current_period_end' => $this->iso($periodEnd),
         ]);
     }
@@ -83,8 +97,14 @@ class MembershipController extends ApiController
     {
         $tier = in_array($row->tier, ['free', 'plus', 'premium'], true) ? $row->tier : 'free';
 
+        // A paid tier past its billing period is no longer active → free.
+        if ($tier !== 'free' && $row->current_period_end !== null && strtotime((string) $row->current_period_end) <= time()) {
+            $tier = 'free';
+        }
+
         return [
             'tier' => $tier,
+            'is_premium' => $tier !== 'free',
             'current_period_end' => $this->iso($row->current_period_end),
             'cancel_at_period_end' => (bool) $row->cancel_at_period_end,
             'benefits' => $this->tierBenefits($tier),

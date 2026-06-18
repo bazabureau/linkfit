@@ -75,8 +75,8 @@ struct CreateSquadView: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(DSColor.textPrimary)
                     .frame(width: 36, height: 36)
-                    .background(Circle().fill(.ultraThinMaterial))
-                    .overlay(Circle().strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1))
+                    .background(Circle().fill(DSColor.surfaceElevated))
+                    .overlay(Circle().strokeBorder(DSColor.border, lineWidth: 1))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text("common.close"))
@@ -209,14 +209,7 @@ struct CreateSquadView: View {
                     .lineLimit(2)
             }
             .padding(DSSpacing.md - 2)
-            .background(
-                RoundedRectangle(cornerRadius: DSRadius.lg + 2, style: .continuous)
-                    .fill(.ultraThinMaterial)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: DSRadius.lg + 2, style: .continuous)
-                    .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
-            )
+            .dsSurfaceCard(radius: DSRadius.lg + 2)
         }
     }
 
@@ -380,14 +373,7 @@ private struct PhotoPickerLabel: View {
                 .accessibilityHidden(true)
         }
         .padding(DSSpacing.md - 2)
-        .background(
-            RoundedRectangle(cornerRadius: DSRadius.lg + 2, style: .continuous)
-                .fill(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: DSRadius.lg + 2, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
-        )
+        .dsSurfaceCard(radius: DSRadius.lg + 2)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }

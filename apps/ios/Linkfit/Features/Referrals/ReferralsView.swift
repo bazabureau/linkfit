@@ -45,6 +45,7 @@ struct ReferralsView: View {
                 ReferralsShareSheet(items: [shareText(code: resp.code)])
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
+                    .presentationBackground(.ultraThinMaterial)
             }
         }
         .sheet(isPresented: $showRedeemSheet) {

@@ -375,7 +375,6 @@ struct LiveScoringView: View {
                     .foregroundStyle(DSColor.textOnAccent)
             }
             .frame(width: 88, height: 88)
-            .shadow(color: DSColor.accent.opacity(0.4), radius: 12, x: 0, y: 6)
         }
         .disabled(viewModel.isMutating)
         .accessibilityLabel(
@@ -436,7 +435,6 @@ struct LiveScoringView: View {
                 .padding(.horizontal, 32)
                 .padding(.vertical, 24)
                 .background(RoundedRectangle(cornerRadius: DSRadius.xxl).fill(DSColor.accent))
-                .shadow(color: DSColor.accent.opacity(0.6), radius: 24, x: 0, y: 12)
         }
     }
 

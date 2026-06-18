@@ -65,6 +65,7 @@ export interface PartnerAccount {
   display_name: string;
   admin_role: string;
   venue_id: string;
+  staff_title: string | null;
   deleted_at: string | null;
   created_at: string;
 }
@@ -123,6 +124,19 @@ export interface CourtBlockPayload {
   force?: boolean;
 }
 
+export interface CreateVenuePartnerPayload {
+  email: string;
+  display_name: string;
+  password: string;
+  staff_title?: string | null;
+}
+
+export interface UpdateVenuePartnerPayload {
+  display_name?: string;
+  staff_title?: string | null;
+  password?: string;
+}
+
 // ---------- Query keys ----------
 
 export const venuesKeys = {
@@ -132,6 +146,7 @@ export const venuesKeys = {
   detail: (id: string) => [...venuesKeys.all, "detail", id] as const,
   courts: (venueId: string) => [...venuesKeys.all, "courts", venueId] as const,
   blocks: (courtId: string) => [...venuesKeys.all, "court-blocks", courtId] as const,
+  partners: (venueId: string) => [...venuesKeys.all, "partners", venueId] as const,
 };
 
 // ---------- Hooks ----------
@@ -354,6 +369,75 @@ export function useDeleteCourtBlock(
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: venuesKeys.blocks(courtId) });
+    },
+  });
+}
+
+// ---------- Partner accounts ----------
+
+export function useVenuePartners(
+  venueId: string | undefined,
+): UseQueryResult<PartnerAccount[]> {
+  return useQuery({
+    queryKey: venuesKeys.partners(venueId ?? ""),
+    enabled: Boolean(venueId),
+    queryFn: async () => {
+      const res = await api.get<{ items: PartnerAccount[] }>(
+        `/api/v1/admin/venues/${venueId}/partners`,
+      );
+      return res.items ?? [];
+    },
+  });
+}
+
+export function useCreateVenuePartner(
+  venueId: string,
+): UseMutationResult<PartnerAccount, Error, CreateVenuePartnerPayload> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => {
+      return api.post<PartnerAccount>(
+        `/api/v1/admin/venues/${venueId}/partners`,
+        payload,
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: venuesKeys.partners(venueId) });
+    },
+  });
+}
+
+export function useUpdateVenuePartner(
+  venueId: string,
+): UseMutationResult<
+  PartnerAccount,
+  Error,
+  { userId: string; data: UpdateVenuePartnerPayload }
+> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, data }) => {
+      return api.patch<PartnerAccount>(
+        `/api/v1/admin/venues/${venueId}/partners/${userId}`,
+        data,
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: venuesKeys.partners(venueId) });
+    },
+  });
+}
+
+export function useDeleteVenuePartner(
+  venueId: string,
+): UseMutationResult<void, Error, string> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      await api.delete<void>(`/api/v1/admin/venues/${venueId}/partners/${userId}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: venuesKeys.partners(venueId) });
     },
   });
 }

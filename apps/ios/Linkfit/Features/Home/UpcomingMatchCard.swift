@@ -41,9 +41,9 @@ struct UpcomingMatchCard: View {
             // 2. Double-gradient legibility layer for absolute contrast in Light & Dark modes
             LinearGradient(
                 colors: [
-                    Color.black.opacity(0.85),
-                    Color.black.opacity(0.35),
-                    Color.black.opacity(0.15)
+                    DSColor.inkSurface.opacity(0.85),
+                    DSColor.inkSurface.opacity(0.35),
+                    DSColor.inkSurface.opacity(0.15)
                 ],
                 startPoint: .bottom,
                 endPoint: .top
@@ -104,7 +104,7 @@ struct UpcomingMatchCard: View {
             // Bold Main Title (Venue Name)
             Text(game.venue_name ?? String(localized: "card.open_invite"))
                 .font(.system(.body, design: .default, weight: .heavy))
-                .foregroundStyle(.white)
+                .foregroundStyle(DSColor.textOnAccent)
                 .lineLimit(1)
             
             // High-contrast translucent metadata list
@@ -132,17 +132,17 @@ struct UpcomingMatchCard: View {
                             Text(String(localized: "home.match.joined", defaultValue: "Qoşulmusan"))
                                 .font(.system(.footnote, design: .default, weight: .bold))
                         }
-                        .foregroundStyle(.white)
+                        .foregroundStyle(DSColor.textOnAccent)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(Capsule().fill(Color.white.opacity(0.2)))
+                        .background(Capsule().fill(DSColor.textOnAccent.opacity(0.2)))
                     } else if game.participants_count >= game.capacity || game.status == .full {
                         Text(String(localized: "home.match.full", defaultValue: "Dolu"))
                             .font(.system(.footnote, design: .default, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.6))
+                            .foregroundStyle(DSColor.textOnAccent.opacity(0.6))
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
-                            .background(Capsule().fill(Color.white.opacity(0.1)))
+                            .background(Capsule().fill(DSColor.textOnAccent.opacity(0.1)))
                     } else {
                         Button(action: onJoin) {
                             Text("home.match.join")
@@ -165,10 +165,10 @@ struct UpcomingMatchCard: View {
         HStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(DSColor.textOnAccent.opacity(0.8))
             Text(text)
                 .font(.system(.caption, design: .default))
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(DSColor.textOnAccent.opacity(0.8))
                 .lineLimit(1)
         }
     }
@@ -196,12 +196,12 @@ struct UpcomingMatchCard: View {
                     )
                     
                     CourtArtwork()
-                        .stroke(Color.white.opacity(0.20), lineWidth: 1.2)
+                        .stroke(DSColor.textOnAccent.opacity(0.20), lineWidth: 1.2)
                         .padding(24)
                     
                     Image(systemName: "figure.tennis")
                         .font(.system(size: 36, weight: .regular))
-                        .foregroundStyle(Color.white.opacity(0.15))
+                        .foregroundStyle(DSColor.textOnAccent.opacity(0.15))
                 }
             }
         }

@@ -61,8 +61,9 @@ export default function LoginPage(): React.JSX.Element {
   });
 
   return (
-    <main className="min-h-screen bg-[#f4f7f8] text-[#111827]">
+    <main className="min-h-screen bg-background text-foreground">
       <div className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
+        {/* Brand panel */}
         <section className="relative hidden overflow-hidden lg:block">
           <Image
             src={`${OWNER_BASE_PATH}/brand/site/padel-player.jpg`}
@@ -73,113 +74,104 @@ export default function LoginPage(): React.JSX.Element {
             sizes="52vw"
             className="absolute inset-0 h-full w-full object-cover"
           />
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(4,10,18,0.78),rgba(4,10,18,0.32)_58%,rgba(4,10,18,0.08))]" />
-          <div className="relative flex h-full flex-col justify-between p-12">
-            <Image
-              src={`${OWNER_BASE_PATH}/brand/logolinkfit.png`}
-              alt="Linkfit"
-              width={260}
-              height={36}
-              priority
-              unoptimized
-              className="h-9 w-auto object-contain"
-            />
-            <div className="max-w-xl pb-8 text-white">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm backdrop-blur">
-                <Building2 className="h-4 w-4 text-[#b7f233]" />
+          <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(10,13,18,0.94),rgba(10,13,18,0.62)_55%,rgba(10,13,18,0.30))]" />
+          {/* lime glow accent */}
+          <div className="pointer-events-none absolute -bottom-24 -left-16 h-72 w-72 rounded-full bg-accent/20 blur-[120px]" />
+          <div className="relative flex h-full flex-col justify-end p-12">
+            <div className="max-w-xl pb-8">
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-sm font-medium text-accent backdrop-blur">
+                <Building2 className="h-4 w-4" />
                 Court owner panel
               </div>
-              <h1 className="text-5xl font-semibold leading-[1.02] tracking-normal">
+              <h1 className="font-display text-5xl font-semibold leading-[1.05]  text-foreground">
                 Meydanlar, rezervasiyalar və komanda bir yerdə.
               </h1>
-              <p className="mt-5 max-w-md text-base leading-7 text-white/78">
+              <p className="mt-5 max-w-md text-base leading-7 text-foregroundMuted">
                 Linkfit owner paneli court əməliyyatlarını rahat idarə etmək üçün hazırlanıb.
               </p>
             </div>
           </div>
         </section>
 
-        <section className="flex min-h-screen items-center justify-center px-5 py-8 sm:px-8">
-          <div className="w-full max-w-[460px]">
+        {/* Form panel */}
+        <section className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
+          <div className="w-full max-w-[440px]">
             <div className="mb-10 flex items-center justify-between">
               <Image
-                src={`${OWNER_BASE_PATH}/brand/logolinkfit-dark.png`}
+                src={`${OWNER_BASE_PATH}/brand/logolinkfit.png`}
                 alt="Linkfit"
-                width={230}
-                height={32}
+                width={210}
+                height={30}
                 priority
                 unoptimized
                 className="h-8 w-auto object-contain"
               />
-              <div className="rounded-full border border-[#d7dee4] bg-white px-3 py-1.5 text-xs font-semibold text-[#4b5563]">
+              <div className="rounded-full border border-border bg-surfaceElevated px-3 py-1.5 font-display text-[11px] font-semibold   text-foregroundMuted">
                 Owner
               </div>
             </div>
 
             <div className="mb-8">
-              <p className="mb-3 text-sm font-semibold uppercase text-[#6b7280]">
+              <p className="mb-3 font-display text-xs font-semibold   text-accent">
                 Court idarəetməsi
               </p>
-              <h2 className="text-4xl font-semibold leading-tight tracking-normal text-[#0f172a]">
+              <h2 className="font-display text-4xl font-semibold leading-tight  text-foreground">
                 Hesabınıza daxil olun
               </h2>
-              <p className="mt-3 text-base leading-7 text-[#5f6b7a]">
+              <p className="mt-3 text-base leading-7 text-foregroundMuted">
                 Rezervasiyaları, court cədvəllərini və venue əməliyyatlarını idarə edin.
               </p>
             </div>
 
             <form onSubmit={onSubmit} className="space-y-5" noValidate>
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-[#273241]">
-                  E-poçt
-                </Label>
+                <Label htmlFor="email">E-poçt</Label>
                 <div className="relative">
-                  <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7b8794]" />
+                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-foregroundMuted" />
                   <Input
                     id="email"
                     type="email"
                     autoComplete="email"
                     placeholder="owner@linkfit.az"
                     aria-invalid={Boolean(errors.email)}
-                    className="h-12 rounded-xl border-[#d7dee4] bg-white pl-11 text-[#111827] placeholder:text-[#8a94a3] focus-visible:border-[#b7f233] focus-visible:ring-[#b7f233]/45"
+                    className="h-12 rounded-xl pl-10"
                     {...register("email")}
                   />
                 </div>
                 {errors.email ? (
-                  <p className="text-sm font-medium text-[#dc2626]">{errors.email.message}</p>
+                  <p className="text-sm font-medium text-danger">{errors.email.message}</p>
                 ) : null}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-[#273241]">
-                  Şifrə
-                </Label>
+                <Label htmlFor="password">Şifrə</Label>
                 <div className="relative">
-                  <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7b8794]" />
+                  <LockKeyhole className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-foregroundMuted" />
                   <Input
                     id="password"
                     type="password"
                     autoComplete="current-password"
                     placeholder="••••••••"
                     aria-invalid={Boolean(errors.password)}
-                    className="h-12 rounded-xl border-[#d7dee4] bg-white pl-11 text-[#111827] placeholder:text-[#8a94a3] focus-visible:border-[#b7f233] focus-visible:ring-[#b7f233]/45"
+                    className="h-12 rounded-xl pl-10"
                     {...register("password")}
                   />
                 </div>
                 {errors.password ? (
-                  <p className="text-sm font-medium text-[#dc2626]">{errors.password.message}</p>
+                  <p className="text-sm font-medium text-danger">{errors.password.message}</p>
                 ) : null}
               </div>
 
               {serverError ? (
-                <div className="rounded-xl border border-[#fecaca] bg-[#fff1f2] px-4 py-3 text-sm font-medium text-[#b91c1c]">
+                <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
                   {serverError}
                 </div>
               ) : null}
 
               <Button
                 type="submit"
-                className="h-12 w-full rounded-xl bg-[#b7f233] text-[#101820] hover:bg-[#a5df22]"
+                variant="primary"
+                className="h-12 w-full rounded-xl text-base"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
@@ -196,7 +188,7 @@ export default function LoginPage(): React.JSX.Element {
               </Button>
             </form>
 
-            <p className="mt-6 text-sm leading-6 text-[#6b7280]">
+            <p className="mt-6 text-sm leading-6 text-foregroundMuted">
               Giriş icazəniz yoxdursa, venue administratoru və ya Linkfit komandası ilə əlaqə saxlayın.
             </p>
           </div>

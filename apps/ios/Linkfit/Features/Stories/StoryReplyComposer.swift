@@ -40,6 +40,7 @@ struct StoryReplyComposer: View {
     /// state in the View avoids round-tripping every character
     /// through the observable graph.
     @State private var draft: String = ""
+    @State private var sendingQuickReply: StoryReactionEmoji?
     /// Bound to the TextField's focus state. The VM's
     /// `setComposerActive` mirrors this to pause the timer + suppress
     /// the gesture overlay while the keyboard is up.
@@ -56,6 +57,7 @@ struct StoryReplyComposer: View {
     var body: some View {
         if let group = viewModel.currentGroup {
             VStack(spacing: 10) {
+                quickReplyRow
                 composerRow(authorName: group.display_name)
             }
             // Stop touch-down anywhere inside the composer strip from
@@ -77,6 +79,29 @@ struct StoryReplyComposer: View {
     }
 
     // MARK: - Text composer
+
+    private var quickReplyRow: some View {
+        HStack(spacing: 18) {
+            ForEach(StoryReactionEmoji.allCases, id: \.self) { emoji in
+                Button {
+                    sendQuickReply(emoji)
+                } label: {
+                    Text(emoji.glyph)
+                        .font(.system(size: 28))
+                        .opacity(sendingQuickReply == emoji ? 0.45 : 1)
+                        .scaleEffect(sendingQuickReply == emoji ? 0.92 : 1)
+                        .animation(reduceMotion ? nil : .spring(response: 0.22, dampingFraction: 0.75), value: sendingQuickReply)
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.isSendingReply || sendingQuickReply != nil)
+                .accessibilityLabel(Text(String(
+                    format: String(localized: "stories.reply.quick.a11y"),
+                    emoji.glyph
+                )))
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
 
     /// Bottom row: text field + send button. The placeholder reads
     /// "{author_name}-a cavab yaz..." in AZ so the recipient is
@@ -169,6 +194,18 @@ struct StoryReplyComposer: View {
                     draft = ""
                     fieldFocused = false
                 }
+            }
+        }
+    }
+
+    private func sendQuickReply(_ emoji: StoryReactionEmoji) {
+        guard !viewModel.isSendingReply, sendingQuickReply == nil else { return }
+        sendingQuickReply = emoji
+        Haptics.medium()
+        Task {
+            _ = await viewModel.sendReply(text: emoji.glyph)
+            await MainActor.run {
+                sendingQuickReply = nil
             }
         }
     }

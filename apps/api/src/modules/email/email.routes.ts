@@ -21,7 +21,7 @@ const ErrorEnvelope = z.object({
 
 const SendVerificationResponse = z.object({ sent: z.boolean() });
 const VerifyEmailRequest = z.object({
-  token: z.string().min(8).max(512),
+  token: z.string().min(1).max(512),
 });
 const VerifyEmailResponse = z.object({ verified: z.boolean() });
 
@@ -69,18 +69,21 @@ export function registerEmailRoutes(app: LinkfitServer, deps: EmailRouteDeps): v
   app.post(
     "/api/v1/auth/verify-email",
     {
-      config: { rateLimit: authRl },
+      preHandler: authenticate,
+      config: { rateLimit: { max: 10, timeWindow: 60_000 } },
       schema: {
         body: VerifyEmailRequest,
         response: {
           200: VerifyEmailResponse,
+          401: ErrorEnvelope,
           400: ErrorEnvelope,
         },
         tags: ["auth"],
       },
     },
     async (req, reply) => {
-      const result = await deps.service.verifyEmail(req.body.token);
+      const userId = requireUserId(req);
+      const result = await deps.service.verifyEmail(userId, req.body.token);
       return reply.status(200).send(result);
     },
   );

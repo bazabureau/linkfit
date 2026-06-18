@@ -215,8 +215,7 @@ struct InvitationRow: View {
                 .frame(height: 44)
                 .background(
                     Capsule()
-                        .fill(LinearGradient(colors: [DSColor.accent, DSColor.accentSoft], startPoint: .top, endPoint: .bottom))
-                        .shadow(color: DSColor.accent.opacity(0.3), radius: 8, y: 3)
+                        .fill(DSColor.accent)
                 )
             }
             .buttonStyle(SpringButtonStyle())

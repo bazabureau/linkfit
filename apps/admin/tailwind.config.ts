@@ -6,18 +6,24 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Linkfit admin light palette.
-        background: "#F4F7F8",
+        // LinkFit admin — refined light canvas + ink control rail.
+        background: "#F5F7F8",
         surface: "#FFFFFF",
         surfaceElevated: "#F8FAFB",
-        border: "#D7DEE4",
+        border: "#E4E9ED",
+        borderStrong: "#D2DAE0",
         muted: "#7B8794",
-        foreground: "#101820",
-        foregroundMuted: "#606C7C",
+        foreground: "#0B1016",
+        foregroundMuted: "#5C6675",
+        // Dark "control room" rail.
+        ink: "#0E1116",
+        inkElevated: "#161B22",
+        inkBorder: "rgba(255,255,255,0.07)",
         accent: {
           DEFAULT: "#B7F233",
           hover: "#A5DF22",
-          subtle: "#B7F23333",
+          subtle: "#B7F23322",
+          ink: "#0E1116",
         },
         // Brand alias used by feature pages.
         brand: {
@@ -38,22 +44,23 @@ const config: Config = {
       },
       fontFamily: {
         sans: [
+          "var(--font-onest)",
           "ui-sans-serif",
           "system-ui",
           "-apple-system",
           "Segoe UI",
-          "Roboto",
-          "Helvetica",
-          "Arial",
           "sans-serif",
         ],
+        display: ["var(--font-unbounded)", "var(--font-onest)", "sans-serif"],
       },
       borderRadius: {
         xl: "0.875rem",
         "2xl": "1.125rem",
       },
       boxShadow: {
-        card: "0 1px 2px rgba(16,24,32,0.04), 0 14px 34px rgba(16,24,32,0.08)",
+        card: "0 1px 2px rgba(11,16,22,0.04), 0 14px 34px rgba(11,16,22,0.07)",
+        lift: "0 2px 6px rgba(11,16,22,0.06), 0 24px 50px rgba(11,16,22,0.12)",
+        rail: "0 0 0 1px rgba(255,255,255,0.04)",
       },
     },
   },

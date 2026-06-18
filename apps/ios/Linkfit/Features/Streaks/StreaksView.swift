@@ -56,11 +56,9 @@ struct StreaksView: View {
 
     // MARK: - Empty state
 
-    /// Premium-glass empty card shown when the user has never logged a
-    /// game yet (the server returns 26 zero-count weeks). Mirrors the
-    /// motif used in Messages / Insights / Calendar — flame medallion +
-    /// motivational heading + supporting line. No CTA because the player
-    /// already lives one tap away from match discovery on the home tab.
+    /// Empty card shown when the user has never logged a game yet (the
+    /// server returns 26 zero-count weeks). Mirrors the motif used across
+    /// feature screens.
     private var premiumEmptyCard: some View {
         VStack(spacing: DSSpacing.sm) {
             ZStack {
@@ -89,14 +87,7 @@ struct StreaksView: View {
         }
         .padding(DSSpacing.lg)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial),
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1),
-        )
+        .dsSurfaceCard(radius: 18)
         .accessibilityElement(children: .combine)
     }
 

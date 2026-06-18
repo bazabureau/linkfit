@@ -29,6 +29,7 @@ struct AchievementsView: View {
             AchievementDetailSheet(achievement: item)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+                .presentationBackground(.ultraThinMaterial)
         }
     }
 
@@ -63,10 +64,8 @@ struct AchievementsView: View {
         }
     }
 
-    /// Premium-glass empty card matching the design-system pattern used
-    /// across Messages / Insights / Calendar — medallion + heading +
-    /// supporting line. No CTA, the user lands here automatically as soon
-    /// as they have something to unlock.
+    /// Empty card matching the design-system pattern used across feature
+    /// screens — medallion + heading + supporting line.
     private var premiumEmptyCard: some View {
         VStack(spacing: DSSpacing.md) {
             ZStack {
@@ -95,14 +94,7 @@ struct AchievementsView: View {
         }
         .padding(DSSpacing.xl)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
-                .fill(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: DSRadius.xxl, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
-        )
+        .dsSurfaceCard(radius: DSRadius.xxl)
     }
 
     private func summary(_ res: AchievementsResponse) -> some View {

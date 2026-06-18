@@ -4,8 +4,7 @@ import SwiftUI
 ///
 /// Visual story (~0.9s on a cold launch):
 ///   1. Logo scales `SplashTimings.logoStartScale → .logoEndScale` with a
-///      spring; a soft royal-blue brand glow fades in over the canvas (no
-///      shape behind the wordmark).
+///      spring over the adaptive app canvas.
 ///   2. Tagline fades up underneath one beat later.
 ///   3. We hold long enough for the brand to register, then dissolve the
 ///      whole splash (`.exitFadeDuration` easeInOut) before calling
@@ -28,17 +27,6 @@ struct SplashView: View {
     var body: some View {
         ZStack {
             DSColor.background.ignoresSafeArea()
-
-            // Soft brand glow — an ambient royal-blue wash anchored at the top,
-            // matching the "clean canvas + glow" language used across the app.
-            // No shape sits behind the wordmark; the glow just warms the field.
-            RadialGradient(
-                colors: [DSColor.accent.opacity(0.12), .clear],
-                center: .top, startRadius: 8, endRadius: 460
-            )
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
-            .opacity(markVisible ? 1 : 0)
 
             VStack(spacing: DSSpacing.md) {
                 Spacer()

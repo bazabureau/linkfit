@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<title>LinkFit — Hüquqi Sənədlər</title>
+<style>
+  @page { size: A4; margin: 22mm 18mm 20mm 18mm; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: "Helvetica Neue", Arial, "Segoe UI", system-ui, sans-serif;
+    color: #1a1f26; font-size: 10.6pt; line-height: 1.58; margin: 0;
+  }
+  h1, h2, h3 { color: #0e1116; line-height: 1.25; }
+  h1 { font-size: 20pt; margin: 0 0 4pt; letter-spacing: -0.2px; }
+  h2 { font-size: 14pt; margin: 22pt 0 7pt; padding-bottom: 4pt; border-bottom: 2px solid #c5d600; }
+  h3 { font-size: 11.4pt; margin: 14pt 0 4pt; color: #283042; }
+  p { margin: 0 0 7pt; text-align: justify; }
+  ul, ol { margin: 0 0 9pt; padding-left: 18pt; }
+  li { margin: 0 0 3.5pt; }
+  table { width: 100%; border-collapse: collapse; margin: 6pt 0 12pt; font-size: 9.6pt; }
+  th, td { border: 1px solid #d4dae2; padding: 5pt 7pt; text-align: left; vertical-align: top; }
+  th { background: #f2f5f0; font-weight: 700; }
+  .muted { color: #5c6675; }
+  .lead { font-size: 11pt; color: #38414f; }
+  .doc { page-break-before: always; }
+  .cover { text-align: center; padding-top: 60mm; page-break-after: always; }
+  .cover .brand { font-size: 30pt; font-weight: 800; letter-spacing: -0.5px; color: #0e1116; }
+  .cover .brand .dot { color: #8fb500; }
+  .cover .brand-logo { width: 235px; height: auto; margin: 0 auto 2pt; display: block; }
+  .doc-logo { height: 16px; width: auto; display: block; margin-bottom: 10pt; opacity: 0.92; }
+  .cover .sub { font-size: 15pt; color: #38414f; margin-top: 6pt; }
+  .cover .meta { margin-top: 38mm; font-size: 10pt; color: #5c6675; }
+  .pill { display: inline-block; background: #eef6c8; color: #4d5e00; border: 1px solid #d6e58a;
+          border-radius: 999px; padding: 2pt 10pt; font-size: 8.6pt; font-weight: 700; }
+  .notice { background: #fff7ed; border: 1px solid #fed7aa; border-left: 4px solid #f59e0b;
+            border-radius: 6px; padding: 9pt 12pt; margin: 10pt 0 14pt; font-size: 9.6pt; color: #6b4a16; }
+  .consent-box { border: 1.5px solid #c5d600; border-radius: 8px; padding: 10pt 13pt; margin: 8pt 0; background: #fbfdf3; }
+  .consent-box .lbl { font-weight: 700; color: #0e1116; }
+  .chk { display: inline-block; width: 12pt; height: 12pt; border: 1.5px solid #6b7280; border-radius: 3px;
+         margin-right: 7pt; vertical-align: -1px; }
+  .sig { margin-top: 16pt; display: flex; gap: 24pt; }
+  .sig .line { flex: 1; border-top: 1px solid #1a1f26; padding-top: 4pt; font-size: 9pt; color: #5c6675; }
+  .toc a { color: #283042; text-decoration: none; }
+  .small { font-size: 8.8pt; }
+  footer { position: fixed; bottom: -12mm; left: 0; right: 0; text-align: center; font-size: 8pt; color: #9ca6b8; }
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<div class="cover">
+  <img class="brand-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA90AAACFCAMAAABxJWuzAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAACWUExURQAAAP///////////////////////////////////////////////////////////////////////////////6/vELfvELPvELLxDrHwD7LwDrHwD7PxDrHvDrLvELTxDrLwD7LvDa/vEP///7PwDrLwDrHvDrLxDrPwD7LvEK/vELLvDrHvDrHvDrXvEAsQILLwDv////LgolYAAAAvdFJOUwAQQHCPr8/f74Agn78wYFCQf2+wXxAgQI/P799/kGCfv2AgoM/fgJ+vUDBwsKAwyTGp0gAAAAFiS0dEAf8CLd4AAAAJcEhZcwAACxMAAAsTAQCanBgAAAAHdElNRQfqBg0INTCM2hybAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDI2LTA2LTEyVDIzOjMyOjI2KzAwOjAwA/H1WQAAACV0RVh0ZGF0ZTptb2RpZnkAMjAyNi0wNi0xMlQyMzozMjoyNiswMDowMHKsTeUAAAAodEVYdGRhdGU6dGltZXN0YW1wADIwMjYtMDYtMTNUMDg6NTM6NDgrMDA6MDAcUVUCAAAADnRFWHRTb2Z0d2FyZQBGaWdtYZ6xlmMAABSCSURBVHja7V3pmhs3DlS3RlLr7B4ncTbJZje72fty3v/p1hrJ4zlUJAEUeEiqf/Y33SLZBFAEQGA2y4Wunz8slqsLGD6VxKuhrLMtxx13XAv6h2VREU7FpvRC3XFHW+gfylrndGxLL9UddzSFfldaZtPRl16sO+5oCP2qtMQKsCy9WgZ0+/4C9qWHdXXYPKMXYr+5gK70fAxoyW5/xqH0ep3RHdbbF1g/Ya5Z6F3pqVwNunG+XfAdwFPpeekX5KG0uMqwKr1gJwBJHQKPPKIp1aKv2sZmvvWioM2eBZsi5UfUIQofwOi+kT9yjwEQ0D867uNKDIocj/a550UdK31Aw8O6ZwO3XyPEvLt0Iq1CMXVz37Nlq0GabUE51WEsvWRHYEnF/heoECphIxF8AKkQc/urjegevUO5VagwOdoT7qn0kj1hjYYXMMPYvLSweSDHK+3v95ftVrjVW7Qn3JVEw6DpDhDz2ucUBCQepQ9KHzKk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" alt="LinkFit">
+  <div class="sub">Hüquqi Sənədlər Toplusu</div>
+  <div class="meta">
+    <span class="pill">v1.0 — Layihə</span><br><br>
+    Bu sənəd LinkFit padel və idman platformasının (mobil tətbiq və veb sayt)<br>
+    istifadəçilərlə hüquqi münasibətlərini tənzimləyən əsas sənədləri əhatə edir.<br><br>
+    <strong>Tərkibi:</strong> İstifadə Şərtləri · Məxfilik Siyasəti · Razılıq Bəyannaməsi<br><br>
+    Qüvvəyəminmə tarixi: <strong>[__.__.2026]</strong> &nbsp;•&nbsp; Sənəd versiyası: 1.0<br>
+    Əlaqə: info@linkfit.az &nbsp;•&nbsp; linkfit.az
+  </div>
+</div>
+
+<!-- ============ DISCLAIMER + TODO ============ -->
+<div class="notice">
+  <strong>Vacib qeyd (hüquqi rəy üçün).</strong> Bu sənədlər LinkFit tətbiqinin real funksiyalarına və məlumat
+  emalı təcrübəsinə uyğun hazırlanmış <strong>layihə (template)</strong> versiyasıdır. Dərc edilməzdən əvvəl
+  mütləq ixtisaslı hüquqşünas tərəfindən, xüsusən Azərbaycan Respublikasının “Fərdi məlumatlar haqqında”
+  Qanununa və (Aİ istifadəçiləri olarsa) GDPR-ə uyğunluq baxımından nəzərdən keçirilməlidir. Mətndəki
+  <strong>[kvadrat mötərizələrdəki]</strong> sahələr şirkət tərəfindən doldurulmalıdır.
+</div>
+
+<h3>Doldurulmalı sahələr (operator tərəfindən)</h3>
+<ul class="small">
+  <li><strong>[Hüquqi şəxsin adı]</strong> — operator/şirkətin tam rəsmi adı (məs. “MMC ...”).</li>
+  <li><strong>[VÖEN / qeydiyyat nömrəsi]</strong> və <strong>[hüquqi ünvan]</strong>.</li>
+  <li><strong>[Məlumatların Mühafizəsi üzrə əlaqə / DPO]</strong> e-poçtu (yoxdursa info@linkfit.az).</li>
+  <li><strong>[Minimum yaş]</strong> — tövsiyə 16 (Azərbaycan) / valideyn razılığı ilə aşağı.</li>
+  <li><strong>[Saxlama müddətləri]</strong> — hər kateqoriya üçün dəqiq müddət.</li>
+</ul>
+
+<!-- ============ TOC ============ -->
+<h2>Mündəricat</h2>
+<ol class="toc">
+  <li>Sənəd A — İstifadə Şərtləri (İstifadəçi Razılaşması)</li>
+  <li>Sənəd B — Məxfilik Siyasəti</li>
+  <li>Sənəd C — Razılıq Bəyannaməsi (nəticələrin paylaşılması, sağlamlıq və data yığımı)</li>
+</ol>
+
+<!-- ==================================================================== -->
+<!-- DOC A — TERMS -->
+<!-- ==================================================================== -->
+<div class="doc">
+<img class="doc-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA90AAACFCAMAAABxJWuzAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAACWUExURQAAAP///////////////////////////////////////////////////////////////////////////////6/vELfvELPvELLxDrHwD7LwDrHwD7PxDrHvDrLvELTxDrLwD7LvDa/vEP///7PwDrLwDrHvDrLxDrPwD7LvEK/vELLvDrHvDrHvDrXvEAsQILLwDv////LgolYAAAAvdFJOUwAQQHCPr8/f74Agn78wYFCQf2+wXxAgQI/P799/kGCfv2AgoM/fgJ+vUDBwsKAwyTGp0gAAAAFiS0dEAf8CLd4AAAAJcEhZcwAACxMAAAsTAQCanBgAAAAHdElNRQfqBg0INTCM2hybAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDI2LTA2LTEyVDIzOjMyOjI2KzAwOjAwA/H1WQAAACV0RVh0ZGF0ZTptb2RpZnkAMjAyNi0wNi0xMlQyMzozMjoyNiswMDowMHKsTeUAAAAodEVYdGRhdGU6dGltZXN0YW1wADIwMjYtMDYtMTNUMDg6NTM6NDgrMDA6MDAcUVUCAAAADnRFWHRTb2Z0d2FyZQBGaWdtYZ6xlmMAABSCSURBVHja7V3pmhs3DlS3RlLr7B4ncTbJZje72fty3v/p1hrJ4zlUJAEUeEiqf/Y33SLZBFAEQGA2y4Wunz8slqsLGD6VxKuhrLMtxx13XAv6h2VREU7FpvRC3XFHW+gfylrndGxLL9UddzSFfldaZtPRl16sO+5oCP2qtMQKsCy9WgZ0+/4C9qWHdXXYPKMXYr+5gK70fAxoyW5/xqH0ep3RHdbbF1g/Ya5Z6F3pqVwNunG+XfAdwFPpeekX5KG0uMqwKr1gJwBJHQKPPKIp1aKv2sZmvvWioM2eBZsi5UfUIQofwOi+kT9yjwEQ0D867uNKDIocj/a550UdK31Aw8O6ZwO3XyPEvLt0Iq1CMXVz37Nlq0GabUE51WEsvWRHYEnF/heoECphIxF8AKkQc/urjegevUO5VagwOdoT7qn0kj1hjYYXMMPYvLSweSDHK+3v95ftVrjVW7Qn3JVEw6DpDhDz2ucUBCQepQ9KHzKk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" alt="LinkFit">
+<h1>Sənəd A — İstifadə Şərtləri</h1>
+<p class="lead">Bu İstifadə Şərtləri (“Şərtlər”) LinkFit platformasından (“Xidmət”, “LinkFit”) istifadəni tənzimləyir.
+Hesab yaradaraq və ya Xidmətdən istifadə edərək siz bu Şərtləri və Məxfilik Siyasətini oxuduğunuzu, başa düşdüyünüzü
+və onlarla razı olduğunuzu təsdiq edirsiniz.</p>
+
+<h2>1. Anlayışlar və ümumi müddəalar</h2>
+<p><strong>Operator</strong> — Xidməti təqdim edən <strong>[Hüquqi şəxsin adı]</strong> ([VÖEN], [hüquqi ünvan]).
+<strong>İstifadəçi</strong> — hesab yaradan və ya Xidmətdən istifadə edən fiziki şəxs. <strong>Məkan/Partnyor</strong> —
+kort xidmətini təqdim edən üçüncü tərəf idman müəssisəsi. <strong>Məzmun</strong> — istifadəçinin yüklədiyi və ya yaratdığı
+profil, şəkil, mesaj, oyun nəticələri və s.</p>
+<p>Operator bu Şərtləri istənilən vaxt yeniləyə bilər; əhəmiyyətli dəyişikliklər tətbiqdaxili bildiriş və ya e-poçt vasitəsilə
+məlumatlandırılır. Dəyişiklikdən sonra istifadəyə davam etməniz yeni redaksiya ilə razılıq sayılır.</p>
+
+<h2>2. Hesab və uyğunluq şərtləri</h2>
+<ul>
+  <li>Xidmətdən istifadə üçün ən azı <strong>[16]</strong> yaşında olmalısınız.</li>
+  <li>Qeydiyyat zamanı doğru, tam və aktual məlumat (e-poçt, ad) təqdim etməlisiniz.</li>
+  <li>Hesabınızın və parolunuzun məxfiliyinə görə siz məsuliyyət daşıyırsınız. İcazəsiz istifadə halında dərhal
+      info@linkfit.az ünvanına bildirin.</li>
+  <li>Bir şəxs yalnız bir əsas şəxsi hesaba malik ola bilər; saxta və ya başqasının adından hesab qadağandır.</li>
+</ul>
+
+<h2>3. Xidmətin təsviri</h2>
+<p>LinkFit padel/tennis icması və kort idarəetmə platformasıdır və aşağıdakı funksiyaları təklif edir: oyun yaratmaq və
+qoşulmaq, ELO əsaslı uyğunlaşdırma (matchmaking), kort rezervasiyası, turnirlər (o cümlədən Americano), reytinqlər və
+liderlik cədvəlləri, oyunçu profilləri, izləmə (follow), birbaşa və qrup söhbətləri, lent (feed), bildirişlər və əlaqəli
+xidmətlər. Funksiyalar zaman-zaman dəyişdirilə, əlavə oluna və ya dayandırıla bilər.</p>
+
+<h2>4. İstifadəçi davranış qaydaları</h2>
+<p>Aşağıdakılar qadağandır:</p>
+<ul>
+  <li>qanunsuz, təhqiramiz, təhdidedici, zorakı, irqçi, cinsi xarakterli və ya başqalarının hüquqlarını pozan məzmun;</li>
+  <li>başqa istifadəçiləri narahat etmək, spam, fırıldaqçılıq, saxta nəticə və ya reytinq manipulyasiyası;</li>
+  <li>Xidmətin təhlükəsizliyini pozmaq, avtomatlaşdırılmış toplama (scraping), tərs mühəndislik;</li>
+  <li>başqasının şəxsiyyətini mənimsəmək və ya icazəsiz şəxsi məlumat yaymaq.</li>
+</ul>
+<p>Operator bu qaydaları pozan məzmunu silmək, hesabı məhdudlaşdırmaq və ya ləğv etmək hüququnu özündə saxlayır.</p>
+
+<h2>5. Məzmun, nəticələr və onların paylaşılması</h2>
+<p>Siz yaratdığınız Məzmuna görə məsuliyyət daşıyırsınız. Məzmunu yükləməklə Operatora həmin Məzmunu Xidmətin
+işləməsi məqsədilə saxlamaq, emal etmək və göstərmək üçün qeyri-eksklüziv lisenziya verirsiniz.</p>
+<p><strong>Nəticələrin ictimai görünməsi.</strong> LinkFit-in mahiyyəti icma və rəqabətdir: oyun nəticələriniz, ELO
+reytinqiniz, etibarlılıq göstəriciniz, nailiyyətləriniz, görünən ad və profil şəkliniz <strong>digər istifadəçilərə açıq</strong>
+ola bilər (məs. liderlik cədvəlləri, oyunçu profilləri, oyun tarixçəsi). Bu paylaşmaya razılığınız Razılıq Bəyannaməsi
+(Sənəd C) ilə alınır və hesab parametrlərindən idarə oluna bilər.</p>
+
+<h2>6. Rezervasiya və ödənişlər</h2>
+<ul>
+  <li>Kort rezervasiyaları üçüncü tərəf Məkanlar tərəfindən təmin olunur; LinkFit vasitəçi platformadır.</li>
+  <li>Hazırda ödəniş modeli <strong>məkanda ödəniş (pay-at-venue)</strong> əsasındadır; LinkFit kart məlumatlarınızı
+      saxlamır və ödənişləri emal etmir. Ödənişin yekun təsdiqi Məkan tərəfindən aparılır.</li>
+  <li>Ləğvetmə və geri qaytarma şərtləri müvafiq Məkanın qaydalarına və rezervasiya zamanı göstərilən ləğvetmə
+      pəncərəsinə tabedir.</li>
+  <li>Rezervasiyanı reallaşdırmaq üçün adınız və əlaqə məlumatınız müvafiq Məkanla paylaşıla bilər.</li>
+</ul>
+
+<h2>7. Əqli mülkiyyət</h2>
+<p>LinkFit brendi, loqosu, proqram təminatı, dizayn və məzmunu (istifadəçi Məzmunu istisna olmaqla) Operatora və ya onun
+lisenziarlarına məxsusdur və müvafiq qanunlarla qorunur. İcazəsiz istifadə qadağandır.</p>
+
+<h2>8. Sağlamlıq, idman riski və məsuliyyətin məhdudlaşdırılması</h2>
+<p><strong>İdman riski.</strong> Padel/tennis fiziki fəaliyyətdir və zədə riski daşıyır. Xidmət vasitəsilə təşkil olunan
+oyunlarda iştirak öz riskinizlə baş verir; LinkFit fiziki zədə, sağlamlıq nəticələri və ya oyunçular arasındakı
+mübahisələrə görə məsuliyyət daşımır. Müvafiq fiziki hazırlığınızdan və sağlamlığınızdan siz məsulsunuz.</p>
+<p>Xidmət “olduğu kimi” (as is) təqdim olunur. Qanunla icazə verilən maksimum həddə Operator dolayı, təsadüfi və ya
+nəticəvi zərərlərə görə məsuliyyət daşımır. Operator üçüncü tərəf Məkanların xidmət keyfiyyətinə zəmanət vermir.</p>
+
+<h2>9. Hesabın dayandırılması və ləğvi</h2>
+<p>Şərtlərin pozulması halında Operator hesabı müvəqqəti dayandıra və ya ləğv edə bilər. Siz istənilən vaxt hesabınızı
+tətbiqdaxili “Hesabın silinməsi” funksiyası ilə silə bilərsiniz (bax: Məxfilik Siyasəti, bölmə 10).</p>
+
+<h2>10. Tətbiq olunan qanun və mübahisələrin həlli</h2>
+<p>Bu Şərtlərə Azərbaycan Respublikasının qanunvericiliyi tətbiq olunur. Mübahisələr ilk növbədə danışıqlar yolu ilə,
+həll olunmadıqda isə Azərbaycan Respublikasının səlahiyyətli məhkəmələrində həll edilir.</p>
+
+<h2>11. Əlaqə</h2>
+<p>Suallar üçün: <strong>info@linkfit.az</strong> · [Hüquqi ünvan].</p>
+</div>
+
+<!-- ==================================================================== -->
+<!-- DOC B — PRIVACY -->
+<!-- ==================================================================== -->
+<div class="doc">
+<img class="doc-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA90AAACFCAMAAABxJWuzAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAACWUExURQAAAP///////////////////////////////////////////////////////////////////////////////6/vELfvELPvELLxDrHwD7LwDrHwD7PxDrHvDrLvELTxDrLwD7LvDa/vEP///7PwDrLwDrHvDrLxDrPwD7LvEK/vELLvDrHvDrHvDrXvEAsQILLwDv////LgolYAAAAvdFJOUwAQQHCPr8/f74Agn78wYFCQf2+wXxAgQI/P799/kGCfv2AgoM/fgJ+vUDBwsKAwyTGp0gAAAAFiS0dEAf8CLd4AAAAJcEhZcwAACxMAAAsTAQCanBgAAAAHdElNRQfqBg0INTCM2hybAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDI2LTA2LTEyVDIzOjMyOjI2KzAwOjAwA/H1WQAAACV0RVh0ZGF0ZTptb2RpZnkAMjAyNi0wNi0xMlQyMzozMjoyNiswMDowMHKsTeUAAAAodEVYdGRhdGU6dGltZXN0YW1wADIwMjYtMDYtMTNUMDg6NTM6NDgrMDA6MDAcUVUCAAAADnRFWHRTb2Z0d2FyZQBGaWdtYZ6xlmMAABSCSURBVHja7V3pmhs3DlS3RlLr7B4ncTbJZje72fty3v/p1hrJ4zlUJAEUeEiqf/Y33SLZBFAEQGA2y4Wunz8slqsLGD6VxKuhrLMtxx13XAv6h2VREU7FpvRC3XFHW+gfylrndGxLL9UddzSFfldaZtPRl16sO+5oCP2qtMQKsCy9WgZ0+/4C9qWHdXXYPKMXYr+5gK70fAxoyW5/xqH0ep3RHdbbF1g/Ya5Z6F3pqVwNunG+XfAdwFPpeekX5KG0uMqwKr1gJwBJHQKPPKIp1aKv2sZmvvWioM2eBZsi5UfUIQofwOi+kT9yjwEQ0D867uNKDIocj/a550UdK31Aw8O6ZwO3XyPEvLt0Iq1CMXVz37Nlq0GabUE51WEsvWRHYEnF/heoECphIxF8AKkQc/urjegevUO5VagwOdoT7qn0kj1hjYYXMMPYvLSweSDHK+3v95ftVrjVW7Qn3JVEw6DpDhDz2ucUBCQepQ9KHzKk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" alt="LinkFit">
+<h1>Sənəd B — Məxfilik Siyasəti</h1>
+<p class="lead">Bu Məxfilik Siyasəti LinkFit-in şəxsi məlumatlarınızı necə topladığını, istifadə etdiyini, paylaşdığını və
+qoruduğunu izah edir. Məlumatların nəzarətçisi (operatoru): <strong>[Hüquqi şəxsin adı]</strong>, [hüquqi ünvan],
+əlaqə: info@linkfit.az.</p>
+
+<h2>1. Topladığımız məlumatlar</h2>
+<table>
+  <tr><th>Kateqoriya</th><th>Nümunələr</th><th>Mənbə</th></tr>
+  <tr><td>Hesab məlumatları</td><td>e-poçt, parol (şifrələnmiş/argon2id), görünən ad, profil şəkli</td><td>İstifadəçi</td></tr>
+  <tr><td>Profil və yer</td><td>bio, ev/üstünlük verilən məkanın təxmini koordinatları (home_lat/lng)</td><td>İstifadəçi</td></tr>
+  <tr><td>İdman/performans</td><td>ELO reytinqi, oyun nəticələri, etibarlılıq göstəricisi, oynanan oyunlar, nailiyyətlər, seriyalar</td><td>İstifadə zamanı yaranır</td></tr>
+  <tr><td>Sosial</td><td>izləmələr, birbaşa və qrup mesajları, lent paylaşımları, hekayələr, şərhlər, bəyənmələr</td><td>İstifadəçi</td></tr>
+  <tr><td>Rezervasiya</td><td>kort sifarişləri, tarix/saat, status, məkanda ödəniş tarixçəsi (AZN). Kart məlumatı saxlanmır.</td><td>İstifadəçi/Məkan</td></tr>
+  <tr><td>Turnir</td><td>turnir qeydiyyatları, komanda (squad) məlumatları</td><td>İstifadəçi</td></tr>
+  <tr><td><strong>Sağlamlıq (xüsusi kateqoriya)</strong></td><td>qan qrupu, allergiyalar, xəstəliklər, dərmanlar, təcili əlaqə şəxsi — <strong>könüllü</strong></td><td>İstifadəçi (açıq razılıqla)</td></tr>
+  <tr><td>Cihaz və bildiriş</td><td>push bildiriş tokenləri, cihaz növü</td><td>Cihaz</td></tr>
+  <tr><td>Texniki/analitik</td><td>IP ünvan, sessiya/qurğu məlumatı (user-agent), istifadə hadisələri (analitika)</td><td>Avtomatik</td></tr>
+  <tr><td>Referal</td><td>dəvət kodu, dəvət statistikası</td><td>İstifadəçi</td></tr>
+</table>
+
+<h2>2. Emal məqsədləri və hüquqi əsaslar</h2>
+<table>
+  <tr><th>Məqsəd</th><th>Hüquqi əsas</th></tr>
+  <tr><td>Hesabın yaradılması və Xidmətin təqdim edilməsi (oyunlar, rezervasiya, reytinq)</td><td>Müqavilənin icrası</td></tr>
+  <tr><td>Nəticələrin, reytinqin və profilin ictimai göstərilməsi</td><td>Razılıq (Sənəd C)</td></tr>
+  <tr><td>Sağlamlıq profilinin saxlanması və təcili hallarda istifadəsi</td><td>Açıq razılıq (xüsusi kateqoriya)</td></tr>
+  <tr><td>Bildirişlər və xidmət kommunikasiyaları</td><td>Müqavilə / razılıq</td></tr>
+  <tr><td>Təhlükəsizlik, fırıldaqçılığın qarşısının alınması, sui-istifadənin aşkarlanması</td><td>Qanuni maraq</td></tr>
+  <tr><td>Məhsulun təkmilləşdirilməsi və analitika</td><td>Qanuni maraq / razılıq</td></tr>
+  <tr><td>Qanuni öhdəliklərə əməl</td><td>Qanuni öhdəlik</td></tr>
+</table>
+
+<h2>3. Nəticələrin və profilin ictimai görünməsi</h2>
+<p>LinkFit icma xarakterli platformadır. Aşağıdakı məlumatlar digər istifadəçilərə <strong>açıq</strong> ola bilər: görünən
+ad, profil şəkli, ELO reytinqi, oyun nəticələri, etibarlılıq göstəricisi, nailiyyətlər və oyun tarixçəsi (liderlik cədvəlləri,
+oyunçu profilləri vasitəsilə). E-poçtunuz, dəqiq yeriniz, sağlamlıq məlumatlarınız və birbaşa mesajlarınız <strong>ictimai
+deyil</strong>. İctimai görünməni hesab parametrlərindən idarə edə və ya razılığı geri götürə bilərsiniz; bəzi hallarda bu,
+rəqabətli funksiyalardan istifadəni məhdudlaşdıra bilər.</p>
+
+<h2>4. Sağlamlıq məlumatları (xüsusi kateqoriya)</h2>
+<p>Tibbi/sağlamlıq profili tamamilə <strong>könüllüdür</strong> və yalnız sizin <strong>açıq razılığınızla</strong> emal olunur.
+Bu məlumatlar yalnız sizin və (siz aktiv etdiyiniz halda) təcili vəziyyət məqsədləri üçün istifadə olunur, digər
+istifadəçilərə ictimai göstərilmir. Bu razılığı istənilən vaxt geri götürə və məlumatı silə bilərsiniz.</p>
+
+<h2>5. Məlumatların paylaşılması</h2>
+<ul>
+  <li><strong>Digər istifadəçilər</strong> — yuxarıda göstərilən ictimai profil/nəticə məlumatları.</li>
+  <li><strong>Məkanlar/Partnyorlar</strong> — rezervasiyanın icrası üçün ad və əlaqə məlumatı.</li>
+  <li><strong>Xidmət təminatçıları</strong> — hostinq/infrastruktur, push bildiriş (APNs/FCM), e-poçt göndərişi, məhsul
+      analitikası kimi prosessorlar (yalnız tapşırığa uyğun, müqavilə əsasında).</li>
+  <li><strong>Qanuni tələblər</strong> — qanunla tələb olunduqda səlahiyyətli orqanlara.</li>
+  <li>Şəxsi məlumatlarınızı reklam məqsədilə <strong>satmırıq</strong>.</li>
+</ul>
+
+<h2>6. Beynəlxalq ötürmə</h2>
+<p>İnfrastruktur və ya təminatçılar Azərbaycandan kənarda yerləşə bilər. Belə ötürmələrdə tətbiq olunan qanunvericiliyə
+uyğun müvafiq mühafizə tədbirləri görülür.</p>
+
+<h2>7. Saxlama müddəti</h2>
+<p>Məlumatlar hesab aktiv olduğu müddətdə və qanuni öhdəliklərin tələb etdiyi qədər saxlanılır. Hesabı sildikdə şəxsi
+məlumatlar <strong>[müddət, məs. 30 gün]</strong> ərzində silinir və ya anonimləşdirilir (qanuni saxlama tələbləri istisna
+olmaqla). Konkret müddətlər: <strong>[kateqoriyalar üzrə doldurulmalı]</strong>.</p>
+
+<h2>8. Təhlükəsizlik</h2>
+<p>Parollar şifrələnmiş şəkildə (argon2id) saxlanılır, ötürmələr şifrələnir (TLS), giriş tokenləri qısa müddətlidir və sessiya
+idarəçiliyi mövcuddur. Heç bir sistem 100% təhlükəsiz olmasa da, məlumatlarınızı qorumaq üçün ağlabatan texniki və
+təşkilati tədbirlər görürük.</p>
+
+<h2>9. Kukilər və analitika</h2>
+<p>Veb saytda zəruri (sessiya/autentifikasiya) və analitik məqsədlər üçün kukilərdən/oxşar texnologiyalardan istifadə
+oluna bilər. Analitika xidmət istifadəsini ölçmək üçün istifadə olunur. Brauzer parametrlərindən kukiləri idarə edə
+bilərsiniz.</p>
+
+<h2>10. Hüquqlarınız</h2>
+<p>Tətbiqiçi və ya info@linkfit.az vasitəsilə aşağıdakı hüquqlardan istifadə edə bilərsiniz:</p>
+<ul>
+  <li><strong>Giriş və ixrac</strong> — məlumatlarınızın surətini tələb etmək (tətbiqdə “Məlumat ixracı”).</li>
+  <li><strong>Düzəliş</strong> — profil məlumatlarını yeniləmək (tətbiqdə profil redaktəsi).</li>
+  <li><strong>Silinmə</strong> — hesabın və məlumatların silinməsini tələb etmək (tətbiqdə “Hesabın silinməsi”).</li>
+  <li><strong>Razılığın geri götürülməsi</strong> — nəticələrin paylaşılması, sağlamlıq, marketinq razılıqlarını ləğv etmək.</li>
+  <li><strong>Bildiriş üstünlükləri</strong> və <strong>aktiv sessiyaların idarəsi</strong> — tətbiq parametrlərindən.</li>
+  <li><strong>Etiraz/məhdudlaşdırma</strong> və nəzarət orqanına şikayət hüququ.</li>
+</ul>
+
+<h2>11. Uşaqların məxfiliyi</h2>
+<p>Xidmət <strong>[16]</strong> yaşdan kiçik şəxslər üçün nəzərdə tutulmayıb. Belə şəxsin məlumatını topladığımızı aşkar
+etsək, onu siləcəyik.</p>
+
+<h2>12. Dəyişikliklər və əlaqə</h2>
+<p>Bu Siyasəti yeniləyə bilərik; əhəmiyyətli dəyişikliklər barədə məlumatlandıracağıq. Əlaqə: <strong>info@linkfit.az</strong>.</p>
+</div>
+
+<!-- ==================================================================== -->
+<!-- DOC C — CONSENT -->
+<!-- ==================================================================== -->
+<div class="doc">
+<img class="doc-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA90AAACFCAMAAABxJWuzAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAACWUExURQAAAP///////////////////////////////////////////////////////////////////////////////6/vELfvELPvELLxDrHwD7LwDrHwD7PxDrHvDrLvELTxDrLwD7LvDa/vEP///7PwDrLwDrHvDrLxDrPwD7LvEK/vELLvDrHvDrHvDrXvEAsQILLwDv////LgolYAAAAvdFJOUwAQQHCPr8/f74Agn78wYFCQf2+wXxAgQI/P799/kGCfv2AgoM/fgJ+vUDBwsKAwyTGp0gAAAAFiS0dEAf8CLd4AAAAJcEhZcwAACxMAAAsTAQCanBgAAAAHdElNRQfqBg0INTCM2hybAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDI2LTA2LTEyVDIzOjMyOjI2KzAwOjAwA/H1WQAAACV0RVh0ZGF0ZTptb2RpZnkAMjAyNi0wNi0xMlQyMzozMjoyNiswMDowMHKsTeUAAAAodEVYdGRhdGU6dGltZXN0YW1wADIwMjYtMDYtMTNUMDg6NTM6NDgrMDA6MDAcUVUCAAAADnRFWHRTb2Z0d2FyZQBGaWdtYZ6xlmMAABSCSURBVHja7V3pmhs3DlS3RlLr7B4ncTbJZje72fty3v/p1hrJ4zlUJAEUeEiqf/Y33SLZBFAEQGA2y4Wunz8slqsLGD6VxKuhrLMtxx13XAv6h2VREU7FpvRC3XFHW+gfylrndGxLL9UddzSFfldaZtPRl16sO+5oCP2qtMQKsCy9WgZ0+/4C9qWHdXXYPKMXYr+5gK70fAxoyW5/xqH0ep3RHdbbF1g/Ya5Z6F3pqVwNunG+XfAdwFPpeekX5KG0uMqwKr1gJwBJHQKPPKIp1aKv2sZmvvWioM2eBZsi5UfUIQofwOi+kT9yjwEQ0D867uNKDIocj/a550UdK31Aw8O6ZwO3XyPEvLt0Iq1CMXVz37Nlq0GabUE51WEsvWRHYEnF/heoECphIxF8AKkQc/urjegevUO5VagwOdoT7qn0kj1hjYYXMMPYvLSweSDHK+3v95ftVrjVW7Qn3JVEw6DpDhDz2ucUBCQepQ9KHzKk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" alt="LinkFit">
+<h1>Sənəd C — Razılıq Bəyannaməsi</h1>
+<p class="lead">Bu bəyannamə qeydiyyat zamanı və ya tətbiq parametrlərində istifadəçidən alınan açıq razılıqları əks
+etdirir. Razılıqlar tətbiqdaxili işarələmə (checkbox) ilə verilir, jurnala alınır və istənilən vaxt geri götürülə bilər.</p>
+
+<div class="consent-box">
+  <span class="chk"></span><span class="lbl">1. İstifadə Şərtləri və Məxfilik Siyasəti ilə razılıq (məcburi).</span>
+  <p class="small">LinkFit İstifadə Şərtlərini və Məxfilik Siyasətini oxudum, başa düşdüm və qəbul edirəm.</p>
+</div>
+
+<div class="consent-box">
+  <span class="chk"></span><span class="lbl">2. Nəticələrin və profilin ictimai paylaşılmasına razılıq.</span>
+  <p class="small">Görünən adım, profil şəklim, ELO reytinqim, oyun nəticələrim, etibarlılıq göstəricim və nailiyyətlərimin
+  liderlik cədvəllərində və oyunçu profillərində digər istifadəçilərə açıq göstərilməsinə razıyam. Bu razılığı parametrlərdən
+  geri götürə bilərəm.</p>
+</div>
+
+<div class="consent-box">
+  <span class="chk"></span><span class="lbl">3. Sağlamlıq məlumatlarının emalına açıq razılıq (könüllü).</span>
+  <p class="small">Tibbi profilimin (qan qrupu, allergiyalar, xəstəliklər, dərmanlar, təcili əlaqə) könüllü olaraq saxlanmasına
+  və yalnız mənim və təcili hallar məqsədi üçün istifadəsinə açıq razılıq verirəm. Bu xüsusi kateqoriyalı məlumatdır və
+  istənilən vaxt geri götürə/silə bilərəm.</p>
+</div>
+
+<div class="consent-box">
+  <span class="chk"></span><span class="lbl">4. Rezervasiya məlumatlarının Məkanlarla paylaşılmasına razılıq.</span>
+  <p class="small">Kort rezervasiyasını reallaşdırmaq üçün adımın və əlaqə məlumatımın müvafiq Məkan/Partnyorla
+  paylaşılmasına razıyam.</p>
+</div>
+
+<div class="consent-box">
+  <span class="chk"></span><span class="lbl">5. Marketinq və məhsul bildirişlərinə razılıq (könüllü).</span>
+  <p class="small">LinkFit-dən kampaniya, yenilik və tövsiyə xarakterli bildirişlər/e-poçtlar almağa razıyam. Bu razılıq
+  xidmət (tranzaksion) bildirişlərinə aid deyil və istənilən vaxt ləğv edilə bilər.</p>
+</div>
+
+<div class="consent-box">
+  <span class="chk"></span><span class="lbl">6. Analitika və məhsulun təkmilləşdirilməsi (könüllü).</span>
+  <p class="small">İstifadə statistikasının (analitika) məhsulun təkmilləşdirilməsi məqsədilə emalına razıyam.</p>
+</div>
+
+<h3>Razılığın geri götürülməsi</h3>
+<p>Könüllü razılıqları (2–6) istənilən vaxt tətbiq parametrlərindən və ya info@linkfit.az ünvanına müraciətlə geri
+götürə bilərsiniz. Geri götürmə əvvəlki emalın qanuniliyinə təsir etmir, lakin bəzi funksiyaların əlçatanlığını
+məhdudlaşdıra bilər. 1-ci razılıq Xidmətdən istifadə üçün zəruridir.</p>
+
+<div class="sig">
+  <div class="line">İstifadəçi — ad, soyad / imza / tarix</div>
+  <div class="line">Operator — [Hüquqi şəxsin adı] / tarix</div>
+</div>
+<p class="small muted" style="margin-top:14pt">Qeyd: Mobil/veb tətbiqdə bu razılıqlar elektron formada (checkbox + tarixli jurnal qeydi)
+alınır; fiziki imza tələb olunmur. Yuxarıdakı imza sahələri yalnız sənədli (offline) istifadə üçündür.</p>
+</div>
+
+</body>
+</html>

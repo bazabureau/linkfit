@@ -614,8 +614,15 @@ export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
   // JWS locally against cached JWKS and issue a Linkfit session.
   const oauthClientIdsApple = (process.env.OAUTH_APPLE_CLIENT_IDS ?? "az.linkfit.app")
     .split(",").map((s) => s.trim()).filter((s) => s.length > 0);
-  const oauthClientIdsGoogle = (process.env.OAUTH_GOOGLE_CLIENT_IDS ?? "")
-    .split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+  const googleIosClientId =
+    "655337821050-pi74ppu4gjv7b0gs0v417djtndrl7nt2.apps.googleusercontent.com";
+  const oauthClientIdsGoogle = [
+    ...(process.env.OAUTH_GOOGLE_CLIENT_IDS ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0),
+    googleIosClientId,
+  ].filter((value, index, values) => values.indexOf(value) === index);
   const oauthService = new OauthService({
     db: deps.db,
     logger: deps.logger,
@@ -670,6 +677,7 @@ export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
     db: deps.db,
     logger: deps.logger,
     transport: mailTransport,
+    verificationCodeSecret: deps.env.JWT_ACCESS_SECRET,
     publicAppUrl,
   });
   registerEmailRoutes(app, {

@@ -168,14 +168,14 @@ struct SquadsListView: View {
     private var loadingSkeleton: some View {
         ScrollView {
             VStack(spacing: DSSpacing.sm) {
-                ForEach(0..<3, id: \.self) { _ in
-                    RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .frame(height: 116)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
-                                .strokeBorder(DSColor.border.opacity(0.3), lineWidth: 1)
-                        )
+                    ForEach(0..<3, id: \.self) { _ in
+                        RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
+                            .fill(DSColor.surface)
+                            .frame(height: 116)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
+                                    .strokeBorder(DSColor.border, lineWidth: 1)
+                            )
                 }
             }
             .padding(.horizontal, DSSpacing.md)
@@ -233,14 +233,7 @@ private struct SquadCard: View {
         }
         .padding(DSSpacing.md - 2)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
-                .fill(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous)
-                .strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1)
-        )
+        .dsSurfaceCard(radius: DSRadius.xl)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(squad.name))

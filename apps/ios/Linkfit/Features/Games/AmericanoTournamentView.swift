@@ -101,8 +101,8 @@ struct AmericanoTournamentView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(DSColor.textPrimary)
                             .frame(width: 36, height: 36)
-                            .background(Circle().fill(.ultraThinMaterial))
-                            .overlay(Circle().strokeBorder(DSColor.border.opacity(0.4), lineWidth: 1))
+                            .background(Circle().fill(DSColor.surfaceElevated))
+                            .overlay(Circle().strokeBorder(DSColor.border, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(Text("common.close"))
@@ -279,7 +279,6 @@ struct AmericanoTournamentView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DSColor.accent))
-                        .shadow(color: DSColor.accent.opacity(0.4), radius: 10, x: 0, y: 5)
                     }
                     .buttonStyle(.plain)
                     .disabled(players.count < 4 || players.count > 12 || isSubmitting)
@@ -474,7 +473,7 @@ struct AmericanoTournamentView: View {
     // MARK: - 3. RECORD SCORE MODAL SHEET overlay
     private var scoreRecordingModal: some View {
         ZStack {
-            Color.black.opacity(0.75)
+            DSColor.inkSurface.opacity(0.75)
                 .ignoresSafeArea()
                 .onTapGesture { showScoreModal = false }
 

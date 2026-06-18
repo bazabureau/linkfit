@@ -53,5 +53,6 @@ struct ProfileFollowsSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(.ultraThinMaterial)
     }
 }

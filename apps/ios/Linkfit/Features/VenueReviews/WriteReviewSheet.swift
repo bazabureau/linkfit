@@ -65,7 +65,9 @@ struct WriteReviewSheet: View {
                 Task { await handlePicked(newItem) }
             }
         }
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(.ultraThinMaterial)
     }
 
     // MARK: - Sections
@@ -270,10 +272,10 @@ private struct UploadProgressRing: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color.white.opacity(0.25), lineWidth: 3)
+                .stroke(DSColor.textOnAccent.opacity(0.25), lineWidth: 3)
             Circle()
                 .trim(from: 0, to: max(0.02, min(1.0, progress)))
-                .stroke(Color.white,
+                .stroke(DSColor.textOnAccent,
                         style: StrokeStyle(lineWidth: 3, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .animation(.easeOut(duration: 0.18), value: progress)

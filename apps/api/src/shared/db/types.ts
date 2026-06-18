@@ -120,6 +120,7 @@ export interface EmailTokenTable {
   user_id: string;
   kind: EmailTokenKind;
   token_hash: Buffer;
+  attempts: ColumnType<number, number | undefined, number>;
   expires_at: ColumnType<Date, Date | string, Date | string>;
   used_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
   created_at: ColumnType<Date, Date | string | undefined, never>;

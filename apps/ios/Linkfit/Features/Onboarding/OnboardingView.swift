@@ -53,7 +53,7 @@ struct OnboardingView: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .background(
-                            Capsule().fill(.ultraThinMaterial)
+                            Capsule().fill(DSColor.surfaceElevated)
                         )
                         .overlay(
                             Capsule().strokeBorder(DSColor.border, lineWidth: 1)

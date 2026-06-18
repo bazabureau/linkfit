@@ -19,13 +19,13 @@ struct AppTextField: View {
                 .foregroundStyle(DSColor.textSecondary)
             field
                 .padding(.horizontal, DSSpacing.md)
-                .frame(height: 48)
+                .frame(minHeight: 50)
                 .background(
-                    RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
+                    RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                         .fill(DSColor.surfaceElevated)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
+                    RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous)
                         .strokeBorder(borderColor, lineWidth: focused ? 1.5 : 1)
                 )
                 .focused($focused)

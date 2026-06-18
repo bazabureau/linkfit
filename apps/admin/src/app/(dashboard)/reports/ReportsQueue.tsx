@@ -1,425 +1,271 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { formatDistanceToNow } from "date-fns";
+import * as React from "react";
 import {
   AlertTriangle,
-  Check,
   ChevronLeft,
   ChevronRight,
-  FileText,
-  Gamepad2,
-  MapPin,
-  MessageSquare,
-  RefreshCw,
-  ShieldAlert,
-  User,
-  X,
+  Loader2,
 } from "lucide-react";
-import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/toast";
+import { useI18n } from "@/lib/i18n";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  type AdminReport,
-  type ReportStatus,
   useReports,
   useReviewReport,
+  type AdminReport,
 } from "@/lib/admin-reports";
+import { ReportFilters, type StatusFilter } from "./ReportFilters";
+import { ReportsTable } from "./ReportsTable";
+import { ReportDrawer } from "./ReportDrawer";
+import { StatCards, type ReportStats } from "./StatCards";
+import { REPORT_STATUS_AZ, PAGE_SIZE, shortId } from "./lib";
 
-type Filter = ReportStatus | "all";
+function useDebouncedValue<T>(value: T, ms = 250): T {
+  const [debounced, setDebounced] = React.useState(value);
+  React.useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(id);
+  }, [value, ms]);
+  return debounced;
+}
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: "pending", label: "Pending" },
-  { key: "reviewed", label: "Reviewed" },
-  { key: "dismissed", label: "Dismissed" },
-  { key: "all", label: "All" },
-];
+export function ReportsQueue(): React.JSX.Element {
+  const { t } = useI18n();
+  const toast = useToast();
 
-const PAGE_SIZE = 25;
+  const [status, setStatus] = React.useState<StatusFilter>("pending");
+  const [q, setQ] = React.useState("");
+  const debouncedQuery = useDebouncedValue(q);
+  const [page, setPage] = React.useState(0);
+  const [drawer, setDrawer] = React.useState<AdminReport | null>(null);
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [quickReview, setQuickReview] = React.useState<{
+    report: AdminReport;
+    next: "reviewed" | "dismissed";
+  } | null>(null);
 
-export function ReportsQueue() {
-  const [filter, setFilter] = useState<Filter>("pending");
-  const [page, setPage] = useState(0);
-  const [selected, setSelected] = useState<AdminReport | null>(null);
+  const reviewMut = useReviewReport();
 
-  const { data, isLoading, isError, refetch, isFetching } = useReports({
-    status: filter,
+  // Reset to first page whenever the status filter changes.
+  React.useEffect(() => {
+    setPage(0);
+  }, [status]);
+
+  const { data, isLoading, isError, isFetching, refetch } = useReports({
+    status,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
 
-  const items = data?.items ?? [];
+  const allItems = React.useMemo(() => data?.items ?? [], [data]);
   const total = data?.total ?? 0;
+
+  // Client-side search across the current page (backend has no `q` param).
+  const items = React.useMemo(() => {
+    const query = debouncedQuery.trim().toLowerCase();
+    if (!query) return allItems;
+    return allItems.filter(
+      (r) =>
+        r.reason.toLowerCase().includes(query) ||
+        r.target_kind.toLowerCase().includes(query) ||
+        r.target_id.toLowerCase().includes(query) ||
+        r.reporter_user_id.toLowerCase().includes(query) ||
+        r.id.toLowerCase().includes(query),
+    );
+  }, [allItems, debouncedQuery]);
+
+  // Stat cards summarise the current filtered page.
+  const stats = React.useMemo<ReportStats>(
+    () =>
+      allItems.reduce<ReportStats>(
+        (acc, r) => {
+          acc.total += 1;
+          if (r.status === "pending") acc.pending += 1;
+          if (r.status === "reviewed") acc.reviewed += 1;
+          if (r.status === "dismissed") acc.dismissed += 1;
+          return acc;
+        },
+        { total: 0, pending: 0, reviewed: 0, dismissed: 0 },
+      ),
+    [allItems],
+  );
+
+  // Keep the open drawer synced with the freshest row.
+  React.useEffect(() => {
+    if (!drawer) return;
+    const fresh = allItems.find((r) => r.id === drawer.id);
+    if (fresh && fresh !== drawer) setDrawer(fresh);
+  }, [allItems, drawer]);
+
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const rangeStart = total === 0 ? 0 : page * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(total, page * PAGE_SIZE + allItems.length);
+
+  function openDrawer(report: AdminReport) {
+    setDrawer(report);
+    setDrawerOpen(true);
+  }
+
+  async function runQuickReview() {
+    if (!quickReview) return;
+    const { report, next } = quickReview;
+    try {
+      await reviewMut.mutateAsync({ id: report.id, status: next, notes: report.notes ?? undefined });
+      toast.success(
+        next === "reviewed" ? t("Şikayətə baxıldı") : t("Şikayət rədd edildi"),
+        report.reason || `#${shortId(report.id)}`,
+      );
+      setQuickReview(null);
+    } catch (error) {
+      toast.error(
+        t("Şikayət yenilənmədi"),
+        error instanceof Error ? error.message : t("Yenidən yoxlayın"),
+      );
+    }
+  }
+
+  const emptyHint =
+    status === "all"
+      ? t("Filterləri dəyişərək yenidən yoxlayın.")
+      : `${t("Bu statusda şikayət yoxdur")}: ${t(REPORT_STATUS_AZ[status])}`;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          {FILTERS.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => {
-                setFilter(f.key);
-                setPage(0);
-              }}
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                filter === f.key
-                  ? "bg-accent text-black"
-                  : "bg-surfaceElevated text-foreground hover:bg-white"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
-          <RefreshCw
-            className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
-          />
-          Refresh
-        </Button>
-      </div>
+    <div className="space-y-5">
+      {/* KPI strip */}
+      <StatCards stats={stats} loading={isLoading && !data} />
 
+      {/* Filters */}
+      <ReportFilters
+        status={status}
+        q={q}
+        onStatusChange={setStatus}
+        onQueryChange={setQ}
+        onReset={() => {
+          setStatus("pending");
+          setQ("");
+        }}
+      />
+
+      {/* Error banner */}
       {isError ? (
-        <Card className="border-danger/40 bg-danger/10">
-          <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="h-5 w-5 text-danger" />
-              <p className="text-sm text-foreground">Failed to load reports.</p>
-            </div>
-            <Button variant="secondary" size="sm" onClick={() => refetch()}>
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col gap-3 rounded-2xl border border-danger/30 bg-danger/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-danger" />
+            <p className="text-sm font-medium text-foreground">{t("Şikayətlər yüklənmədi.")}</p>
+          </div>
+          <Button variant="secondary" size="sm" onClick={() => void refetch()}>
+            {t("Yenidən cəhd et")}
+          </Button>
+        </div>
       ) : null}
 
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="min-w-24">ID</TableHead>
-              <TableHead className="min-w-36">Reporter</TableHead>
-              <TableHead className="min-w-20 text-center">Target</TableHead>
-              <TableHead className="min-w-36">Target ID</TableHead>
-              <TableHead className="min-w-64">Reason</TableHead>
-              <TableHead className="min-w-28">Status</TableHead>
-              <TableHead className="min-w-36">Created</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              [...Array(6)].map((_, i) => (
-                <TableRow key={i}>
-                  {[...Array(7)].map((__, j) => (
-                    <TableCell key={j}>
-                      <div className="h-4 w-full animate-pulse rounded bg-surfaceElevated" />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : items.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7}>
-                  <div className="flex flex-col items-center gap-2 py-12 text-center">
-                    <ShieldAlert className="h-8 w-8 text-foregroundMuted" />
-                    <p className="text-sm text-foregroundMuted">
-                      No {filter === "all" ? "" : filter} reports.
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map((r) => (
-                <TableRow
-                  key={r.id}
-                  onClick={() => setSelected(r)}
-                  className="cursor-pointer"
-                >
-                  <TableCell className="font-mono text-xs text-foregroundMuted">
-                    {shortId(r.id)}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-foreground">
-                    {shortId(r.reporter_user_id)}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <TargetIcon kind={r.target_kind} />
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-foregroundMuted">
-                    {shortId(r.target_id)}
-                  </TableCell>
-                  <TableCell className="max-w-md truncate text-sm text-foreground">
-                    {r.reason}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={r.status} />
-                  </TableCell>
-                  <TableCell className="text-xs text-foregroundMuted">
-                    {formatRelative(r.created_at)}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Card>
-
-      <div className="flex flex-col gap-3 text-sm text-foregroundMuted sm:flex-row sm:items-center sm:justify-between">
-        <span>
-          {total === 0
-            ? "—"
-            : `${page * PAGE_SIZE + 1}–${Math.min(
-                (page + 1) * PAGE_SIZE,
-                total,
-              )} of ${total}`}
-        </span>
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={page === 0 || isLoading}
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Prev
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={page >= totalPages - 1 || isLoading}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      <ReportDetailDialog
-        report={selected}
-        onClose={() => setSelected(null)}
-      />
-    </div>
-  );
-}
-
-function ReportDetailDialog({
-  report,
-  onClose,
-}: {
-  report: AdminReport | null;
-  onClose: () => void;
-}) {
-  const review = useReviewReport();
-  const [notes, setNotes] = useState("");
-
-  useEffect(() => {
-    setNotes(report?.notes ?? "");
-  }, [report?.id, report?.notes]);
-
-  if (!report) return null;
-
-  const submit = async (status: "reviewed" | "dismissed") => {
-    try {
-      await review.mutateAsync({ id: report.id, status, notes });
-      toast.success(
-        status === "reviewed" ? "Report reviewed" : "Report dismissed",
-        { description: `Report ${shortId(report.id)} updated.` },
-      );
-      onClose();
-    } catch (e) {
-      toast.error("Failed to update report", {
-        description: e instanceof Error ? e.message : "Please try again.",
-      });
-    }
-  };
-
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-warning" />
-            Report {shortId(report.id)}
-          </DialogTitle>
-          <DialogDescription>
-            Submitted {formatRelative(report.created_at)}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <DetailRow label="Reporter">
-              <span className="font-mono text-xs break-all">
-                {report.reporter_user_id}
-              </span>
-            </DetailRow>
-            <DetailRow label="Status">
-              <StatusBadge status={report.status} />
-            </DetailRow>
-            <DetailRow label="Target type">
-              <span className="inline-flex items-center gap-1.5 capitalize">
-                <TargetIcon kind={report.target_kind} />
-                {report.target_kind}
-              </span>
-            </DetailRow>
-            <DetailRow label="Target ID">
-              <a
-                href={targetHref(report.target_kind, report.target_id)}
-                className="font-mono text-xs text-accent hover:underline break-all"
-              >
-                {report.target_id}
-              </a>
-            </DetailRow>
-          </div>
-
+      {/* Table card */}
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3.5">
           <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-foregroundMuted">
-              Reason
+            <h2 className="font-display text-sm font-bold text-foreground">
+              {t("Moderasiya növbəsi")}
+            </h2>
+            <p className="text-xs text-foregroundMuted">
+              {total === 0 ? `0 ${t("göstərilir")}` : `${rangeStart}–${rangeEnd} / ${total}`}
             </p>
-            <div className="whitespace-pre-wrap rounded-lg border border-border bg-surfaceElevated p-3 text-sm text-foreground">
-              {report.reason || (
-                <span className="text-foregroundMuted">
-                  (no reason provided)
-                </span>
-              )}
+          </div>
+          {isFetching ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-info/10 px-2.5 py-1 text-xs font-semibold text-info">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              {t("Yenilənir")}
+            </span>
+          ) : null}
+        </div>
+
+        <ReportsTable
+          reports={items}
+          loading={isLoading}
+          filterLabel={emptyHint}
+          actions={{
+            onOpen: openDrawer,
+            onReview: (report, next) => setQuickReview({ report, next }),
+          }}
+        />
+
+        {total > PAGE_SIZE ? (
+          <div className="flex flex-col items-center justify-between gap-3 border-t border-border px-5 py-3 sm:flex-row">
+            <p className="text-sm text-foregroundMuted">
+              {t("Səhifə")}{" "}
+              <span className="font-semibold text-foreground">{page + 1}</span> / {totalPages}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={page === 0 || isLoading}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                {t("Əvvəlki")}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={page >= totalPages - 1 || isLoading}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                {t("Növbəti")}
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           </div>
+        ) : null}
+      </div>
 
-          <div>
-            <label
-              htmlFor="report-notes"
-              className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-foregroundMuted"
+      {/* Detail slide-over */}
+      <ReportDrawer report={drawer} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+
+      {/* Quick-review confirm */}
+      <Dialog
+        open={quickReview !== null}
+        onOpenChange={(open) => (open ? null : setQuickReview(null))}
+        title={
+          quickReview?.next === "reviewed"
+            ? t("Şikayətə baxıldı kimi işarələ?")
+            : t("Şikayəti rədd et?")
+        }
+        description={
+          quickReview?.next === "reviewed"
+            ? t("Şikayət həll edilmiş kimi qeyd olunacaq.")
+            : t("Şikayət tədbir görülmədən bağlanacaq.")
+        }
+        contentClassName="max-w-md"
+      >
+        <div className="space-y-4">
+          {quickReview ? (
+            <div className="rounded-xl border border-border bg-surfaceElevated px-3 py-2.5 text-sm text-foregroundMuted">
+              <span className="font-semibold text-foreground">
+                {quickReview.report.reason || `#${shortId(quickReview.report.id)}`}
+              </span>
+            </div>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => setQuickReview(null)}
+              disabled={reviewMut.isPending}
             >
-              Moderator notes
-            </label>
-            <Textarea
-              id="report-notes"
-              rows={3}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional context for this decision…"
-            />
+              {t("Bağla")}
+            </Button>
+            <Button
+              variant={quickReview?.next === "dismissed" ? "danger" : "primary"}
+              onClick={() => void runQuickReview()}
+              disabled={reviewMut.isPending}
+            >
+              {reviewMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {t("Təsdiqlə")}
+            </Button>
           </div>
         </div>
-
-        <DialogFooter className="gap-2">
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => submit("dismissed")}
-            disabled={review.isPending}
-          >
-            <X className="mr-1.5 h-4 w-4" />
-            Dismiss
-          </Button>
-          <Button
-            onClick={() => submit("reviewed")}
-            disabled={review.isPending}
-          >
-            <Check className="mr-1.5 h-4 w-4" />
-            Mark reviewed
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function DetailRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-foregroundMuted">
-        {label}
-      </p>
-      <div className="text-foreground">{children}</div>
+      </Dialog>
     </div>
   );
-}
-
-function TargetIcon({ kind }: { kind: string }) {
-  const cls = "h-4 w-4 text-foregroundMuted";
-  switch (kind) {
-    case "user":
-      return <User className={cls} />;
-    case "game":
-      return <Gamepad2 className={cls} />;
-    case "venue":
-      return <MapPin className={cls} />;
-    case "message":
-      return <MessageSquare className={cls} />;
-    default:
-      return <FileText className={cls} />;
-  }
-}
-
-function StatusBadge({ status }: { status: ReportStatus }) {
-  switch (status) {
-    case "pending":
-      return <Badge variant="warning">Pending</Badge>;
-    case "reviewed":
-      return <Badge variant="success">Reviewed</Badge>;
-    case "dismissed":
-      return <Badge variant="neutral">Dismissed</Badge>;
-    default:
-      return <Badge variant="default">{status}</Badge>;
-  }
-}
-
-function shortId(id: string) {
-  if (!id) return "—";
-  return id.length > 10 ? `${id.slice(0, 8)}…` : id;
-}
-
-function formatRelative(iso: string) {
-  try {
-    return formatDistanceToNow(new Date(iso), { addSuffix: true });
-  } catch {
-    return iso;
-  }
-}
-
-function targetHref(kind: string, id: string) {
-  switch (kind) {
-    case "user":
-      return `/users/${id}`;
-    case "game":
-      return `/games/${id}`;
-    case "venue":
-      return `/venues/${id}`;
-    default:
-      return "#";
-  }
 }

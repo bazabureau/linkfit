@@ -68,6 +68,7 @@ struct StoryViewersSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(.ultraThinMaterial)
         .task { await viewModel.onAppear() }
     }
 

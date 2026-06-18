@@ -35,7 +35,6 @@ struct SegmentedPicker<T: Hashable>: View {
                         if active {
                             RoundedRectangle(cornerRadius: 11, style: .continuous)
                                 .fill(DSColor.accent)
-                                .shadow(color: DSColor.accent.opacity(0.25), radius: 3.5, x: 0, y: 1.5)
                                 .matchedGeometryEffect(id: "activeSegmentCapsule", in: pickerNamespace)
                         }
                     }

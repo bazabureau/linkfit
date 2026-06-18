@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -10,6 +11,8 @@ use Illuminate\Support\Str;
 
 class StoriesController extends ApiController
 {
+    use FiltersBlockedUsers;
+
     private array $emojiKeys = ['heart', 'fire', '100', 'clap', 'padel'];
 
     public function store(Request $request): JsonResponse
@@ -74,6 +77,7 @@ class StoriesController extends ApiController
         $rows = DB::table('stories as s')
             ->join('users as u', 'u.id', '=', 's.user_id')
             ->where('s.expires_at', '>', now())
+            ->when(true, fn ($q) => $this->whereNotBlocked($q, (string) $viewer->id, 's.user_id'))
             ->orderByDesc('s.created_at')
             ->limit(200)
             ->get(['s.*', 'u.display_name', 'u.photo_url']);
@@ -152,9 +156,14 @@ class StoriesController extends ApiController
 
     public function react(Request $request, string $id): JsonResponse
     {
+        $user = $this->authUser($request);
         $data = $this->validateBody($request, ['emoji' => ['required', 'in:heart,fire,100,clap,padel']]);
+        $story = DB::table('stories')->where('id', $id)->first(['user_id']);
+        if ($story !== null && $this->isBlockedBy((string) $user->id, (string) $story->user_id)) {
+            throw ApiException::forbidden('Cannot react to this story');
+        }
         DB::table('story_reactions')->updateOrInsert(
-            ['story_id' => $id, 'user_id' => $this->authUser($request)->id],
+            ['story_id' => $id, 'user_id' => $user->id],
             ['emoji' => $data['emoji'], 'created_at' => now()],
         );
 
@@ -190,6 +199,9 @@ class StoriesController extends ApiController
         if ($story->user_id === $user->id) {
             throw ApiException::validation('Cannot reply to your own story');
         }
+        if ($this->isBlockedBy((string) $user->id, (string) $story->user_id)) {
+            throw ApiException::forbidden('Cannot reply to this story');
+        }
 
         // Resolve-or-create the 1:1 DM thread between caller and author,
         // mirroring MessagingController::startConversation EXACTLY (table
@@ -199,8 +211,10 @@ class StoriesController extends ApiController
         // don't touch it here — same as MessagingController::sendMessage.
         $conversationId = DB::table('conversation_participants as a')
             ->join('conversation_participants as b', 'b.conversation_id', '=', 'a.conversation_id')
+            ->join('conversations as c', 'c.id', '=', 'a.conversation_id')
             ->where('a.user_id', $user->id)
             ->where('b.user_id', $story->user_id)
+            ->where(fn ($q) => $q->where('c.kind', 'direct')->orWhereNull('c.kind'))
             ->value('a.conversation_id');
 
         $messageId = (string) Str::uuid();
@@ -216,7 +230,7 @@ class StoriesController extends ApiController
                     ->update(['left_at' => null]);
             } else {
                 $conversationId = (string) Str::uuid();
-                DB::table('conversations')->insert(['id' => $conversationId, 'created_at' => now()]);
+                DB::table('conversations')->insert(['id' => $conversationId, 'kind' => 'direct', 'created_at' => now()]);
                 DB::table('conversation_participants')->insert([
                     ['conversation_id' => $conversationId, 'user_id' => $user->id],
                     ['conversation_id' => $conversationId, 'user_id' => $story->user_id],

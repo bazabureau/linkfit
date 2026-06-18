@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Building,
   Save,
@@ -9,262 +10,366 @@ import {
   Phone,
   MapPin,
   FileText,
+  Wallet,
+  Trophy,
+  MessageSquare as MessageSquareIcon,
+  Hourglass,
+  Settings as SettingsIcon,
+  Smartphone,
+  Check,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input, Label, Textarea } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import {
-  usePartnerVenue,
-  useUpdatePartnerVenue,
-} from "@/lib/partner-queries";
+import { useQueryClient } from "@tanstack/react-query";
+import { usePartnerVenue, partnerKeys } from "@/lib/partner-queries";
 import { uploadVenueImage } from "@/lib/admin-venues";
+import { api } from "@/lib/api";
+import { SectionCard } from "./SectionCard";
+import { Field } from "./Field";
+import { PhotoUploader } from "./PhotoUploader";
+import { AppPreviewCard } from "./AppPreviewCard";
+
+const QUICK_LINKS: {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
+  { href: "/courts", label: "Kortlarım", icon: Building },
+  { href: "/revenue", label: "Gəlir hesabatı", icon: Wallet },
+  { href: "/tournaments", label: "Turnirlər", icon: Trophy },
+  { href: "/reviews", label: "Rəylər", icon: MessageSquareIcon },
+  { href: "/waitlist", label: "Gözləmə siyahısı", icon: Hourglass },
+];
+
+const DESC_MAX = 1000;
+
+interface FormState {
+  name: string;
+  description: string;
+  address: string;
+  phone: string;
+  photoUrl: string;
+}
+
+const EMPTY_FORM: FormState = {
+  name: "",
+  description: "",
+  address: "",
+  phone: "",
+  photoUrl: "",
+};
 
 export default function SettingsPage(): React.JSX.Element {
   const toast = useToast();
-
+  const qc = useQueryClient();
   const { data: venue, isLoading: isQueryLoading } = usePartnerVenue();
-  const updateMut = useUpdatePartnerVenue();
 
-  // Form Fields State
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [address, setAddress] = useState("");
-  const [phone, setPhone] = useState("");
-  const [photoUrl, setPhotoUrl] = useState("");
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  // Snapshot of the last saved/loaded values — used to detect unsaved changes.
+  const [saved, setSaved] = useState<FormState>(EMPTY_FORM);
 
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Sync form state when query resolves
+  const setField = <K extends keyof FormState>(key: K, value: FormState[K]): void =>
+    setForm((prev) => ({ ...prev, [key]: value }));
+
+  // Sync form + snapshot when the query resolves.
   useEffect(() => {
     if (venue) {
-      setName(venue.name);
-      setDescription(venue.description ?? "");
-      setAddress(venue.address);
-      setPhone(venue.phone ?? "");
-      setPhotoUrl(venue.photo_url ?? "");
+      const next: FormState = {
+        name: venue.name,
+        description: venue.description ?? "",
+        address: venue.address,
+        phone: venue.phone ?? "",
+        photoUrl: venue.photo_url ?? "",
+      };
+      setForm(next);
+      setSaved(next);
     }
   }, [venue]);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const isDirty = useMemo(
+    () =>
+      form.name !== saved.name ||
+      form.description !== saved.description ||
+      form.address !== saved.address ||
+      form.phone !== saved.phone ||
+      form.photoUrl !== saved.photoUrl,
+    [form, saved],
+  );
 
-    setUploading(true);
-    try {
-      const url = await uploadVenueImage(file);
-      setPhotoUrl(url);
-      toast.success("Şəkil yükləndi", "Məkan şəkli uğurla yaddaşa yazıldı.");
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      toast.error("Yükləmə xətası", message || "Şəkli yükləmək mümkün olmadı.");
-    } finally {
-      setUploading(false);
-    }
+  const handleReset = (): void => {
+    setForm(saved);
   };
 
   const handleSave = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
-    if (!name.trim() || !address.trim()) {
+    if (!form.name.trim() || !form.address.trim()) {
       toast.error("Xəta", "Məkan adı və ünvanı məcburidir.");
       return;
     }
 
+    setSaving(true);
     try {
-      await updateMut.mutateAsync({
-        name,
-        description: description || null,
-        address,
-        phone: phone || null,
-        photo_url: photoUrl || null,
+      // The partner venue endpoint accepts `photo_urls` (array), not a single
+      // `photo_url`. Send the array so the cover image is actually persisted.
+      await api.put("/api/v1/partner/venue", {
+        name: form.name,
+        description: form.description || null,
+        address: form.address,
+        phone: form.phone || null,
+        photo_urls: form.photoUrl ? [form.photoUrl] : [],
       });
+      await qc.invalidateQueries({ queryKey: partnerKeys.venue });
+      setSaved(form);
       toast.success("Profil yeniləndi", "Məkan məlumatları uğurla yadda saxlanıldı.");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       toast.error("Əməliyyat uğursuz oldu", message || "Yadda saxlamaq mümkün olmadı.");
+    } finally {
+      setSaving(false);
     }
   };
 
   if (isQueryLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      <div className="max-w-5xl space-y-6">
+        <div className="h-8 w-44 animate-pulse rounded-lg bg-surfaceElevated" />
+        <div className="h-10 w-72 animate-pulse rounded-lg bg-surfaceElevated" />
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="h-[30rem] animate-pulse rounded-2xl bg-surface lg:col-span-2" />
+          <div className="h-[30rem] animate-pulse rounded-2xl bg-surface" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Məkan Ayarları
-        </h1>
-        <p className="text-sm text-foregroundMuted">
-          İdman məkanınızın profil şəkillərini, əlaqə nömrələrini, ünvanını və təsvirini idarə edin.
-        </p>
+    <div className="max-w-5xl space-y-7 pb-28">
+      {/* Quick links */}
+      <div className="flex flex-wrap gap-2">
+        {QUICK_LINKS.map((link) => {
+          const Icon = link.icon;
+          return (
+            <Button
+              key={link.href}
+              asChild
+              variant="secondary"
+              size="sm"
+              className="gap-1.5"
+            >
+              <Link href={link.href}>
+                <Icon className="h-3.5 w-3.5" />
+                {link.label}
+              </Link>
+            </Button>
+          );
+        })}
       </div>
 
+      {/* Header */}
+      <header className="space-y-2">
+        <h1 className="flex items-center gap-2.5 font-display text-[1.7rem] font-bold leading-tight text-foreground">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-accent/15 text-accent">
+            <SettingsIcon className="h-5 w-5" />
+          </span>
+          Məkan ayarları
+        </h1>
+        <p className="max-w-2xl text-sm leading-relaxed text-foregroundMuted">
+          Burada məkanınızın adını, əlaqə məlumatlarını, ünvanını və örtük şəklini
+          idarə edirsiniz. Bu məlumatlar Linkfit mobil tətbiqində oyunçulara
+          göstərilir — diqqətli və aydın doldurun.
+        </p>
+      </header>
+
       <form onSubmit={handleSave} className="space-y-6">
-        <section className="grid gap-6 md:grid-cols-3">
-          {/* Main Card (Settings Form) */}
-          <Card className="md:col-span-2 border border-border bg-surface">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building className="h-4 w-4 text-accent" />
-                Məkan Profili
-              </CardTitle>
-              <CardDescription>
-                Bu məlumatlar Linkfit mobil tətbiqində oyunçulara görünəcəkdir.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="venue-name">Məkanın Adı</Label>
-                <div className="relative">
-                  <Building className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foregroundMuted" />
-                  <Input
-                    id="venue-name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Məs. Linkfit Yasamal Arena"
-                    className="pl-9"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="venue-phone">Əlaqə Telefonu</Label>
-                <div className="relative">
-                  <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foregroundMuted" />
-                  <Input
-                    id="venue-phone"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Məs. +994 50 123 45 67"
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="venue-address">Ünvan</Label>
-                <div className="relative">
-                  <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foregroundMuted" />
-                  <Input
-                    id="venue-address"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Məs. Bakı şəhəri, Yasamal rayonu, Salatın Əsgərova küç. 45"
-                    className="pl-9"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="venue-desc">Məkan Təsviri</Label>
-                <div className="relative">
-                  <FileText className="pointer-events-none absolute left-3 top-4 h-4 w-4 text-foregroundMuted" />
-                  <Textarea
-                    id="venue-desc"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Məkan haqqında geniş məlumat, duş, soyunub-geyinmə otağı, parkinq və digər şəraitlər haqqında qeydlər..."
-                    className="min-h-[140px] pl-9"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Sidebar Picture Upload Card */}
-          <Card className="border border-border bg-surface flex flex-col">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ImageIcon className="h-4 w-4 text-accent" />
-                Məkan Şəkli
-              </CardTitle>
-              <CardDescription>
-                Məkanın əsas örtük şəkli (maks. 4MB).
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 flex-1 flex flex-col justify-between">
-              <div className="space-y-4 flex-1">
-                {photoUrl ? (
-                  <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-border bg-background">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photoUrl}
-                      alt="Məkan şəkli"
-                      className="h-full w-full object-cover"
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Left column — the editable form */}
+          <div className="space-y-6 lg:col-span-2">
+            <SectionCard
+              step={1}
+              icon={Building}
+              title="Məkan profili"
+              description="Oyunçuların məkanı tanıması üçün əsas məlumatlar."
+            >
+              <div className="space-y-5">
+                <Field
+                  id="venue-name"
+                  label="Məkanın adı"
+                  required
+                  hint="Tətbiqdə başlıq kimi göstərilir. Qısa və tanınan bir ad seçin."
+                >
+                  <div className="relative">
+                    <Building className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foregroundMuted" />
+                    <Input
+                      id="venue-name"
+                      value={form.name}
+                      onChange={(e) => setField("name", e.target.value)}
+                      placeholder="Məs. Linkfit Yasamal Arena"
+                      className="pl-9"
+                      required
                     />
                   </div>
-                ) : (
-                  <div className="aspect-video w-full rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 text-foregroundMuted bg-surfaceElevated/30">
-                    <ImageIcon className="h-8 w-8 text-foregroundMuted" />
-                    <span className="text-xs">Şəkil seçilməyib</span>
-                  </div>
-                )}
+                </Field>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="venue-photo-url">Şəkil URL-i</Label>
-                  <Input
-                    id="venue-photo-url"
-                    value={photoUrl}
-                    onChange={(e) => setPhotoUrl(e.target.value)}
-                    placeholder="Şəklin internet ünvanını daxil edin"
-                    className="text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-border mt-4">
-                <input
-                  type="file"
-                  id="image-file-input"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                  disabled={uploading}
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="w-full gap-2"
-                  disabled={uploading}
-                  onClick={() => document.getElementById("image-file-input")?.click()}
+                <Field
+                  id="venue-desc"
+                  label="Məkan təsviri"
+                  hint="Duş, soyunub-geyinmə otağı, parkinq və digər şəraitlər haqqında qeyd edin."
+                  meta={
+                    <span
+                      className={
+                        "font-display text-[11px] tabular-nums " +
+                        (form.description.length > DESC_MAX - 50
+                          ? "text-warning"
+                          : "text-foregroundMuted")
+                      }
+                    >
+                      {form.description.length} / {DESC_MAX}
+                    </span>
+                  }
                 >
-                  {uploading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Yüklənir...
-                    </>
-                  ) : (
-                    <>
-                      <ImageIcon className="h-4 w-4" />
-                      Kompüterdən Şəkil Seç
-                    </>
-                  )}
-                </Button>
+                  <div className="relative">
+                    <FileText className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-foregroundMuted" />
+                    <Textarea
+                      id="venue-desc"
+                      value={form.description}
+                      onChange={(e) => setField("description", e.target.value)}
+                      placeholder="Məkan haqqında geniş məlumat, mövcud şəraitlər və oyunçular üçün faydalı qeydlər..."
+                      className="min-h-[150px] pl-9"
+                      maxLength={DESC_MAX}
+                    />
+                  </div>
+                </Field>
               </div>
-            </CardContent>
-          </Card>
-        </section>
+            </SectionCard>
 
-        {/* Actions bar */}
-        <div className="flex justify-end gap-2">
+            <SectionCard
+              step={2}
+              icon={MapPin}
+              title="Əlaqə və ünvan"
+              description="Oyunçular sizinlə əlaqə saxlaya və məkanı tapa bilsin."
+            >
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field
+                  id="venue-phone"
+                  label="Əlaqə telefonu"
+                  hint="Oyunçular sorğular üçün bu nömrəyə zəng edə bilər."
+                  className="sm:col-span-2"
+                >
+                  <div className="relative">
+                    <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foregroundMuted" />
+                    <Input
+                      id="venue-phone"
+                      type="tel"
+                      inputMode="tel"
+                      value={form.phone}
+                      onChange={(e) => setField("phone", e.target.value)}
+                      placeholder="Məs. +994 50 123 45 67"
+                      className="pl-9"
+                    />
+                  </div>
+                </Field>
+
+                <Field
+                  id="venue-address"
+                  label="Ünvan"
+                  required
+                  hint="Şəhər, rayon və küçə daxil olmaqla tam ünvanı yazın."
+                  className="sm:col-span-2"
+                >
+                  <div className="relative">
+                    <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foregroundMuted" />
+                    <Input
+                      id="venue-address"
+                      value={form.address}
+                      onChange={(e) => setField("address", e.target.value)}
+                      placeholder="Məs. Bakı, Yasamal r., Salatın Əsgərova küç. 45"
+                      className="pl-9"
+                      required
+                    />
+                  </div>
+                </Field>
+              </div>
+            </SectionCard>
+          </div>
+
+          {/* Right column — photo + live preview */}
+          <div className="space-y-6">
+            <SectionCard
+              step={3}
+              icon={ImageIcon}
+              title="Örtük şəkli"
+              description="Tətbiqdə kart kimi göstərilən əsas şəkil."
+            >
+              <PhotoUploader
+                value={form.photoUrl}
+                onChange={(url) => setField("photoUrl", url)}
+                onUpload={uploadVenueImage}
+                uploading={uploading}
+                setUploading={setUploading}
+                onError={(message) => toast.error("Yükləmə xətası", message)}
+                onSuccess={() =>
+                  toast.success("Şəkil yükləndi", "Yadda saxlayanda tətbiqdə görünəcək.")
+                }
+              />
+            </SectionCard>
+
+            <SectionCard
+              step={4}
+              icon={Smartphone}
+              title="Tətbiqdə görünüş"
+              description="Dəyişikliklər anında burada əks olunur."
+            >
+              <AppPreviewCard
+                name={form.name}
+                address={form.address}
+                photoUrl={form.photoUrl}
+              />
+            </SectionCard>
+          </div>
+        </div>
+
+        {/* Sticky save bar */}
+        <div className="sticky bottom-0 z-10 -mx-1 flex items-center gap-3 rounded-2xl border border-border bg-surface/95 px-4 py-3 shadow-lift backdrop-blur-md sm:px-5 sm:py-3.5">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {isDirty ? (
+              <span className="flex items-center gap-1.5 text-xs font-medium text-warning">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning" />
+                <span className="truncate">Yadda saxlanılmamış dəyişikliklər var</span>
+              </span>
+            ) : (
+              <span className="hidden items-center gap-1.5 text-xs text-foregroundMuted sm:flex">
+                <Check className="h-3.5 w-3.5 text-accent" />
+                Bütün dəyişikliklər yadda saxlanılıb
+              </span>
+            )}
+          </div>
+
+          {isDirty ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="gap-1.5"
+              onClick={handleReset}
+              disabled={saving || uploading}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Ləğv et</span>
+            </Button>
+          ) : null}
+
           <Button
             type="submit"
-            disabled={updateMut.isPending}
+            disabled={saving || uploading || !isDirty}
             className="gap-2"
           >
-            {updateMut.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            Məlumatları Yadda Saxla
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {saving ? "Saxlanılır..." : "Yadda saxla"}
           </Button>
         </div>
       </form>

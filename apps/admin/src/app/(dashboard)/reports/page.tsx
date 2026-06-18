@@ -1,4 +1,3 @@
-import { AlertTriangle } from "lucide-react";
 import { ReportsQueue } from "./ReportsQueue";
 
 export const metadata = {
@@ -7,19 +6,17 @@ export const metadata = {
 
 export default function ReportsPage() {
   return (
-    <div className="space-y-6">
-      <header>
-        <div className="flex items-center gap-2">
-          <AlertTriangle className="h-5 w-5 text-warning" />
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Reports
-          </h1>
-        </div>
+    <div className="space-y-5">
+      {/* Header — plain text nodes are translated by the i18n DOM observer */}
+      <div>
+        <p className="text-xs font-semibold   text-accent">Reports</p>
+        <h1 className="mt-2 font-display text-[1.6rem] font-bold  text-foreground">
+          Şikayət moderasiyası
+        </h1>
         <p className="mt-1 text-sm text-foregroundMuted">
-          Triage user-submitted reports. Reviewed and dismissed items remain
-          searchable.
+          İstifadəçi şikayətlərini triaj et. Baxılmış və rədd edilmiş şikayətlər axtarışda qalır.
         </p>
-      </header>
+      </div>
       <ReportsQueue />
     </div>
   );

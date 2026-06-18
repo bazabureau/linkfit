@@ -60,7 +60,9 @@ struct WaiverSheet: View {
                 }
             }
         }
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(.ultraThinMaterial)
     }
 
     // MARK: - Pieces

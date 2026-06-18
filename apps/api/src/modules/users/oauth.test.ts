@@ -37,6 +37,8 @@ import { registerOauthRoutes } from "./oauth.routes.js";
 
 const APPLE_CLIENT = "az.linkfit.app";
 const GOOGLE_CLIENT = "1234.apps.googleusercontent.com";
+const GOOGLE_IOS_CLIENT =
+  "655337821050-pi74ppu4gjv7b0gs0v417djtndrl7nt2.apps.googleusercontent.com";
 const APPLE_ISS = "https://appleid.apple.com";
 const GOOGLE_ISS = "https://accounts.google.com";
 
@@ -122,6 +124,7 @@ interface AuthSessionBody {
     home_lat: number | null;
     home_lng: number | null;
     created_at: string;
+    email_verified_at: string | null;
   };
   access_token: string;
   refresh_token: string;
@@ -159,7 +162,7 @@ describe("oauth routes", () => {
       accessTtlSeconds: 900,
       refreshTtlDays: 30,
       appleClientIds: [APPLE_CLIENT],
-      googleClientIds: [GOOGLE_CLIENT],
+      googleClientIds: [GOOGLE_CLIENT, GOOGLE_IOS_CLIENT],
       jwks: provider,
       appleJwksUrl,
       googleJwksUrl,
@@ -327,7 +330,25 @@ describe("oauth routes", () => {
       expect(res.statusCode).toBe(200);
       const body = res.json<AuthSessionBody>();
       expect(body.user.email).toBe("carol@gmail.com");
+      expect(body.user.email_verified_at).not.toBeNull();
       expect(body.access_token.split(".").length).toBe(3);
+    });
+
+    it("accepts the shipped iOS Google OAuth client audience", async () => {
+      const sub = "google-ios-user-" + randomUUID();
+      const token = mintJws({
+        iss: GOOGLE_ISS, aud: GOOGLE_IOS_CLIENT, sub,
+        email: "ios-google@gmail.com", email_verified: true,
+        kid: googleKeypair.jwk.kid, privatePem: googleKeypair.privatePem,
+      });
+      const res = await (app.inject as (args: unknown) => Promise<{ statusCode: number; json: <T>() => T }>)({
+        method: "POST", url: "/api/v1/auth/google",
+        payload: { id_token: token },
+      });
+      expect(res.statusCode).toBe(200);
+      const body = res.json<AuthSessionBody>();
+      expect(body.user.email).toBe("ios-google@gmail.com");
+      expect(body.user.email_verified_at).not.toBeNull();
     });
 
     it("rejects a Google token whose email is not verified (401)", async () => {
@@ -385,6 +406,35 @@ describe("oauth routes", () => {
       });
       expect(r2.statusCode).toBe(200);
       expect(r2.json<AuthSessionBody>().user.id).toBe(userId);
+    });
+
+    it("marks an existing local account verified when Google verifies the email", async () => {
+      const email = "local-google-link@example.com";
+      const inserted = await sql<{ id: string }>`
+        INSERT INTO users (email, password_hash, display_name, email_verified_at)
+        VALUES (${email}, ${"legacy-password-hash"}, ${"Local Google"}, NULL)
+        RETURNING id
+      `.execute(db.db);
+      const userId = inserted.rows[0]!.id;
+
+      const token = mintJws({
+        iss: GOOGLE_ISS, aud: GOOGLE_CLIENT, sub: "google-local-link-" + randomUUID(),
+        email, email_verified: true,
+        kid: googleKeypair.jwk.kid, privatePem: googleKeypair.privatePem,
+      });
+      const res = await (app.inject as (args: unknown) => Promise<{ statusCode: number; json: <T>() => T }>)({
+        method: "POST", url: "/api/v1/auth/google",
+        payload: { id_token: token },
+      });
+      expect(res.statusCode).toBe(200);
+      const body = res.json<AuthSessionBody>();
+      expect(body.user.id).toBe(userId);
+      expect(body.user.email_verified_at).not.toBeNull();
+
+      const verified = await sql<{ email_verified_at: Date | null }>`
+        SELECT email_verified_at FROM users WHERE id = ${userId}
+      `.execute(db.db);
+      expect(verified.rows[0]?.email_verified_at).not.toBeNull();
     });
 
     it("rejects an empty id_token (400 validation)", async () => {

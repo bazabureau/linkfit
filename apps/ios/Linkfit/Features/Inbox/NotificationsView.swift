@@ -259,7 +259,7 @@ struct NotificationRow: View {
                     lineWidth: 1
                 )
         )
-        .shadow(color: isUnread ? DSColor.accent.opacity(0.05) : Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
+        .shadow(color: isUnread ? DSColor.accent.opacity(0.05) : DSColor.inkSurface.opacity(0.02), radius: 6, x: 0, y: 3)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }

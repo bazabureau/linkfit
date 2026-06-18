@@ -68,7 +68,7 @@ struct EmailVerificationToastView: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(tint.opacity(0.4), lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.08), radius: 18, y: 10)
+        .shadow(color: DSColor.inkSurface.opacity(0.08), radius: 18, y: 10)
         .padding(.horizontal, DSSpacing.md)
         .onTapGesture { onDismiss() }
         .accessibilityElement(children: .combine)

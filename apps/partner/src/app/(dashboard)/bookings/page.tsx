@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import Link from "next/link";
 import {
   CalendarDays,
   Search,
   CheckCircle2,
-  DollarSign,
   AlertCircle,
   CalendarCheck,
   Plus,
@@ -18,45 +18,156 @@ import {
   Gamepad2,
   MapPin,
   XCircle,
+  Hourglass,
+  Wallet,
+  Download,
+  Filter,
+  X,
+  RotateCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Label } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   usePartnerBookings,
   useCancelPartnerBooking,
   useMarkPartnerBookingPaid,
-  usePartnerCourts,
-  useCreatePartnerBooking,
+  usePartnerVenue,
+  partnerKeys,
   type Booking,
   type BookingStatus,
+  type Court,
 } from "@/lib/partner-queries";
+import { api } from "@/lib/api";
 import { formatDate, formatDateTime } from "@/lib/date-format";
+import {
+  getBookerName,
+  getBookerEmail,
+  isDoublesBooking,
+  initialsOf,
+  statusMeta,
+  StatusPill,
+  money,
+} from "./booking-utils";
+import { BookingDrawer } from "./booking-drawer";
 
-function RowSkeleton(): React.JSX.Element {
-  return (
-    <TableRow>
-      {Array.from({ length: 8 }).map((_, i) => (
-        <TableCell key={i}>
-          <div className="h-4 w-full max-w-[140px] animate-pulse rounded bg-surfaceElevated" />
-        </TableCell>
-      ))}
-    </TableRow>
-  );
+// The partner courts list endpoint returns `{ items: [...] }`; fetch + unwrap.
+function usePartnerCourtsList(): { data: Court[] } {
+  const query = useQuery({
+    queryKey: partnerKeys.courts,
+    queryFn: async () => {
+      const res = await api.get<{ items: Court[] }>("/api/v1/partner/courts");
+      return res.items ?? [];
+    },
+    staleTime: 30_000,
+  });
+  return { data: query.data ?? [] };
 }
 
 const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+const PAGE_SIZE = 12;
+
+// ─── CSV export (pure client side, no backend hook needed) ────────────────────
+function exportBookingsCsv(rows: Booking[]): void {
+  const header = [
+    "Müştəri",
+    "E-poçt",
+    "Kort",
+    "Format",
+    "Başlama",
+    "Müddət (dəq)",
+    "Məbləğ",
+    "Valyuta",
+    "Status",
+    "Yaradılma",
+  ];
+  const escape = (v: string): string => `"${v.replace(/"/g, '""')}"`;
+  const lines = rows.map((b) =>
+    [
+      getBookerName(b),
+      getBookerEmail(b),
+      b.court_name,
+      isDoublesBooking(b) ? "Cütlü" : "Təkli",
+      formatDateTime(b.starts_at),
+      String(b.duration_minutes),
+      (b.total_minor / 100).toFixed(2),
+      b.currency,
+      statusMeta(b.status).label,
+      formatDateTime(b.created_at),
+    ]
+      .map(escape)
+      .join(","),
+  );
+  // UTF-8 BOM so Excel renders Azerbaijani characters correctly.
+  const csv = "﻿" + [header.map(escape).join(","), ...lines].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `rezervasiyalar-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ─── Stat strip cell ──────────────────────────────────────────────────────────
+function StatCell({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string | number;
+  tone: string;
+}): React.JSX.Element {
+  return (
+    <div className="group relative flex items-center gap-3.5 px-5 py-4">
+      <span
+        className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${tone}`}
+      >
+        <Icon className="h-[1.15rem] w-[1.15rem]" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold   text-foregroundMuted">
+          {label}
+        </p>
+        <p className="mt-0.5 font-display text-xl font-bold leading-none  text-foreground tabular-nums">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function RowSkeleton(): React.JSX.Element {
+  return (
+    <tr className="border-b border-border">
+      <td className="py-4 pl-6 pr-4">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 shrink-0 animate-pulse rounded-lg bg-surfaceElevated" />
+          <div className="space-y-1.5">
+            <div className="h-3.5 w-28 animate-pulse rounded bg-surfaceElevated" />
+            <div className="h-2.5 w-36 animate-pulse rounded bg-surfaceElevated/70" />
+          </div>
+        </div>
+      </td>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <td key={i} className="px-4 py-4">
+          <div className="h-3.5 w-20 animate-pulse rounded bg-surfaceElevated" />
+        </td>
+      ))}
+      <td className="py-4 pl-4 pr-6">
+        <div className="ml-auto h-7 w-24 animate-pulse rounded-lg bg-surfaceElevated" />
+      </td>
+    </tr>
+  );
+}
 
 export default function ReservationsPage(): React.JSX.Element {
   const toast = useToast();
@@ -71,7 +182,9 @@ export default function ReservationsPage(): React.JSX.Element {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   // Singles vs Doubles view filter
-  const [matchmakingFilter, setMatchmakingFilter] = useState<"all" | "singles" | "doubles">("all");
+  const [matchmakingFilter, setMatchmakingFilter] = useState<
+    "all" | "singles" | "doubles"
+  >("all");
 
   // CALENDAR SCHEDULER STATE
   const getTodayString = (): string => {
@@ -82,6 +195,12 @@ export default function ReservationsPage(): React.JSX.Element {
     return `${y}-${m}-${r}`;
   };
   const [schedulerDate, setSchedulerDate] = useState<string>(getTodayString());
+
+  // Pagination (list view)
+  const [page, setPage] = useState(0);
+
+  // Detail drawer
+  const [detail, setDetail] = useState<Booking | null>(null);
 
   // Confirmations
   const [confirmCancel, setConfirmCancel] = useState<Booking | null>(null);
@@ -99,14 +218,19 @@ export default function ReservationsPage(): React.JSX.Element {
 
   const [bookerName, setBookerName] = useState("");
   const [bookerEmail, setBookerEmail] = useState("");
-  const [durationMode, setDurationMode] = useState<"standard" | "custom">("standard");
+  const [durationMode, setDurationMode] = useState<"standard" | "custom">(
+    "standard",
+  );
   const [standardDuration, setStandardDuration] = useState(60);
   const [customMinutes, setCustomMinutes] = useState(75);
   // Matchmaking selection during Walk-in creation
   const [matchType, setMatchType] = useState<"singles" | "doubles">("doubles");
+  // Whether the walk-in is paid on the spot (cash/terminal) at creation time.
+  const [markPaidOnCreate, setMarkPaidOnCreate] = useState(false);
 
-  // Fetch Courts
-  const { data: courts = [] } = usePartnerCourts();
+  // Fetch Courts & venue (for header label)
+  const { data: courts } = usePartnerCourtsList();
+  const { data: venue } = usePartnerVenue();
 
   const durationMinutes = useMemo(() => {
     return durationMode === "standard" ? standardDuration : customMinutes;
@@ -121,7 +245,7 @@ export default function ReservationsPage(): React.JSX.Element {
         q: q.trim() || undefined,
         from: from ? new Date(from + "T00:00:00").toISOString() : undefined,
         to: to ? new Date(to + "T23:59:59").toISOString() : undefined,
-        limit: 100,
+        limit: 200,
       };
     } else {
       // Calendar Grid query: strictly fetch all bookings for selected day
@@ -135,29 +259,40 @@ export default function ReservationsPage(): React.JSX.Element {
     }
   }, [viewTab, status, selectedCourtId, q, from, to, schedulerDate]);
 
-  const { data: bookingsData, isLoading, refetch } = usePartnerBookings(bookingsParams);
+  const { data: bookingsData, isLoading, isFetching, refetch } =
+    usePartnerBookings(bookingsParams);
   const bookingsRaw = useMemo(() => bookingsData?.results ?? [], [bookingsData]);
 
   // Dynamic filter for matchmaking view on the frontend
   const bookings = useMemo(() => {
     return bookingsRaw.filter((b) => {
       if (matchmakingFilter === "all") return true;
-      const isDoubles = b.booker_display_name.includes("[Doubles]") || b.booker_display_name.includes("[Cütlü]");
-      const isSingles = b.booker_display_name.includes("[Singles]") || b.booker_display_name.includes("[Təkli]");
-      
-      if (matchmakingFilter === "doubles") return isDoubles;
-      if (matchmakingFilter === "singles") return isSingles || (!isDoubles && !isSingles); // default to singles if no tag present
-      return true;
+      const doubles = isDoublesBooking(b);
+      if (matchmakingFilter === "doubles") return doubles;
+      // "singles" view: anything not explicitly tagged doubles.
+      return !doubles;
     });
   }, [bookingsRaw, matchmakingFilter]);
 
+  // Reset to first page whenever the filtered result set changes.
+  React.useEffect(() => {
+    setPage(0);
+  }, [q, status, selectedCourtId, from, to, matchmakingFilter, viewTab]);
+
+  const pageCount = Math.max(1, Math.ceil(bookings.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pagedBookings = useMemo(
+    () => bookings.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [bookings, safePage],
+  );
+
+  const qc = useQueryClient();
   const cancelMut = useCancelPartnerBooking();
   const markPaidMut = useMarkPartnerBookingPaid();
-  const createMut = useCreatePartnerBooking();
+  const [creating, setCreating] = useState(false);
 
   // Compute dynamic stats
   const stats = useMemo(() => {
-    const totalCount = bookings.length;
     let paidCount = 0;
     let pendingCount = 0;
     let cancelledCount = 0;
@@ -167,7 +302,10 @@ export default function ReservationsPage(): React.JSX.Element {
       if (b.status === "paid") {
         paidCount++;
         revenueMinor += b.total_minor;
-      } else if (b.status === "pending_payment" || b.status === "partially_paid") {
+      } else if (
+        b.status === "pending_payment" ||
+        b.status === "partially_paid"
+      ) {
         pendingCount++;
       } else if (b.status === "cancelled" || b.status === "refunded") {
         cancelledCount++;
@@ -175,13 +313,28 @@ export default function ReservationsPage(): React.JSX.Element {
     });
 
     return {
-      total: totalCount,
+      total: bookings.length,
       paid: paidCount,
       pending: pendingCount,
       cancelled: cancelledCount,
       revenue: (revenueMinor / 100).toFixed(2),
     };
   }, [bookings]);
+
+  const hasActiveFilters =
+    Boolean(q) ||
+    status !== "all" ||
+    selectedCourtId !== "all" ||
+    Boolean(from) ||
+    Boolean(to);
+
+  const clearFilters = (): void => {
+    setQ("");
+    setStatus("all");
+    setSelectedCourtId("all");
+    setFrom("");
+    setTo("");
+  };
 
   // Actions handlers
   const handleCancel = async (): Promise<void> => {
@@ -190,10 +343,17 @@ export default function ReservationsPage(): React.JSX.Element {
     setConfirmCancel(null);
     try {
       await cancelMut.mutateAsync({ id: target.id });
-      toast.success("Rezervasiya ləğv edildi", `${target.booker_display_name} - ${target.court_name}`);
+      toast.success(
+        "Rezervasiya ləğv edildi",
+        `${getBookerName(target)} - ${target.court_name}`,
+      );
+      setDetail((d) => (d && d.id === target.id ? null : d));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      toast.error("Əməliyyat uğursuz oldu", message || "Rezervasiya ləğv edilə bilmədi");
+      toast.error(
+        "Əməliyyat uğursuz oldu",
+        message || "Rezervasiya ləğv edilə bilmədi",
+      );
     }
   };
 
@@ -203,11 +363,29 @@ export default function ReservationsPage(): React.JSX.Element {
     setConfirmPaid(null);
     try {
       await markPaidMut.mutateAsync({ id: target.id });
-      toast.success("Rezervasiya ödənildi", `${target.booker_display_name} - ${target.court_name}`);
+      toast.success(
+        "Rezervasiya ödənildi",
+        `${getBookerName(target)} - ${target.court_name}`,
+      );
+      setDetail((d) =>
+        d && d.id === target.id ? { ...d, status: "paid" } : d,
+      );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      toast.error("Əməliyyat uğursuz oldu", message || "Rezervasiya ödənildi olaraq qeyd edilə bilmədi");
+      toast.error(
+        "Əməliyyat uğursuz oldu",
+        message || "Rezervasiya ödənildi olaraq qeyd edilə bilmədi",
+      );
     }
+  };
+
+  const resetCreateForm = (): void => {
+    setBookerName("");
+    setBookerEmail("");
+    setDurationMode("standard");
+    setStandardDuration(60);
+    setMatchType("doubles");
+    setMarkPaidOnCreate(false);
   };
 
   const handleCreateWalkIn = async (e: React.FormEvent): Promise<void> => {
@@ -219,41 +397,63 @@ export default function ReservationsPage(): React.JSX.Element {
       return;
     }
     if (!bookerEmail.trim()) {
-      toast.error("Məlumat çatışmır", "Zəhmət olmasa müştəri e-mailini daxil edin.");
+      toast.error(
+        "Məlumat çatışmır",
+        "Zəhmət olmasa müştəri e-mailini daxil edin.",
+      );
       return;
     }
 
+    setCreating(true);
     try {
-      const formatTag = matchType === "doubles" ? "[Cütlü / Doubles]" : "[Təkli / Singles]";
-      const finalBookerName = `${bookerName.trim()} ${formatTag}`;
-      const idempotencyKey = `walkin_${createSlot.courtId}_${createSlot.startsAt.getTime()}_${Math.random().toString(36).substring(7)}`;
+      const formatTag =
+        matchType === "doubles" ? "[Cütlü / Doubles]" : "[Təkli / Singles]";
+      const finalCustomerName = `${bookerName.trim()} ${formatTag}`;
 
-      await createMut.mutateAsync({
+      // Wired to the real backend createBooking endpoint, which expects
+      // `customer_name` / `customer_email` (not booker_*). Sending the correct
+      // fields ensures the walk-in customer is persisted and displayed.
+      await api.post<Booking>("/api/v1/partner/bookings", {
         court_id: createSlot.courtId,
         starts_at: createSlot.startsAt.toISOString(),
         duration_minutes: durationMinutes,
-        booker_display_name: finalBookerName,
-        booker_email: bookerEmail.trim().toLowerCase(),
-        idempotency_key: idempotencyKey,
+        customer_name: finalCustomerName,
+        customer_email: bookerEmail.trim().toLowerCase(),
+        payment_method: markPaidOnCreate ? "onsite" : "manual",
+        status: markPaidOnCreate ? "paid" : "pending_payment",
       });
 
-      toast.success("Rezervasiya yaradıldı", `${bookerName} üçün yerində (walk-in) sifariş təsdiqləndi.`);
+      await qc.invalidateQueries({ queryKey: partnerKeys.bookingsAll });
+      await qc.invalidateQueries({ queryKey: partnerKeys.stats });
+
+      toast.success(
+        "Rezervasiya yaradıldı",
+        markPaidOnCreate
+          ? `${bookerName} üçün ödənişli walk-in sifariş təsdiqləndi.`
+          : `${bookerName} üçün yerində (walk-in) sifariş yaradıldı.`,
+      );
       setIsCreateOpen(false);
-      setBookerName("");
-      setBookerEmail("");
-      setDurationMode("standard");
-      setStandardDuration(60);
-      setMatchType("doubles");
+      resetCreateForm();
       setCreateSlot(null);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      toast.error("Rezervasiya alınmadı", message || "Vaxt toqquşması baş verdi və ya xəta yarandı.");
+      toast.error(
+        "Rezervasiya alınmadı",
+        message || "Vaxt toqquşması baş verdi və ya xəta yarandı.",
+      );
+    } finally {
+      setCreating(false);
     }
   };
 
   // Helper: check if a booking overlaps a court and time cell
-  const getBookingForCell = (courtId: string, hour: number): Booking | undefined => {
-    const cellStart = new Date(schedulerDate + "T" + String(hour).padStart(2, "0") + ":00:00");
+  const getBookingForCell = (
+    courtId: string,
+    hour: number,
+  ): Booking | undefined => {
+    const cellStart = new Date(
+      schedulerDate + "T" + String(hour).padStart(2, "0") + ":00:00",
+    );
     const cellEnd = new Date(cellStart.getTime() + 60 * 60 * 1000);
 
     return bookings.find((b) => {
@@ -261,7 +461,9 @@ export default function ReservationsPage(): React.JSX.Element {
       if (b.status === "cancelled" || b.status === "refunded") return false;
 
       const bookingStart = new Date(b.starts_at);
-      const bookingEnd = new Date(bookingStart.getTime() + b.duration_minutes * 60 * 1000);
+      const bookingEnd = new Date(
+        bookingStart.getTime() + b.duration_minutes * 60 * 1000,
+      );
 
       return bookingStart < cellEnd && cellStart < bookingEnd;
     });
@@ -285,154 +487,156 @@ export default function ReservationsPage(): React.JSX.Element {
     return ((createSlot.hourlyPriceMinor * hours) / 100).toFixed(2);
   }, [createSlot, durationMinutes]);
 
+  const schedulerDateLabel = useMemo(() => {
+    const d = new Date(schedulerDate + "T00:00:00");
+    return d.toLocaleDateString("az-AZ", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+  }, [schedulerDate]);
+
   return (
     <div className="space-y-6">
-      {/* Page Heading & Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
-            Rezervasiyalar və Təqvim Planı
-            <Badge variant="neutral" className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 ml-2">
-              Baku Padel Club
-            </Badge>
-          </h1>
-          <p className="text-sm font-normal text-foregroundMuted/90 leading-relaxed">
-            Məkanınızın həm saatlıq təqvim planını izləyin, həm də daxil olan bütün rezervasiyaları cədvəl üzərindən idarə edin.
+      {/* ─── Page Heading & Tabs ─────────────────────────────────────────── */}
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2.5">
+            <h1 className="font-display text-[1.6rem] font-bold leading-tight  text-foreground">
+              Rezervasiyalar
+            </h1>
+            {venue?.name ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surfaceElevated px-2.5 py-1 text-[10px] font-bold   text-foregroundMuted">
+                <MapPin className="h-3 w-3 text-accent" />
+                {venue.name}
+              </span>
+            ) : null}
+          </div>
+          <p className="max-w-xl text-sm leading-relaxed text-foregroundMuted">
+            Saatlıq təqvim planını izləyin və daxil olan bütün rezervasiyaları
+            tək cədvəldən idarə edin.
           </p>
         </div>
 
-        {/* Premium View Switcher */}
-        <div className="flex items-center self-start sm:self-center gap-1 bg-surfaceElevated p-1 rounded-xl border border-border">
+        {/* View Switcher + cross-links */}
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
           <Button
-            variant={viewTab === "calendar" ? "primary" : "secondary"}
+            asChild
+            variant="secondary"
             size="sm"
-            className="rounded-lg py-1.5 px-3 flex items-center gap-1.5 text-xs font-semibold"
-            onClick={() => setViewTab("calendar")}
+            className="gap-1.5 text-xs font-semibold"
           >
-            <CalendarDays className="h-3.5 w-3.5" />
-            Vizual Təqvim
+            <Link href="/waitlist">
+              <Hourglass className="h-3.5 w-3.5" />
+              Gözləmə Siyahısı
+            </Link>
           </Button>
-          <Button
-            variant={viewTab === "list" ? "primary" : "secondary"}
-            size="sm"
-            className="rounded-lg py-1.5 px-3 flex items-center gap-1.5 text-xs font-semibold"
-            onClick={() => setViewTab("list")}
-          >
-            <List className="h-3.5 w-3.5" />
-            Siyahı Görünüşü
-          </Button>
+          <div className="inline-flex items-center gap-1 rounded-xl border border-border bg-surface p-1">
+            <button
+              onClick={() => setViewTab("calendar")}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                viewTab === "calendar"
+                  ? "bg-accent text-accent-ink"
+                  : "text-foregroundMuted hover:bg-surfaceElevated hover:text-foreground"
+              }`}
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              Təqvim
+            </button>
+            <button
+              onClick={() => setViewTab("list")}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                viewTab === "list"
+                  ? "bg-accent text-accent-ink"
+                  : "text-foregroundMuted hover:bg-surfaceElevated hover:text-foreground"
+              }`}
+            >
+              <List className="h-3.5 w-3.5" />
+              Siyahı
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* Spacing Patch: Harmonized KPI Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
-        <Card className="border border-border bg-surface">
-          <CardContent className="flex items-center gap-4 p-6">
-            <div className="p-3 rounded-xl bg-accent/10 text-accent">
-              <CalendarCheck className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-foregroundMuted">Cəmi Sifariş</p>
-              <h3 className="text-2xl font-bold text-foreground mt-0.5 tabular-nums">{stats.total}</h3>
-            </div>
-          </CardContent>
-        </Card>
+      {/* ─── KPI Stat Strip ──────────────────────────────────────────────── */}
+      <Card className="overflow-hidden p-0">
+        <div className="grid grid-cols-2 divide-border sm:grid-cols-3 lg:grid-cols-5 lg:divide-x [&>*]:border-b [&>*]:border-border lg:[&>*]:border-b-0">
+          <StatCell
+            icon={CalendarCheck}
+            label="Cəmi Sifariş"
+            value={stats.total}
+            tone="bg-accent/10 text-accent"
+          />
+          <StatCell
+            icon={CheckCircle2}
+            label="Ödənilib"
+            value={stats.paid}
+            tone="bg-accent/10 text-accent"
+          />
+          <StatCell
+            icon={AlertCircle}
+            label="Gözləyir"
+            value={stats.pending}
+            tone="bg-warning/10 text-warning"
+          />
+          <StatCell
+            icon={XCircle}
+            label="Ləğv edilib"
+            value={stats.cancelled}
+            tone="bg-danger/10 text-danger"
+          />
+          <StatCell
+            icon={Wallet}
+            label="Gəlir"
+            value={`${stats.revenue} AZN`}
+            tone="bg-accent/10 text-accent"
+          />
+        </div>
+      </Card>
 
-        <Card className="border border-border bg-surface">
-          <CardContent className="flex items-center gap-4 p-6">
-            <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-500">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-foregroundMuted">Ödənilib</p>
-              <h3 className="text-2xl font-bold text-foreground mt-0.5 tabular-nums">{stats.paid}</h3>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-border bg-surface">
-          <CardContent className="flex items-center gap-4 p-6">
-            <div className="p-3 rounded-xl bg-amber-500/10 text-amber-500">
-              <AlertCircle className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-foregroundMuted">Gözləyir</p>
-              <h3 className="text-2xl font-bold text-foreground mt-0.5 tabular-nums">{stats.pending}</h3>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-border bg-surface">
-          <CardContent className="flex items-center gap-4 p-6">
-            <div className="p-3 rounded-xl bg-rose-500/10 text-rose-500">
-              <XCircle className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-foregroundMuted">Ləğv edilib</p>
-              <h3 className="text-2xl font-bold text-foreground mt-0.5 tabular-nums">{stats.cancelled}</h3>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-border bg-surface">
-          <CardContent className="flex items-center gap-4 p-6">
-            <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-500">
-              <DollarSign className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-foregroundMuted">Gəlir</p>
-              <h3 className="text-2xl font-bold text-foreground mt-0.5 tabular-nums">{stats.revenue} AZN</h3>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Matchmaking View Filter tabs (Baku Padel Premium Focus) */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-surfaceElevated/40 p-2.5 rounded-xl border border-border">
-        <div className="flex items-center gap-1.5">
+      {/* ─── Matchmaking View Filter ─────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-3.5 py-2.5">
+        <div className="flex items-center gap-2">
           <Gamepad2 className="h-4 w-4 text-accent" />
-          <span className="text-xs font-semibold text-foregroundMuted">Matchmaking Görünüşü:</span>
+          <span className="text-xs font-semibold text-foregroundMuted">
+            Matchmaking Görünüşü
+          </span>
         </div>
-        <div className="flex items-center gap-1 bg-background/60 p-0.5 rounded-lg border border-border">
-          <Button
-            variant={matchmakingFilter === "all" ? "primary" : "secondary"}
-            size="sm"
-            className="text-[11px] h-7 px-2.5 font-medium rounded-md"
-            onClick={() => setMatchmakingFilter("all")}
-          >
-            Bütün Oyunlar
-          </Button>
-          <Button
-            variant={matchmakingFilter === "singles" ? "primary" : "secondary"}
-            size="sm"
-            className="text-[11px] h-7 px-2.5 font-medium rounded-md"
-            onClick={() => setMatchmakingFilter("singles")}
-          >
-            Təkli (1v1)
-          </Button>
-          <Button
-            variant={matchmakingFilter === "doubles" ? "primary" : "secondary"}
-            size="sm"
-            className="text-[11px] h-7 px-2.5 font-medium rounded-md"
-            onClick={() => setMatchmakingFilter("doubles")}
-          >
-            Cütlü (2v2)
-          </Button>
+        <div className="inline-flex items-center gap-1 rounded-lg border border-border bg-background/60 p-0.5">
+          {(
+            [
+              ["all", "Bütün Oyunlar"],
+              ["singles", "Təkli (1v1)"],
+              ["doubles", "Cütlü (2v2)"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setMatchmakingFilter(key)}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                matchmakingFilter === key
+                  ? "bg-accent text-accent-ink"
+                  : "text-foregroundMuted hover:text-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* ───────────────────────── TAB 1: CALENDAR VIEW ───────────────────────── */}
+      {/* ───────────────────────── TAB 1: CALENDAR VIEW ───────────────────── */}
       {viewTab === "calendar" && (
-        <div className="space-y-4 animate-in fade-in-50 duration-200">
+        <div className="animate-in fade-in-50 space-y-4 duration-200">
           {/* Day Navigation Bar */}
-          <Card className="border border-border bg-surface">
-            <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <Card className="p-0">
+            <div className="flex flex-col items-center justify-between gap-4 p-4 sm:flex-row">
               <div className="flex items-center gap-2">
                 <Button
                   variant="secondary"
-                  size="sm"
+                  size="icon"
                   onClick={() => navigateDate(-1)}
-                  className="p-2 rounded-lg border border-border hover:bg-surfaceElevated"
+                  aria-label="Əvvəlki gün"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
@@ -440,24 +644,27 @@ export default function ReservationsPage(): React.JSX.Element {
                   type="date"
                   value={schedulerDate}
                   onChange={(e) => setSchedulerDate(e.target.value)}
-                  className="w-40 h-9 font-semibold text-center border-border bg-surfaceElevated focus:ring-accent"
+                  className="h-9 w-40 text-center font-semibold"
                 />
                 <Button
                   variant="secondary"
-                  size="sm"
+                  size="icon"
                   onClick={() => navigateDate(1)}
-                  className="p-2 rounded-lg border border-border hover:bg-surfaceElevated"
+                  aria-label="Növbəti gün"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
+                <span className="ml-1 hidden text-xs font-medium capitalize text-foregroundMuted md:inline">
+                  {schedulerDateLabel}
+                </span>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={() => setSchedulerDate(getTodayString())}
-                  className="text-xs font-medium"
+                  className="text-xs font-semibold"
                 >
                   Bugün
                 </Button>
@@ -465,44 +672,54 @@ export default function ReservationsPage(): React.JSX.Element {
                   variant="primary"
                   size="sm"
                   onClick={() => refetch()}
-                  className="text-xs font-medium"
+                  className="gap-1.5 text-xs font-semibold"
                 >
+                  <RotateCw
+                    className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`}
+                  />
                   Yenilə
                 </Button>
               </div>
-            </CardContent>
+            </div>
           </Card>
 
           {courts.length === 0 ? (
-            <Card className="border border-border bg-surface text-center">
-              <CardContent className="p-16 flex flex-col items-center justify-center gap-3">
-                <div className="h-12 w-12 rounded-2xl bg-amber-500/10 grid place-items-center text-amber-500">
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center gap-3 p-16 text-center">
+                <div className="grid h-14 w-14 place-items-center rounded-2xl bg-warning/10 text-warning">
                   <AlertCircle className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground">Kort Tapılmadı</h3>
-                  <p className="text-sm text-foregroundMuted mt-1">
-                    Təqvim planını görmək üçün öncə &quot;Kortlarım&quot; bölməsindən kort əlavə edin.
+                  <h3 className="font-semibold text-foreground">
+                    Kort Tapılmadı
+                  </h3>
+                  <p className="mt-1 text-sm text-foregroundMuted">
+                    Təqvim planını görmək üçün öncə &quot;Kortlarım&quot;
+                    bölməsindən kort əlavə edin.
                   </p>
                 </div>
               </CardContent>
             </Card>
           ) : (
-            <div className="border border-border bg-surface rounded-2xl shadow-card overflow-hidden overflow-x-auto">
-              <table className="w-full border-collapse text-left min-w-[700px]">
+            <div className="overflow-x-auto overflow-y-hidden rounded-2xl border border-border bg-surface shadow-card">
+              <table className="w-full min-w-[700px] border-collapse text-left">
                 <thead>
-                  <tr className="border-b border-border bg-surfaceElevated/50">
-                    <th className="p-4 w-28 text-center text-xs font-semibold text-foregroundMuted uppercase tracking-wider border-r border-border">
+                  <tr className="border-b border-border bg-surfaceElevated/40">
+                    <th className="w-24 border-r border-border p-4 text-center text-[10px] font-bold   text-foregroundMuted">
                       Saat
                     </th>
                     {courts.map((court) => (
                       <th
                         key={court.id}
-                        className="p-4 text-center text-sm font-bold text-accent tracking-wide border-r border-border last:border-r-0"
+                        className="border-r border-border p-4 text-center last:border-r-0"
                       >
-                        {court.name}
-                        <span className="block text-[9px] font-bold uppercase tracking-wider text-foregroundMuted mt-0.5">
-                          {court.sport_slug.toUpperCase()} • {(court.hourly_price_minor / 100).toFixed(2)} {court.currency}/saat
+                        <span className="font-display text-sm font-bold  text-foreground">
+                          {court.name}
+                        </span>
+                        <span className="mt-0.5 block text-[9px] font-bold   text-foregroundMuted">
+                          {court.sport_slug.toUpperCase()} ·{" "}
+                          {(court.hourly_price_minor / 100).toFixed(0)}{" "}
+                          {court.currency}/saat
                         </span>
                       </th>
                     ))}
@@ -512,91 +729,81 @@ export default function ReservationsPage(): React.JSX.Element {
                   {HOURS.map((hour) => {
                     const timeLabel = `${String(hour).padStart(2, "0")}:00`;
                     return (
-                      <tr key={hour} className="border-b border-border last:border-b-0 hover:bg-surfaceElevated/10">
+                      <tr
+                        key={hour}
+                        className="border-b border-border last:border-b-0"
+                      >
                         {/* Hour column */}
-                        <td className="p-3 text-center text-xs font-bold text-foregroundMuted bg-surfaceElevated/20 border-r border-border select-none tabular-nums">
+                        <td className="select-none border-r border-border bg-surfaceElevated/20 p-3 text-center text-xs font-bold tabular-nums text-foregroundMuted">
                           {timeLabel}
                         </td>
 
                         {/* Court columns */}
                         {courts.map((court) => {
-                          const activeBooking = getBookingForCell(court.id, hour);
+                          const activeBooking = getBookingForCell(
+                            court.id,
+                            hour,
+                          );
 
                           if (activeBooking) {
                             const bStart = new Date(activeBooking.starts_at);
                             const startsInThisCell = bStart.getHours() === hour;
-
-                            const isPaid = activeBooking.status === "paid";
-                            const isPending =
-                              activeBooking.status === "pending_payment" ||
-                              activeBooking.status === "partially_paid";
-
-                            const isMatchDoubles = activeBooking.booker_display_name.includes("[Doubles]") || activeBooking.booker_display_name.includes("[Cütlü]");
-
-                            // Clean Booker Name for display (remove tag)
-                            const displayNameClean = activeBooking.booker_display_name
-                              .replace(/\[Cütlü \/ Doubles\]/g, "")
-                              .replace(/\[Təkli \/ Singles\]/g, "")
-                              .trim();
+                            const meta = statusMeta(activeBooking.status);
+                            const isMatchDoubles =
+                              isDoublesBooking(activeBooking);
+                            const displayNameClean =
+                              getBookerName(activeBooking);
 
                             return (
                               <td
                                 key={court.id}
-                                className="p-2 border-r border-border last:border-r-0 align-middle w-1/4"
+                                className="w-1/4 border-r border-border p-2 align-middle last:border-r-0"
                               >
                                 <div
-                                  onClick={() => {
-                                    // Clicking cell triggers clean detailed action modal instead of micro actions
-                                    if (isPending) setConfirmPaid(activeBooking);
-                                    else setConfirmCancel(activeBooking);
-                                  }}
-                                  className={`rounded-xl p-3 flex flex-col gap-1.5 border transition-all cursor-pointer hover:scale-[1.02] shadow-md transition-premium ${
-                                    isPaid
-                                      ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-200 hover:bg-emerald-950/40"
-                                      : isPending
-                                        ? "bg-amber-950/20 border-amber-500/30 text-amber-200 hover:bg-amber-950/40"
-                                        : "bg-surfaceElevated border-border text-foregroundMuted"
-                                  }`}
+                                  onClick={() => setDetail(activeBooking)}
+                                  className={`cursor-pointer rounded-xl border p-2.5 transition-premium hover:shadow-lift hover:-translate-y-px ${meta.soft}`}
                                 >
                                   {startsInThisCell ? (
-                                    <>
+                                    <div className="flex flex-col gap-1.5">
                                       <div className="flex items-start justify-between gap-2">
-                                        <div className="flex flex-col min-w-0">
-                                          <span className="font-bold text-xs truncate max-w-[130px] text-foreground">
+                                        <span className="flex items-center gap-1.5 truncate">
+                                          <span
+                                            className={`h-1.5 w-1.5 shrink-0 rounded-full ${meta.dot}`}
+                                          />
+                                          <span className="truncate text-xs font-bold text-foreground">
                                             {displayNameClean}
                                           </span>
-                                          <div className="flex gap-1 mt-0.5">
-                                            {isMatchDoubles ? (
-                                              <Badge variant="success" className="text-[8px] font-bold uppercase tracking-wide px-1 py-0 h-3.5">
-                                                Cütlü (2v2)
-                                              </Badge>
-                                            ) : (
-                                              <Badge variant="warning" className="text-[8px] font-bold uppercase tracking-wide px-1 py-0 h-3.5 bg-blue-500/10 text-blue-400 border-blue-500/20">
-                                                Təkli (1v1)
-                                              </Badge>
-                                            )}
-                                          </div>
-                                        </div>
-                                        <Badge
-                                          variant={isPaid ? "success" : isPending ? "warning" : "neutral"}
-                                          className="text-[9px] px-1.5 py-0 shrink-0"
+                                        </span>
+                                        <span className="font-display text-xs font-bold tabular-nums text-foreground">
+                                          {(
+                                            activeBooking.total_minor / 100
+                                          ).toFixed(0)}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center justify-between text-[10px] text-foregroundMuted">
+                                        <span className="flex items-center gap-1 font-medium tabular-nums">
+                                          <Clock className="h-3 w-3" />
+                                          {bStart.toLocaleTimeString([], {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                          })}
+                                          {" · "}
+                                          {activeBooking.duration_minutes}d
+                                        </span>
+                                        <span
+                                          className={`font-bold   ${
+                                            isMatchDoubles
+                                              ? "text-accent"
+                                              : "text-info"
+                                          }`}
                                         >
-                                          {isPaid ? "Ödənilib" : isPending ? "Gözləyir" : "Qeyd"}
-                                        </Badge>
-                                      </div>
-                                      <div className="flex items-center justify-between text-[10px] opacity-90 mt-1">
-                                        <span className="flex items-center gap-1 font-medium">
-                                          <Clock className="h-3.5 w-3.5 text-foregroundMuted" />
-                                          {bStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({activeBooking.duration_minutes}d)
-                                        </span>
-                                        <span className="font-bold text-foreground">
-                                          {(activeBooking.total_minor / 100).toFixed(2)} {activeBooking.currency}
+                                          {isMatchDoubles ? "2v2" : "1v1"}
                                         </span>
                                       </div>
-                                    </>
+                                    </div>
                                   ) : (
-                                    <div className="text-[10px] text-center italic opacity-60 py-1 font-medium">
-                                      Davamı: {displayNameClean}
+                                    <div className="py-0.5 text-center text-[10px] font-medium italic text-foregroundMuted/70">
+                                      ↑ {displayNameClean}
                                     </div>
                                   )}
                                 </div>
@@ -605,7 +812,12 @@ export default function ReservationsPage(): React.JSX.Element {
                           }
 
                           // Free Slot
-                          const cellStart = new Date(schedulerDate + "T" + String(hour).padStart(2, "0") + ":00:00");
+                          const cellStart = new Date(
+                            schedulerDate +
+                              "T" +
+                              String(hour).padStart(2, "0") +
+                              ":00:00",
+                          );
                           return (
                             <td
                               key={court.id}
@@ -619,12 +831,12 @@ export default function ReservationsPage(): React.JSX.Element {
                                 });
                                 setIsCreateOpen(true);
                               }}
-                              className="p-3 border-r border-border last:border-r-0 text-center cursor-pointer group hover:bg-accent/5 transition-all select-none transition-premium"
+                              className="group cursor-pointer select-none border-r border-border p-3 text-center transition-premium last:border-r-0 hover:bg-accent/5"
                             >
-                              <div className="flex items-center justify-center gap-1 text-[11px] font-semibold text-foregroundMuted group-hover:text-accent transition-all opacity-30 group-hover:opacity-100">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-foregroundMuted opacity-25 transition-all group-hover:text-accent group-hover:opacity-100">
                                 <Plus className="h-3 w-3" />
-                                <span>Sifariş et</span>
-                              </div>
+                                Sifariş et
+                              </span>
                             </td>
                           );
                         })}
@@ -640,95 +852,110 @@ export default function ReservationsPage(): React.JSX.Element {
 
       {/* ───────────────────────── TAB 2: LIST VIEW ───────────────────────── */}
       {viewTab === "list" && (
-        <div className="space-y-4 animate-in fade-in-50 duration-200">
-          {/* Advanced Filters */}
-          <Card className="border border-border bg-surface">
-            <CardContent className="p-6 space-y-4">
-              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="animate-in fade-in-50 space-y-4 duration-200">
+          {/* Toolbar: search + filters + export */}
+          <Card className="p-0">
+            <div className="flex flex-col gap-3 p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                 {/* Booker Search */}
-                <div className="relative">
+                <div className="relative min-w-0 flex-1">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foregroundMuted" />
                   <Input
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
                     placeholder="Müştəri adı və ya e-poçt ilə axtar…"
-                    className="pl-9 bg-surfaceElevated border-border"
+                    className="pl-9"
                   />
                 </div>
 
-                {/* Court Selector */}
-                <select
-                  value={selectedCourtId}
-                  onChange={(e) => setSelectedCourtId(e.target.value)}
-                  className="flex h-10 w-full rounded-lg border border-border bg-surfaceElevated px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-all cursor-pointer"
-                >
-                  <option value="all">Bütün Kortlar (All Courts)</option>
-                  {courts.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.sport_slug.toUpperCase()})
-                    </option>
-                  ))}
-                </select>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:flex lg:items-center">
+                  {/* Court Selector */}
+                  <select
+                    value={selectedCourtId}
+                    onChange={(e) => setSelectedCourtId(e.target.value)}
+                    className="h-10 cursor-pointer rounded-lg border border-border bg-surfaceElevated px-3 text-sm text-foreground transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent lg:w-44"
+                  >
+                    <option value="all">Bütün Kortlar</option>
+                    {courts.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.sport_slug.toUpperCase()})
+                      </option>
+                    ))}
+                  </select>
 
-                {/* Status Filter */}
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as BookingStatus | "all")}
-                  className="flex h-10 w-full rounded-lg border border-border bg-surfaceElevated px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-all cursor-pointer"
-                >
-                  <option value="all">Bütün Statuslar (All Statuses)</option>
-                  <option value="pending_payment">Ödəniş Gözləyir</option>
-                  <option value="partially_paid">Qismən Ödənilib</option>
-                  <option value="paid">Ödənilib</option>
-                  <option value="cancelled">Ləğv edilib</option>
-                  <option value="refunded">Geri qaytarılıb</option>
-                  <option value="failed">Uğursuz</option>
-                </select>
+                  {/* Status Filter */}
+                  <select
+                    value={status}
+                    onChange={(e) =>
+                      setStatus(e.target.value as BookingStatus | "all")
+                    }
+                    className="h-10 cursor-pointer rounded-lg border border-border bg-surfaceElevated px-3 text-sm text-foreground transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent lg:w-44"
+                  >
+                    <option value="all">Bütün Statuslar</option>
+                    <option value="pending_payment">Ödəniş Gözləyir</option>
+                    <option value="partially_paid">Qismən Ödənilib</option>
+                    <option value="paid">Ödənilib</option>
+                    <option value="cancelled">Ləğv edilib</option>
+                    <option value="refunded">Geri qaytarılıb</option>
+                    <option value="failed">Uğursuz</option>
+                  </select>
 
-                {/* Date Picker Blocks */}
-                <div className="flex gap-2">
-                  <Input
-                    type="date"
-                    value={from}
-                    onChange={(e) => setFrom(e.target.value)}
-                    className="w-1/2 bg-surfaceElevated border-border text-xs"
-                    placeholder="Başlanğıc"
-                  />
-                  <Input
-                    type="date"
-                    value={to}
-                    onChange={(e) => setTo(e.target.value)}
-                    className="w-1/2 bg-surfaceElevated border-border text-xs"
-                    placeholder="Son"
-                  />
+                  {/* Date Range */}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={from}
+                      onChange={(e) => setFrom(e.target.value)}
+                      className="text-xs"
+                      aria-label="Başlanğıc tarix"
+                    />
+                    <span className="text-foregroundMuted">–</span>
+                    <Input
+                      type="date"
+                      value={to}
+                      onChange={(e) => setTo(e.target.value)}
+                      className="text-xs"
+                      aria-label="Son tarix"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Clear Filters Button */}
-              {(q || status !== "all" || selectedCourtId !== "all" || from || to) && (
-                <div className="flex justify-end">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      setQ("");
-                      setStatus("all");
-                      setSelectedCourtId("all");
-                      setFrom("");
-                      setTo("");
-                    }}
-                  >
-                    Filtrləri Təmizlə
-                  </Button>
+              {/* Active filters row */}
+              <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+                <div className="flex items-center gap-2 text-xs text-foregroundMuted">
+                  <Filter className="h-3.5 w-3.5" />
+                  <span className="font-medium tabular-nums">
+                    {bookings.length} nəticə
+                  </span>
+                  {hasActiveFilters ? (
+                    <button
+                      onClick={clearFilters}
+                      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold text-accent transition-colors hover:bg-accent/10"
+                    >
+                      <X className="h-3 w-3" />
+                      Filtrləri təmizlə
+                    </button>
+                  ) : null}
                 </div>
-              )}
-            </CardContent>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => exportBookingsCsv(bookings)}
+                  disabled={bookings.length === 0}
+                  className="gap-1.5 text-xs font-semibold"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  CSV İxrac
+                </Button>
+              </div>
+            </div>
           </Card>
 
           {/* Bookings Table */}
-          <Card className="border border-border bg-surface overflow-hidden">
+          <Card className="overflow-hidden p-0">
             {showEmpty ? (
-              <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
+              <div className="flex flex-col items-center justify-center gap-3 px-6 py-20 text-center">
                 <div className="grid h-14 w-14 place-items-center rounded-2xl bg-accent/10">
                   <CalendarDays className="h-6 w-6 text-accent" />
                 </div>
@@ -736,201 +963,269 @@ export default function ReservationsPage(): React.JSX.Element {
                   <h3 className="text-base font-semibold text-foreground">
                     Rezervasiya Tapılmadı
                   </h3>
-                  <p className="text-sm text-foregroundMuted">
-                    Seçilmiş filtrlərə uyğun heç bir rezervasiya tapılmadı.
+                  <p className="mt-1 text-sm text-foregroundMuted">
+                    {hasActiveFilters
+                      ? "Seçilmiş filtrlərə uyğun heç bir rezervasiya tapılmadı."
+                      : "Hələ heç bir rezervasiya qeydə alınmayıb."}
                   </p>
                 </div>
+                {hasActiveFilters ? (
+                  <Button variant="secondary" size="sm" onClick={clearFilters}>
+                    Filtrləri təmizlə
+                  </Button>
+                ) : null}
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="pl-6">Müştəri</TableHead>
-                    <TableHead>Kort</TableHead>
-                    <TableHead>Format</TableHead>
-                    <TableHead>Sifariş Vaxtı</TableHead>
-                    <TableHead>Müddət</TableHead>
-                    <TableHead>Məbləğ</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Yaradılma Tarixi</TableHead>
-                    <TableHead className="text-right pr-6">Əməliyyatlar</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading && (
-                    <>
-                      <RowSkeleton />
-                      <RowSkeleton />
-                      <RowSkeleton />
-                    </>
-                  )}
-                  {!isLoading &&
-                    bookings.map((booking) => {
-                      const localStart = formatDateTime(booking.starts_at);
-                      const price = (booking.total_minor / 100).toFixed(2);
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[820px] border-collapse text-left">
+                  <thead>
+                    <tr className="border-b border-border">
+                      {[
+                        "Müştəri",
+                        "Kort",
+                        "Format",
+                        "Sifariş Vaxtı",
+                        "Müddət",
+                        "Məbləğ",
+                        "Status",
+                      ].map((h) => (
+                        <th
+                          key={h}
+                          className="px-4 py-3.5 text-left text-[10px] font-bold   text-foregroundMuted first:pl-6"
+                        >
+                          {h}
+                        </th>
+                      ))}
+                      <th className="px-4 py-3.5 pr-6 text-right text-[10px] font-bold   text-foregroundMuted">
+                        Əməliyyatlar
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {isLoading && (
+                      <>
+                        <RowSkeleton />
+                        <RowSkeleton />
+                        <RowSkeleton />
+                        <RowSkeleton />
+                        <RowSkeleton />
+                      </>
+                    )}
+                    {!isLoading &&
+                      pagedBookings.map((booking) => {
+                        const isMatchDoubles = isDoublesBooking(booking);
+                        const displayNameClean = getBookerName(booking);
 
-                      let badgeVariant: "success" | "warning" | "danger" | "neutral" = "neutral";
-                      let statusLabel: string = booking.status;
-                      if (booking.status === "paid") {
-                        badgeVariant = "success";
-                        statusLabel = "Ödənilib";
-                      } else if (booking.status === "pending_payment") {
-                        badgeVariant = "warning";
-                        statusLabel = "Ödəniş Gözləyir";
-                      } else if (booking.status === "partially_paid") {
-                        badgeVariant = "warning";
-                        statusLabel = "Qismən Ödənilib";
-                      } else if (booking.status === "cancelled") {
-                        badgeVariant = "danger";
-                        statusLabel = "Ləğv edilib";
-                      } else if (booking.status === "refunded") {
-                        badgeVariant = "neutral";
-                        statusLabel = "Geri qaytarılıb";
-                      } else if (booking.status === "failed") {
-                        badgeVariant = "danger";
-                        statusLabel = "Uğursuz";
-                      }
-
-                      const isMatchDoubles = booking.booker_display_name.includes("[Doubles]") || booking.booker_display_name.includes("[Cütlü]");
-                      const displayNameClean = booking.booker_display_name
-                        .replace(/\[Cütlü \/ Doubles\]/g, "")
-                        .replace(/\[Təkli \/ Singles\]/g, "")
-                        .trim();
-
-                      return (
-                        <TableRow key={booking.id} className="hover:bg-surfaceElevated/5">
-                          <TableCell className="pl-6">
-                            <div className="flex flex-col">
-                              <span className="font-semibold text-foreground">{displayNameClean}</span>
-                              <span className="text-[11px] text-foregroundMuted">{booking.booker_email}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <span className="font-semibold text-accent">{booking.court_name}</span>
-                          </TableCell>
-                          <TableCell>
-                            {isMatchDoubles ? (
-                              <Badge variant="success" className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5">
-                                Cütlü (2v2)
-                              </Badge>
-                            ) : (
-                              <Badge variant="warning" className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 bg-blue-500/10 text-blue-400 border-blue-500/20">
-                                Təkli (1v1)
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="font-medium text-foreground">
-                            {localStart}
-                          </TableCell>
-                          <TableCell className="text-foregroundMuted">
-                            {booking.duration_minutes} dəqiqə
-                          </TableCell>
-                          <TableCell className="font-semibold text-foreground">
-                            {price} {booking.currency}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={badgeVariant}>
-                              {statusLabel}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-foregroundMuted text-xs">
-                            {formatDate(booking.created_at)}
-                          </TableCell>
-                          <TableCell className="text-right pr-6">
-                            <div className="flex justify-end gap-1.5">
-                              {(booking.status === "pending_payment" || booking.status === "partially_paid") && (
-                                <Button
-                                  variant="primary"
-                                  size="sm"
-                                  onClick={() => setConfirmPaid(booking)}
-                                >
-                                  Ödənildi
-                                </Button>
-                              )}
-                              {booking.status !== "cancelled" && booking.status !== "refunded" && (
-                                <Button
-                                  variant="secondary"
-                                  size="sm"
-                                  onClick={() => setConfirmCancel(booking)}
-                                >
-                                  Ləğv et
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                </TableBody>
-              </Table>
+                        return (
+                          <tr
+                            key={booking.id}
+                            onClick={() => setDetail(booking)}
+                            className="group cursor-pointer border-b border-border transition-colors last:border-b-0 hover:bg-surfaceElevated/40"
+                          >
+                            <td className="py-3 pl-6 pr-4">
+                              <div className="flex items-center gap-3">
+                                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent/10 font-display text-[11px] font-bold text-accent">
+                                  {initialsOf(displayNameClean)}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-semibold text-foreground">
+                                    {displayNameClean}
+                                  </p>
+                                  <p className="truncate text-[11px] text-foregroundMuted">
+                                    {getBookerEmail(booking) || "—"}
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="text-sm font-semibold text-accent">
+                                {booking.court_name}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold   ${
+                                  isMatchDoubles
+                                    ? "border-accent/30 bg-accent/10 text-accent"
+                                    : "border-info/30 bg-info/10 text-info"
+                                }`}
+                              >
+                                {isMatchDoubles ? "Cütlü" : "Təkli"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm font-medium tabular-nums text-foreground">
+                              {formatDateTime(booking.starts_at)}
+                            </td>
+                            <td className="px-4 py-3 text-sm tabular-nums text-foregroundMuted">
+                              {booking.duration_minutes} dəq
+                            </td>
+                            <td className="px-4 py-3 font-display text-sm font-bold tabular-nums text-foreground">
+                              {(booking.total_minor / 100).toFixed(2)}{" "}
+                              <span className="text-xs font-semibold text-foregroundMuted">
+                                {booking.currency}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <StatusPill status={booking.status} />
+                            </td>
+                            <td
+                              className="py-3 pl-4 pr-6 text-right"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="flex justify-end gap-1.5">
+                                {(booking.status === "pending_payment" ||
+                                  booking.status === "partially_paid") && (
+                                  <Button
+                                    variant="primary"
+                                    size="sm"
+                                    onClick={() => setConfirmPaid(booking)}
+                                  >
+                                    Ödənildi
+                                  </Button>
+                                )}
+                                {booking.status !== "cancelled" &&
+                                  booking.status !== "refunded" && (
+                                    <Button
+                                      variant="secondary"
+                                      size="sm"
+                                      onClick={() => setConfirmCancel(booking)}
+                                    >
+                                      Ləğv et
+                                    </Button>
+                                  )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
             )}
+
+            {/* Pagination */}
+            {!isLoading && bookings.length > PAGE_SIZE ? (
+              <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-3.5">
+                <p className="text-xs text-foregroundMuted tabular-nums">
+                  <span className="font-semibold text-foreground">
+                    {safePage * PAGE_SIZE + 1}–
+                    {Math.min((safePage + 1) * PAGE_SIZE, bookings.length)}
+                  </span>{" "}
+                  / {bookings.length}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={safePage === 0}
+                    className="gap-1"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Əvvəlki
+                  </Button>
+                  <span className="px-1 text-xs font-semibold text-foregroundMuted tabular-nums">
+                    {safePage + 1} / {pageCount}
+                  </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() =>
+                      setPage((p) => Math.min(pageCount - 1, p + 1))
+                    }
+                    disabled={safePage >= pageCount - 1}
+                    className="gap-1"
+                  >
+                    Növbəti
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </Card>
         </div>
       )}
 
-      {/* ───────────────────────── DIALOG 1: NEW WALK-IN RESERVATION ───────────────────────── */}
+      {/* ─── Detail Slide-over Drawer ────────────────────────────────────── */}
+      <BookingDrawer
+        booking={detail}
+        onClose={() => setDetail(null)}
+        onMarkPaid={(b) => setConfirmPaid(b)}
+        onCancel={(b) => setConfirmCancel(b)}
+      />
+
+      {/* ─── DIALOG 1: NEW WALK-IN RESERVATION ───────────────────────────── */}
       <Dialog
         open={isCreateOpen}
         onOpenChange={(open) => {
           if (!open) {
             setIsCreateOpen(false);
             setCreateSlot(null);
-            setBookerName("");
-            setBookerEmail("");
-            setDurationMode("standard");
-            setStandardDuration(60);
+            resetCreateForm();
           }
         }}
-        title="Yeni Rezervasiya (Walk-in Sifariş)"
+        title="Yeni Rezervasiya (Walk-in)"
       >
         <form onSubmit={handleCreateWalkIn} className="space-y-4">
           {createSlot && (
-            <div className="bg-surfaceElevated p-4 rounded-xl border border-border space-y-1">
-              <div className="text-[10px] text-foregroundMuted uppercase font-bold tracking-wider flex items-center gap-1">
-                <MapPin className="h-3 w-3 text-accent" />
+            <div className="rounded-xl border border-accent/25 bg-accent/[0.06] p-4">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold   text-accent">
+                <MapPin className="h-3 w-3" />
                 Seçilmiş Kort və Vaxt
               </div>
-              <div className="text-sm font-bold text-accent">{createSlot.courtName}</div>
-              <div className="text-xs text-foreground font-medium">
+              <div className="mt-1.5 font-display text-sm font-bold text-foreground">
+                {createSlot.courtName}
+              </div>
+              <div className="text-xs font-medium text-foregroundMuted">
                 {formatDateTime(createSlot.startsAt)}
               </div>
             </div>
           )}
 
-          {/* Matchmaking Selection Tab */}
+          {/* Matchmaking Selection */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-bold uppercase tracking-wider text-foregroundMuted">Oyun Formatı</Label>
-            <div className="grid grid-cols-2 gap-2 bg-surfaceElevated/50 p-1 rounded-xl border border-border">
-              <Button
-                type="button"
-                variant={matchType === "singles" ? "primary" : "secondary"}
-                className="w-full text-xs font-semibold rounded-lg h-9"
-                onClick={() => setMatchType("singles")}
-              >
-                Təkli (1v1)
-              </Button>
-              <Button
-                type="button"
-                variant={matchType === "doubles" ? "primary" : "secondary"}
-                className="w-full text-xs font-semibold rounded-lg h-9"
-                onClick={() => setMatchType("doubles")}
-              >
-                Cütlü (2v2)
-              </Button>
+            <Label className="text-[10px] font-bold   text-foregroundMuted">
+              Oyun Formatı
+            </Label>
+            <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-surfaceElevated/50 p-1">
+              {(
+                [
+                  ["singles", "Təkli (1v1)"],
+                  ["doubles", "Cütlü (2v2)"],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setMatchType(key)}
+                  className={`h-9 rounded-lg text-xs font-semibold transition-colors ${
+                    matchType === key
+                      ? "bg-accent text-accent-ink"
+                      : "text-foregroundMuted hover:bg-surfaceElevated hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Booker Display Name */}
+          {/* Booker Name */}
           <div className="space-y-1.5">
-            <Label htmlFor="booker-name" className="text-xs font-bold uppercase tracking-wider text-foregroundMuted">Müştərinin Adı və Soyadı</Label>
+            <Label
+              htmlFor="booker-name"
+              className="text-[10px] font-bold   text-foregroundMuted"
+            >
+              Müştərinin Adı və Soyadı
+            </Label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foregroundMuted" />
+              <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foregroundMuted" />
               <Input
                 id="booker-name"
                 value={bookerName}
                 onChange={(e) => setBookerName(e.target.value)}
                 placeholder="Məs. Kamran Namazov"
-                className="pl-9 bg-surfaceElevated border-border"
+                className="pl-9"
                 required
               />
             </div>
@@ -938,142 +1233,175 @@ export default function ReservationsPage(): React.JSX.Element {
 
           {/* Booker Email */}
           <div className="space-y-1.5">
-            <Label htmlFor="booker-email" className="text-xs font-bold uppercase tracking-wider text-foregroundMuted">Müştərinin E-poçt Ünvanı</Label>
+            <Label
+              htmlFor="booker-email"
+              className="text-[10px] font-bold   text-foregroundMuted"
+            >
+              Müştərinin E-poçt Ünvanı
+            </Label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foregroundMuted" />
+              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foregroundMuted" />
               <Input
                 id="booker-email"
                 type="email"
                 value={bookerEmail}
                 onChange={(e) => setBookerEmail(e.target.value)}
                 placeholder="Məs. kamran@linkfit.az"
-                className="pl-9 bg-surfaceElevated border-border"
+                className="pl-9"
                 required
               />
             </div>
-            <p className="text-[10px] text-foregroundMuted/80 italic">
-              Qeyd edilən e-poçt üzrə sistemdə istifadəçi yoxdursa, avtomatik müvəqqəti qonaq hesabı yaradılacaq.
+            <p className="text-[10px] italic text-foregroundMuted/80">
+              Qeyd edilən e-poçt üzrə sistemdə istifadəçi yoxdursa, avtomatik
+              müvəqqəti qonaq hesabı yaradılacaq.
             </p>
           </div>
 
-          {/* Duration Mode Selection */}
+          {/* Duration Mode */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-bold uppercase tracking-wider text-foregroundMuted">Sifarişin Müddəti</Label>
-            <div className="grid grid-cols-2 gap-2 bg-surfaceElevated/50 p-1 rounded-xl border border-border">
-              <Button
-                type="button"
-                variant={durationMode === "standard" ? "primary" : "secondary"}
-                className="w-full text-xs font-semibold rounded-lg h-9"
-                onClick={() => setDurationMode("standard")}
-              >
-                Standart Saatlar
-              </Button>
-              <Button
-                type="button"
-                variant={durationMode === "custom" ? "primary" : "secondary"}
-                className="w-full text-xs font-semibold rounded-lg h-9"
-                onClick={() => setDurationMode("custom")}
-              >
-                Xüsusi Müddət
-              </Button>
+            <Label className="text-[10px] font-bold   text-foregroundMuted">
+              Sifarişin Müddəti
+            </Label>
+            <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-surfaceElevated/50 p-1">
+              {(
+                [
+                  ["standard", "Standart Saatlar"],
+                  ["custom", "Xüsusi Müddət"],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setDurationMode(key)}
+                  className={`h-9 rounded-lg text-xs font-semibold transition-colors ${
+                    durationMode === key
+                      ? "bg-accent text-accent-ink"
+                      : "text-foregroundMuted hover:bg-surfaceElevated hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
 
           {/* Duration Selector */}
           {durationMode === "standard" ? (
-            <div className="space-y-1.5">
-              <select
-                id="duration-minutes-select"
-                value={standardDuration}
-                onChange={(e) => setStandardDuration(Number(e.target.value))}
-                className="flex h-10 w-full rounded-lg border border-border bg-surfaceElevated px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent cursor-pointer"
-              >
-                <option value={60}>60 dəqiqə (1 saat)</option>
-                <option value={90}>90 dəqiqə (1.5 saat)</option>
-                <option value={120}>120 dəqiqə (2 saat)</option>
-                <option value={180}>180 dəqiqə (3 saat)</option>
-                <option value={240}>240 dəqiqə (4 saat)</option>
-              </select>
-            </div>
+            <select
+              id="duration-minutes-select"
+              value={standardDuration}
+              onChange={(e) => setStandardDuration(Number(e.target.value))}
+              className="h-10 w-full cursor-pointer rounded-lg border border-border bg-surfaceElevated px-3 text-sm text-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            >
+              <option value={60}>60 dəqiqə (1 saat)</option>
+              <option value={90}>90 dəqiqə (1.5 saat)</option>
+              <option value={120}>120 dəqiqə (2 saat)</option>
+              <option value={180}>180 dəqiqə (3 saat)</option>
+              <option value={240}>240 dəqiqə (4 saat)</option>
+            </select>
           ) : (
-            <div className="space-y-1.5 animate-in slide-in-from-top-1 duration-150">
-              <Label htmlFor="custom-duration-input" className="text-xs text-foregroundMuted">Müddət (Dəqiqə ilə, addım: 15 dəqiqə)</Label>
+            <div className="animate-in slide-in-from-top-1 space-y-1.5 duration-150">
+              <Label
+                htmlFor="custom-duration-input"
+                className="text-xs text-foregroundMuted"
+              >
+                Müddət (Dəqiqə ilə, addım: 15 dəqiqə)
+              </Label>
               <div className="flex gap-2">
                 <Input
                   id="custom-duration-input"
                   type="number"
                   value={customMinutes}
-                  onChange={(e) => setCustomMinutes(Math.max(15, Number(e.target.value)))}
+                  onChange={(e) =>
+                    setCustomMinutes(Math.max(15, Number(e.target.value)))
+                  }
                   step={15}
                   min={15}
                   max={480}
-                  className="bg-surfaceElevated border-border text-center font-bold tabular-nums"
+                  className="text-center font-bold tabular-nums"
                 />
-                <span className="flex items-center text-xs font-bold text-foreground bg-surfaceElevated px-3 rounded-lg border border-border shrink-0">
+                <span className="flex shrink-0 items-center rounded-lg border border-border bg-surfaceElevated px-3 text-xs font-bold text-foreground">
                   {(customMinutes / 60).toFixed(2)} saat
                 </span>
               </div>
             </div>
           )}
 
-          {/* Instant Price / Cost calculation Display - High Contrast premium layout */}
-          <div className="bg-surfaceElevated p-4 rounded-xl border border-border flex items-center justify-between shadow-inner">
+          {/* Live price quote */}
+          <div className="flex items-center justify-between rounded-xl border border-border bg-surfaceElevated p-4">
             <div>
-              <span className="text-xs text-foregroundMuted font-bold uppercase tracking-wider flex items-center gap-1">
-                <DollarSign className="h-3.5 w-3.5 text-accent" />
+              <span className="flex items-center gap-1 text-[10px] font-bold   text-foregroundMuted">
+                <Wallet className="h-3.5 w-3.5 text-accent" />
                 Ödəniləcək Məbləğ
               </span>
-              <p className="text-[10px] text-foregroundMuted/80 italic mt-0.5">Nağd / Terminal yerində ödəniş</p>
+              <p className="mt-0.5 text-[10px] italic text-foregroundMuted/80">
+                Nağd / Terminal yerində ödəniş
+              </p>
             </div>
-            <div className="text-right">
-              <span className="text-2xl font-bold text-accent tabular-nums">
-                {calculatedPrice} {createSlot?.currency || "AZN"}
+            <span className="font-display text-2xl font-bold tabular-nums text-accent">
+              {calculatedPrice}{" "}
+              <span className="text-sm text-foregroundMuted">
+                {createSlot?.currency || "AZN"}
               </span>
-            </div>
+            </span>
           </div>
 
-          {/* Dialog Action Buttons */}
-          <div className="flex justify-end gap-2 pt-4 border-t border-border">
+          {/* Paid-on-create toggle */}
+          <label className="flex cursor-pointer select-none items-center gap-3 rounded-xl border border-border bg-surfaceElevated/50 p-3">
+            <input
+              type="checkbox"
+              checked={markPaidOnCreate}
+              onChange={(e) => setMarkPaidOnCreate(e.target.checked)}
+              className="h-4 w-4 rounded border-border accent-accent"
+            />
+            <span className="text-sm font-medium text-foreground">
+              Ödəniş yerində alınıb (nağd / terminal)
+              <span className="block text-[10px] font-normal text-foregroundMuted/80">
+                İşarələnsə, sifariş dərhal &quot;Ödənilib&quot; statusu ilə
+                yaradılacaq.
+              </span>
+            </span>
+          </label>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
             <Button
               type="button"
               variant="secondary"
               onClick={() => {
                 setIsCreateOpen(false);
-                setBookerName("");
-                setBookerEmail("");
-                setDurationMode("standard");
-                setStandardDuration(60);
+                resetCreateForm();
                 setCreateSlot(null);
               }}
-              disabled={createMut.isPending}
+              disabled={creating}
             >
               İmtina
             </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={createMut.isPending}
-              className="flex items-center gap-1.5"
-            >
-              {createMut.isPending ? "Rezervasiya edilir..." : "Sifarişi Təsdiqlə"}
+            <Button type="submit" variant="primary" disabled={creating}>
+              {creating ? "Rezervasiya edilir…" : "Sifarişi Təsdiqlə"}
             </Button>
           </div>
         </form>
       </Dialog>
 
-      {/* ───────────────────────── DIALOG 2: CANCEL CONFIRMATION ───────────────────────── */}
+      {/* ─── DIALOG 2: CANCEL CONFIRMATION ───────────────────────────────── */}
       <Dialog
         open={confirmCancel !== null}
         onOpenChange={(open) => (open ? null : setConfirmCancel(null))}
         title="Rezervasiyanın Ləğv Edilməsi"
       >
         <div className="space-y-4">
-          <p className="text-sm text-foregroundMuted leading-relaxed">
-            Kort <span className="font-semibold text-foreground">&quot;{confirmCancel?.court_name}&quot;</span> üçün{" "}
+          <p className="text-sm leading-relaxed text-foregroundMuted">
+            Kort{" "}
             <span className="font-semibold text-foreground">
-              {confirmCancel?.booker_display_name.replace(/\[Cütlü \/ Doubles\]/g, "").replace(/\[Təkli \/ Singles\]/g, "").trim()}
+              &quot;{confirmCancel?.court_name}&quot;
             </span>{" "}
-            tərəfindən edilmiş sifarişi ləğv etməyə əminsiniz? Seçilmiş vaxt slotu dərhal boşalacaqdır.
+            üçün{" "}
+            <span className="font-semibold text-foreground">
+              {confirmCancel ? getBookerName(confirmCancel) : ""}
+            </span>{" "}
+            tərəfindən edilmiş sifarişi ləğv etməyə əminsiniz? Seçilmiş vaxt
+            slotu dərhal boşalacaqdır.
           </p>
           <div className="flex justify-end gap-2">
             <Button
@@ -1088,26 +1416,32 @@ export default function ReservationsPage(): React.JSX.Element {
               onClick={handleCancel}
               disabled={cancelMut.isPending}
             >
-              {cancelMut.isPending ? "Ləğv edilir..." : "Bəli, ləğv edilsin"}
+              {cancelMut.isPending ? "Ləğv edilir…" : "Bəli, ləğv edilsin"}
             </Button>
           </div>
         </div>
       </Dialog>
 
-      {/* ───────────────────────── DIALOG 3: MARK PAID CONFIRMATION ───────────────────────── */}
+      {/* ─── DIALOG 3: MARK PAID CONFIRMATION ────────────────────────────── */}
       <Dialog
         open={confirmPaid !== null}
         onOpenChange={(open) => (open ? null : setConfirmPaid(null))}
         title="Ödənişin Təsdiq Edilməsi"
       >
         <div className="space-y-4">
-          <p className="text-sm text-foregroundMuted leading-relaxed">
+          <p className="text-sm leading-relaxed text-foregroundMuted">
             <span className="font-semibold text-foreground">
-              {confirmPaid?.booker_display_name.replace(/\[Cütlü \/ Doubles\]/g, "").replace(/\[Təkli \/ Singles\]/g, "").trim()}
+              {confirmPaid ? getBookerName(confirmPaid) : ""}
             </span>{" "}
-            tərəfindən kort <span className="font-semibold text-foreground">&quot;{confirmPaid?.court_name}&quot;</span> üçün yerində (walk-in) edilən{" "}
-            <span className="font-semibold text-emerald-500">
-              {(Number(confirmPaid?.total_minor) / 100).toFixed(2)} {confirmPaid?.currency}
+            tərəfindən kort{" "}
+            <span className="font-semibold text-foreground">
+              &quot;{confirmPaid?.court_name}&quot;
+            </span>{" "}
+            üçün yerində (walk-in) edilən{" "}
+            <span className="font-semibold text-accent">
+              {confirmPaid
+                ? money(confirmPaid.total_minor, confirmPaid.currency)
+                : ""}
             </span>{" "}
             həcmində ödənişin qəbul edildiyini təsdiqləyirsiniz?
           </p>
@@ -1124,7 +1458,7 @@ export default function ReservationsPage(): React.JSX.Element {
               onClick={handleMarkPaid}
               disabled={markPaidMut.isPending}
             >
-              {markPaidMut.isPending ? "Gözləyin..." : "Ödənişi Təsdiqlə"}
+              {markPaidMut.isPending ? "Gözləyin…" : "Ödənişi Təsdiqlə"}
             </Button>
           </div>
         </div>

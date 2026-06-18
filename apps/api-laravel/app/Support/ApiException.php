@@ -40,6 +40,16 @@ final class ApiException extends RuntimeException
         return new self(401, 'UNAUTHENTICATED', $message);
     }
 
+    /**
+     * Refresh-token reuse/theft detected — the whole token family was revoked.
+     * Distinct wire code (not plain UNAUTHENTICATED) so clients can react
+     * deterministically instead of matching the English message string.
+     */
+    public static function tokenReuse(string $message = 'Refresh token reuse detected'): self
+    {
+        return new self(401, 'TOKEN_REUSE', $message);
+    }
+
     public static function forbidden(string $message = 'Forbidden'): self
     {
         return new self(403, 'FORBIDDEN', $message);

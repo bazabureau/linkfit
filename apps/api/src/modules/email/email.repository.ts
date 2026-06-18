@@ -7,15 +7,15 @@ interface EmailTokenRow {
   user_id: string;
   kind: EmailTokenKind;
   token_hash: Buffer;
+  attempts: number;
   expires_at: Date;
   used_at: Date | null;
   created_at: Date;
 }
 
 export const emailRepository = {
-  /** Insert a fresh magic-link token. The (token_hash) UNIQUE constraint
-   *  guarantees we never collide — sha256 over 32 random bytes makes this
-   *  vanishingly unlikely anyway. */
+  /** Insert a fresh email token/code. Verification codes are user-scoped, so
+   *  token_hash is indexed for lookup but not globally unique. */
   async insertToken(
     db: Executor,
     params: {
@@ -70,6 +70,60 @@ export const emailRepository = {
       .where("kind", "=", kind)
       .executeTakeFirst();
     return row ?? null;
+  },
+
+  async findLatestPendingForUser(
+    db: Executor,
+    userId: string,
+    kind: EmailTokenKind,
+  ): Promise<EmailTokenRow | null> {
+    const row = await db
+      .selectFrom("email_tokens")
+      .selectAll()
+      .where("user_id", "=", userId)
+      .where("kind", "=", kind)
+      .where("used_at", "is", null)
+      .orderBy("created_at", "desc")
+      .limit(1)
+      .executeTakeFirst();
+    return row ?? null;
+  },
+
+  async invalidatePendingForUser(
+    db: Executor,
+    userId: string,
+    kind: EmailTokenKind,
+  ): Promise<void> {
+    await db
+      .updateTable("email_tokens")
+      .set({ used_at: new Date() })
+      .where("user_id", "=", userId)
+      .where("kind", "=", kind)
+      .where("used_at", "is", null)
+      .execute();
+  },
+
+  async incrementAttempts(
+    db: Executor,
+    id: string,
+  ): Promise<EmailTokenRow | null> {
+    const row = await db
+      .updateTable("email_tokens")
+      .set((eb) => ({ attempts: eb("attempts", "+", 1) }))
+      .where("id", "=", id)
+      .where("used_at", "is", null)
+      .returningAll()
+      .executeTakeFirst();
+    return row ?? null;
+  },
+
+  async invalidateToken(db: Executor, id: string): Promise<void> {
+    await db
+      .updateTable("email_tokens")
+      .set({ used_at: new Date() })
+      .where("id", "=", id)
+      .where("used_at", "is", null)
+      .execute();
   },
 
   /** Atomic single-shot consume. Returns the row only if THIS call flipped

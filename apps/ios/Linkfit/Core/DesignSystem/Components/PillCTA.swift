@@ -28,7 +28,6 @@ struct PillCTA: View {
             .background(
                 Capsule()
                     .fill(DSColor.accent)
-                    .shadow(color: DSColor.accent.opacity(0.35), radius: 18, x: 0, y: 10)
             )
             .opacity(isEnabled ? 1 : 0.55)
             .contentShape(Capsule())
