@@ -25,6 +25,7 @@ struct VenueReviewsView: View {
     /// Review the user has tapped "delete" on; drives the destructive
     /// confirmation dialog so a deletion is never one accidental tap.
     @State private var pendingDelete: VenueReview?
+    @State private var reportPayload: ReportTargetPayload?
 
     var body: some View {
         ZStack {
@@ -71,6 +72,7 @@ struct VenueReviewsView: View {
         } message: { _ in
             Text("venue_reviews.delete.confirm.message")
         }
+        .reportSheet(payload: $reportPayload)
         .task { await viewModel.onAppear() }
         .refreshable { await viewModel.load() }
     }
@@ -178,6 +180,13 @@ struct VenueReviewsView: View {
                           },
                           onDelete: {
                               pendingDelete = review
+                          },
+                          onReport: {
+                              reportPayload = ReportTargetPayload(
+                                  kind: .venue_review,
+                                  targetId: review.id,
+                                  targetDisplayName: review.author.display_name
+                              )
                           })
                 .onAppear {
                     // Last row → load the next page.
@@ -230,6 +239,7 @@ private struct ReviewRow: View {
     let isMine: Bool
     let onEdit: () -> Void
     let onDelete: () -> Void
+    let onReport: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
@@ -267,6 +277,21 @@ private struct ReviewRow: View {
                             .foregroundStyle(DSColor.textSecondary)
                             // Guarantee a HIG-compliant 44pt tap target —
                             // an 18pt glyph alone is far too small to hit.
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel(Text("venue_reviews.row.more_actions"))
+                } else {
+                    Menu {
+                        Button(role: .destructive) {
+                            onReport()
+                        } label: {
+                            Label("venue_reviews.row.report", systemImage: "flag")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(DSColor.textSecondary)
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }

@@ -137,6 +137,14 @@ class MobileController extends ApiController
                 'bookings' => true,
                 'payments' => true,
                 'deep_links' => true,
+                'user_reporting' => true,
+                'content_reporting' => true,
+                'user_blocking' => true,
+                'blocked_users_management' => true,
+                'account_deletion' => true,
+                'account_data_export' => true,
+                'content_deletion' => true,
+                'moderation_review' => true,
             ],
         ];
     }

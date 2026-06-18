@@ -3,11 +3,10 @@ import SwiftUI
 // =============================================================================
 // REPORTS INTEGRATION HOOK
 // -----------------------------------------------------------------------------
-// TODO(profile-agent, messaging-agent, games-agent): This file documents how
-// other screens should wire the ReportSheet into their context menus. The
-// Reports agent does NOT touch your view files — those are owned by your
-// agents — so each owner needs to drop a couple of lines into the screens
-// listed below.
+// This file documents how screens wire the shared ReportSheet into context
+// menus. Profile, games, stories, feed comments, feed posts, and venue reviews
+// already mount the sheet directly. New UGC surfaces should follow the same
+// pattern below.
 //
 // USAGE (one-time per screen):
 //
@@ -33,13 +32,8 @@ import SwiftUI
 //   The `reportSheet` modifier below handles VM construction, environment
 //   plumbing, and dismissal — the host only owns the payload state.
 //
-// SCREENS STILL TO INTEGRATE (after coordinating with the owning agents):
-//   - ProfileView.swift              → "..." menu → "Report user"
-//   - MessageBubbleView (Messages)   → long-press menu → "Report message"
-//   - GameDetailView.swift           → host's "..." menu → "Report game"
-//
-// We intentionally don't ship the wiring here because those files are owned
-// by other agents and our task is to land the reusable sheet + endpoint.
+// Existing target kinds:
+//   - user, game, message, story, feed_event, feed_comment, venue_review, media
 // =============================================================================
 
 /// Payload the host view sets to trigger the sheet. Conforms to `Identifiable`

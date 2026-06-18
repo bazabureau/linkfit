@@ -17,11 +17,14 @@ class ReportsController extends ApiController
     {
         $user = $this->authUser($request);
         $data = $this->validateBody($request, [
-            'target_kind' => ['required', 'in:user,game,message,story,feed_comment'],
+            'target_kind' => ['required', 'in:user,game,message,story,feed_event,feed_comment,venue_review,media'],
             'target_id' => ['required', 'uuid'],
             'reason' => ['required', 'in:spam,harassment,no_show,fake_profile,inappropriate_content,other'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ]);
+        if ($data['target_kind'] === 'user' && (string) $user->id === (string) $data['target_id']) {
+            throw ApiException::validation('You cannot report yourself');
+        }
         if (! $this->targetExists($data['target_kind'], $data['target_id'])) {
             throw ApiException::notFound('Report target not found');
         }
@@ -272,6 +275,29 @@ class ReportsController extends ApiController
                 'expires_at' => $this->iso($row->expires_at),
             ];
         }
+        if ($kind === 'feed_event') {
+            $row = DB::table('feed_events as f')
+                ->leftJoin('users as u', 'u.id', '=', 'f.actor_user_id')
+                ->where('f.id', $id)
+                ->first(['f.id', 'f.type', 'f.actor_user_id', 'f.payload', 'f.visibility', 'f.created_at', 'u.display_name as actor_display_name', 'u.email as actor_email']);
+            if ($row === null) {
+                return null;
+            }
+
+            return [
+                'id' => (string) $row->id,
+                'kind' => 'feed_event',
+                'type' => $row->type,
+                'visibility' => $row->visibility,
+                'payload' => json_decode((string) $row->payload, true) ?: null,
+                'actor' => [
+                    'id' => (string) $row->actor_user_id,
+                    'display_name' => $row->actor_display_name,
+                    'email' => $row->actor_email,
+                ],
+                'created_at' => $this->iso($row->created_at),
+            ];
+        }
         if ($kind === 'feed_comment') {
             $row = DB::table('feed_comments as fc')
                 ->leftJoin('users as u', 'u.id', '=', 'fc.user_id')
@@ -291,6 +317,57 @@ class ReportsController extends ApiController
                     'display_name' => $row->author_display_name,
                     'email' => $row->author_email,
                 ],
+                'created_at' => $this->iso($row->created_at),
+            ];
+        }
+        if ($kind === 'venue_review') {
+            $row = DB::table('venue_reviews as vr')
+                ->leftJoin('users as u', 'u.id', '=', 'vr.author_user_id')
+                ->leftJoin('venues as v', 'v.id', '=', 'vr.venue_id')
+                ->where('vr.id', $id)
+                ->first(['vr.id', 'vr.venue_id', 'vr.author_user_id', 'vr.rating', 'vr.body', 'vr.created_at', 'u.display_name as author_display_name', 'u.email as author_email', 'v.name as venue_name']);
+            if ($row === null) {
+                return null;
+            }
+
+            return [
+                'id' => (string) $row->id,
+                'kind' => 'venue_review',
+                'venue' => [
+                    'id' => (string) $row->venue_id,
+                    'name' => $row->venue_name,
+                ],
+                'rating' => (int) $row->rating,
+                'body' => mb_substr((string) $row->body, 0, 500),
+                'author' => [
+                    'id' => (string) $row->author_user_id,
+                    'display_name' => $row->author_display_name,
+                    'email' => $row->author_email,
+                ],
+                'created_at' => $this->iso($row->created_at),
+            ];
+        }
+        if ($kind === 'media') {
+            $row = DB::table('media_assets as m')
+                ->leftJoin('users as u', 'u.id', '=', 'm.user_id')
+                ->where('m.id', $id)
+                ->first(['m.id', 'm.user_id', 'm.url', 'm.mime', 'm.purpose', 'm.created_at', 'm.deleted_at', 'u.display_name as owner_display_name', 'u.email as owner_email']);
+            if ($row === null) {
+                return null;
+            }
+
+            return [
+                'id' => (string) $row->id,
+                'kind' => 'media',
+                'url' => $row->url,
+                'mime' => $row->mime,
+                'purpose' => $row->purpose,
+                'deleted_at' => $this->iso($row->deleted_at),
+                'owner' => $row->user_id ? [
+                    'id' => (string) $row->user_id,
+                    'display_name' => $row->owner_display_name,
+                    'email' => $row->owner_email,
+                ] : null,
                 'created_at' => $this->iso($row->created_at),
             ];
         }

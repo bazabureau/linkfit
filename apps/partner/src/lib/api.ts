@@ -7,7 +7,7 @@ import {
 } from "./cookies";
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8788";
 
 // The app is served under a basePath (default `/owner`). Raw browser
 // navigations (window.location) are NOT basePath-prefixed by Next.js, so we

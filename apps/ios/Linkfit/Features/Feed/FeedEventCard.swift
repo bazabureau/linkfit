@@ -35,6 +35,10 @@ struct FeedEventCard: View {
     /// has fetched one). The label is left-aligned so the chevron
     /// stays anchored regardless of digit width.
     var commentCount: Int? = nil
+    /// Optional moderation affordance. When wired, the card exposes a
+    /// trailing menu with "Report post" so every feed event can be flagged
+    /// without needing to open comments.
+    var onReport: (() -> Void)? = nil
 
     private var target: FeedCardTarget {
         switch event.type {
@@ -76,31 +80,56 @@ struct FeedEventCard: View {
     /// the event has no useful navigation destination; the comments row
     /// stays usable either way.
     private var summaryButton: some View {
-        Button {
-            onTap(target)
-        } label: {
-            HStack(alignment: .top, spacing: DSSpacing.sm) {
-                avatar
-                VStack(alignment: .leading, spacing: 6) {
-                    summaryLine
-                    Text(relativeCreatedAt)
-                        .font(.system(.caption2, design: .default))
-                        .foregroundStyle(DSColor.textTertiary)
+        HStack(alignment: .top, spacing: 0) {
+            Button {
+                onTap(target)
+            } label: {
+                HStack(alignment: .top, spacing: DSSpacing.sm) {
+                    avatar
+                    VStack(alignment: .leading, spacing: 6) {
+                        summaryLine
+                        Text(relativeCreatedAt)
+                            .font(.system(.caption2, design: .default))
+                            .foregroundStyle(DSColor.textTertiary)
+                    }
+                    Spacer(minLength: DSSpacing.xs)
+                    if target != .none {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(DSColor.textTertiary)
+                    }
                 }
-                Spacer(minLength: DSSpacing.xs)
-                if target != .none {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(DSColor.textTertiary)
-                }
+                .padding(DSSpacing.md)
+                .contentShape(Rectangle())
             }
-            .padding(DSSpacing.md)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .disabled(target == .none)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(Text(accessibilityLabel))
+
+            if onReport != nil {
+                reportMenu
+                    .padding(.top, DSSpacing.xs)
+                    .padding(.trailing, DSSpacing.xs)
+            }
         }
-        .buttonStyle(.plain)
-        .disabled(target == .none)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text(accessibilityLabel))
+    }
+
+    private var reportMenu: some View {
+        Menu {
+            Button(role: .destructive) {
+                onReport?()
+            } label: {
+                Label("reports.menu.report_post", systemImage: "flag")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(DSColor.textSecondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel(Text("feed.event.more_actions"))
     }
 
     /// `[bubble icon] N şərh` affordance with a trailing chevron. Tapping

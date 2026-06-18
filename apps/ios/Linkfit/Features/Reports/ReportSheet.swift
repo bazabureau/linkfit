@@ -103,7 +103,10 @@ struct ReportSheet: View {
         case .game:         return "reports.header.game"
         case .message:      return "reports.header.message"
         case .story:        return "reports.header.story"
+        case .feed_event:   return "reports.header.feed_event"
         case .feed_comment: return "reports.header.feed_comment"
+        case .venue_review: return "reports.header.venue_review"
+        case .media:        return "reports.header.media"
         }
     }
 

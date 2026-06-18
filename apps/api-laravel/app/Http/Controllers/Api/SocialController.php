@@ -297,10 +297,40 @@ class SocialController extends ApiController
 
     public function block(Request $request, string $id): JsonResponse
     {
-        DB::table('user_blocks')->updateOrInsert([
-            'blocker_user_id' => $this->authUser($request)->id,
-            'blocked_user_id' => $id,
-        ], ['created_at' => now()]);
+        $user = $this->authUser($request);
+        if ((string) $user->id === $id) {
+            throw ApiException::validation('You cannot block yourself');
+        }
+        if (! DB::table('users')->where('id', $id)->whereNull('deleted_at')->exists()) {
+            throw ApiException::notFound('User not found');
+        }
+
+        DB::transaction(function () use ($user, $id) {
+            DB::table('user_blocks')->updateOrInsert([
+                'blocker_user_id' => $user->id,
+                'blocked_user_id' => $id,
+            ], ['created_at' => now()]);
+
+            DB::table('follows')
+                ->where(fn ($q) => $q->where('follower_user_id', $user->id)->where('followed_user_id', $id))
+                ->orWhere(fn ($q) => $q->where('follower_user_id', $id)->where('followed_user_id', $user->id))
+                ->delete();
+
+            $conversationIds = DB::table('conversation_participants as a')
+                ->join('conversation_participants as b', 'b.conversation_id', '=', 'a.conversation_id')
+                ->join('conversations as c', 'c.id', '=', 'a.conversation_id')
+                ->where('a.user_id', $user->id)
+                ->where('b.user_id', $id)
+                ->where(fn ($q) => $q->where('c.kind', 'direct')->orWhereNull('c.kind'))
+                ->pluck('a.conversation_id');
+
+            if ($conversationIds->isNotEmpty()) {
+                DB::table('conversation_participants')
+                    ->whereIn('conversation_id', $conversationIds->all())
+                    ->whereIn('user_id', [$user->id, $id])
+                    ->update(['left_at' => now()]);
+            }
+        });
 
         return response()->json(['ok' => true]);
     }

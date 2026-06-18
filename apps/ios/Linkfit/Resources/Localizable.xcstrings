@@ -10851,6 +10851,28 @@
         }
       }
     },
+    "feed.event.more_actions": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paylaşım üçün daha çox əməliyyat"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More actions for post"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Больше действий для публикации"
+          }
+        }
+      }
+    },
     "feed.event.joined_game": {
       "comment": "Fallback when we don't know the venue. Renders after the actor name, e.g. 'Alice joined a game.'",
       "localizations": {
@@ -28338,6 +28360,28 @@
         }
       }
     },
+    "reports.header.feed_event": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paylaşımı şikayət et"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report this post"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пожаловаться на публикацию"
+          }
+        }
+      }
+    },
     "reports.header.game": {
       "localizations": {
         "az": {
@@ -28382,6 +28426,28 @@
         }
       }
     },
+    "reports.header.media": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medianı şikayət et"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report this media"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пожаловаться на медиа"
+          }
+        }
+      }
+    },
     "reports.header.story": {
       "localizations": {
         "az": {
@@ -28400,6 +28466,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Пожаловаться на историю"
+          }
+        }
+      }
+    },
+    "reports.header.venue_review": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rəyi şikayət et"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report this review"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пожаловаться на отзыв"
           }
         }
       }
@@ -28467,6 +28555,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Пожаловаться на комментарий"
+          }
+        }
+      }
+    },
+    "reports.menu.report_post": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paylaşımı şikayət et"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report post"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пожаловаться на публикацию"
           }
         }
       }
@@ -39044,6 +39154,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Изменить"
+          }
+        }
+      }
+    },
+    "venue_reviews.row.report": {
+      "localizations": {
+        "az": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rəyi şikayət et"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report review"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пожаловаться на отзыв"
           }
         }
       }

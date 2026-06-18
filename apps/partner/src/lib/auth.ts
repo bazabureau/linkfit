@@ -37,8 +37,11 @@ export async function loginAdmin(
   email: string,
   password: string,
 ): Promise<AdminUser> {
+  // Use the role-gated owner endpoint: the API enforces the `partner` role
+  // (and that the account is linked to a venue) server-side, and never issues a
+  // session for other accounts. The check below is client-side defense-in-depth.
   const session = await api.post<AuthSession>(
-    "/api/v1/auth/login",
+    "/api/v1/auth/owner/login",
     { email, password },
     { skipAuth: true, skipRefresh: true },
   );

@@ -43,9 +43,16 @@ class TournamentsController extends ApiController
             ->join('sports as s', 's.id', '=', 't.sport_id')
             ->leftJoin('venues as v', 'v.id', '=', 't.venue_id')
             ->where('e.captain_user_id', $user->id)
+            ->where('e.status', '!=', 'withdrawn')
             ->whereIn('s.slug', ['padel', 'tennis'])
             ->orderBy('t.starts_at')
-            ->get(['t.*', 's.slug as sport_slug', 'v.name as venue_name']);
+            ->get([
+                't.*',
+                's.slug as sport_slug',
+                'v.name as venue_name',
+                'e.id as entry_id',
+                'e.status as entry_status',
+            ]);
 
         return response()->json(['items' => $rows->map(fn ($r) => $this->payload($r))]);
     }
@@ -427,6 +434,8 @@ class TournamentsController extends ApiController
             'entries_count' => isset($r->entries_count)
                 ? (int) $r->entries_count
                 : DB::table('tournament_entries')->where('tournament_id', $r->id)->where('status', '!=', 'withdrawn')->count(),
+            'entry_id' => $r->entry_id ?? null,
+            'entry_status' => $r->entry_status ?? null,
             'created_at' => $this->iso($r->created_at),
         ];
     }

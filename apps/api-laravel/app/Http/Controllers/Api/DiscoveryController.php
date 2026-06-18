@@ -583,6 +583,9 @@ class DiscoveryController extends ApiController
         $user = $this->authUser($request);
         $rows = DB::table('games as g')
             ->join('sports as s', 's.id', '=', 'g.sport_id')
+            ->join('users as h', 'h.id', '=', 'g.host_user_id')
+            ->leftJoin('courts as c', 'c.id', '=', 'g.court_id')
+            ->leftJoin('venues as v', 'v.id', '=', 'c.venue_id')
             ->where('g.host_user_id', '!=', $user->id)
             ->where('g.status', 'open')
             ->where('g.visibility', 'public')
@@ -591,7 +594,21 @@ class DiscoveryController extends ApiController
             ->when(true, fn ($q) => $this->whereNotBlocked($q, (string) $user->id, 'g.host_user_id'))
             ->orderBy('g.starts_at')
             ->limit(50)
-            ->get(['g.id', 'g.sport_id', 's.slug as sport_slug', 'g.starts_at', 'g.capacity', 'g.lat', 'g.lng']);
+            ->selectRaw("
+                g.id, g.sport_id, s.slug as sport_slug, g.host_user_id,
+                h.display_name as host_display_name, g.court_id,
+                c.name as court_name, v.id as venue_id, v.name as venue_name,
+                v.address as venue_address, v.photo_url as venue_photo_url,
+                g.lat, g.lng, g.starts_at, g.duration_minutes, g.capacity,
+                g.status, g.visibility, g.match_type, g.skill_min_elo,
+                g.skill_max_elo, g.notes,
+                (
+                    select count(*)
+                    from game_participants gp
+                    where gp.game_id = g.id and gp.status = 'confirmed'
+                )::int as participants_count
+            ")
+            ->get();
 
         return response()->json(['items' => $rows]);
     }
@@ -658,10 +675,15 @@ class DiscoveryController extends ApiController
 
             return [
                 'user_id' => $u->id,
+                // Aliases so web clients that read id/primary_sport/primary_elo
+                // get populated values (consistent with players & suggested-follows).
+                'id' => $u->id,
                 'display_name' => $u->display_name,
                 'photo_url' => $u->photo_url,
                 'primary_sport_slug' => $u->primary_sport_slug,
+                'primary_sport' => $u->primary_sport_slug,
                 'elo_rating' => $elo,
+                'primary_elo' => $elo,
                 'reliability_score' => $u->reliability_score !== null ? (int) $u->reliability_score : null,
                 'distance_km' => null,
                 'mutual_followers_count' => (int) $mutual,

@@ -460,7 +460,7 @@ Route::prefix('api/v1')->group(function () {
         Route::post('media', [MediaController::class, 'upload']);
         Route::post('messages/upload-image', [MediaController::class, 'upload']);
         Route::delete('media/{id}', [MediaController::class, 'delete']);
-        Route::post('reports', [ReportsController::class, 'store']);
+        Route::post('reports', [ReportsController::class, 'store'])->middleware('throttle:10,1');
         Route::get('me/reports', [ReportsController::class, 'mine']);
         Route::get('admin/reports', [ReportsController::class, 'adminIndex']);
         Route::get('admin/reports/{id}', [ReportsController::class, 'adminShow']);

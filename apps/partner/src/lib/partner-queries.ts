@@ -321,9 +321,13 @@ export interface CreatePartnerBookingPayload {
   court_id: string;
   starts_at: string;
   duration_minutes: number;
-  booker_display_name: string;
-  booker_email: string;
-  idempotency_key: string;
+  // Field names must match PartnerOpsController::createBooking validation.
+  user_id?: string | null;
+  customer_name?: string | null;
+  customer_email?: string | null;
+  payment_method?: "cash" | "bank_transfer" | "manual" | "onsite";
+  payment_note?: string | null;
+  status?: "pending_payment" | "paid";
 }
 
 export function useCreatePartnerBooking() {

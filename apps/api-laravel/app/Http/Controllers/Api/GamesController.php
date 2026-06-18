@@ -51,8 +51,36 @@ class GamesController extends ApiController
         $hasMore = $rows->count() > $limit;
         $pageRows = $rows->take($limit)->values();
 
+        // Batched roster fetch for the page (so list cards can show joined-player
+        // avatars): one query for all confirmed participants of the listed games,
+        // capped per game. Avoids an N+1 across the page.
+        $participantsByGame = [];
+        $gameIds = $pageRows->pluck('id')->all();
+        if ($gameIds !== []) {
+            $roster = DB::table('game_participants as gp')
+                ->join('users as u', 'u.id', '=', 'gp.user_id')
+                ->whereIn('gp.game_id', $gameIds)
+                ->where('gp.status', 'confirmed')
+                ->whereNull('u.deleted_at')
+                ->orderBy('gp.joined_at')
+                ->get(['gp.game_id', 'gp.user_id', 'u.display_name', 'u.photo_url']);
+            foreach ($roster as $p) {
+                $list = $participantsByGame[$p->game_id] ?? [];
+                if (count($list) >= 8) {
+                    continue;
+                }
+                $list[] = [
+                    'user_id' => $p->user_id,
+                    'display_name' => $p->display_name,
+                    'photo_url' => $p->photo_url,
+                    'status' => 'confirmed',
+                ];
+                $participantsByGame[$p->game_id] = $list;
+            }
+        }
+
         return response()->json([
-            'items' => $pageRows->map(fn ($r) => $this->summaryPayload($r))->values(),
+            'items' => $pageRows->map(fn ($r) => $this->summaryPayload($r, $participantsByGame[$r->id] ?? []))->values(),
             'next_cursor' => $hasMore ? $this->encodeCursor($pageRows->last(), 'starts_at') : null,
         ]);
     }
@@ -388,7 +416,7 @@ class GamesController extends ApiController
         return $q->orderBy('g.starts_at')->orderBy('g.id');
     }
 
-    private function summaryPayload(object $r): array
+    private function summaryPayload(object $r, array $participants = []): array
     {
         return [
             'id' => $r->id,
@@ -424,6 +452,7 @@ class GamesController extends ApiController
             'price_minor' => $this->perPlayerPriceMinor($r),
             'total_minor' => $this->totalPriceMinor($r),
             'currency' => $r->currency ?? 'AZN',
+            'participants' => $participants,
         ];
     }
 

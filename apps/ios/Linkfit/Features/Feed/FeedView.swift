@@ -21,6 +21,7 @@ struct FeedView: View {
     /// unchanged — but without it the comments thread is unreachable from
     /// the full feed, so hosts should wire it. See `FeedHook.swift`.
     var onTapComments: ((FeedEvent) -> Void)? = nil
+    @State private var reportPayload: ReportTargetPayload?
 
     var body: some View {
         ZStack {
@@ -31,6 +32,7 @@ struct FeedView: View {
         .navigationBarTitleDisplayMode(.large)
         .task { await viewModel.onAppear() }
         .refreshable { await viewModel.refresh() }
+        .reportSheet(payload: $reportPayload)
     }
 
     @ViewBuilder
@@ -51,6 +53,13 @@ struct FeedView: View {
                             onTap: onTapTarget,
                             onTapComments: onTapComments.map { handler in
                                 { handler(event) }
+                            },
+                            onReport: {
+                                reportPayload = ReportTargetPayload(
+                                    kind: .feed_event,
+                                    targetId: event.id,
+                                    targetDisplayName: event.actor.display_name
+                                )
                             }
                         )
                             .onAppear {

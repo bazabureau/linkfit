@@ -1749,7 +1749,7 @@ extension Endpoint where Response == AchievementsResponse {
 /// surface user-generated content (Story viewer, feed comments) can offer
 /// the same "Şikayət et" action profile / game / chat already expose.
 enum ReportTargetKind: String, Codable, Equatable, CaseIterable {
-    case user, game, message, story, feed_comment
+    case user, game, message, story, feed_event, feed_comment, venue_review, media
 }
 
 /// Mirrors the backend's `report_reason` enum exactly. Add a case here and

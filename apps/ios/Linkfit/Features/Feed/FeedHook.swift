@@ -47,6 +47,7 @@ import SwiftUI
 /// to plumb one through — Home's `task` block can re-use the same client.
 struct FeedPreviewCard: View {
     @State private var viewModel: FeedViewModel
+    @State private var reportPayload: ReportTargetPayload?
     let onTapTarget: (FeedCardTarget) -> Void
     let onSeeAll: () -> Void
     /// Optional comments handler — when wired, each preview row exposes
@@ -98,6 +99,13 @@ struct FeedPreviewCard: View {
                             onTap: onTapTarget,
                             onTapComments: onTapComments.map { handler in
                                 { handler(event) }
+                            },
+                            onReport: {
+                                reportPayload = ReportTargetPayload(
+                                    kind: .feed_event,
+                                    targetId: event.id,
+                                    targetDisplayName: event.actor.display_name
+                                )
                             }
                         )
                     }
@@ -105,6 +113,7 @@ struct FeedPreviewCard: View {
             }
         }
         .task { await viewModel.onAppear() }
+        .reportSheet(payload: $reportPayload)
     }
 }
 

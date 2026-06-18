@@ -34,8 +34,11 @@ export async function loginAdmin(
   email: string,
   password: string,
 ): Promise<AdminUser> {
+  // Use the role-gated admin endpoint: the API enforces admin/moderator
+  // server-side and never issues a session for non-admin accounts. The check
+  // below is kept only as client-side defense-in-depth.
   const session = await api.post<AuthSession>(
-    "/api/v1/auth/login",
+    "/api/v1/auth/admin/login",
     { email, password },
     { skipAuth: true, skipRefresh: true },
   );

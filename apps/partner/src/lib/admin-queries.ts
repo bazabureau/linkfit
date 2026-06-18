@@ -145,7 +145,7 @@ export function useAdminUsers(params: AdminUsersParams) {
         limit: params.limit ?? 20,
         offset: params.offset ?? 0,
       });
-      return api.get<Paginated<User>>(`/admin/users${qs}`);
+      return api.get<Paginated<User>>(`/api/v1/admin/users${qs}`);
     },
     placeholderData: (prev) => prev,
     staleTime: 10_000,
@@ -163,7 +163,7 @@ export function useUpdateUserRole(
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, role }) =>
-      api.post<User>(`/admin/users/${id}/role`, { role }),
+      api.post<User>(`/api/v1/admin/users/${id}/role`, { role }),
     onMutate: async ({ id, role }) => {
       // Optimistic update across all cached user lists.
       await qc.cancelQueries({ queryKey: adminKeys.usersAll });
@@ -208,7 +208,8 @@ export function useSoftDeleteUser(
 ) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id }) => api.post<void>(`/admin/users/${id}/soft-delete`, {}),
+    mutationFn: ({ id }) =>
+      api.post<void>(`/api/v1/admin/users/${id}/soft-delete`, {}),
     onMutate: async ({ id }) => {
       await qc.cancelQueries({ queryKey: adminKeys.usersAll });
       const snapshots = qc.getQueriesData<Paginated<User>>({
@@ -252,7 +253,7 @@ export function useRestoreUser(
 ) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id }) => api.post<void>(`/admin/users/${id}/restore`, {}),
+    mutationFn: ({ id }) => api.post<void>(`/api/v1/admin/users/${id}/restore`, {}),
     onMutate: async ({ id }) => {
       await qc.cancelQueries({ queryKey: adminKeys.usersAll });
       const snapshots = qc.getQueriesData<Paginated<User>>({
@@ -298,7 +299,7 @@ export function useAdminGames(params: AdminGamesParams) {
         limit: params.limit ?? 20,
         offset: params.offset ?? 0,
       });
-      return api.get<Paginated<Game>>(`/admin/games${qs}`);
+      return api.get<Paginated<Game>>(`/api/v1/admin/games${qs}`);
     },
     placeholderData: (prev) => prev,
     staleTime: 10_000,
@@ -315,7 +316,7 @@ export function useCancelGame(
 ) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id }) => api.post<Game>(`/admin/games/${id}/cancel`, {}),
+    mutationFn: ({ id }) => api.post<Game>(`/api/v1/admin/games/${id}/cancel`, {}),
     onMutate: async ({ id }) => {
       await qc.cancelQueries({ queryKey: adminKeys.gamesAll });
       const snapshots = qc.getQueriesData<Paginated<Game>>({
@@ -365,7 +366,7 @@ export function useAdminBookings(params: AdminBookingsParams) {
         offset: params.offset ?? 0,
       });
       const res = await api.get<{ items: Booking[]; total: number }>(
-        `/admin/bookings${qs}`,
+        `/api/v1/admin/bookings${qs}`,
       );
       return {
         results: res.items ?? [],
@@ -387,7 +388,8 @@ export function useCancelBooking(
 ) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id }) => api.post<void>(`/admin/bookings/${id}/cancel`, {}),
+    mutationFn: ({ id }) =>
+      api.post<void>(`/api/v1/admin/bookings/${id}/cancel`, {}),
     onMutate: async ({ id }) => {
       await qc.cancelQueries({ queryKey: adminKeys.bookingsAll });
       const snapshots = qc.getQueriesData<Paginated<Booking>>({
@@ -429,7 +431,8 @@ export function useMarkBookingPaid(
 ) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id }) => api.post<void>(`/admin/bookings/${id}/mark-paid`, {}),
+    mutationFn: ({ id }) =>
+      api.post<void>(`/api/v1/admin/bookings/${id}/mark-paid`, {}),
     onMutate: async ({ id }) => {
       await qc.cancelQueries({ queryKey: adminKeys.bookingsAll });
       const snapshots = qc.getQueriesData<Paginated<Booking>>({

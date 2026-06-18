@@ -7,7 +7,7 @@ import {
 } from "./cookies";
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8788";
 
 const ACCESS_TTL_FALLBACK_SECONDS = 60 * 60; // 1h — overwritten by API response.
 const REFRESH_TTL_SECONDS = 60 * 60 * 24; // 1d, matches API refresh lifetime.
