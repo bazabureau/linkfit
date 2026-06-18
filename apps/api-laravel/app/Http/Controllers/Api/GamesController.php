@@ -349,6 +349,7 @@ class GamesController extends ApiController
                 g.id, g.sport_id, s.slug as sport_slug, g.host_user_id,
                 u.display_name as host_display_name, u.photo_url as host_photo_url,
                 hps.elo_rating as host_elo, g.court_id, c.name as court_name,
+                c.hourly_price_minor, c.currency,
                 v.id as venue_id, v.name as venue_name, v.address as venue_address,
                 v.photo_url as venue_photo_url, g.lat, g.lng, g.starts_at,
                 g.duration_minutes, g.capacity, g.status, g.visibility, g.match_type,
@@ -420,7 +421,30 @@ class GamesController extends ApiController
             'skill_min_elo' => $r->skill_min_elo !== null ? (int) $r->skill_min_elo : null,
             'skill_max_elo' => $r->skill_max_elo !== null ? (int) $r->skill_max_elo : null,
             'distance_km' => $r->distance_m !== null ? round(((float) $r->distance_m) / 1000, 2) : null,
+            'price_minor' => $this->perPlayerPriceMinor($r),
+            'total_minor' => $this->totalPriceMinor($r),
+            'currency' => $r->currency ?? 'AZN',
         ];
+    }
+
+    private function totalPriceMinor(object $r): ?int
+    {
+        if ($r->hourly_price_minor === null) {
+            return null;
+        }
+
+        return (int) round(((int) $r->hourly_price_minor) * ((int) ($r->duration_minutes ?? 60)) / 60);
+    }
+
+    private function perPlayerPriceMinor(object $r): ?int
+    {
+        $total = $this->totalPriceMinor($r);
+        $capacity = (int) ($r->capacity ?? 0);
+        if ($total === null || $capacity <= 0) {
+            return null;
+        }
+
+        return (int) ceil($total / $capacity);
     }
 
     private function enqueueNotification(string $userId, string $type, string $title, string $body, array $payload = []): void
