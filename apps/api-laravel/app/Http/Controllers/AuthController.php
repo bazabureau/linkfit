@@ -10,6 +10,7 @@ use App\Services\Mail\TransactionalMailService;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 /**
@@ -35,6 +36,7 @@ class AuthController extends Controller
             'display_name' => ['required', 'string', 'max:80'],
             'birth_date' => ['nullable', 'string', 'regex:/^\d{4}-\d{2}-\d{2}$/'],
             'ref' => ['nullable', 'string', 'max:16'],
+            'accepted_terms' => ['sometimes', 'boolean'],
         ]);
 
         $email = mb_strtolower(trim($data['email']));
@@ -59,11 +61,54 @@ class AuthController extends Controller
         if (! empty($data['birth_date'])) {
             $user->birth_date = $data['birth_date'];
         }
+        // Record consent to the Terms & Privacy Policy when the client confirms
+        // acceptance (the web sign-up requires the checkbox).
+        if (! empty($data['accepted_terms'])) {
+            $user->terms_accepted_at = now();
+        }
         $user->save();
+        // Record the referral when the sign-up carries a referral code (from a
+        // linkfit.az/r/{code} share link). Best-effort: a bad/duplicate code must
+        // never block registration.
+        if (! empty($data['ref'])) {
+            $this->applyReferral($user, strtoupper(trim($data['ref'])));
+        }
         $token = $this->emailTokens->create($user->id, 'verify');
         $this->mail->emailVerification($user->email, $user->display_name ?: 'Linkfit user', $token);
 
         return response()->json($this->tokens->issueSession($user, $request->userAgent()), 201);
+    }
+
+    /**
+     * Link a brand-new user to their referrer (mirrors ReferralsController@redeem).
+     * Silent no-op on invalid code, self-referral, or an already-referred user.
+     */
+    private function applyReferral(User $user, string $code): void
+    {
+        if (! preg_match('/^[A-HJ-NP-Z2-9]{6}$/', $code)) {
+            return;
+        }
+        try {
+            $referrer = DB::table('users')->where('referral_code', $code)->whereNull('deleted_at')->first();
+            if ($referrer === null || $referrer->id === $user->id) {
+                return;
+            }
+            if (DB::table('referrals')->where('referee_user_id', $user->id)->exists()) {
+                return;
+            }
+            DB::transaction(function () use ($user, $referrer, $code) {
+                DB::table('referrals')->insert([
+                    'referee_user_id' => $user->id,
+                    'referrer_user_id' => $referrer->id,
+                    'code_used' => $code,
+                    'created_at' => now(),
+                ]);
+                DB::table('users')->where('id', $user->id)->update(['referred_by_user_id' => $referrer->id, 'updated_at' => now()]);
+                DB::table('users')->where('id', $referrer->id)->increment('referral_count');
+            });
+        } catch (\Throwable $e) {
+            // Best-effort — never fail signup because of a referral hiccup.
+        }
     }
 
     /** POST /api/v1/auth/login → 200 AuthSession */

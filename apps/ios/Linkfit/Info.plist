@@ -33,7 +33,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>13</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>GIDClientID</key>
 	<string>655337821050-pi74ppu4gjv7b0gs0v417djtndrl7nt2.apps.googleusercontent.com</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

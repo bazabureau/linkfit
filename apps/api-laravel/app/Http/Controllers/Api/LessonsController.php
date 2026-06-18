@@ -20,7 +20,9 @@ class LessonsController extends ApiController
     {
         $viewerId = $this->optionalViewerId($request);
         $limit = min(max((int) $request->query('limit', 30), 1), 100);
-        $offset = max((int) $request->query('offset', 0), 0);
+        // Accept either `offset` or an opaque numeric `cursor` (mobile clients
+        // page via `cursor`, echoing back the `next_cursor` we return below).
+        $offset = max((int) ($request->query('cursor') ?? $request->query('offset', 0)), 0);
 
         $query = $this->baseQuery()
             ->where('l.status', 'scheduled')
@@ -45,9 +47,13 @@ class LessonsController extends ApiController
 
         $bookedIds = $this->bookedLessonIds($viewerId, $items->pluck('id')->all());
 
+        $nextOffset = $hasMore ? $offset + $limit : null;
+
         return response()->json([
             'items' => $items->map(fn ($l) => $this->lessonPayload($l, $bookedIds))->values(),
-            'next_offset' => $hasMore ? $offset + $limit : null,
+            'next_offset' => $nextOffset,
+            // Alias as a string cursor for clients that page via `next_cursor`.
+            'next_cursor' => $nextOffset !== null ? (string) $nextOffset : null,
         ]);
     }
 
@@ -264,6 +270,8 @@ class LessonsController extends ApiController
             'venue_name' => $l->venue_name,
             'court_name' => $l->court_name,
             'is_booked_by_me' => isset($bookedIds[(string) $l->id]),
+            // Alias for clients that read `is_booked` (mobile lesson detail).
+            'is_booked' => isset($bookedIds[(string) $l->id]),
         ];
     }
 

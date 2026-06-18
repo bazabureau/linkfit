@@ -89,10 +89,10 @@ export function RevenueChart({
     <div>
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold   text-foregroundMuted">
+          <p className="text-[11px] font-semibold text-foregroundMuted">
             Günlük Ödənilmiş Gəlir
           </p>
-          <p className="mt-1 font-display text-lg font-bold  text-foreground tabular-nums">
+          <p className="mt-1 font-display text-lg font-bold text-foreground tabular-nums">
             {fmtMoney(totalPaid, currency)}
           </p>
         </div>

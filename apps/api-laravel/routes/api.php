@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\MedicalController;
 use App\Http\Controllers\Api\MembershipController;
 use App\Http\Controllers\Api\MessagingController;
 use App\Http\Controllers\Api\MiscController;
+use App\Http\Controllers\Api\MobileController;
 use App\Http\Controllers\Api\OAuthController;
 use App\Http\Controllers\Api\OgController;
 use App\Http\Controllers\Api\OwnerApplicationsController;
@@ -67,10 +68,13 @@ Route::prefix('api/v1')->group(function () {
     Route::post('auth/reset-password', [AuthExtrasController::class, 'resetPassword'])->middleware('throttle:10,1');
     Route::post('auth/apple', [OAuthController::class, 'apple'])->middleware('throttle:10,1');
     Route::post('auth/google', [OAuthController::class, 'google'])->middleware('throttle:10,1');
+    Route::get('auth/check', [MobileController::class, 'authCheck'])->middleware('throttle:60,1');
 
     Route::get('app/version', [AppInfoController::class, 'version']);
     Route::get('app/metadata', [AppInfoController::class, 'metadata']);
     Route::get('app/capabilities', [AppInfoController::class, 'capabilities']);
+    Route::get('mobile/config', [MobileController::class, 'config']);
+    Route::get('links/resolve', [MobileController::class, 'resolveLink']);
     Route::get('sports', [CatalogController::class, 'sports']);
     Route::get('venues', [CatalogController::class, 'venues']);
     Route::get('courts', [CatalogController::class, 'courts']);
@@ -112,8 +116,11 @@ Route::prefix('api/v1')->group(function () {
     Route::middleware('jwt')->group(function () {
         Route::post('auth/send-verification', [AuthExtrasController::class, 'sendVerification'])->middleware('throttle:3,1');
         Route::get('me', [MeController::class, 'show']);
+        Route::get('mobile/bootstrap', [MobileController::class, 'bootstrap']);
         Route::get('web/dashboard', [WebController::class, 'dashboard']);
         Route::patch('me', [MeController::class, 'update']);
+        Route::post('me/avatar', [MeController::class, 'avatar']);
+        Route::delete('me/avatar', [MeController::class, 'deleteAvatar']);
         Route::post('me/change-password', [MeController::class, 'changePassword']);
         Route::post('me/change-email', [MeController::class, 'changeEmail']);
         Route::delete('me', [DataRightsController::class, 'requestDeletion']);
@@ -122,6 +129,7 @@ Route::prefix('api/v1')->group(function () {
         Route::delete('me/sessions', [MeController::class, 'deleteOtherSessions']);
         Route::get('me/devices', [MeController::class, 'deviceList']);
         Route::post('me/devices', [MeController::class, 'devices']);
+        Route::post('me/devices/test-push', [MeController::class, 'testPush'])->middleware('throttle:5,1');
         Route::delete('me/devices/{idOrToken}', [MeController::class, 'deleteDevice']);
         Route::get('me/notification-preferences', [PreferencesController::class, 'show']);
         Route::patch('me/notification-preferences', [PreferencesController::class, 'patch']);
@@ -312,6 +320,7 @@ Route::prefix('api/v1')->group(function () {
         Route::post('admin/users/{id}/email-verification', [AdminOpsController::class, 'setEmailVerification']);
         Route::post('admin/users/{id}/vip', [AdminOpsController::class, 'setVip']);
         Route::post('admin/users/{id}/verified-badge', [AdminOpsController::class, 'setVerifiedBadge']);
+        Route::post('admin/users/{id}/ambassador', [AdminOpsController::class, 'setAmbassador']);
         Route::post('admin/users/{id}/membership', [AdminOpsController::class, 'setMembership']);
         // "Learn" — admin-wide coach & lesson management (all venues).
         Route::get('admin/coaches', [AdminLessonsController::class, 'coaches']);
@@ -412,6 +421,7 @@ Route::prefix('api/v1')->group(function () {
         Route::post('games/{id}/scoring/point', [MatchController::class, 'point']);
         Route::post('games/{id}/scoring/undo', [MatchController::class, 'undo']);
         Route::post('games/{id}/scoring/complete', [MatchController::class, 'complete']);
+        Route::post('games/{id}/result', [MatchController::class, 'reportResult']);
         Route::get('games/{id}/scoring', [MatchController::class, 'scoring']);
         Route::patch('games/{id}', [GamesController::class, 'update']);
         Route::delete('games/{id}', [GamesController::class, 'destroy']);
@@ -460,6 +470,7 @@ Route::prefix('api/v1')->group(function () {
         Route::get('me/tournaments', [TournamentsController::class, 'mine']);
         Route::post('tournaments/{id}/entries', [TournamentsController::class, 'enter']);
         Route::delete('tournaments/{id}/entries/{entryId}', [TournamentsController::class, 'withdraw']);
+        Route::delete('tournaments/{id}/entries', [TournamentsController::class, 'withdrawMine']);
 
         Route::post('users/{id}/follow', [SocialController::class, 'follow']);
         Route::delete('users/{id}/follow', [SocialController::class, 'unfollow']);

@@ -29,6 +29,9 @@ export interface AuthSession {
 }
 
 const REFRESH_TTL_SECONDS = 60 * 60 * 24; // matches API refresh lifetime
+// Raw browser navigations are not basePath-prefixed by Next.js, so prepend it
+// manually (the panel is served under `/owner`).
+const OWNER_BASE_PATH = process.env.NEXT_PUBLIC_OWNER_BASE_PATH || "/owner";
 
 export async function loginAdmin(
   email: string,
@@ -90,6 +93,6 @@ export async function logout(): Promise<void> {
   deleteCookie(ACCESS_TOKEN_COOKIE);
   deleteCookie(REFRESH_TOKEN_COOKIE);
   if (typeof window !== "undefined") {
-    window.location.assign("/login");
+    window.location.assign(`${OWNER_BASE_PATH}/login`);
   }
 }

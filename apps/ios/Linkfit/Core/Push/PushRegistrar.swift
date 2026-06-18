@@ -14,6 +14,7 @@ import UserNotifications
 /// state can be shared across the AppDelegate callback and the post-login
 /// task without locks.
 actor PushRegistrar {
+    private static let lastTokenKey = "linkfit.push.lastRegisteredToken"
     /// Current authorization status — useful for surfacing "Notifications
     /// off → go to Settings" affordances later. We poll on each `start()`
     /// since the user can toggle in Settings while the app is suspended.
@@ -29,6 +30,7 @@ actor PushRegistrar {
     init(apiClient: any APIClient, application: UIApplication? = nil) {
         self.apiClient = apiClient
         self.application = application
+        self.lastRegisteredToken = UserDefaults.standard.string(forKey: Self.lastTokenKey)
     }
 
     /// Entry point — call this immediately after the user lands on the
@@ -83,6 +85,7 @@ actor PushRegistrar {
         do {
             _ = try await apiClient.send(Endpoint<DeviceTokenResponse>.registerDevice(token: hex, platform: "ios"))
             lastRegisteredToken = hex
+            UserDefaults.standard.set(hex, forKey: Self.lastTokenKey)
         } catch APIError.unauthorized {
             // The APIClient already cleared the session; the next sign-in
             // will call `start()` again which will re-register and re-send.
@@ -104,14 +107,24 @@ actor PushRegistrar {
     /// Forget the cached token so the next successful auth re-uploads it.
     func reset() {
         lastRegisteredToken = nil
+        UserDefaults.standard.removeObject(forKey: Self.lastTokenKey)
+    }
+
+    /// Best-effort server-side unregister before an explicit logout.
+    func revokeRegisteredDevice() async {
+        guard let token = lastRegisteredToken ?? UserDefaults.standard.string(forKey: Self.lastTokenKey),
+              !token.isEmpty else { return }
+        _ = try? await apiClient.send(Endpoint<EmptyResponse>.revokeDevice(token: token))
+        reset()
     }
 }
 
 /// Response shape from `POST /api/v1/me/devices`.
 struct DeviceTokenResponse: Decodable, Equatable {
-    let id: String
-    let token: String
-    let platform: String
-    let last_seen: String
-    let created_at: String
+    let ok: Bool?
+    let id: String?
+    let token: String?
+    let platform: String?
+    let last_seen: String?
+    let created_at: String?
 }

@@ -42,11 +42,30 @@ struct ProfileView: View {
             DSColor.background.ignoresSafeArea()
             content
         }
-        .navigationTitle(viewModel.isMe ? Text("") : Text("tab.profile"))
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(viewModel.isMe ? .hidden : .visible, for: .navigationBar)
+        .navigationTitle(Text("tab.profile"))
+        .navigationBarTitleDisplayMode(viewModel.isMe ? .large : .inline)
         .toolbar {
-            if !viewModel.isMe {
+            if viewModel.isMe {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        UISelectionFeedbackGenerator().selectionChanged()
+                        showShare = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    .accessibilityLabel(Text("profile.action.share"))
+
+                    Button {
+                        UISelectionFeedbackGenerator().selectionChanged()
+                        showEdit = true
+                    } label: {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    .accessibilityLabel(Text("profile.edit"))
+                }
+            } else {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Menu {
                         if viewModel.isFollowing {
@@ -303,10 +322,6 @@ struct ProfileView: View {
     private func profileContent(_ profile: PublicProfile) -> some View {
         ScrollView {
             VStack(spacing: DSSpacing.lg) {
-                if viewModel.isMe {
-                    profileRootHeader
-                }
-
                 // Minimal Hero Header Block
                 heroBlock(profile)
                 
@@ -387,6 +402,14 @@ struct ProfileView: View {
                     .font(.system(size: 26, weight: .black))
                     .foregroundStyle(DSColor.textPrimary)
                     .multilineTextAlignment(.center)
+
+                if let username = normalizedUsername(profile.username) {
+                    Text(verbatim: "@\(username)")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(DSColor.accent)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+                }
                 
                 if let joined = joinedString(profile.created_at) {
                     Text(verbatim: joined)
@@ -819,6 +842,14 @@ struct ProfileView: View {
             return nil
         }
         return UIImage(data: bytes)
+    }
+
+    private func normalizedUsername(_ username: String?) -> String? {
+        let value = username?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "@"))
+        guard let value, !value.isEmpty else { return nil }
+        return value
     }
 
     private func profileSummary(_ profile: PublicProfile) -> (games: Int, wins: Int, winRate: Int, reliability: Int, topElo: Int) {

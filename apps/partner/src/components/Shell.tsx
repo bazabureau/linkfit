@@ -8,10 +8,14 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Building2,
   CalendarCheck2,
+  Hourglass,
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquare,
   Settings,
+  Trophy,
+  Wallet,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -26,11 +30,33 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const NAV: NavItem[] = [
-  { href: "/", label: "Ümumi Baxış", icon: LayoutDashboard },
-  { href: "/bookings", label: "Rezervasiyalar və Təqvim", icon: CalendarCheck2 },
-  { href: "/courts", label: "Kortlarım", icon: Building2 },
-  { href: "/settings", label: "Məkan Ayarları", icon: Settings },
+interface NavSection {
+  title: string;
+  items: NavItem[];
+}
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    title: "İdarəetmə",
+    items: [
+      { href: "/", label: "Ümumi Baxış", icon: LayoutDashboard },
+      { href: "/bookings", label: "Rezervasiyalar və Təqvim", icon: CalendarCheck2 },
+      { href: "/courts", label: "Kortlarım", icon: Building2 },
+    ],
+  },
+  {
+    title: "Fəaliyyət",
+    items: [
+      { href: "/revenue", label: "Gəlir Hesabatı", icon: Wallet },
+      { href: "/tournaments", label: "Turnirlər", icon: Trophy },
+      { href: "/waitlist", label: "Gözləmə Siyahısı", icon: Hourglass },
+      { href: "/reviews", label: "Rəylər", icon: MessageSquare },
+    ],
+  },
+  {
+    title: "Konfiqurasiya",
+    items: [{ href: "/settings", label: "Məkan Ayarları", icon: Settings }],
+  },
 ];
 
 function isItemActive(href: string, pathname: string): boolean {
@@ -141,37 +167,46 @@ function Sidebar({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-5" aria-label="Əsas naviqasiya">
-        <p className="px-3 pb-2 font-display text-[10px] font-semibold   text-muted">
-          İdarəetmə
-        </p>
-        <div className="space-y-1">
-          {NAV.map((item) => {
-            const Icon = item.icon;
-            const isActive = isItemActive(item.href, pathname);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70",
-                  isActive
-                    ? "bg-accent text-accent-ink shadow-[0_4px_12px_rgba(197,242,53,0.18)]"
-                    : "text-foregroundMuted hover:bg-surfaceElevated hover:text-foreground",
-                )}
-              >
-                <Icon
-                  className={cn(
-                    "h-[18px] w-[18px] shrink-0",
-                    isActive ? "text-accent-ink" : "text-muted group-hover:text-foreground",
-                  )}
-                />
-                <span className="truncate">{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
+      <nav
+        className="flex-1 space-y-5 overflow-y-auto px-3 py-5"
+        aria-label="Əsas naviqasiya"
+      >
+        {NAV_SECTIONS.map((section) => (
+          <div key={section.title}>
+            <p className="px-3 pb-2 font-display text-[10px] font-semibold text-muted">
+              {section.title}
+            </p>
+            <div className="space-y-1">
+              {section.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = isItemActive(item.href, pathname);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={isActive ? "page" : undefined}
+                    className={cn(
+                      "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70",
+                      isActive
+                        ? "bg-accent text-accent-ink shadow-[0_4px_12px_rgba(197,242,53,0.18)]"
+                        : "text-foregroundMuted hover:bg-surfaceElevated hover:text-foreground",
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "h-[18px] w-[18px] shrink-0",
+                        isActive
+                          ? "text-accent-ink"
+                          : "text-muted group-hover:text-foreground",
+                      )}
+                    />
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Venue / user identity */}
@@ -225,7 +260,7 @@ function TopBar({
           <Menu className="h-5 w-5" />
         </button>
         <div className="min-w-0">
-          <p className="font-display text-sm font-semibold  text-foreground truncate">
+          <p className="font-display text-sm font-semibold text-foreground truncate">
             Tərəfdaş Portalı
           </p>
           <p className="text-[11px] text-foregroundMuted truncate">

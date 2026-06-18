@@ -7,6 +7,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class TournamentsController extends ApiController
@@ -132,7 +133,8 @@ class TournamentsController extends ApiController
         // Serialise concurrent registrations by locking the parent tournament
         // row before counting entries. Postgres forbids "count(*) ... FOR
         // UPDATE" (aggregate + row lock), so we lock the row, then count.
-        DB::transaction(function () use ($id, $user, $data) {
+        $created = false;
+        DB::transaction(function () use ($id, $user, $data, &$created) {
             DB::table('tournaments')->where('id', $id)->lockForUpdate()->first();
 
             $tournament = $this->tournamentRow($id);
@@ -166,6 +168,7 @@ class TournamentsController extends ApiController
                     'created_at' => now(),
                 ]);
                 $action = 'tournament.entry.create';
+                $created = true;
             } else {
                 DB::table('tournament_entries')
                     ->where('id', $entryId)
@@ -189,7 +192,49 @@ class TournamentsController extends ApiController
             ->where('captain_user_id', $user->id)
             ->first();
 
+        // Confirmation notification + push for the captain on a fresh entry.
+        // Wrapped so an enqueue failure can never fail tournament registration.
+        if ($created) {
+            try {
+                $this->enqueueNotification(
+                    (string) $user->id,
+                    'system',
+                    'Tournament entry confirmed',
+                    'Your squad is registered for the tournament.',
+                    ['kind' => 'tournament_entry', 'tournament_id' => $id, 'entry_id' => (string) ($entry->id ?? '')],
+                );
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
         return response()->json($this->entryPayload($entry), 201);
+    }
+
+    private function enqueueNotification(string $userId, string $type, string $title, string $body, array $payload = []): void
+    {
+        DB::table('notifications')->insert([
+            'id' => (string) Str::uuid(),
+            'user_id' => $userId,
+            'type' => $type,
+            'title' => $title,
+            'body' => $body,
+            'payload' => json_encode($payload),
+            'created_at' => now(),
+        ]);
+        if (Schema::hasTable('push_notification_jobs')) {
+            DB::table('push_notification_jobs')->insert([
+                'id' => (string) Str::uuid(),
+                'user_id' => $userId,
+                'type' => $type,
+                'title' => $title,
+                'body' => $body,
+                'payload' => json_encode($payload),
+                'available_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
     }
 
     public function withdraw(Request $request, string $id, string $entryId): JsonResponse
@@ -208,6 +253,27 @@ class TournamentsController extends ApiController
         ]);
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * DELETE /tournaments/{id}/entries — withdraw the viewer's own entry when
+     * the client doesn't know the entry id. Resolves the captain's active entry
+     * for this tournament, then delegates to withdraw().
+     */
+    public function withdrawMine(Request $request, string $id): JsonResponse
+    {
+        $user = $this->authUser($request);
+        $entryId = DB::table('tournament_entries')
+            ->where('tournament_id', $id)
+            ->where('captain_user_id', $user->id)
+            ->where('status', '!=', 'withdrawn')
+            ->orderByDesc('created_at')
+            ->value('id');
+        if ($entryId === null) {
+            throw ApiException::notFound('Tournament entry not found');
+        }
+
+        return $this->withdraw($request, $id, (string) $entryId);
     }
 
     private function tournamentRow(string $id): object

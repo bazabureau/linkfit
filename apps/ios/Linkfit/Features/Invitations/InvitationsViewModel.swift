@@ -62,6 +62,7 @@ final class InvitationsViewModel {
         do {
             let result = try await apiClient.send(.acceptInvitation(id: inv.id))
             removeRow(id: inv.id)
+            ToastCenter.shared.success(String(localized: "invitations.action.accept"))
             return result.game_id
         } catch let error as APIError {
             actionError = error.errorDescription

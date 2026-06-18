@@ -9,6 +9,12 @@ import {
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
+// The app is served under a basePath (default `/owner`). Raw browser
+// navigations (window.location) are NOT basePath-prefixed by Next.js, so we
+// must prepend it manually to reach the real login route.
+const OWNER_BASE_PATH = process.env.NEXT_PUBLIC_OWNER_BASE_PATH || "/owner";
+const LOGIN_PATH = `${OWNER_BASE_PATH}/login`;
+
 const ACCESS_TTL_FALLBACK_SECONDS = 60 * 60; // 1h — overwritten by API response.
 const REFRESH_TTL_SECONDS = 60 * 60 * 24; // 1d, matches API refresh lifetime.
 
@@ -140,8 +146,8 @@ function redirectToLogin(): void {
   if (typeof window === "undefined") return;
   deleteCookie(ACCESS_TOKEN_COOKIE);
   deleteCookie(REFRESH_TOKEN_COOKIE);
-  if (window.location.pathname !== "/login") {
-    window.location.assign("/login");
+  if (window.location.pathname !== LOGIN_PATH) {
+    window.location.assign(LOGIN_PATH);
   }
 }
 

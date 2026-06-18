@@ -19,16 +19,19 @@ struct Endpoint<Response: Decodable> {
 // MARK: - Models
 
 struct HealthResponse: Decodable, Equatable {
-    let status: String
-    let uptime_seconds: Int
-    let version: String
-    let db: String
+    let ok: Bool?
+    let status: String?
+    let uptime_seconds: Int?
+    let version: String?
+    let db: String?
+    let checks: [String: String]?
 }
 
 struct PublicUser: Decodable, Equatable, Identifiable {
     let id: String
     let email: String
     let display_name: String
+    let username: String?
     let photo_url: String?
     let home_lat: Double?
     let home_lng: Double?
@@ -43,6 +46,7 @@ struct PublicUser: Decodable, Equatable, Identifiable {
         self.id = try c.decode(String.self, forKey: .id)
         self.email = try c.decode(String.self, forKey: .email)
         self.display_name = try c.decode(String.self, forKey: .display_name)
+        self.username = try c.decodeIfPresent(String.self, forKey: .username)
         self.photo_url = try c.decodeIfPresent(String.self, forKey: .photo_url)
         self.home_lat = try c.decodeIfPresent(Double.self, forKey: .home_lat)
         self.home_lng = try c.decodeIfPresent(Double.self, forKey: .home_lng)
@@ -51,7 +55,7 @@ struct PublicUser: Decodable, Equatable, Identifiable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, email, display_name, photo_url, home_lat, home_lng, created_at, email_verified_at
+        case id, email, display_name, username, photo_url, home_lat, home_lng, created_at, email_verified_at
     }
 }
 
@@ -205,6 +209,7 @@ struct SportStats: Decodable, Equatable, Identifiable {
 struct PublicProfile: Decodable, Equatable, Identifiable {
     let id: String
     let display_name: String
+    let username: String?
     let photo_url: String?
     let created_at: String
     let stats: [SportStats]
@@ -223,6 +228,26 @@ struct PublicProfile: Decodable, Equatable, Identifiable {
     /// the "Mutual" indicator. Optional for back-compat with older
     /// payloads that don't yet ship the field — defaults to `false`.
     let follows_viewer: Bool?
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try c.decode(String.self, forKey: .id)
+        self.display_name = try c.decode(String.self, forKey: .display_name)
+        self.username = try c.decodeIfPresent(String.self, forKey: .username)
+        self.photo_url = try c.decodeIfPresent(String.self, forKey: .photo_url)
+        self.created_at = try c.decode(String.self, forKey: .created_at)
+        self.stats = try c.decode([SportStats].self, forKey: .stats)
+        self.followers_count = try c.decodeIfPresent(Int.self, forKey: .followers_count)
+        self.following_count = try c.decodeIfPresent(Int.self, forKey: .following_count)
+        self.is_following = try c.decodeIfPresent(Bool.self, forKey: .is_following)
+            ?? c.decodeIfPresent(Bool.self, forKey: .is_followed_by_me)
+        self.follows_viewer = try c.decodeIfPresent(Bool.self, forKey: .follows_viewer)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, display_name, username, photo_url, created_at, stats
+        case followers_count, following_count, is_following, is_followed_by_me, follows_viewer
+    }
 }
 
 struct ItemsResponse<T: Decodable>: Decodable {
@@ -440,6 +465,10 @@ struct Tournament: Decodable, Equatable, Identifiable {
 extension Endpoint where Response == HealthResponse {
     static var health: Endpoint<HealthResponse> {
         Endpoint(method: .get, path: "/health")
+    }
+
+    static var healthReady: Endpoint<HealthResponse> {
+        Endpoint(method: .get, path: "/health/ready")
     }
 }
 
@@ -1332,7 +1361,7 @@ extension Endpoint where Response == GameSeriesDetail {
                  requiresAuth: true)
     }
     static func gameSeries(id: String) -> Endpoint<GameSeriesDetail> {
-        Endpoint(method: .get, path: "/api/v1/game-series/\(id)")
+        Endpoint(method: .get, path: "/api/v1/game-series/\(id)", requiresAuth: true)
     }
 }
 
@@ -1430,7 +1459,7 @@ extension Endpoint where Response == GameInvitation {
     static func createGameInvitation(gameId: String,
                                      inviteeUserId: String) -> Endpoint<GameInvitation> {
         Endpoint(method: .post,
-                 path: "/api/v1/games/\(gameId)/invitations",
+                 path: "/api/v1/games/\(gameId)/invite",
                  body: encodeJSON(["invitee_user_id": inviteeUserId]),
                  requiresAuth: true)
     }
@@ -1461,7 +1490,7 @@ extension Endpoint where Response == DeclineInvitationResult {
     }
 }
 
-/// Response from POST /api/v1/games/:id/invite (batch). `sent` = newly
+/// Response from POST /api/v1/games/:id/invitations (batch). `sent` = newly
 /// created pending invitations, `blocked` = duplicates/already-in/self/
 /// closed-game rows that the server quietly dropped.
 struct BatchInviteResult: Decodable, Equatable {
@@ -1477,7 +1506,7 @@ extension Endpoint where Response == BatchInviteResult {
     static func batchInviteToGame(gameId: String,
                                   userIds: [String]) -> Endpoint<BatchInviteResult> {
         Endpoint(method: .post,
-                 path: "/api/v1/games/\(gameId)/invite",
+                 path: "/api/v1/games/\(gameId)/invitations",
                  body: encodeJSON(["user_ids": userIds]),
                  requiresAuth: true)
     }
@@ -2015,10 +2044,11 @@ extension Endpoint where Response == MatchScore {
                  requiresAuth: true)
     }
 
-    /// GET /api/v1/games/:id/scoring — public read.
+    /// GET /api/v1/games/:id/scoring — authenticated read.
     static func scoring(gameId: String) -> Endpoint<MatchScore> {
         Endpoint(method: .get,
-                 path: "/api/v1/games/\(gameId)/scoring")
+                 path: "/api/v1/games/\(gameId)/scoring",
+                 requiresAuth: true)
     }
 }
 
@@ -2245,7 +2275,7 @@ extension Endpoint where Response == ResetPasswordResponse {
     static func resetPassword(token: String, newPassword: String) -> Endpoint<ResetPasswordResponse> {
         Endpoint(method: .post,
                  path: "/api/v1/auth/reset-password",
-                 body: encodeJSON(["token": token, "new_password": newPassword]))
+                 body: encodeJSON(["token": token, "password": newPassword]))
     }
 }
 
@@ -2974,7 +3004,7 @@ extension Endpoint where Response == AmericanoDetailsResponse {
         Endpoint(
             method: .get,
             path: "/api/v1/americano/tournaments/\(id)",
-            requiresAuth: false
+            requiresAuth: true
         )
     }
 }

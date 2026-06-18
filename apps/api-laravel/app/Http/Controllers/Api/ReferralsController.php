@@ -116,6 +116,10 @@ class ReferralsController extends ApiController
 
     private function shareUrl(string $code): string
     {
-        return rtrim((string) config('app.url'), '/').'/r/'.$code;
+        // Shareable links must point at the public web app (linkfit.az/r/{code}),
+        // NOT the API origin (api.linkfit.az is noindexed and has no /r/ route).
+        $base = config('app.web_url') ?: 'https://linkfit.az';
+
+        return rtrim((string) $base, '/').'/r/'.$code;
     }
 }

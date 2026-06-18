@@ -31,8 +31,12 @@ class PromoCodesController extends ApiController
         // optional Bearer token) — never a client-supplied user_id, which would
         // let anyone probe another user's redemptions.
         $viewerId = $this->optionalViewerId($request);
-        $discount = $this->discountMinor($promo, (int) $data['amount_minor'], $data['currency'] ?? $promo->currency);
-        $this->assertUsageLimits($promo, $viewerId);
+        // Uniform responses on this PUBLIC surface: usage-limit breaches collapse
+        // into the same generic "not valid" 400 returned for an unknown code so
+        // the endpoint never reveals whether a code (or a user's prior use of it)
+        // exists. $publicSurface = true drives that collapse in assertUsageLimits.
+        $discount = $this->discountMinor($promo, (int) $data['amount_minor'], $data['currency'] ?? $promo->currency, true);
+        $this->assertUsageLimits($promo, $viewerId, true);
 
         return response()->json([
             'promo' => $this->payload($promo),
@@ -221,29 +225,50 @@ class PromoCodesController extends ApiController
             ->first();
     }
 
-    private function assertUsageLimits(object $promo, ?string $userId): void
+    /**
+     * Enforce global + per-user redemption limits.
+     *
+     * On the PUBLIC validate endpoint these failures must not reveal that the
+     * code (or this user's prior redemption of it) exists, so when called there
+     * ($publicSurface) every limit breach is collapsed into the same generic
+     * "not valid" 400 a non-existent code returns — uniform responses prevent
+     * promo-code / per-user enumeration. Internal callers (e.g. redemption at
+     * checkout) keep the precise messages by passing $publicSurface = false.
+     */
+    private function assertUsageLimits(object $promo, ?string $userId, bool $publicSurface = false): void
     {
         if ($promo->max_redemptions !== null) {
             $count = DB::table('booking_promo_redemptions')->where('promo_code_id', $promo->id)->count();
             if ($count >= (int) $promo->max_redemptions) {
-                throw ApiException::conflict('Promo code redemption limit reached');
+                throw $publicSurface
+                    ? ApiException::validation('Promo code is not valid')
+                    : ApiException::conflict('Promo code redemption limit reached');
             }
         }
         if ($userId !== null && (int) ($promo->per_user_limit ?? 1) > 0) {
             $count = DB::table('booking_promo_redemptions')->where('promo_code_id', $promo->id)->where('user_id', $userId)->count();
             if ($count >= (int) $promo->per_user_limit) {
-                throw ApiException::conflict('Promo code was already used by this user');
+                throw $publicSurface
+                    ? ApiException::validation('Promo code is not valid')
+                    : ApiException::conflict('Promo code was already used by this user');
             }
         }
     }
 
-    private function discountMinor(object $promo, int $amountMinor, ?string $currency): int
+    private function discountMinor(object $promo, int $amountMinor, ?string $currency, bool $publicSurface = false): int
     {
+        // On the public validate surface these branches would otherwise confirm a
+        // code exists (and leak its min-amount / currency); collapse them into the
+        // same generic "not valid" message used for an unknown code. Internal
+        // callers keep the precise messages ($publicSurface = false).
+        $invalid = fn (string $message) => $publicSurface
+            ? ApiException::validation('Promo code is not valid')
+            : ApiException::validation($message);
         if ((int) ($promo->min_amount_minor ?? 0) > $amountMinor) {
-            throw ApiException::validation('Promo code minimum amount was not reached');
+            throw $invalid('Promo code minimum amount was not reached');
         }
         if (($promo->currency ?? 'AZN') !== ($currency ?? 'AZN')) {
-            throw ApiException::validation('Promo code currency does not match booking currency');
+            throw $invalid('Promo code currency does not match booking currency');
         }
         $discount = $promo->discount_type === 'percent'
             ? (int) floor($amountMinor * (int) $promo->discount_value / 100)

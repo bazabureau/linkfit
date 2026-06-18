@@ -24,7 +24,6 @@ import {
   initialsOf,
   statusMeta,
   StatusPill,
-  money,
 } from "./booking-utils";
 
 interface BookingDrawerProps {
@@ -49,7 +48,7 @@ function Field({
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-bold   text-foregroundMuted">
+        <p className="text-[10px] font-bold text-foregroundMuted">
           {label}
         </p>
         <div className="mt-0.5 text-sm font-medium text-foreground break-words">
@@ -140,7 +139,7 @@ export function BookingDrawer({
                 <X className="h-4 w-4" />
               </button>
 
-              <p className="text-[10px] font-bold   text-accent">
+              <p className="text-[10px] font-bold text-accent">
                 Rezervasiya Detalları
               </p>
 
@@ -149,7 +148,7 @@ export function BookingDrawer({
                   {initialsOf(name)}
                 </div>
                 <div className="min-w-0">
-                  <h2 className="truncate font-display text-lg font-bold  text-foreground">
+                  <h2 className="truncate font-display text-lg font-bold text-foreground">
                     {name}
                   </h2>
                   <p className="truncate text-xs text-foregroundMuted">
@@ -177,7 +176,7 @@ export function BookingDrawer({
             <div className="shrink-0 border-b border-border px-6 py-5">
               <div className="flex items-end justify-between rounded-xl border border-border bg-surfaceElevated/50 px-4 py-3.5">
                 <div>
-                  <p className="text-[10px] font-bold   text-foregroundMuted">
+                  <p className="text-[10px] font-bold text-foregroundMuted">
                     Cəmi Məbləğ
                   </p>
                   <p className="mt-1 font-display text-[1.7rem] font-bold leading-none  text-foreground tabular-nums">

@@ -66,14 +66,22 @@ struct VenuesView: View {
             HStack(spacing: 8) {
                 chip(title: String(localized: "venues.filter.all"), slug: nil)
                 ForEach(viewModel.sports) { sport in
-                    chip(title: sport.slug == "padel"
-                         ? String(localized: "venues.filter.padel")
-                         : String(localized: "venues.filter.football"),
-                         slug: sport.slug)
+                    chip(title: sportTitle(sport), slug: sport.slug)
                 }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
+        }
+    }
+
+    private func sportTitle(_ sport: Sport) -> String {
+        switch sport.slug {
+        case "padel":
+            String(localized: "venues.filter.padel")
+        case "tennis":
+            String(localized: "sport.tennis")
+        default:
+            sport.name
         }
     }
 

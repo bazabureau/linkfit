@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import GoogleSignIn
 
 @main
 struct LinkfitApp: App {
@@ -149,6 +150,9 @@ struct LinkfitApp: App {
                 // `Core/Push/DeepLink.swift` handles APNs taps and is
                 // intentionally untouched here.)
                 .onOpenURL { url in
+                    if GIDSignIn.sharedInstance.handle(url) {
+                        return
+                    }
                     URLDeepLinkRouter.shared.handle(url)
                 }
                 // Push the anonymized user id into the crash reporter

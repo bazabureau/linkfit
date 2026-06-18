@@ -73,6 +73,13 @@ struct UpcomingMatchCard: View {
         .onTapGesture {
             onTapCard()
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityTitle)
+        .accessibilityHint(Text("home.hero.view_details"))
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction {
+            onTapCard()
+        }
     }
 
     private var info: some View {
@@ -153,12 +160,17 @@ struct UpcomingMatchCard: View {
                                 .background(Capsule().fill(DSColor.accent))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(Text("home.match.join"))
                     }
                 }
             }
             .padding(.top, 4)
         }
         .padding(DSSpacing.md)
+    }
+
+    private var accessibilityTitle: Text {
+        Text("\(game.venue_name ?? String(localized: "card.open_invite")), \(formattedStart)")
     }
 
     private func metaRow(icon: String, text: String) -> some View {

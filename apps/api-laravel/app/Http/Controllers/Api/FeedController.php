@@ -118,16 +118,28 @@ class FeedController extends ApiController
     {
         $limit = min(max((int) $request->query('limit', 50), 1), 100);
         $viewerId = $this->optionalViewerId($request);
+        // Keyset pagination: the previously-emitted next_cursor was never read,
+        // so callers could never page past the first screen. Consume it here via
+        // the same (created_at, id) keyset used by index() / decodeCursor().
+        $cursor = $this->decodeCursor((string) $request->query('cursor', ''));
         $rows = DB::table('feed_comments as c')
             ->join('users as u', 'u.id', '=', 'c.user_id')
             ->where('c.event_id', $eventId)
             ->when($viewerId !== null, fn ($q) => $this->whereNotBlocked($q, $viewerId, 'c.user_id'))
+            ->when($cursor !== null, fn ($q) => $q->where(function ($w) use ($cursor) {
+                $w->where('c.created_at', '<', $cursor['ts'])
+                    ->orWhere(fn ($x) => $x->where('c.created_at', $cursor['ts'])->where('c.id', '<', $cursor['id']));
+            }))
             ->orderByDesc('c.created_at')
+            ->orderByDesc('c.id')
             ->limit($limit + 1)
             ->get(['c.id', 'c.user_id', 'u.display_name', 'u.photo_url', 'c.body', 'c.created_at']);
 
+        $hasMore = $rows->count() > $limit;
+        $pageRows = $rows->take($limit)->values();
+
         return response()->json([
-            'comments' => $rows->take($limit)->map(fn ($r) => [
+            'comments' => $pageRows->map(fn ($r) => [
                 'id' => $r->id,
                 'user_id' => $r->user_id,
                 'user_display_name' => $r->display_name,
@@ -135,7 +147,7 @@ class FeedController extends ApiController
                 'body' => $r->body,
                 'created_at' => $this->iso($r->created_at),
             ])->values(),
-            'next_cursor' => $rows->count() > $limit ? base64_encode((string) $rows[$limit - 1]->id) : null,
+            'next_cursor' => $hasMore ? $this->encodeCursor($pageRows->last()) : null,
             'total' => DB::table('feed_comments')->where('event_id', $eventId)->count(),
         ]);
     }

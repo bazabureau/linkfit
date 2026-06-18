@@ -8,22 +8,40 @@ use Illuminate\Support\Facades\DB;
 
 class PreferencesController extends ApiController
 {
+    /** Valid values of the `notification_type` Postgres enum — the only types
+     *  that can be written to notification_preferences.type. Anything else
+     *  (e.g. a client category key like "games") would crash the enum insert. */
+    private const NOTIFICATION_TYPES = [
+        'game_joined', 'game_cancelled', 'game_reminder', 'no_show_marked',
+        'rating_received', 'tournament_invite', 'message_received', 'system',
+    ];
+
     public function show(Request $request): JsonResponse
     {
-        $user = $this->authUser($request);
+        $auth = $this->authUser($request);
+        // Re-read the row so the response reflects writes made earlier in the
+        // same request (quiet hours / daily digest / time zone), not stale state.
+        $user = DB::table('users')->where('id', $auth->id)->first() ?? $auth;
 
         $quietStart = isset($user->quiet_hours_start) ? (int) $user->quiet_hours_start : null;
         $quietEnd = isset($user->quiet_hours_end) ? (int) $user->quiet_hours_end : null;
 
+        $rows = DB::table('notification_preferences')->where('user_id', $user->id)->get();
+
         return response()->json([
             // iOS NotificationPreferencesResponse.preferences is a flat ARRAY
             // of {type, push_enabled, email_enabled, in_app_enabled}.
-            'preferences' => DB::table('notification_preferences')->where('user_id', $user->id)->get()->map(fn ($r) => [
+            'preferences' => $rows->map(fn ($r) => [
                 'type' => $r->type,
                 'push_enabled' => (bool) $r->push_enabled,
                 'email_enabled' => (bool) $r->email_enabled,
                 'in_app_enabled' => (bool) $r->in_app_enabled,
             ])->values(),
+            // Flat {type: push_enabled} map for clients that read a simple
+            // boolean map (mobile reads `notification_preferences`).
+            'notification_preferences' => $rows->mapWithKeys(fn ($r) => [
+                $r->type => (bool) $r->push_enabled,
+            ])->all() ?: (object) [],
             // iOS reads these top-level optional Int? keys directly.
             'quiet_hours_start' => $quietStart,
             'quiet_hours_end' => $quietEnd,
@@ -40,8 +58,12 @@ class PreferencesController extends ApiController
     public function patch(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
+
+        // iOS form: {preferences: {type: {push_enabled, email_enabled, in_app_enabled}}}.
         foreach ((array) $request->input('preferences', []) as $type => $pref) {
-            if (! is_array($pref) || ! array_key_exists('push_enabled', $pref)) {
+            // Skip anything that isn't a real notification_type enum value — an
+            // unknown key would throw on the enum insert and 500 the request.
+            if (! in_array($type, self::NOTIFICATION_TYPES, true) || ! is_array($pref) || ! array_key_exists('push_enabled', $pref)) {
                 continue;
             }
             DB::table('notification_preferences')->updateOrInsert(
@@ -52,6 +74,27 @@ class PreferencesController extends ApiController
                     'in_app_enabled' => (bool) ($pref['in_app_enabled'] ?? true),
                     'updated_at' => now(),
                 ],
+            );
+        }
+
+        // Flat form (mobile): top-level {type: bool} pairs toggle push_enabled.
+        // Email/in-app default to enabled for newly-created rows.
+        foreach ((array) $request->all() as $type => $value) {
+            // Only real notification_type enum values are valid keys here.
+            if (! in_array($type, self::NOTIFICATION_TYPES, true) || ! is_scalar($value)) {
+                continue;
+            }
+            $enabled = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($enabled === null) {
+                continue;
+            }
+            $exists = DB::table('notification_preferences')
+                ->where('user_id', $user->id)->where('type', $type)->exists();
+            DB::table('notification_preferences')->updateOrInsert(
+                ['user_id' => $user->id, 'type' => $type],
+                $exists
+                    ? ['push_enabled' => $enabled, 'updated_at' => now()]
+                    : ['push_enabled' => $enabled, 'email_enabled' => true, 'in_app_enabled' => true, 'updated_at' => now()],
             );
         }
 
@@ -79,11 +122,13 @@ class PreferencesController extends ApiController
             'enabled' => ['required', 'boolean'],
             'time_zone' => ['nullable', 'string', 'max:80'],
         ]);
-        DB::table('users')->where('id', $this->authUser($request)->id)->update([
-            'daily_digest_enabled' => $data['enabled'],
-            'time_zone' => $data['time_zone'] ?? null,
-            'updated_at' => now(),
-        ]);
+        // `users.time_zone` is NOT NULL — only overwrite it when the client
+        // actually sends one (otherwise the digest toggle would crash).
+        $update = ['daily_digest_enabled' => $data['enabled'], 'updated_at' => now()];
+        if (! empty($data['time_zone'])) {
+            $update['time_zone'] = $data['time_zone'];
+        }
+        DB::table('users')->where('id', $this->authUser($request)->id)->update($update);
 
         return $this->show($request);
     }

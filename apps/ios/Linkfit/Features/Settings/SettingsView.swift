@@ -454,6 +454,7 @@ struct SettingsView: View {
             container.clearSession()
             return
         }
+        await container.pushRegistrar.revokeRegisteredDevice()
         _ = try? await container.apiClient.send(Endpoint<EmptyResponse>.logout(refreshToken: refresh))
         container.clearSession()
     }

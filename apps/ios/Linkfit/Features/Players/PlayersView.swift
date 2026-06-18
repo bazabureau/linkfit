@@ -45,6 +45,7 @@ struct PlayersView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
+                header
                 tabSwitcher
 
                 switch activeTab {
@@ -60,8 +61,9 @@ struct PlayersView: View {
             .padding(.top, DSSpacing.xs)
         }
         .background(DSColor.background.ignoresSafeArea())
-        .navigationTitle(Text("players.nav.title"))
-        .navigationBarTitleDisplayMode(.large)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .scrollDismissesKeyboard(.interactively)
         .refreshable {
             switch activeTab {
@@ -69,20 +71,6 @@ struct PlayersView: View {
                 await viewModel.load()
             case .matchmaking:
                 await matchmakingVM?.refresh()
-            }
-        }
-        .toolbar {
-            if viewModel.activeFilterCount > 0 {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        UISelectionFeedbackGenerator().selectionChanged()
-                        Task { await viewModel.resetFilters() }
-                    } label: {
-                        Text("common.reset")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(DSColor.accent)
-                    }
-                }
             }
         }
         .task {
@@ -139,6 +127,36 @@ struct PlayersView: View {
             }
             await matchmakingVM?.load()
         }
+    }
+
+    private var header: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Text("players.nav.title")
+                .font(.system(size: 34, weight: .heavy))
+                .foregroundStyle(DSColor.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+
+            Spacer(minLength: 12)
+
+            if viewModel.activeFilterCount > 0 {
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    Task { await viewModel.resetFilters() }
+                } label: {
+                    Text("common.reset")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(DSColor.accent)
+                        .padding(.horizontal, 14)
+                        .frame(height: 40)
+                        .background(Capsule().fill(DSColor.surfaceElevated))
+                        .overlay(Capsule().strokeBorder(DSColor.border, lineWidth: 1))
+                }
+                .buttonStyle(SpringPressStyle())
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: - Tab switcher

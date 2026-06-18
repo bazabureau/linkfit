@@ -13,6 +13,10 @@ use Throwable;
 
 class PushDispatcher
 {
+    public function __construct(private FcmSender $fcm)
+    {
+    }
+
     public function process(int $limit = 100, bool $dryRun = false): array
     {
         $limit = min(max($limit, 1), 500);
@@ -24,7 +28,7 @@ class PushDispatcher
             'skipped' => 0,
             'deferred' => 0,
             'dry_run' => $dryRun,
-            'configured' => $this->apnsConfigured(),
+            'configured' => $this->apnsConfigured() || $this->fcm->isConfigured(),
         ];
 
         if (! $dryRun && ! $stats['configured']) {
@@ -82,14 +86,16 @@ class PushDispatcher
     {
         return DB::table('device_tokens')
             ->where('user_id', $job->user_id)
-            ->where('platform', 'ios')
+            ->whereIn('platform', ['ios', 'android'])
             ->whereNull('revoked_at')
             ->exists() ? 'sent' : 'skipped';
     }
 
     private function sendJob(object $job): string
     {
-        if (! $this->apnsConfigured()) {
+        $apnsReady = $this->apnsConfigured();
+        $fcmReady = $this->fcm->isConfigured();
+        if (! $apnsReady && ! $fcmReady) {
             return 'skipped';
         }
 
@@ -105,20 +111,76 @@ class PushDispatcher
             return 'deferred';
         }
 
+        // Only fan out to platforms we can actually deliver to. A token whose
+        // platform has no configured provider is left untouched (not skipped as
+        // dead) so it can deliver once that provider is wired.
+        $platforms = array_merge($apnsReady ? ['ios'] : [], $fcmReady ? ['android'] : []);
         $tokens = DB::table('device_tokens')
             ->where('user_id', $job->user_id)
-            ->where('platform', 'ios')
+            ->whereIn('platform', $platforms)
             ->whereNull('revoked_at')
-            ->pluck('token')
-            ->filter()
-            ->values();
+            ->get(['token', 'platform']);
 
         if ($tokens->isEmpty()) {
-            $this->finishJob($job->id, 'skipped', 'No active iOS device tokens');
+            $this->finishJob($job->id, 'skipped', 'No active deliverable device tokens');
 
             return 'skipped';
         }
 
+        $sent = 0;
+        $failed = [];
+        $hadTransportError = false;
+
+        $iosTokens = $tokens->where('platform', 'ios')->pluck('token')->filter()->values();
+        if ($apnsReady && $iosTokens->isNotEmpty()) {
+            $apnsResult = $this->sendApns($job, $iosTokens);
+            $sent += $apnsResult['sent'];
+            $failed = array_merge($failed, $apnsResult['failed']);
+            $hadTransportError = $hadTransportError || $apnsResult['transport_error'];
+        }
+
+        $androidTokens = $tokens->where('platform', 'android')->pluck('token')->filter()->values()->all();
+        if ($fcmReady && $androidTokens !== []) {
+            $fcmResult = $this->fcm->send($androidTokens, (string) $job->title, (string) $job->body, $this->customData($job));
+            $sent += $fcmResult['sent'];
+            foreach ($fcmResult['dead_tokens'] as $deadToken) {
+                $this->revokeToken((string) $deadToken, $job->user_id);
+                $failed[] = ['token_suffix' => substr((string) $deadToken, -8), 'status' => 'fcm', 'reason' => 'unregistered'];
+            }
+            if ($fcmResult['error'] !== null) {
+                $hadTransportError = true;
+                $failed[] = ['platform' => 'android', 'status' => 'fcm', 'reason' => $fcmResult['error']];
+            }
+        }
+
+        if ($sent > 0) {
+            $this->finishJob($job->id, 'sent', null, ['sent' => $sent, 'failed' => $failed]);
+
+            return 'sent';
+        }
+
+        // No delivery. Retry only if something transient happened; otherwise the
+        // tokens were dead and there is nothing left to deliver to.
+        if (! $hadTransportError && $failed !== []) {
+            $this->finishJob($job->id, 'skipped', json_encode($failed), ['failed' => $failed]);
+
+            return 'skipped';
+        }
+
+        $error = $failed === [] ? 'No push provider returned a successful response' : json_encode($failed);
+        $this->retryJob($job, (string) $error, ['failed' => $failed]);
+
+        return 'retry';
+    }
+
+    /**
+     * Deliver to iOS tokens via APNs.
+     *
+     * @param  \Illuminate\Support\Collection<int, mixed>  $tokens
+     * @return array{sent:int, failed:list<array<string, mixed>>, transport_error:bool}
+     */
+    private function sendApns(object $job, Collection $tokens): array
+    {
         try {
             $client = new Client($this->authProvider(), (bool) config('services.apns.production'));
             $payload = $this->payloadForJob($job);
@@ -129,9 +191,7 @@ class PushDispatcher
             $client->addNotifications($notifications);
             $responses = $client->push();
         } catch (Throwable $e) {
-            $this->retryJob($job, $e->getMessage());
-
-            return 'retry';
+            return ['sent' => 0, 'failed' => [['platform' => 'ios', 'reason' => $e->getMessage()]], 'transport_error' => true];
         }
 
         $sent = 0;
@@ -152,22 +212,43 @@ class PushDispatcher
             ];
 
             if ($status === 410 || in_array($response->getErrorReason(), ['BadDeviceToken', 'DeviceTokenNotForTopic', 'Unregistered'], true)) {
-                // Scope to this job's user — the same physical token can exist for
-                // multiple users; never revoke another user's still-valid token.
-                DB::table('device_tokens')->where('token', $token)->where('user_id', $job->user_id)->update(['revoked_at' => now()]);
+                $this->revokeToken($token, $job->user_id);
             }
         }
 
-        if ($sent > 0) {
-            $this->finishJob($job->id, 'sent', null, ['sent' => $sent, 'failed' => $failed]);
+        return ['sent' => $sent, 'failed' => $failed, 'transport_error' => false];
+    }
 
-            return 'sent';
+    /**
+     * Revoke a dead token, scoped to this job's user — the same physical token
+     * can exist for multiple users; never revoke another user's valid token.
+     */
+    private function revokeToken(string $token, mixed $userId): void
+    {
+        DB::table('device_tokens')->where('token', $token)->where('user_id', $userId)->update(['revoked_at' => now()]);
+    }
+
+    /**
+     * Flat custom-data map shared by both providers (job + payload extras).
+     *
+     * @return array<string, mixed>
+     */
+    private function customData(object $job): array
+    {
+        $data = [
+            'job_id' => (string) $job->id,
+            'notification_type' => (string) $job->type,
+        ];
+        $custom = json_decode((string) ($job->payload ?? '{}'), true);
+        if (is_array($custom)) {
+            foreach ($custom as $key => $value) {
+                if ($key !== 'aps') {
+                    $data[(string) $key] = $value;
+                }
+            }
         }
 
-        $error = $failed === [] ? 'APNs returned no successful responses' : json_encode($failed);
-        $this->retryJob($job, (string) $error, ['failed' => $failed]);
-
-        return 'retry';
+        return $data;
     }
 
     private function payloadForJob(object $job): Payload
@@ -175,17 +256,10 @@ class PushDispatcher
         $payload = Payload::create()
             ->setPushType('alert')
             ->setAlert(Alert::create()->setTitle((string) $job->title)->setBody((string) $job->body))
-            ->setSound('default')
-            ->setCustomValue('job_id', (string) $job->id)
-            ->setCustomValue('notification_type', (string) $job->type);
+            ->setSound('default');
 
-        $custom = json_decode((string) ($job->payload ?? '{}'), true);
-        if (is_array($custom)) {
-            foreach ($custom as $key => $value) {
-                if ($key !== 'aps') {
-                    $payload->setCustomValue((string) $key, $value);
-                }
-            }
+        foreach ($this->customData($job) as $key => $value) {
+            $payload->setCustomValue((string) $key, $value);
         }
 
         return $payload;

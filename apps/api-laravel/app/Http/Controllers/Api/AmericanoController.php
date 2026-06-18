@@ -33,18 +33,43 @@ class AmericanoController extends ApiController
         $this->authUser($request);
         $limit = min(max((int) $request->query('limit', 30), 1), 100);
 
-        return response()->json([
-            'items' => DB::table('americano_tournaments')
-                ->whereIn('status', ['open', 'in_progress'])
-                ->orderByDesc('created_at')
-                ->limit($limit)
-                ->get(),
-        ]);
+        $rows = DB::table('americano_tournaments')
+            ->whereIn('status', ['open', 'in_progress'])
+            ->orderByDesc('created_at')
+            ->limit($limit)
+            ->get();
+
+        return response()->json(['items' => $rows->map(fn ($r) => $this->listPayload($r))->values()]);
     }
 
     public function mine(Request $request): JsonResponse
     {
-        return response()->json(['items' => DB::table('americano_tournaments')->where('host_id', $this->authUser($request)->id)->orderByDesc('created_at')->get()]);
+        $rows = DB::table('americano_tournaments')
+            ->where('host_id', $this->authUser($request)->id)
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json(['items' => $rows->map(fn ($r) => $this->listPayload($r))->values()]);
+    }
+
+    /**
+     * Enrich a raw americano row with aliases generic Tournament clients read:
+     * `title` (alias of name), `teams_count` (entries), `capacity` (court_count),
+     * `format` forced to americano. Original keys are preserved.
+     *
+     * @return array<string,mixed>
+     */
+    private function listPayload(object $r): array
+    {
+        $teamsCount = (int) DB::table('americano_teams')->where('tournament_id', $r->id)->count();
+
+        return array_merge((array) $r, [
+            'title' => $r->name ?? null,
+            'format' => 'americano',
+            'teams_count' => $teamsCount,
+            'entries_count' => $teamsCount,
+            'capacity' => isset($r->court_count) ? (int) $r->court_count : null,
+        ]);
     }
 
     public function show(Request $request, string $id): JsonResponse

@@ -261,7 +261,7 @@ class SocialController extends ApiController
             ->limit($limit + 1)
             ->get(['u.id', 'u.display_name', 'u.photo_url', 'f.created_at as followed_at']);
 
-        return response()->json($this->followsPage($rows, $limit, $offset));
+        return response()->json($this->followsPage($rows, $limit, $offset, $viewerId));
     }
 
     public function removeFollower(Request $request, string $id, string $followerId): JsonResponse
@@ -292,7 +292,7 @@ class SocialController extends ApiController
             ->limit($limit + 1)
             ->get(['u.id', 'u.display_name', 'u.photo_url', 'f.created_at as followed_at']);
 
-        return response()->json($this->followsPage($rows, $limit, $offset));
+        return response()->json($this->followsPage($rows, $limit, $offset, $viewerId));
     }
 
     public function block(Request $request, string $id): JsonResponse
@@ -349,6 +349,7 @@ class SocialController extends ApiController
             'is_vip' => $vipActive,
             'vip_label' => $vipActive ? (trim((string) ($u->vip_badge_label ?? '')) ?: 'VIP') : null,
             'is_verified' => (bool) ($u->is_verified ?? false),
+            'is_ambassador' => (bool) ($u->is_ambassador ?? false),
         ];
     }
 
@@ -390,6 +391,7 @@ class SocialController extends ApiController
                 'u.vip_expires_at',
                 'u.vip_badge_label',
                 'u.is_verified',
+                'u.is_ambassador',
                 'primary_stats.primary_sport',
                 'primary_stats.primary_elo',
                 'primary_stats.reliability_score',
@@ -441,19 +443,27 @@ class SocialController extends ApiController
             ->all();
     }
 
-    private function followsPage($rows, int $limit, int $offset): array
+    private function followsPage($rows, int $limit, int $offset, ?string $viewerId = null): array
     {
         $hasMore = $rows->count() > $limit;
+        $page = $rows->take($limit);
+        // Resolve the viewer's follow state for each listed user so follow
+        // buttons render correctly (clients read `is_followed_by_me`).
+        $followedIds = $this->followedIds($viewerId, $page->pluck('id')->all());
+        $nextOffset = $hasMore ? $offset + $limit : null;
 
         return [
-            'items' => $rows->take($limit)->map(fn ($u) => [
+            'items' => $page->map(fn ($u) => [
                 'id' => $u->id,
                 'display_name' => $u->display_name,
                 'photo_url' => $u->photo_url,
                 'followed_at' => $this->iso($u->followed_at),
-                'is_following' => null,
+                'is_following' => isset($followedIds[(string) $u->id]) ?: null,
+                'is_followed_by_me' => isset($followedIds[(string) $u->id]),
             ])->values(),
-            'next_offset' => $hasMore ? $offset + $limit : null,
+            'next_offset' => $nextOffset,
+            // Alias as a string cursor for clients that page via `next_cursor`.
+            'next_cursor' => $nextOffset !== null ? (string) $nextOffset : null,
         ];
     }
 }

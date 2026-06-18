@@ -12,7 +12,7 @@ import Foundation
 // the central endpoint module — see CLAUDE.md / project convention.
 
 /// A user-initiated data-export request. Server-side state machine:
-/// `pending` → `ready` (download_url populated) → eventually expires
+/// `queued`/`pending` → `ready` (download_url populated) → eventually expires
 /// (`expires_at` past). Can also flip to `failed` on a worker error.
 struct DataExportRequest: Decodable, Equatable {
     let id: String
@@ -46,10 +46,12 @@ extension Endpoint where Response == DataExportRequest {
                  requiresAuth: true)
     }
 
-    /// GET /api/v1/me/data-export — polls the most-recent export
-    /// request for the caller. Returns the latest record (any status);
-    /// the view polls this until `status == "ready"`.
-    static func dataExportStatus() -> Endpoint<DataExportRequest> {
+}
+
+extension Endpoint where Response == DataExportRequest? {
+    /// GET /api/v1/me/data-export — polls the most-recent export request
+    /// for the caller. Backend returns JSON null when no export exists yet.
+    static func dataExportStatus() -> Endpoint<DataExportRequest?> {
         Endpoint(method: .get,
                  path: "/api/v1/me/data-export",
                  requiresAuth: true)

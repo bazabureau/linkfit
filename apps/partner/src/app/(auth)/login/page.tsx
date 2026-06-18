@@ -106,13 +106,13 @@ export default function LoginPage(): React.JSX.Element {
                 unoptimized
                 className="h-8 w-auto object-contain"
               />
-              <div className="rounded-full border border-border bg-surfaceElevated px-3 py-1.5 font-display text-[11px] font-semibold   text-foregroundMuted">
+              <div className="rounded-full border border-border bg-surfaceElevated px-3 py-1.5 font-display text-[11px] font-semibold text-foregroundMuted">
                 Owner
               </div>
             </div>
 
             <div className="mb-8">
-              <p className="mb-3 font-display text-xs font-semibold   text-accent">
+              <p className="mb-3 font-display text-xs font-semibold text-accent">
                 Court idarəetməsi
               </p>
               <h2 className="font-display text-4xl font-semibold leading-tight  text-foreground">

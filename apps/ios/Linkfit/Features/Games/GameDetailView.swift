@@ -51,8 +51,14 @@ struct GameDetailView: View {
         .navigationTitle(Text("game.title"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { trailingToolbar }
-        .task { await viewModel.load() }
-        .refreshable { await viewModel.load() }
+        .task {
+            await viewModel.load()
+            showLifecyclePopupIfNeeded()
+        }
+        .refreshable {
+            await viewModel.load()
+            showLifecyclePopupIfNeeded()
+        }
         .sheet(isPresented: $showRating) {
             if case .loaded(let game) = viewModel.state, let me = container.currentUser?.id {
                 RatingFlowView(
@@ -88,7 +94,10 @@ struct GameDetailView: View {
         // so any status changes (e.g. `completed` after finalize)
         // propagate back to the action bar.
         .fullScreenCover(isPresented: $showScoring, onDismiss: {
-            Task { await viewModel.load() }
+            Task {
+                await viewModel.load()
+                showLifecyclePopupIfNeeded()
+            }
         }) {
             if case .loaded(let game) = viewModel.state {
                 NavigationStack {
@@ -748,11 +757,44 @@ struct GameDetailView: View {
                     Task {
                         await viewModel.join()
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        ToastCenter.shared.success(String(localized: "game.action.join"))
+                        showLifecyclePopupIfNeeded()
                     }
                 }
             }
         }
         .padding(.top, DSSpacing.xs)
+    }
+
+    private func showLifecyclePopupIfNeeded() {
+        guard case .loaded(let game) = viewModel.state else { return }
+        let defaults = UserDefaults.standard
+
+        if shouldShowTrackScore(game),
+           let startsAt = Date.fromISO(game.starts_at),
+           startsAt <= Date(),
+           game.status != .completed {
+            let key = "linkfit.lifecycle.game_started.\(game.id)"
+            if !defaults.bool(forKey: key) {
+                defaults.set(true, forKey: key)
+                ToastCenter.shared.info(String(localized: "game.detail.already_started"))
+            }
+        }
+
+        if game.status == .completed, let score = viewModel.matchScore {
+            let key = "linkfit.lifecycle.game_completed.\(game.id)"
+            guard !defaults.bool(forKey: key) else { return }
+            defaults.set(true, forKey: key)
+            if let myTeam = viewModel.myTeam, let winner = score.winning_team {
+                if myTeam == winner {
+                    ToastCenter.shared.success(String(localized: "game.result.won"))
+                } else {
+                    ToastCenter.shared.info(String(localized: "game.result.lost"))
+                }
+            } else {
+                ToastCenter.shared.info(String(localized: "game.result.recorded"))
+            }
+        }
     }
 
     /// Info banner shown above the Join CTA. Sets clear

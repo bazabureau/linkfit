@@ -156,13 +156,17 @@ final class URLSessionAPIClient: APIClient, @unchecked Sendable {
     }
 
     func uploadImage(imageData: Data, mimeType: String, filename: String) async throws -> UploadImageResponse {
+        try await uploadImage(imageData: imageData, mimeType: mimeType, filename: filename, path: "/api/v1/messages/upload-image")
+    }
+
+    func uploadImage(imageData: Data, mimeType: String, filename: String, path: String) async throws -> UploadImageResponse {
         let initialToken = tokenStore.accessToken()
         do {
-            return try await uploadImageOnce(data: imageData, mimeType: mimeType, filename: filename, retried: false)
+            return try await uploadImageOnce(data: imageData, mimeType: mimeType, filename: filename, path: path, retried: false)
         } catch APIError.unauthorized {
             let currentToken = tokenStore.accessToken()
             if currentToken != initialToken {
-                return try await uploadImageOnce(data: imageData, mimeType: mimeType, filename: filename, retried: true)
+                return try await uploadImageOnce(data: imageData, mimeType: mimeType, filename: filename, path: path, retried: true)
             }
             do {
                 try await coordinator.refresh()
@@ -172,11 +176,38 @@ final class URLSessionAPIClient: APIClient, @unchecked Sendable {
                 }
                 throw error
             }
-            return try await uploadImageOnce(data: imageData, mimeType: mimeType, filename: filename, retried: true)
+            return try await uploadImageOnce(data: imageData, mimeType: mimeType, filename: filename, path: path, retried: true)
         }
     }
 
-    private func uploadImageOnce(data: Data, mimeType: String, filename: String, retried: Bool) async throws -> UploadImageResponse {
+    func downloadData(path: String, query: [URLQueryItem] = [], requiresAuth: Bool = true) async throws -> Data {
+        let endpoint = Endpoint<EmptyResponse>(method: .get, path: path, query: query, requiresAuth: requiresAuth)
+        let request = try buildRequest(endpoint)
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                throw APIError.unknown(message: "Non-HTTP response")
+            }
+            guard (200..<300).contains(http.statusCode) else {
+                let localDecoder = makeDecoder()
+                if let envelope = try? localDecoder.decode(APIErrorEnvelope.self, from: data) {
+                    throw APIError.from(envelope: envelope, status: http.statusCode)
+                }
+                throw APIError.server(status: http.statusCode, code: nil, message: "Download failed")
+            }
+            return data
+        } catch let error as APIError {
+            throw error
+        } catch {
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
+                throw CancellationError()
+            }
+            throw Self.mapTransportError(error)
+        }
+    }
+
+    private func uploadImageOnce(data: Data, mimeType: String, filename: String, path: String, retried: Bool) async throws -> UploadImageResponse {
         // RFC 2046 boundary. Use UUID for collision-freeness across concurrent uploads.
         let boundary = "----linkfit-\(UUID().uuidString)"
         var body = Data()
@@ -195,7 +226,7 @@ final class URLSessionAPIClient: APIClient, @unchecked Sendable {
         body.append(data)
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
 
-        var request = URLRequest(url: baseURL.appendingPathComponent("/api/v1/messages/upload-image"),
+        var request = URLRequest(url: baseURL.appendingPathComponent(path),
                                  cachePolicy: .reloadIgnoringLocalCacheData,
                                  timeoutInterval: 60)
         request.httpMethod = "POST"
@@ -529,6 +560,70 @@ final class URLSessionAPIClient: APIClient, @unchecked Sendable {
 // `uploadImage(...)` and synthesize boundary events so the caller's
 // progress UI still completes.
 extension APIClient {
+    func downloadMyBookingsExport(
+        status: String? = nil,
+        timeframe: String? = nil,
+        from: String? = nil,
+        to: String? = nil,
+        venueId: String? = nil,
+        sport: String? = nil
+    ) async throws -> Data {
+        guard let real = self as? URLSessionAPIClient else {
+            throw APIError.offline
+        }
+        var query: [URLQueryItem] = []
+        if let status { query.append(.init(name: "status", value: status)) }
+        if let timeframe { query.append(.init(name: "timeframe", value: timeframe)) }
+        if let from { query.append(.init(name: "from", value: from)) }
+        if let to { query.append(.init(name: "to", value: to)) }
+        if let venueId { query.append(.init(name: "venue_id", value: venueId)) }
+        if let sport { query.append(.init(name: "sport", value: sport)) }
+        return try await real.downloadData(path: "/api/v1/bookings/me/export", query: query, requiresAuth: true)
+    }
+
+    /// Generic media upload endpoint for user-owned media assets.
+    func uploadMediaImage(
+        imageData: Data,
+        mimeType: String,
+        filename: String
+    ) async throws -> UploadImageResponse {
+        if let real = self as? URLSessionAPIClient {
+            return try await real.uploadImage(
+                imageData: imageData,
+                mimeType: mimeType,
+                filename: filename,
+                path: "/api/v1/media"
+            )
+        }
+        return try await uploadImage(imageData: imageData, mimeType: mimeType, filename: filename)
+    }
+
+    /// Upload story media to the stories-specific media endpoint. Non-real
+    /// clients fall back to the generic image upload so previews/tests do not
+    /// need to implement another protocol method.
+    func uploadStoryImage(
+        imageData: Data,
+        mimeType: String,
+        filename: String,
+        onProgress: @escaping @Sendable (Double) -> Void
+    ) async throws -> UploadImageResponse {
+        if let real = self as? URLSessionAPIClient {
+            onProgress(0.0)
+            let result = try await real.uploadImage(
+                imageData: imageData,
+                mimeType: mimeType,
+                filename: filename,
+                path: "/api/v1/stories/upload-image"
+            )
+            onProgress(1.0)
+            return result
+        }
+        onProgress(0.0)
+        let result = try await uploadImage(imageData: imageData, mimeType: mimeType, filename: filename)
+        onProgress(1.0)
+        return result
+    }
+
     /// Upload an image with per-byte progress reporting.
     ///
     /// `onProgress` is fed values in `0.0...1.0` from URLSession's

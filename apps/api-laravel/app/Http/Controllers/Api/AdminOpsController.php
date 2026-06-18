@@ -291,6 +291,9 @@ class AdminOpsController extends ApiController
                 'u.is_vip',
                 'u.vip_badge_label',
                 'u.vip_expires_at',
+                'u.username',
+                'u.is_verified',
+                'u.is_ambassador',
                 DB::raw('COALESCE(gp.games_played_total, 0) as games_played_total'),
             ])
             ->map(fn ($u) => $this->adminUserPayload($u))
@@ -680,6 +683,30 @@ class AdminOpsController extends ApiController
             'updated_at' => now(),
         ]);
         $this->auditWrite($admin->id, $data['is_verified'] ? 'user.verified.enable' : 'user.verified.disable', 'users', $id);
+
+        return $this->user($request, $id);
+    }
+
+    /**
+     * Toggle the LinkFit brand "ambassador" designation. Shows as an ambassador
+     * badge next to the player across the app and site.
+     */
+    public function setAmbassador(Request $request, string $id): JsonResponse
+    {
+        $admin = $this->authUser($request);
+        $this->staff($request, "users");
+        $data = $this->validateBody($request, [
+            'is_ambassador' => ['required', 'boolean'],
+        ]);
+        $exists = DB::table('users')->where('id', $id)->exists();
+        if (! $exists) {
+            throw ApiException::notFound('User not found');
+        }
+        DB::table('users')->where('id', $id)->update([
+            'is_ambassador' => (bool) $data['is_ambassador'],
+            'updated_at' => now(),
+        ]);
+        $this->auditWrite($admin->id, $data['is_ambassador'] ? 'user.ambassador.enable' : 'user.ambassador.disable', 'users', $id);
 
         return $this->user($request, $id);
     }
@@ -2978,6 +3005,7 @@ class AdminOpsController extends ApiController
             'vip_badge_label' => $u->vip_badge_label ?? null,
             'vip_expires_at' => $this->iso($u->vip_expires_at ?? null),
             'is_verified' => (bool) ($u->is_verified ?? false),
+            'is_ambassador' => (bool) ($u->is_ambassador ?? false),
             'membership_tier' => ($m = app(\App\Services\Membership\MembershipService::class)->resolve((string) $u->id, isset($u->created_at) ? (string) $u->created_at : null))->tier,
             'is_premium' => $m->is_premium,
             'on_trial' => $m->on_trial,

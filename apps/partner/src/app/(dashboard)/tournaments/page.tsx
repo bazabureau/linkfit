@@ -139,7 +139,7 @@ function KpiCard({
     <div className="rounded-2xl border border-border bg-surface p-5 shadow-card">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold   text-foregroundMuted">{label}</p>
+          <p className="text-[10px] font-semibold text-foregroundMuted">{label}</p>
           {loading ? (
             <div className="mt-2 h-8 w-12 animate-pulse rounded-md bg-surfaceElevated" />
           ) : (
@@ -282,7 +282,7 @@ export default function TournamentsPage(): React.JSX.Element {
     <div className="space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1.5">
-          <h1 className="flex items-center gap-2.5 font-display text-[1.6rem] font-bold  text-foreground">
+          <h1 className="flex items-center gap-2.5 font-display text-[1.6rem] font-bold text-foreground">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-accent/15 text-accent">
               <Trophy className="h-5 w-5" />
             </span>
@@ -801,7 +801,7 @@ function TournamentDetailDialog({
 function Meta({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }): React.JSX.Element {
   return (
     <div className="rounded-xl border border-border bg-surfaceElevated/40 p-3">
-      <p className="flex items-center gap-1 text-[10px] font-bold   text-foregroundMuted">
+      <p className="flex items-center gap-1 text-[10px] font-bold text-foregroundMuted">
         {icon} {label}
       </p>
       <p className="mt-1 text-sm font-medium text-foreground">{value}</p>

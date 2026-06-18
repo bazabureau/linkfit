@@ -16,7 +16,6 @@ struct MatchesView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 header
-
                 GameFilterChips(selection: viewModel.dateFilter) { value in
                     viewModel.setDateFilter(value)
                 }
@@ -51,7 +50,7 @@ struct MatchesView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 16) {
+        HStack(alignment: .center, spacing: 12) {
             Text("games.nav.title")
                 .font(.system(size: 34, weight: .heavy))
                 .foregroundStyle(DSColor.textPrimary)
@@ -61,8 +60,12 @@ struct MatchesView: View {
             Spacer(minLength: 12)
 
             createMenu
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(DSColor.surfaceElevated))
+                .overlay(Circle().strokeBorder(DSColor.border, lineWidth: 1))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
     }
 
     private var createMenu: some View {
@@ -89,9 +92,6 @@ struct MatchesView: View {
             Image(systemName: "plus")
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(DSColor.accent)
-                .frame(width: 48, height: 48)
-                .background(Circle().fill(DSColor.surfaceElevated))
-                .overlay(Circle().strokeBorder(DSColor.border, lineWidth: 1))
                 .contentShape(Circle())
         }
         .accessibilityLabel(Text("matches.create"))

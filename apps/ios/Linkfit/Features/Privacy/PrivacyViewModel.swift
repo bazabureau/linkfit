@@ -65,7 +65,7 @@ final class PrivacyViewModel {
 
         // If we loaded a still-pending export, resume polling — the user
         // may have left the screen while a previous request was in flight.
-        if let current = export, current.status == "pending" {
+        if let current = export, Self.isExportPending(current.status) {
             startPollingExport()
         }
     }
@@ -91,7 +91,7 @@ final class PrivacyViewModel {
         do {
             let result = try await apiClient.send(.requestDataExport())
             self.export = result
-            if result.status == "pending" {
+            if Self.isExportPending(result.status) {
                 startPollingExport()
             } else {
                 // Server returned an already-ready (or failed) record
@@ -113,6 +113,9 @@ final class PrivacyViewModel {
         do {
             let result = try await apiClient.send(.dataExportStatus())
             self.export = result
+            if result == nil {
+                exportInFlight = false
+            }
         } catch APIError.notFound {
             // No prior export — treat as "no record yet" rather than an error.
             self.export = nil
@@ -156,7 +159,7 @@ final class PrivacyViewModel {
         do {
             let result = try await apiClient.send(.dataExportStatus())
             self.export = result
-            return result.status != "pending"
+            return !(result.map { Self.isExportPending($0.status) } ?? false)
         } catch {
             // Transient errors are swallowed — the loop will retry on
             // the next tick. A persistent failure is acceptable because
@@ -249,7 +252,13 @@ final class PrivacyViewModel {
     }
 
     /// True iff there's a pending export request still cooking.
-    var exportPending: Bool { export?.status == "pending" }
+    var exportPending: Bool {
+        export.map { Self.isExportPending($0.status) } ?? false
+    }
+
+    private static func isExportPending(_ status: String) -> Bool {
+        status == "pending" || status == "queued"
+    }
 
     /// Parsed `download_url` for the ready export. Returns `nil` when
     /// the URL is malformed or the export isn't ready.

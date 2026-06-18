@@ -150,24 +150,25 @@ struct HomeView: View {
                     postCreateInviteFor = staged
                 }
             }) {
-                CreateGameView(viewModel: CreateGameViewModel(apiClient: container.apiClient)) { newGame in
-                    // Optimistic prepend — show the freshly created game
-                    // on home immediately, before the network reload returns.
-                    // Without this the user briefly sees a stale list and
-                    // wonders if their game was saved. The follow-up
-                    // `load()` overwrites with the authoritative server set
-                    // (which now also includes their own games regardless
-                    // of distance — see backend FAZA 75).
-                    viewModel.prependCreated(newGame)
-                    Task { await viewModel.load() }
-                    // Stage the post-create invite payload so the
-                    // `onDismiss` handler above can present the second
-                    // sheet AFTER the create sheet's dismiss animation
-                    // completes. Setting `postCreateInviteFor` directly
-                    // here would race with the same-frame `showCreate
-                    // = false` dismissal — SwiftUI consistently drops
-                    // the second presentation when both transitions
-                    // fire in the same runloop tick. For users with no
+                NavigationStack {
+                    CreateGameView(viewModel: CreateGameViewModel(apiClient: container.apiClient)) { newGame in
+                        // Optimistic prepend — show the freshly created game
+                        // on home immediately, before the network reload returns.
+                        // Without this the user briefly sees a stale list and
+                        // wonders if their game was saved. The follow-up
+                        // `load()` overwrites with the authoritative server set
+                        // (which now also includes their own games regardless
+                        // of distance — see backend FAZA 75).
+                        viewModel.prependCreated(newGame)
+                        Task { await viewModel.load() }
+                        // Stage the post-create invite payload so the
+                        // `onDismiss` handler above can present the second
+                        // sheet AFTER the create sheet's dismiss animation
+                        // completes. Setting `postCreateInviteFor` directly
+                        // here would race with the same-frame `showCreate
+                        // = false` dismissal — SwiftUI consistently drops
+                        // the second presentation when both transitions
+                        // fire in the same runloop tick. For users with no
                     // signed-in viewer id we fall back to the pre-
                     // invite-sheet behaviour (route to game detail).
                     let viewerId = container.currentUser?.id ?? ""
@@ -193,6 +194,7 @@ struct HomeView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .presentationBackground(.ultraThinMaterial)
+            }
             }
             .sheet(item: $postCreateInviteFor) { payload in
                 PostCreateInviteSheet(
@@ -254,19 +256,6 @@ struct HomeView: View {
                 .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showSearch) {
-                // SearchView is callback-driven and ships its own
-                // NavigationStack for the internal "see all" drilldown.
-                // Wrapping it again here would double-nest stacks, so
-                // we only add a thin toolbar overlay via a Group +
-                // overlay? Actually no — SearchView builds its own
-                // NavigationStack internally, so the simplest correct
-                // wiring is to present it directly and rely on
-                // SearchView's nav chrome. Adding a close button
-                // requires injecting a toolbar from outside, which
-                // SwiftUI doesn't allow across a nested nav stack.
-                // The sheet drag indicator + swipe-down gesture
-                // covers the dismiss affordance — same pattern Apple
-                // uses for `UISearchController` modal presentations.
                 SearchView(
                     viewModel: SearchViewModel(apiClient: container.apiClient),
                     onPickPlayer: { p in
@@ -284,7 +273,8 @@ struct HomeView: View {
                     onPickVenue: { v in
                         showSearch = false
                         homePath.append(HomeRoute.venue(v.id))
-                    }
+                    },
+                    onDismiss: { showSearch = false }
                 )
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
@@ -1043,9 +1033,6 @@ struct HomeView: View {
         } label: {
             Image(systemName: "bell")
                 .fontWeight(.semibold)
-                .overlay(alignment: .topTrailing) {
-                    if shell.unreadCount > 0 { unreadDot }
-                }
         }
         .buttonStyle(BounceButtonStyle())
         .accessibilityLabel(Text("home.notifications"))

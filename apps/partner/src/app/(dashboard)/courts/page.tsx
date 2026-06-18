@@ -99,7 +99,7 @@ function Kpi({
     <Card className="relative overflow-hidden p-5 shadow-card">
       <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-gradient-to-br from-accent/[0.06] to-transparent blur-2xl" />
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[11px] font-semibold   text-foregroundMuted">
+        <p className="text-[11px] font-semibold text-foregroundMuted">
           {label}
         </p>
         <span
@@ -266,7 +266,7 @@ export default function CourtsPage(): React.JSX.Element {
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-accent/10 text-accent ring-1 ring-accent/20">
               <Building2 className="h-[18px] w-[18px]" />
             </span>
-            <h1 className="font-display text-[1.6rem] font-bold  text-foreground">
+            <h1 className="font-display text-[1.6rem] font-bold text-foreground">
               Kortlarım
             </h1>
           </div>
@@ -383,13 +383,13 @@ export default function CourtsPage(): React.JSX.Element {
                     <TableCell>
                       <Badge
                         variant={court.sport_slug === "padel" ? "success" : "info"}
-                        className="font-semibold  "
+                        className="font-semibold "
                       >
                         {SPORT_LABEL[court.sport_slug] ?? court.sport_slug}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className="font-display text-sm font-bold  text-foreground tabular-nums">
+                      <span className="font-display text-sm font-bold text-foreground tabular-nums">
                         {moneyFromMinor(court.hourly_price_minor)}
                       </span>
                       <span className="ml-1 text-xs text-foregroundMuted">

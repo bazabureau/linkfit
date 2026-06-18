@@ -42,7 +42,7 @@ import {
   type Court,
 } from "@/lib/partner-queries";
 import { api } from "@/lib/api";
-import { formatDate, formatDateTime } from "@/lib/date-format";
+import { formatDateTime } from "@/lib/date-format";
 import {
   getBookerName,
   getBookerEmail,
@@ -134,7 +134,7 @@ function StatCell({
         <Icon className="h-[1.15rem] w-[1.15rem]" />
       </span>
       <div className="min-w-0">
-        <p className="text-[10px] font-bold   text-foregroundMuted">
+        <p className="text-[10px] font-bold text-foregroundMuted">
           {label}
         </p>
         <p className="mt-0.5 font-display text-xl font-bold leading-none  text-foreground tabular-nums">
@@ -506,7 +506,7 @@ export default function ReservationsPage(): React.JSX.Element {
               Rezervasiyalar
             </h1>
             {venue?.name ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surfaceElevated px-2.5 py-1 text-[10px] font-bold   text-foregroundMuted">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surfaceElevated px-2.5 py-1 text-[10px] font-bold text-foregroundMuted">
                 <MapPin className="h-3 w-3 text-accent" />
                 {venue.name}
               </span>
@@ -705,7 +705,7 @@ export default function ReservationsPage(): React.JSX.Element {
               <table className="w-full min-w-[700px] border-collapse text-left">
                 <thead>
                   <tr className="border-b border-border bg-surfaceElevated/40">
-                    <th className="w-24 border-r border-border p-4 text-center text-[10px] font-bold   text-foregroundMuted">
+                    <th className="w-24 border-r border-border p-4 text-center text-[10px] font-bold text-foregroundMuted">
                       Saat
                     </th>
                     {courts.map((court) => (
@@ -713,10 +713,10 @@ export default function ReservationsPage(): React.JSX.Element {
                         key={court.id}
                         className="border-r border-border p-4 text-center last:border-r-0"
                       >
-                        <span className="font-display text-sm font-bold  text-foreground">
+                        <span className="font-display text-sm font-bold text-foreground">
                           {court.name}
                         </span>
-                        <span className="mt-0.5 block text-[9px] font-bold   text-foregroundMuted">
+                        <span className="mt-0.5 block text-[9px] font-bold text-foregroundMuted">
                           {court.sport_slug.toUpperCase()} ·{" "}
                           {(court.hourly_price_minor / 100).toFixed(0)}{" "}
                           {court.currency}/saat
@@ -791,7 +791,7 @@ export default function ReservationsPage(): React.JSX.Element {
                                           {activeBooking.duration_minutes}d
                                         </span>
                                         <span
-                                          className={`font-bold   ${
+                                          className={`font-bold ${
                                             isMatchDoubles
                                               ? "text-accent"
                                               : "text-info"
@@ -991,12 +991,12 @@ export default function ReservationsPage(): React.JSX.Element {
                       ].map((h) => (
                         <th
                           key={h}
-                          className="px-4 py-3.5 text-left text-[10px] font-bold   text-foregroundMuted first:pl-6"
+                          className="px-4 py-3.5 text-left text-[10px] font-bold text-foregroundMuted first:pl-6"
                         >
                           {h}
                         </th>
                       ))}
-                      <th className="px-4 py-3.5 pr-6 text-right text-[10px] font-bold   text-foregroundMuted">
+                      <th className="px-4 py-3.5 pr-6 text-right text-[10px] font-bold text-foregroundMuted">
                         Əməliyyatlar
                       </th>
                     </tr>
@@ -1044,7 +1044,7 @@ export default function ReservationsPage(): React.JSX.Element {
                             </td>
                             <td className="px-4 py-3">
                               <span
-                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold   ${
+                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${
                                   isMatchDoubles
                                     ? "border-accent/30 bg-accent/10 text-accent"
                                     : "border-info/30 bg-info/10 text-info"
@@ -1169,7 +1169,7 @@ export default function ReservationsPage(): React.JSX.Element {
         <form onSubmit={handleCreateWalkIn} className="space-y-4">
           {createSlot && (
             <div className="rounded-xl border border-accent/25 bg-accent/[0.06] p-4">
-              <div className="flex items-center gap-1.5 text-[10px] font-bold   text-accent">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-accent">
                 <MapPin className="h-3 w-3" />
                 Seçilmiş Kort və Vaxt
               </div>
@@ -1184,7 +1184,7 @@ export default function ReservationsPage(): React.JSX.Element {
 
           {/* Matchmaking Selection */}
           <div className="space-y-1.5">
-            <Label className="text-[10px] font-bold   text-foregroundMuted">
+            <Label className="text-[10px] font-bold text-foregroundMuted">
               Oyun Formatı
             </Label>
             <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-surfaceElevated/50 p-1">
@@ -1214,7 +1214,7 @@ export default function ReservationsPage(): React.JSX.Element {
           <div className="space-y-1.5">
             <Label
               htmlFor="booker-name"
-              className="text-[10px] font-bold   text-foregroundMuted"
+              className="text-[10px] font-bold text-foregroundMuted"
             >
               Müştərinin Adı və Soyadı
             </Label>
@@ -1235,7 +1235,7 @@ export default function ReservationsPage(): React.JSX.Element {
           <div className="space-y-1.5">
             <Label
               htmlFor="booker-email"
-              className="text-[10px] font-bold   text-foregroundMuted"
+              className="text-[10px] font-bold text-foregroundMuted"
             >
               Müştərinin E-poçt Ünvanı
             </Label>
@@ -1259,7 +1259,7 @@ export default function ReservationsPage(): React.JSX.Element {
 
           {/* Duration Mode */}
           <div className="space-y-1.5">
-            <Label className="text-[10px] font-bold   text-foregroundMuted">
+            <Label className="text-[10px] font-bold text-foregroundMuted">
               Sifarişin Müddəti
             </Label>
             <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-surfaceElevated/50 p-1">
@@ -1330,7 +1330,7 @@ export default function ReservationsPage(): React.JSX.Element {
           {/* Live price quote */}
           <div className="flex items-center justify-between rounded-xl border border-border bg-surfaceElevated p-4">
             <div>
-              <span className="flex items-center gap-1 text-[10px] font-bold   text-foregroundMuted">
+              <span className="flex items-center gap-1 text-[10px] font-bold text-foregroundMuted">
                 <Wallet className="h-3.5 w-3.5 text-accent" />
                 Ödəniləcək Məbləğ
               </span>

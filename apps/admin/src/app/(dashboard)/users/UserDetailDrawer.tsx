@@ -13,6 +13,7 @@ import {
   Medal,
   RotateCcw,
   ShieldAlert,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -175,6 +176,12 @@ export function UserDetailDrawer({
                     {current.membership_tier === "premium" ? "Premium" : "Plus"}
                   </span>
                 ) : null}
+                {current.is_ambassador ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#C5F235]/20 px-2 py-0.5 text-[11px] font-bold text-[#3f6b00] ring-1 ring-inset ring-[#B7F233]/50">
+                    <Sparkles className="h-3 w-3" />
+                    Ambassador
+                  </span>
+                ) : null}
                 {current.is_vip ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-warning/12 px-2 py-0.5 text-[11px] font-bold  text-warning">
                     <Medal className="h-3 w-3" />
@@ -306,6 +313,15 @@ export function UserDetailDrawer({
             >
               <BadgeCheck className="h-4 w-4" />
               {current.is_verified ? t("Təsdiq nişanını sil") : t("Təsdiqlənmiş et")}
+            </Button>
+
+            <Button
+              variant="secondary"
+              disabled={isDeleted}
+              onClick={() => actions.onToggleAmbassador(current)}
+            >
+              <Sparkles className="h-4 w-4" />
+              {current.is_ambassador ? t("Ambassador nişanını sil") : t("Ambassador təyin et")}
             </Button>
 
             <Button

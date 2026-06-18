@@ -15,6 +15,7 @@ import {
   useUpdateUserVerification,
   useUpdateUserVip,
   useUpdateUserVerifiedBadge,
+  useUpdateUserAmbassador,
   useUpdateUserMembership,
   type User,
 } from "@/lib/admin-queries";
@@ -110,6 +111,10 @@ export default function UsersPage(): React.JSX.Element {
     onSuccess: () => toast.success(t("Təsdiq nişanı yeniləndi")),
     onError: () => toast.error(t("Təsdiq nişanı yenilənmədi")),
   });
+  const updateAmbassador = useUpdateUserAmbassador({
+    onSuccess: () => toast.success(t("Ambassador statusu yeniləndi")),
+    onError: () => toast.error(t("Ambassador statusu yenilənmədi")),
+  });
   const updateMembership = useUpdateUserMembership({
     onSuccess: () => toast.success(t("Üzvlük yeniləndi")),
     onError: () => toast.error(t("Üzvlük yenilənmədi")),
@@ -154,6 +159,8 @@ export default function UsersPage(): React.JSX.Element {
         updateVerification.mutate({ id: user.id, verified: !user.email_is_verified }),
       onToggleVerifiedBadge: (user: User) =>
         updateVerifiedBadge.mutate({ id: user.id, is_verified: !user.is_verified }),
+      onToggleAmbassador: (user: User) =>
+        updateAmbassador.mutate({ id: user.id, is_ambassador: !user.is_ambassador }),
       onOpenVip: (user: User) => {
         setVipFor(user);
         setVipLabel(user.vip_badge_label || "VIP");
@@ -174,7 +181,7 @@ export default function UsersPage(): React.JSX.Element {
       onRestore: (user: User) => restore.mutate({ id: user.id }),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [updateRole, updateVerification, updateVip, updateVerifiedBadge, updateMembership, unsuspend, restore],
+    [updateRole, updateVerification, updateVip, updateVerifiedBadge, updateAmbassador, updateMembership, unsuspend, restore],
   );
 
   const page = Math.floor(offset / PAGE_SIZE) + 1;

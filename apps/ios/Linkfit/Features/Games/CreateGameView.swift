@@ -18,7 +18,6 @@ struct CreateGameView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    topBar
                     gameSummary
                     whenCard
                     venueCard
@@ -33,6 +32,20 @@ struct CreateGameView: View {
             .scrollIndicators(.hidden)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 submitBar
+            }
+        }
+        .navigationTitle(Text("create_game.title"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .fontWeight(.semibold)
+                }
+                .accessibilityLabel(Text("common.close"))
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                sportChip
             }
         }
         .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.86), value: showAdvanced)

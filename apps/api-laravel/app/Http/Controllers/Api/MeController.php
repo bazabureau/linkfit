@@ -3,10 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Services\Auth\PasswordService;
+use App\Services\Notifications\PushDispatcher;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class MeController extends ApiController
 {
@@ -37,6 +41,78 @@ class MeController extends ApiController
         foreach ($data as $key => $value) {
             $user->{$key} = $value;
         }
+        $user->save();
+
+        return response()->json($user->fresh()->toPublicUser());
+    }
+
+    public function avatar(Request $request): JsonResponse
+    {
+        $user = $this->authUser($request);
+        $file = $request->file('file') ?: $request->file('avatar');
+
+        if ($file === null) {
+            $data = $this->validateBody($request, [
+                'photo_url' => ['required', 'url', 'max:2048'],
+            ]);
+            $user->photo_url = $data['photo_url'];
+            $user->save();
+
+            return response()->json(['user' => $user->fresh()->toPublicUser(), 'media' => null]);
+        }
+
+        if (! $file->isValid()) {
+            throw ApiException::validation('Invalid avatar upload');
+        }
+        if ($file->getSize() > 6 * 1024 * 1024) {
+            throw ApiException::validation('Avatar file is too large');
+        }
+        $mime = (string) $file->getMimeType();
+        if (! in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
+            throw ApiException::validation('Only jpeg, png and webp images are allowed');
+        }
+        $info = @getimagesize($file->getRealPath());
+        if ($info === false) {
+            throw ApiException::validation('Invalid image file');
+        }
+
+        [$width, $height] = $info;
+        [$contents, $width, $height] = $this->compressedAvatarImage($file->getRealPath(), $mime, $width, $height);
+        $disk = env('MEDIA_DISK', config('filesystems.default') === 's3' ? 's3' : 'public');
+        $extension = $mime === 'image/png' ? 'png' : ($mime === 'image/webp' ? 'webp' : 'jpg');
+        $path = 'avatars/'.now()->format('Y/m').'/'.Str::uuid().'.'.$extension;
+        Storage::disk($disk)->put($path, $contents, ['visibility' => 'public']);
+        $url = Storage::disk($disk)->url($path);
+        $mediaId = (string) Str::uuid();
+
+        DB::table('media_assets')->insert([
+            'id' => $mediaId,
+            'user_id' => $user->id,
+            'disk' => $disk,
+            'path' => $path,
+            'url' => $url,
+            'mime' => $mime,
+            'size_bytes' => strlen($contents),
+            'width' => $width,
+            'height' => $height,
+            'purpose' => 'avatar',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $user->photo_url = $url;
+        $user->save();
+
+        return response()->json([
+            'user' => $user->fresh()->toPublicUser(),
+            'media' => ['id' => $mediaId, 'url' => $url, 'width' => $width, 'height' => $height, 'mime' => $mime],
+        ], 201);
+    }
+
+    public function deleteAvatar(Request $request): JsonResponse
+    {
+        $user = $this->authUser($request);
+        $user->photo_url = null;
         $user->save();
 
         return response()->json($user->fresh()->toPublicUser());
@@ -220,6 +296,52 @@ class MeController extends ApiController
         return response()->json(null, 204);
     }
 
+    public function testPush(Request $request): JsonResponse
+    {
+        $user = $this->authUser($request);
+        $data = $this->validateBody($request, [
+            'title' => ['nullable', 'string', 'max:120'],
+            'body' => ['nullable', 'string', 'max:240'],
+            'send_now' => ['nullable', 'boolean'],
+        ]);
+
+        $activeDevices = DB::table('device_tokens')
+            ->where('user_id', $user->id)
+            ->whereNull('revoked_at')
+            ->count();
+
+        if (! Schema::hasTable('push_notification_jobs')) {
+            throw ApiException::internal('Push jobs are not configured', 503);
+        }
+
+        $jobId = (string) Str::uuid();
+        DB::table('push_notification_jobs')->insert([
+            'id' => $jobId,
+            'user_id' => $user->id,
+            'type' => 'system',
+            'title' => $data['title'] ?? 'Linkfit test',
+            'body' => $data['body'] ?? 'Push notifications are working.',
+            'payload' => json_encode(['kind' => 'test_push']),
+            'status' => 'pending',
+            'available_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $dispatch = null;
+        if (($data['send_now'] ?? true) === true) {
+            $dispatch = app(PushDispatcher::class)->process(100);
+        }
+
+        return response()->json([
+            'queued' => true,
+            'job_id' => $jobId,
+            'active_devices' => $activeDevices,
+            'can_receive' => $activeDevices > 0,
+            'dispatch' => $dispatch,
+        ], 201);
+    }
+
     private function tokenPreview(string $token): string
     {
         if (strlen($token) <= 14) {
@@ -227,6 +349,53 @@ class MeController extends ApiController
         }
 
         return substr($token, 0, 6).'...'.substr($token, -6);
+    }
+
+    /**
+     * @return array{0:string,1:int,2:int}
+     */
+    private function compressedAvatarImage(string $path, string $mime, int $width, int $height): array
+    {
+        if (! function_exists('imagecreatefromstring')) {
+            return [(string) file_get_contents($path), $width, $height];
+        }
+
+        $source = @imagecreatefromstring((string) file_get_contents($path));
+        if ($source === false) {
+            throw ApiException::validation('Invalid image file');
+        }
+
+        $maxDimension = 900;
+        $ratio = min(1, $maxDimension / max($width, $height));
+        $targetWidth = max(1, (int) round($width * $ratio));
+        $targetHeight = max(1, (int) round($height * $ratio));
+        $image = $source;
+
+        if ($targetWidth !== $width || $targetHeight !== $height) {
+            $image = imagecreatetruecolor($targetWidth, $targetHeight);
+            if (in_array($mime, ['image/png', 'image/webp'], true)) {
+                imagealphablending($image, false);
+                imagesavealpha($image, true);
+                $transparent = imagecolorallocatealpha($image, 0, 0, 0, 127);
+                imagefilledrectangle($image, 0, 0, $targetWidth, $targetHeight, $transparent);
+            }
+            imagecopyresampled($image, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+            imagedestroy($source);
+        }
+
+        ob_start();
+        if ($mime === 'image/png') {
+            imagepng($image, null, 8);
+        } elseif ($mime === 'image/webp' && function_exists('imagewebp')) {
+            imagewebp($image, null, 82);
+        } else {
+            imageinterlace($image, true);
+            imagejpeg($image, null, 84);
+        }
+        $contents = (string) ob_get_clean();
+        imagedestroy($image);
+
+        return [$contents, $targetWidth, $targetHeight];
     }
 
     private function assertPasswordPolicy(string $password): void

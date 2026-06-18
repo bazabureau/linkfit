@@ -54,6 +54,7 @@ export interface User {
   vip_badge_label: string | null;
   vip_expires_at: string | null;
   is_verified: boolean;
+  is_ambassador?: boolean;
   username: string | null;
   membership_tier: string;
   is_premium: boolean;
@@ -396,6 +397,30 @@ export function useUpdateUserVerifiedBadge(
     onMutate: async ({ id, is_verified }) => {
       await qc.cancelQueries({ queryKey: adminKeys.usersAll });
       setCachedUser(qc, id, { is_verified });
+    },
+    onSuccess: (user) => {
+      setCachedUser(qc, user.id, user);
+      qc.setQueryData(adminKeys.user(user.id), user);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: adminKeys.usersAll });
+    },
+    ...options,
+  });
+}
+
+export function useUpdateUserAmbassador(
+  options?: UseMutationOptions<UserDetail, Error, { id: string; is_ambassador: boolean }>,
+) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, is_ambassador }) =>
+      api.post<UserDetail>(`/api/v1/admin/users/${id}/ambassador`, {
+        is_ambassador,
+      }),
+    onMutate: async ({ id, is_ambassador }) => {
+      await qc.cancelQueries({ queryKey: adminKeys.usersAll });
+      setCachedUser(qc, id, { is_ambassador });
     },
     onSuccess: (user) => {
       setCachedUser(qc, user.id, user);

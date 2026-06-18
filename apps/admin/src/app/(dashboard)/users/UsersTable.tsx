@@ -12,6 +12,7 @@ import {
   MoreHorizontal,
   RotateCcw,
   Shield,
+  Sparkles,
   Trash2,
   UserRound,
   Users as UsersIcon,
@@ -36,6 +37,7 @@ export interface UserRowActions {
   onChangeRole: (user: User, role: MutableAdminRole) => void;
   onToggleVerification: (user: User) => void;
   onToggleVerifiedBadge: (user: User) => void;
+  onToggleAmbassador: (user: User) => void;
   onOpenVip: (user: User) => void;
   onDisableVip: (user: User) => void;
   onOpenMembership: (user: User) => void;
@@ -211,6 +213,13 @@ function RowMenu({
             {user.is_verified ? t("Təsdiq nişanını sil") : t("Təsdiqlənmiş et")}
           </MenuButton>
           <MenuButton
+            icon={user.is_ambassador ? XCircle : Sparkles}
+            disabled={isDeleted}
+            onClick={() => run(() => actions.onToggleAmbassador(user))}
+          >
+            {user.is_ambassador ? t("Ambassador nişanını sil") : t("Ambassador təyin et")}
+          </MenuButton>
+          <MenuButton
             icon={Crown}
             disabled={isDeleted}
             onClick={() => run(() => actions.onOpenMembership(user))}
@@ -364,6 +373,12 @@ export function UsersTable({
                             <span className="inline-flex items-center gap-1 rounded-full bg-accent/12 px-2 py-0.5 text-[10px] font-bold text-accent">
                               <Crown className="h-2.5 w-2.5" />
                               {user.membership_tier === "premium" ? "Premium" : "Plus"}
+                            </span>
+                          ) : null}
+                          {user.is_ambassador ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#C5F235]/20 px-2 py-0.5 text-[10px] font-bold text-[#3f6b00] ring-1 ring-inset ring-[#B7F233]/50">
+                              <Sparkles className="h-2.5 w-2.5" />
+                              Ambassador
                             </span>
                           ) : null}
                           {user.is_vip ? (

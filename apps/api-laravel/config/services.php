@@ -51,10 +51,34 @@ return [
         'production' => env('APNS_PRODUCTION', false),
     ],
 
+    // Firebase Cloud Messaging (HTTP v1) — Android push delivery. Provide a
+    // Google service-account JSON key file (with the Firebase Cloud Messaging
+    // API enabled) via FCM_CREDENTIALS_PATH. When unset the dispatcher silently
+    // skips Android tokens, so iOS delivery is unaffected.
+    'fcm' => [
+        'credentials_path' => env('FCM_CREDENTIALS_PATH'),
+        // Optional override; otherwise read from the service-account JSON.
+        'project_id' => env('FCM_PROJECT_ID'),
+    ],
+
+    'stripe' => [
+        'publishable_key' => env('STRIPE_PUBLISHABLE_KEY'),
+    ],
+
+    'apple_pay' => [
+        'merchant_id' => env('APPLE_PAY_MERCHANT_ID'),
+    ],
+
     'linkfit' => [
         'web_url' => env('LINKFIT_WEB_URL', env('APP_URL')),
         'admin_url' => env('LINKFIT_ADMIN_URL', env('APP_URL')),
         'owner_url' => env('LINKFIT_OWNER_URL', env('APP_URL')),
+        'support_email' => env('LINKFIT_SUPPORT_EMAIL', 'support@linkfit.az'),
+        'latest_version' => env('LINKFIT_LATEST_VERSION', '1.0.0'),
+        'ios_latest_build' => env('LINKFIT_IOS_LATEST_BUILD', 13),
+        'ios_min_supported_build' => env('LINKFIT_IOS_MIN_SUPPORTED_BUILD', 1),
+        'ios_force_update' => env('LINKFIT_IOS_FORCE_UPDATE', false),
+        'ios_release_notes_url' => env('LINKFIT_IOS_RELEASE_NOTES_URL'),
     ],
 
 ];

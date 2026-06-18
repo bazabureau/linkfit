@@ -22,11 +22,15 @@ class EngagementController extends ApiController
             'items' => $catalog->map(fn ($a) => [
                 'slug' => $a->slug,
                 'name' => $a->name,
+                // Alias for clients that read `title` (mobile Achievement model).
+                'title' => $a->name,
                 'description' => $a->description,
                 'icon_name' => $a->icon_name,
                 // iOS `Achievement` requires a non-optional `unlocked` Bool.
                 'unlocked' => isset($unlocked[$a->slug]),
                 'unlocked_at' => isset($unlocked[$a->slug]) ? $this->iso($unlocked[$a->slug]) : null,
+                // Alias for clients that read the earned timestamp as `earned_at`.
+                'earned_at' => isset($unlocked[$a->slug]) ? $this->iso($unlocked[$a->slug]) : null,
             ])->values(),
             // iOS `AchievementsResponse` requires both counts (non-optional Int).
             'unlocked_count' => $unlocked->count(),
@@ -142,6 +146,8 @@ class EngagementController extends ApiController
                     'reliability_score' => $r->reliability_score !== null ? (int) $r->reliability_score : null,
                     // Aliases consumed by the web rankings page.
                     'elo' => $elo,
+                    // Alias for the mobile PlayerProfile model (reads `primary_elo`).
+                    'primary_elo' => $elo,
                     'played' => $played,
                     'wins' => $won,
                     'points' => $won,

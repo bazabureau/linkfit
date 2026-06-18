@@ -18,8 +18,10 @@ final class VenuesViewModel {
 
     func onAppear() async {
         if sports.isEmpty {
-            sports = ((try? await apiClient.send(.sports).items) ?? [])
+            let fetchedSports = ((try? await apiClient.send(.sports).items) ?? [])
                 .filter { $0.slug != "football_5" && $0.slug != "football" }
+            var seenSlugs = Set<String>()
+            sports = fetchedSports.filter { seenSlugs.insert($0.slug).inserted }
         }
         await load()
     }
@@ -50,12 +52,7 @@ final class VenuesViewModel {
             state = .loading
         }
         do {
-            let res = try await apiClient.send(
-                // Wide radius so ALL clubs surface (home shows "all clubs",
-                // not just nearby) — lat/lng stay so distance is still computed.
-                .venues(lat: center.latitude, lng: center.longitude,
-                        radiusKm: 20000, sport: selectedSportSlug ?? "padel")
-            )
+            let res = try await apiClient.send(.venues(sport: selectedSportSlug))
             state = res.items.isEmpty ? .empty : .loaded(res.items)
             // Only persist the default (no sport filter) payload so a
             // future cold launch matches the user's expected baseline.

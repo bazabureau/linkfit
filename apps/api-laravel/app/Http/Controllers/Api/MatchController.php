@@ -198,6 +198,83 @@ class MatchController extends ApiController
     }
 
     /**
+     * Record a finished game's result in ONE call — the practical way players
+     * log "who won + the score" after a casual game (vs. the point-by-point
+     * scoring flow). Any participant (or the host) submits the two teams and the
+     * final set scores; the winner is derived, ELO + win/loss are applied once,
+     * and the game is marked completed. Idempotent: a second call after the
+     * result is recorded is a no-op that returns the existing score.
+     */
+    public function reportResult(Request $request, string $id): JsonResponse
+    {
+        $user = $this->authUser($request);
+        $game = $this->gameRow($id);
+
+        $isMember = (string) $game->host_user_id === (string) $user->id
+            || DB::table('game_participants')->where('game_id', $id)->where('user_id', $user->id)->exists();
+        if (! $isMember) {
+            throw ApiException::forbidden('Only players in this game can record the result');
+        }
+
+        $data = $this->validateBody($request, [
+            'team_a_user_ids' => ['required', 'array', 'min:1', 'max:4'],
+            'team_a_user_ids.*' => ['uuid'],
+            'team_b_user_ids' => ['required', 'array', 'min:1', 'max:4'],
+            'team_b_user_ids.*' => ['uuid'],
+            'sets' => ['required', 'array', 'min:1', 'max:5'],
+            'sets.*.a' => ['required', 'integer', 'min:0', 'max:99'],
+            'sets.*.b' => ['required', 'integer', 'min:0', 'max:99'],
+        ]);
+        $this->assertValidTeams($id, $data['team_a_user_ids'], $data['team_b_user_ids']);
+
+        $sets = array_map(fn ($s) => ['a' => (int) $s['a'], 'b' => (int) $s['b']], $data['sets']);
+        $winningTeam = $this->winnerFromSets($sets);
+        $teamA = array_values($data['team_a_user_ids']);
+        $teamB = array_values($data['team_b_user_ids']);
+        $lastSet = end($sets) ?: ['a' => 0, 'b' => 0];
+
+        $deltas = DB::transaction(function () use ($id, $sets, $lastSet, $game, $teamA, $teamB, $winningTeam) {
+            $locked = DB::table('match_scores')->where('game_id', $id)->lockForUpdate()->first(['status']);
+            if ($locked !== null && $locked->status === 'completed') {
+                return null; // already recorded — idempotent no-op
+            }
+            $deltas = $this->applyMatchOutcome((string) $game->sport_id, $teamA, $teamB, $winningTeam);
+            DB::table('match_scores')->updateOrInsert(
+                ['game_id' => $id],
+                [
+                    'team_a_user_ids' => $this->uuidArray($teamA),
+                    'team_b_user_ids' => $this->uuidArray($teamB),
+                    'sets' => json_encode($sets),
+                    'points' => json_encode([]),
+                    'current_set' => min(2, max(0, count($sets) - 1)),
+                    'current_game_a' => min(7, (int) $lastSet['a']),
+                    'current_game_b' => min(7, (int) $lastSet['b']),
+                    'point_a' => 0,
+                    'point_b' => 0,
+                    'status' => 'completed',
+                    'started_at' => now(),
+                    'completed_at' => now(),
+                    'elo_delta_by_user' => json_encode($deltas),
+                    'updated_at' => now(),
+                ],
+            );
+            DB::table('games')->where('id', $id)->update(['status' => 'completed', 'updated_at' => now()]);
+
+            return $deltas;
+        });
+
+        if ($deltas !== null) {
+            $this->auditWrite($user->id, 'match.result_reported', 'match_scores', $id, [
+                'sets' => $sets,
+                'winning_team' => $winningTeam,
+                'elo_delta_by_user' => $deltas,
+            ]);
+        }
+
+        return $this->scoring($id);
+    }
+
+    /**
      * Authoritative post-match write: +1 game played per confirmed player, +1
      * win per member of the winning team, and a team-ELO update (K=32) so the
      * elo_rating curve is real instead of frozen at the 1200 default. Returns

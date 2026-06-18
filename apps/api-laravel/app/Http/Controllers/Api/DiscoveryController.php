@@ -24,9 +24,46 @@ class DiscoveryController extends ApiController
             ->orderBy('g.starts_at')
             ->limit(50)
             ->get(['g.id', 'g.starts_at', 'g.status', 's.slug as sport_slug']);
-        $bookings = DB::table('bookings')->where('user_id', $user->id)->where('starts_at', '>=', now()->subDay())->orderBy('starts_at')->limit(50)->get();
+        // Keep every legacy `bookings.*` column (existing consumers may read
+        // any of them) and add joined court/venue names for the new `items[]`.
+        $bookings = DB::table('bookings as b')
+            ->leftJoin('courts as c', 'c.id', '=', 'b.court_id')
+            ->leftJoin('venues as v', 'v.id', '=', 'c.venue_id')
+            ->where('b.user_id', $user->id)
+            ->where('b.starts_at', '>=', now()->subDay())
+            ->orderBy('b.starts_at')
+            ->limit(50)
+            ->get(['b.*', 'c.name as court_name', 'v.name as venue_name']);
 
-        return response()->json(['games' => $games, 'bookings' => $bookings]);
+        // Flat, normalized agenda list for clients that read a single ordered
+        // stream (e.g. the mobile "Up next" card). The legacy `games`/`bookings`
+        // keys are kept for existing consumers.
+        $items = collect();
+        foreach ($games as $g) {
+            $items->push([
+                'kind' => 'game',
+                'id' => $g->id,
+                'starts_at' => $this->iso($g->starts_at),
+                'status' => $g->status,
+                'title' => ucfirst((string) $g->sport_slug).' game',
+                'venue_name' => null,
+                'sport_slug' => $g->sport_slug,
+            ]);
+        }
+        foreach ($bookings as $b) {
+            $items->push([
+                'kind' => 'booking',
+                'id' => $b->id,
+                'starts_at' => $this->iso($b->starts_at),
+                'status' => $b->status,
+                'title' => $b->venue_name ?: $b->court_name,
+                'venue_name' => $b->venue_name,
+                'court_name' => $b->court_name,
+            ]);
+        }
+        $items = $items->sortBy('starts_at')->values();
+
+        return response()->json(['items' => $items, 'games' => $games, 'bookings' => $bookings]);
     }
 
     public function activity(Request $request): JsonResponse
@@ -64,8 +101,16 @@ class DiscoveryController extends ApiController
         $limit = (int) ($query['limit'] ?? 30);
         $offset = (int) ($query['offset'] ?? 0);
 
+        // Alias the timestamp as `created_at` too: some clients (mobile) read the
+        // activity time from `created_at`/`at`/`timestamp`, not `event_at`.
+        $page = $events->slice($offset, $limit)->values()->map(function ($event) {
+            $event['created_at'] = $event['event_at'] ?? null;
+
+            return $event;
+        });
+
         return response()->json([
-            'items' => $events->slice($offset, $limit)->values(),
+            'items' => $page,
             'pagination' => [
                 'limit' => $limit,
                 'offset' => $offset,
@@ -226,12 +271,22 @@ class DiscoveryController extends ApiController
         // deeper analytics (rival breakdown, weekly volume) are premium-only.
         $isPremium = app(\App\Services\Membership\MembershipService::class)->isPremium($user->id);
 
+        // Scalar win-rate (0..1) and games-won, derived from the window so simpler
+        // clients (e.g. the mobile home stats strip) don't have to read the series.
+        $totalGames = count($windowMatches);
+        $winRate = $totalGames > 0 ? round($wins / $totalGames, 4) : null;
+
         return response()->json([
             'sport_slug' => $slug,
             'days' => $days,
-            'total_games' => count($windowMatches),
+            'total_games' => $totalGames,
+            'games_won' => $wins,
+            'win_rate' => $winRate,
             'current_elo' => $currentElo,
+            // Aliases for clients that read `elo`/`reliability` (mobile home strip).
+            'elo' => $currentElo,
             'current_reliability' => $currentReliability,
+            'reliability' => $currentReliability,
             'elo_series' => $eloSeries,
             'win_rate_series' => $winRateSeries,
             'games_per_week' => $isPremium ? $gamesPerWeek : [],

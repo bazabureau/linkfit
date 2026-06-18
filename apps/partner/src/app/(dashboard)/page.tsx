@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
+import Link from "next/link";
 import {
   CalendarDays,
   CheckCircle2,
@@ -266,7 +267,7 @@ export default function PartnerOverviewPage(): React.JSX.Element {
           >
             <CardContent className="flex flex-col gap-3 p-5">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold   text-foregroundMuted">
+                <span className="text-[10px] font-bold text-foregroundMuted">
                   {k.label}
                 </span>
                 <span
@@ -359,7 +360,7 @@ export default function PartnerOverviewPage(): React.JSX.Element {
             </div>
             {peakRevenue > 0 ? (
               <div className="hidden text-right sm:block">
-                <p className="text-[10px] font-bold   text-foregroundMuted">
+                <p className="text-[10px] font-bold text-foregroundMuted">
                   Pik
                 </p>
                 <p className="font-display text-sm font-bold tabular-nums text-foreground">
@@ -469,10 +470,10 @@ export default function PartnerOverviewPage(): React.JSX.Element {
             size="sm"
             className="gap-1 text-xs font-semibold text-accent hover:bg-accent/10"
           >
-            <a href="/bookings">
+            <Link href="/bookings">
               Hamısı
               <ArrowUpRight className="h-3.5 w-3.5" />
-            </a>
+            </Link>
           </Button>
         </div>
 
@@ -511,15 +512,15 @@ export default function PartnerOverviewPage(): React.JSX.Element {
                   {["Müştəri", "Kort", "Sifariş Vaxtı", "Müddət"].map((h) => (
                     <th
                       key={h}
-                      className="px-4 py-3 text-left text-[10px] font-bold   text-foregroundMuted first:pl-5"
+                      className="px-4 py-3 text-left text-[10px] font-bold text-foregroundMuted first:pl-5"
                     >
                       {h}
                     </th>
                   ))}
-                  <th className="px-4 py-3 text-right text-[10px] font-bold   text-foregroundMuted">
+                  <th className="px-4 py-3 text-right text-[10px] font-bold text-foregroundMuted">
                     Məbləğ
                   </th>
-                  <th className="px-4 py-3 pr-5 text-right text-[10px] font-bold   text-foregroundMuted">
+                  <th className="px-4 py-3 pr-5 text-right text-[10px] font-bold text-foregroundMuted">
                     Status
                   </th>
                 </tr>

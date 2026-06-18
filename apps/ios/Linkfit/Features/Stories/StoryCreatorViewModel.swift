@@ -198,7 +198,7 @@ final class StoryCreatorViewModel {
         do {
             // Multipart upload with progress reporting. The closure runs
             // on URLSession's delegate queue — hop back to main actor.
-            let uploaded = try await apiClient.uploadImage(
+            let uploaded = try await apiClient.uploadStoryImage(
                 imageData: jpeg,
                 mimeType: "image/jpeg",
                 filename: "story.jpg",

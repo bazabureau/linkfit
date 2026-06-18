@@ -54,6 +54,11 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // Public-facing web app base (linkfit.az). Distinct from APP_URL which is the
+    // API origin (api.linkfit.az) used for Storage::url() image links. Used to
+    // build user-shareable links (e.g. referral links → linkfit.az/r/{code}).
+    'web_url' => env('APP_WEB_URL', 'https://linkfit.az'),
+
     // Optional client API key (see App\Http\Middleware\ApiKeyGuard). Disabled
     // unless REQUIRE_API_KEY=true so existing mobile clients are unaffected.
     'api_key' => env('API_KEY'),

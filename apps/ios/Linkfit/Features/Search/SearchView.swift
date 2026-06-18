@@ -28,6 +28,7 @@ struct SearchView: View {
     var onPickGame: (SearchGameResult) -> Void
     var onPickTournament: (SearchTournamentResult) -> Void
     var onPickVenue: (SearchVenueResult) -> Void
+    var onDismiss: (() -> Void)?
 
     /// Section the user is "drilled into" via Show all. `nil` means the
     /// unified overview is on screen. Driven as a `NavigationDestination`
@@ -69,6 +70,17 @@ struct SearchView: View {
             }
             .navigationTitle(Text("search.title"))
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if let onDismiss {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(action: onDismiss) {
+                            Image(systemName: "xmark")
+                                .fontWeight(.semibold)
+                        }
+                        .accessibilityLabel(Text("common.close"))
+                    }
+                }
+            }
             .navigationDestination(item: $seeAllType) { type in
                 SearchSectionListView(
                     type: type,

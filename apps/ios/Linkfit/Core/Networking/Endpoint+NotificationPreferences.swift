@@ -55,8 +55,8 @@ extension Endpoint where Response == NotificationPreferencesResponse {
 
 extension Endpoint where Response == EmptyResponse {
     /// PATCH /api/v1/me/notification-preferences — flip a single channel
-    /// (push/email/in-app) for one notification type. Missing channel
-    /// keys are preserved server-side. Returns 204 on success.
+    /// (push/email/in-app) for one notification type. Backend accepts a
+    /// nested `preferences` map keyed by the enum notification type.
     ///
     /// We only surface `push_enabled` from the view (the screen is a
     /// "push prefs" screen), but the body parameters cover all three
@@ -67,10 +67,15 @@ extension Endpoint where Response == EmptyResponse {
         emailEnabled: Bool? = nil,
         inAppEnabled: Bool? = nil
     ) -> Endpoint<EmptyResponse> {
-        var body: [String: Any] = ["type": type]
-        if let pushEnabled  { body["push_enabled"] = pushEnabled }
-        if let emailEnabled { body["email_enabled"] = emailEnabled }
-        if let inAppEnabled { body["in_app_enabled"] = inAppEnabled }
+        var preference: [String: Any] = [:]
+        if let pushEnabled  { preference["push_enabled"] = pushEnabled }
+        if let emailEnabled { preference["email_enabled"] = emailEnabled }
+        if let inAppEnabled { preference["in_app_enabled"] = inAppEnabled }
+        let body: [String: Any] = [
+            "preferences": [
+                type: preference,
+            ],
+        ]
         return Endpoint(method: .patch,
                         path: "/api/v1/me/notification-preferences",
                         body: try? JSONSerialization.data(withJSONObject: body),
@@ -87,8 +92,8 @@ extension Endpoint where Response == EmptyResponse {
         // the backend treats "missing key" differently from "explicit
         // null" (we need explicit null to clear the window).
         let body: [String: Any] = [
-            "quiet_hours_start": start.map { $0 as Any } ?? NSNull(),
-            "quiet_hours_end": end.map { $0 as Any } ?? NSNull(),
+            "start": start.map { $0 as Any } ?? NSNull(),
+            "end": end.map { $0 as Any } ?? NSNull(),
         ]
         return Endpoint(method: .put,
                         path: "/api/v1/me/notification-preferences/quiet-hours",
