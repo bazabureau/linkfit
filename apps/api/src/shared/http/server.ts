@@ -972,37 +972,39 @@ export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
   // surface and persists state in the `memberships` table.
   //
   const stripeKeyIsPlaceholder = stripeSecretIsPlaceholder;
-  if (
-    !stripeKeyIsPlaceholder &&
-    (deps.env.STRIPE_MEMBERSHIP_PLUS_PRICE_ID === undefined ||
-      deps.env.STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID === undefined)
-  ) {
-    throw new Error(
-      "Stripe membership Price IDs are required with a real STRIPE_SECRET_KEY — set STRIPE_MEMBERSHIP_PLUS_PRICE_ID and STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID",
-    );
+  const membershipPlusPriceId = deps.env.STRIPE_MEMBERSHIP_PLUS_PRICE_ID;
+  const membershipPremiumPriceId = deps.env.STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID;
+  let defaultMembershipStripe: StripeMembershipAdapter;
+  if (stripeKeyIsPlaceholder) {
+    defaultMembershipStripe = {
+      ensureCustomer: ({ user_id }) =>
+        Promise.resolve({ id: `cus_placeholder_${user_id}` }),
+      createCheckoutSession: ({ user_id, tier }) =>
+        Promise.resolve({
+          id: `cs_placeholder_${user_id}_${tier}`,
+          url: `https://checkout.stripe.test/placeholder/${user_id}/${tier}`,
+        }),
+      cancelAtPeriodEnd: () => Promise.resolve(),
+    };
+  } else {
+    if (
+      membershipPlusPriceId === undefined ||
+      membershipPremiumPriceId === undefined
+    ) {
+      throw new Error(
+        "Stripe membership Price IDs are required with a real STRIPE_SECRET_KEY — set STRIPE_MEMBERSHIP_PLUS_PRICE_ID and STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID",
+      );
+    }
+    defaultMembershipStripe = new LiveStripeMembershipAdapter({
+      secretKey: deps.env.STRIPE_SECRET_KEY,
+      plusPriceId: membershipPlusPriceId,
+      premiumPriceId: membershipPremiumPriceId,
+      publicAppUrl,
+      logger: deps.logger,
+    });
   }
-  const membershipPlusPriceId = deps.env.STRIPE_MEMBERSHIP_PLUS_PRICE_ID!;
-  const membershipPremiumPriceId = deps.env.STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID!;
   const membershipStripe: StripeMembershipAdapter =
-    deps.membershipStripe ??
-    (stripeKeyIsPlaceholder
-      ? {
-          ensureCustomer: ({ user_id }) =>
-            Promise.resolve({ id: `cus_placeholder_${user_id}` }),
-          createCheckoutSession: ({ user_id, tier }) =>
-            Promise.resolve({
-              id: `cs_placeholder_${user_id}_${tier}`,
-              url: `https://checkout.stripe.test/placeholder/${user_id}/${tier}`,
-            }),
-          cancelAtPeriodEnd: () => Promise.resolve(),
-        }
-      : new LiveStripeMembershipAdapter({
-          secretKey: deps.env.STRIPE_SECRET_KEY,
-          plusPriceId: membershipPlusPriceId,
-          premiumPriceId: membershipPremiumPriceId,
-          publicAppUrl,
-          logger: deps.logger,
-        }));
+    deps.membershipStripe ?? defaultMembershipStripe;
   const membershipService = new MembershipService({
     db: deps.db,
     stripe: membershipStripe,

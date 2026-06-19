@@ -151,8 +151,7 @@ export class LeaderboardsService {
     const hasViewerHome =
       viewerHome?.home_lat !== null &&
       viewerHome?.home_lat !== undefined &&
-      viewerHome.home_lng !== null &&
-      viewerHome.home_lng !== undefined;
+      viewerHome.home_lng !== null;
     const scopeFilter =
       query.scope === "city" && hasViewerHome
         ? sql`AND u.home_lat IS NOT NULL

@@ -5,8 +5,9 @@ import { type InvitationsService } from "./invitations.service.js";
 
 describe("InvitationsExpireSweeper", () => {
   it("expires stale pending invitations through the service", async () => {
+    const expireStalePending = vi.fn<() => Promise<number>>().mockResolvedValue(3);
     const service = {
-      expireStalePending: vi.fn<() => Promise<number>>().mockResolvedValue(3),
+      expireStalePending,
     } as Pick<InvitationsService, "expireStalePending"> as InvitationsService;
     const sweeper = new InvitationsExpireSweeper({
       service,
@@ -14,16 +15,19 @@ describe("InvitationsExpireSweeper", () => {
     });
 
     await expect(sweeper.tick()).resolves.toEqual({ expired: 3 });
-    expect(service.expireStalePending).toHaveBeenCalledTimes(1);
+    expect(expireStalePending).toHaveBeenCalledTimes(1);
   });
 
   it("coalesces overlapping ticks", async () => {
     let release!: () => void;
     const first = new Promise<number>((resolve) => {
-      release = () => resolve(1);
+      release = () => {
+        resolve(1);
+      };
     });
+    const expireStalePending = vi.fn<() => Promise<number>>().mockReturnValue(first);
     const service = {
-      expireStalePending: vi.fn<() => Promise<number>>().mockReturnValue(first),
+      expireStalePending,
     } as Pick<InvitationsService, "expireStalePending"> as InvitationsService;
     const sweeper = new InvitationsExpireSweeper({
       service,
@@ -34,7 +38,7 @@ describe("InvitationsExpireSweeper", () => {
     await expect(sweeper.tick()).resolves.toEqual({ expired: 0 });
     release();
     await expect(inFlight).resolves.toEqual({ expired: 1 });
-    expect(service.expireStalePending).toHaveBeenCalledTimes(1);
+    expect(expireStalePending).toHaveBeenCalledTimes(1);
   });
 
   it("logs and returns zero when the service throws", async () => {
