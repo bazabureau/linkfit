@@ -65,6 +65,7 @@ Route::prefix('api/v1')->group(function () {
     Route::post('auth/logout', [AuthController::class, 'logout'])->middleware('throttle:20,1');
     Route::post('auth/verify-email', [AuthExtrasController::class, 'verifyEmail'])->middleware('throttle:10,1');
     Route::post('auth/request-password-reset', [AuthExtrasController::class, 'requestPasswordReset'])->middleware('throttle:password-reset-request');
+    Route::post('auth/verify-password-reset-code', [AuthExtrasController::class, 'verifyPasswordResetCode'])->middleware('throttle:password-reset');
     Route::post('auth/reset-password', [AuthExtrasController::class, 'resetPassword'])->middleware('throttle:password-reset');
     Route::post('auth/apple', [OAuthController::class, 'apple'])->middleware('throttle:10,1');
     Route::post('auth/google', [OAuthController::class, 'google'])->middleware('throttle:10,1');

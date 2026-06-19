@@ -51,6 +51,22 @@ class AuthExtrasController extends ApiController
         return response()->json(['requested' => true]);
     }
 
+    public function verifyPasswordResetCode(Request $request): JsonResponse
+    {
+        $data = $this->validateBody($request, [
+            'email' => ['required', 'email'],
+            'code' => ['required', 'string', 'regex:/^\d{6}$/'],
+        ]);
+        $user = User::where('email', strtolower($data['email']))->first();
+        if ($user === null) {
+            throw ApiException::unauthenticated('Invalid or expired code');
+        }
+
+        $this->emailTokens->verifyCodeForUser($user->id, 'reset_password', $data['code']);
+
+        return response()->json(['verified' => true]);
+    }
+
     public function resetPassword(Request $request): JsonResponse
     {
         $data = $this->validateBody($request, [

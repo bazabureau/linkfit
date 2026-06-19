@@ -42,7 +42,7 @@ class TransactionalMailService
             'Booking confirmed',
             $this->bookingSummary($booking, 'Your court booking has been created.'),
             'View booking',
-            rtrim($this->webUrl(), '/').'/bookings/'.$bookingId,
+            $this->bookingUrl($bookingId),
         ));
     }
 
@@ -60,7 +60,7 @@ class TransactionalMailService
             'Booking cancelled',
             $body,
             'View booking',
-            rtrim($this->webUrl(), '/').'/bookings/'.$bookingId,
+            $this->bookingUrl($bookingId),
         ));
     }
 
@@ -77,7 +77,7 @@ class TransactionalMailService
             'Refund updated',
             $this->bookingSummary($booking, 'Refund status: '.$this->e((string) ($booking->refund_status ?? 'updated')).'. Refund amount: '.$this->e($amount).'.'),
             'View booking',
-            rtrim($this->webUrl(), '/').'/bookings/'.$bookingId,
+            $this->bookingUrl($bookingId),
         ));
     }
 
@@ -98,7 +98,7 @@ class TransactionalMailService
                 'New booking',
                 $this->bookingSummary($booking, 'A new booking was created for your venue.'),
                 'Open owner panel',
-                rtrim($this->ownerUrl(), '/').'/bookings/'.$bookingId,
+                $this->ownerBookingUrl($bookingId),
             ));
         }
     }
@@ -173,6 +173,16 @@ class TransactionalMailService
     private function webUrl(): string
     {
         return (string) config('services.linkfit.web_url', config('app.url'));
+    }
+
+    private function bookingUrl(string $bookingId): string
+    {
+        return rtrim($this->webUrl(), '/').'/bookings/my?booking_id='.rawurlencode($bookingId);
+    }
+
+    private function ownerBookingUrl(string $bookingId): string
+    {
+        return rtrim($this->ownerUrl(), '/').'/bookings?booking_id='.rawurlencode($bookingId);
     }
 
     private function logoUrl(): string

@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 /**
  * /api/v1/auth/* — wire-compatible with the contract the iOS client
@@ -35,6 +36,7 @@ class AuthController extends Controller
             'password' => ['required', 'string', 'min:12', 'max:200'],
             'password_confirmation' => ['sometimes', 'string', 'same:password'],
             'display_name' => ['required', 'string', 'max:80'],
+            'username' => ['sometimes', 'nullable', 'string', 'min:3', 'max:40', 'regex:/^[a-zA-Z0-9._]+$/'],
             'birth_date' => ['nullable', 'string', 'regex:/^\d{4}-\d{2}-\d{2}$/'],
             'ref' => ['nullable', 'string', 'max:16'],
             'accepted_terms' => ['sometimes', 'boolean'],
@@ -42,9 +44,14 @@ class AuthController extends Controller
 
         $email = mb_strtolower(trim($data['email']));
         $displayName = trim($data['display_name']);
+        $requestedUsername = isset($data['username']) ? $this->normalizeUsername((string) $data['username']) : '';
+        $username = $requestedUsername !== '' ? $requestedUsername : $this->uniqueUsernameFromDisplayName($displayName);
 
         if ($displayName === '') {
             throw ApiException::validation('Display name is required');
+        }
+        if ($requestedUsername !== '' && ! $this->isValidUsername($requestedUsername)) {
+            throw ApiException::validation('Username must be 3-40 characters and can only contain letters, numbers, dots, and underscores');
         }
         // Password policy: at least one letter and one digit.
         if (! preg_match('/[A-Za-z]/', $data['password']) || ! preg_match('/\d/', $data['password'])) {
@@ -54,10 +61,14 @@ class AuthController extends Controller
         if (User::where('email', $email)->exists()) {
             throw ApiException::conflict('Email is already registered');
         }
+        if ($requestedUsername !== '' && User::where('username', $username)->exists()) {
+            throw ApiException::conflict('Username is already taken');
+        }
 
         $user = new User;
         $user->email = $email;
         $user->password_hash = $this->passwords->hash($data['password']);
+        $user->username = $username;
         $user->display_name = $displayName;
         if (! empty($data['birth_date'])) {
             $user->birth_date = $data['birth_date'];
@@ -201,5 +212,34 @@ class AuthController extends Controller
         }
 
         return response()->json($this->tokens->issueSession($user, $request->userAgent()), 200);
+    }
+
+    private function normalizeUsername(string $username): string
+    {
+        return mb_strtolower(trim($username));
+    }
+
+    private function isValidUsername(string $username): bool
+    {
+        return (bool) preg_match('/^[a-z0-9._]{3,40}$/', $username);
+    }
+
+    private function uniqueUsernameFromDisplayName(string $displayName): string
+    {
+        $base = Str::slug($displayName, '_');
+        $base = preg_replace('/[^a-z0-9._]/', '', mb_strtolower($base)) ?: 'player';
+        $base = substr($base, 0, 30);
+        if (strlen($base) < 3) {
+            $base = str_pad($base, 3, '0');
+        }
+
+        $candidate = $base;
+        $suffix = 1;
+        while (User::where('username', $candidate)->exists()) {
+            $suffix += 1;
+            $candidate = substr($base, 0, 40 - strlen((string) $suffix) - 1).'_'.$suffix;
+        }
+
+        return $candidate;
     }
 }

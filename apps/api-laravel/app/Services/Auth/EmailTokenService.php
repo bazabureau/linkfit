@@ -75,6 +75,22 @@ class EmailTokenService
         return $row;
     }
 
+    public function verifyCodeForUser(string $userId, string $kind, string $code): object
+    {
+        $row = DB::table('email_tokens')
+            ->where('user_id', $userId)
+            ->where('kind', $kind)
+            ->whereRaw('token_hash = decode(?, \'hex\')', [$this->scopedCodeHash($userId, $kind, $code)])
+            ->whereNull('used_at')
+            ->where('expires_at', '>', now())
+            ->first();
+        if ($row === null) {
+            throw ApiException::unauthenticated('Invalid or expired code');
+        }
+
+        return $row;
+    }
+
     public function invalidatePendingForUser(string $userId, string $kind): void
     {
         DB::table('email_tokens')
