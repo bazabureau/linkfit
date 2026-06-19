@@ -58,7 +58,7 @@ Route::get('/og/{path?}', [OgController::class, 'image'])->where('path', '.*');
 
 Route::prefix('api/v1')->group(function () {
     Route::post('auth/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
-    Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
+    Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('auth/admin/login', [AuthController::class, 'adminLogin'])->middleware('throttle:5,1');
     Route::post('auth/owner/login', [AuthController::class, 'ownerLogin'])->middleware('throttle:5,1');
     Route::post('auth/refresh', [AuthController::class, 'refresh'])->middleware('throttle:20,1');
@@ -119,7 +119,7 @@ Route::prefix('api/v1')->group(function () {
         Route::get('mobile/bootstrap', [MobileController::class, 'bootstrap']);
         Route::get('web/dashboard', [WebController::class, 'dashboard']);
         Route::patch('me', [MeController::class, 'update']);
-        Route::post('me/avatar', [MeController::class, 'avatar']);
+        Route::post('me/avatar', [MeController::class, 'avatar'])->middleware('throttle:30,1');
         Route::delete('me/avatar', [MeController::class, 'deleteAvatar']);
         Route::post('me/change-password', [MeController::class, 'changePassword']);
         Route::post('me/change-email', [MeController::class, 'changeEmail']);
@@ -457,8 +457,8 @@ Route::prefix('api/v1')->group(function () {
         Route::post('conversations/{id}/messages', [MessagingController::class, 'sendMessage']);
         Route::post('conversations/{id}/read', [MessagingController::class, 'markConversationRead']);
         Route::post('conversations/{id}/typing', [MessagingController::class, 'typing']);
-        Route::post('media', [MediaController::class, 'upload']);
-        Route::post('messages/upload-image', [MediaController::class, 'upload']);
+        Route::post('media', [MediaController::class, 'upload'])->middleware('throttle:30,1');
+        Route::post('messages/upload-image', [MediaController::class, 'upload'])->middleware('throttle:30,1');
         Route::delete('media/{id}', [MediaController::class, 'delete']);
         Route::post('reports', [ReportsController::class, 'store'])->middleware('throttle:10,1');
         Route::get('me/reports', [ReportsController::class, 'mine']);
@@ -484,7 +484,7 @@ Route::prefix('api/v1')->group(function () {
         Route::post('invitations/{id}/decline', [InvitationsController::class, 'decline']);
         Route::post('squads', [SquadsController::class, 'store']);
         Route::get('squads/me', [SquadsController::class, 'mine']);
-        Route::get('squads/{id}', [SquadsController::class, 'show']);
+        Route::get('squads/{id}', [SquadsController::class, 'showRoute']);
         Route::patch('squads/{id}', [SquadsController::class, 'update']);
         Route::post('squads/{id}/invite', [SquadsController::class, 'invite']);
         Route::post('squads/{id}/accept', [SquadsController::class, 'accept']);
@@ -492,7 +492,7 @@ Route::prefix('api/v1')->group(function () {
         Route::delete('squads/{id}', [SquadsController::class, 'destroy']);
         Route::get('squads/{id}/games', [SquadsController::class, 'games']);
         Route::post('stories', [StoriesController::class, 'store']);
-        Route::post('stories/upload-image', [MediaController::class, 'upload']);
+        Route::post('stories/upload-image', [MediaController::class, 'upload'])->middleware('throttle:30,1');
         Route::get('stories/feed', [StoriesController::class, 'feed']);
         Route::post('stories/{id}/view', [StoriesController::class, 'view']);
         Route::get('stories/{id}/viewers', [StoriesController::class, 'viewers']);

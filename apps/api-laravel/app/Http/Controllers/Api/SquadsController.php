@@ -35,6 +35,26 @@ class SquadsController extends ApiController
         return response()->json(['squads' => $rows->map(fn ($s) => $this->summary($s))]);
     }
 
+    /**
+     * Route-facing show: only a member or invitee of the squad may view its
+     * roster (which includes pending invites). `show()` itself stays ungated
+     * because the write paths (store/update/invite/accept) reuse it after their
+     * own authorization. 404 (not 403) avoids confirming a squad's existence.
+     */
+    public function showRoute(Request $request, string $id): JsonResponse
+    {
+        $userId = (string) $this->authUser($request)->id;
+        $belongs = DB::table('squad_members')
+            ->where('squad_id', $id)
+            ->where('user_id', $userId)
+            ->exists();
+        if (! $belongs) {
+            throw ApiException::notFound('Squad not found');
+        }
+
+        return $this->show($id);
+    }
+
     public function show(string $id, int $status = 200): JsonResponse
     {
         $squad = DB::table('squads')->where('id', $id)->first();
@@ -132,8 +152,18 @@ class SquadsController extends ApiController
         return response()->json(null, 204);
     }
 
-    public function games(string $id): JsonResponse
+    public function games(Request $request, string $id): JsonResponse
     {
+        // Only active members may read the squad's roster + game history.
+        $isMember = DB::table('squad_members')
+            ->where('squad_id', $id)
+            ->where('user_id', (string) $this->authUser($request)->id)
+            ->where('status', 'active')
+            ->exists();
+        if (! $isMember) {
+            throw ApiException::notFound('Squad not found');
+        }
+
         $members = DB::table('squad_members')->where('squad_id', $id)->where('status', 'active')->pluck('user_id');
         if ($members->isEmpty()) {
             return response()->json(['games' => []]);

@@ -264,6 +264,7 @@ class PartnerOpsController extends ApiController
         return response()->json([
             'items' => DB::table('bookings as b')
                 ->join('courts as c', 'c.id', '=', 'b.court_id')
+                ->join('venues as v', 'v.id', '=', 'c.venue_id')
                 ->leftJoin('users as u', 'u.id', '=', 'b.user_id')
                 ->where('c.venue_id', $venueId)
                 ->when($from, fn ($q) => $q->where('b.starts_at', '>=', $from))
@@ -273,6 +274,8 @@ class PartnerOpsController extends ApiController
                 ->get([
                     'b.*',
                     'c.name as court_name',
+                    'c.venue_id as venue_id',
+                    'v.name as venue_name',
                     'u.display_name as booker_display_name',
                     'u.email as booker_email',
                 ]),

@@ -3785,6 +3785,20 @@ class AdminOpsController extends ApiController
 
     private function tournamentEntryPayload(object $entry): array
     {
+        $playerIds = $this->pgArray($entry->player_ids);
+        // Resolve display names so the admin UI shows squad members instead of a
+        // blank line. Entries per tournament are few, so a single lookup is fine.
+        $playerNames = [];
+        if (! empty($playerIds)) {
+            $nameMap = DB::table('users')
+                ->whereIn('id', $playerIds)
+                ->pluck('display_name', 'id');
+            $playerNames = array_values(array_filter(array_map(
+                fn ($id) => $nameMap[$id] ?? null,
+                $playerIds,
+            )));
+        }
+
         return [
             'id' => (string) $entry->id,
             'tournament_id' => (string) $entry->tournament_id,
@@ -3793,8 +3807,8 @@ class AdminOpsController extends ApiController
             'captain_photo_url' => $entry->captain_photo_url,
             'captain_email' => $entry->captain_email ?? null,
             'squad_name' => $entry->squad_name,
-            'player_ids' => $this->pgArray($entry->player_ids),
-            'player_names' => [],
+            'player_ids' => $playerIds,
+            'player_names' => $playerNames,
             'status' => $entry->status,
             'created_at' => $this->iso($entry->created_at),
         ];

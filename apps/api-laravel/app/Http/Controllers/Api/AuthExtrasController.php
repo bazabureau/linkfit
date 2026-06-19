@@ -44,7 +44,7 @@ class AuthExtrasController extends ApiController
         $data = $this->validateBody($request, ['email' => ['required', 'email']]);
         $user = User::where('email', strtolower($data['email']))->first();
         if ($user !== null) {
-            $token = $this->emailTokens->create($user->id, 'reset_password', 120);
+            $token = $this->emailTokens->create($user->id, 'reset_password', 60);
             $this->mail->passwordReset($user->email, $user->display_name ?: 'Linkfit user', $token);
         }
 
@@ -62,6 +62,13 @@ class AuthExtrasController extends ApiController
             'password_hash' => $this->passwords->hash($data['password']),
             'updated_at' => now(),
         ]);
+
+        // A password reset must lock out any already-stolen sessions: revoke all
+        // of this user's live refresh tokens so old devices can't keep refreshing.
+        DB::table('refresh_tokens')
+            ->where('user_id', $row->user_id)
+            ->whereNull('revoked_at')
+            ->update(['revoked_at' => now()]);
 
         return response()->json(['reset' => true]);
     }

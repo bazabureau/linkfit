@@ -23,6 +23,7 @@ import {
   REPORT_STATUS_AZ,
   TargetIcon,
   formatRelative,
+  reasonLabel,
   statusDotClass,
   statusPillClass,
   targetHref,
@@ -171,7 +172,9 @@ export function ReportDrawer({
               {t("Səbəb")}
             </div>
             <p className="mt-1.5 whitespace-pre-wrap text-sm text-foreground">
-              {report.reason || (
+              {report.reason ? (
+                t(reasonLabel(report.reason))
+              ) : (
                 <span className="text-foregroundMuted">{t("(səbəb göstərilməyib)")}</span>
               )}
             </p>

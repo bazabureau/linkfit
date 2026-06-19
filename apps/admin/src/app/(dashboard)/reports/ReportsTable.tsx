@@ -2,13 +2,13 @@
 
 import * as React from "react";
 import { CheckCircle2, ShieldAlert, ShieldCheck, XCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
 import type { AdminReport } from "@/lib/admin-reports";
 import {
   REPORT_STATUS_AZ,
   TargetIcon,
   formatRelative,
+  reasonLabel,
   shortId,
   statusDotClass,
   statusPillClass,
@@ -150,7 +150,9 @@ export function ReportsTable({
                   {/* Reason */}
                   <td className="px-4 py-3 align-middle">
                     <p className="line-clamp-2 max-w-[320px] text-sm text-foreground">
-                      {report.reason || (
+                      {report.reason ? (
+                        t(reasonLabel(report.reason))
+                      ) : (
                         <span className="text-foregroundMuted">{t("(səbəb göstərilməyib)")}</span>
                       )}
                     </p>

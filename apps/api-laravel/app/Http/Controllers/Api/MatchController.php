@@ -210,8 +210,11 @@ class MatchController extends ApiController
         $user = $this->authUser($request);
         $game = $this->gameRow($id);
 
+        // Must be the host or a CONFIRMED participant — a bare membership check
+        // would let someone who left / was no-showed / declined write the
+        // authoritative result and shift ELO for a game they're not in.
         $isMember = (string) $game->host_user_id === (string) $user->id
-            || DB::table('game_participants')->where('game_id', $id)->where('user_id', $user->id)->exists();
+            || $this->isConfirmedParticipant($id, (string) $user->id);
         if (! $isMember) {
             throw ApiException::forbidden('Only players in this game can record the result');
         }

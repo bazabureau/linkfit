@@ -4,8 +4,11 @@ import * as React from "react";
 import {
   FileText,
   Gamepad2,
+  Image as ImageIcon,
   MapPin,
   MessageSquare,
+  Newspaper,
+  Star,
   User,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -55,10 +58,35 @@ export const TARGET_LABEL_AZ: Record<string, string> = {
   game: "Oyun",
   venue: "Məkan",
   message: "Mesaj",
+  story: "Story",
+  feed_event: "Lent paylaşımı",
+  feed_comment: "Şərh",
+  venue_review: "Rəy",
+  media: "Media",
 };
 
 export function targetLabel(kind: ReportTargetKind): string {
   return TARGET_LABEL_AZ[kind] ?? String(kind);
+}
+
+// ─── Reason presentation ──────────────────────────────────────────────────────
+
+/**
+ * Reasons arrive as fixed enum codes from the API
+ * (spam|harassment|no_show|fake_profile|inappropriate_content|other). Map them
+ * to readable labels; unknown codes fall back to the raw value.
+ */
+export const REPORT_REASON_AZ: Record<string, string> = {
+  spam: "Spam",
+  harassment: "Təcavüz / təhqir",
+  no_show: "Gəlmədi (no-show)",
+  fake_profile: "Saxta profil",
+  inappropriate_content: "Yararsız məzmun",
+  other: "Digər",
+};
+
+export function reasonLabel(reason: string): string {
+  return REPORT_REASON_AZ[reason] ?? String(reason);
 }
 
 export function TargetIcon({
@@ -76,7 +104,15 @@ export function TargetIcon({
     case "venue":
       return <MapPin className={className} />;
     case "message":
+    case "feed_comment":
       return <MessageSquare className={className} />;
+    case "feed_event":
+      return <Newspaper className={className} />;
+    case "venue_review":
+      return <Star className={className} />;
+    case "story":
+    case "media":
+      return <ImageIcon className={className} />;
     default:
       return <FileText className={className} />;
   }

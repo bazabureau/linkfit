@@ -40,6 +40,9 @@ class AppServiceProvider extends ServiceProvider
 
         if ($this->app->isProduction()) {
             $checks[] = DebugModeCheck::new()->expectedToBe(false);
+            // Fail fast on a missing/weak/placeholder JWT signing secret — a
+            // known secret lets anyone forge access tokens (account takeover).
+            $this->assertStrongJwtSecret();
         }
 
         if ((bool) env('HEALTH_CHECK_HORIZON', false)) {
@@ -50,15 +53,43 @@ class AppServiceProvider extends ServiceProvider
 
         // Global API rate limit. Keyed by JWT session (per-token) when present so
         // many users behind one carrier/NAT IP don't share a bucket; anonymous
-        // traffic falls back to the real client IP (Cloudflare-resolved). The
-        // limit is generous — it only catches scraping/abuse, not normal use.
+        // traffic uses the real client IP. `$request->ip()` is now trustworthy
+        // (TrustProxies is configured in bootstrap/app.php) and NOT spoofable —
+        // we no longer trust the raw CF-Connecting-IP header.
         RateLimiter::for('api', function (Request $request) {
             $token = $request->bearerToken();
             $key = $token
                 ? 'tok:'.sha1($token)
-                : 'ip:'.($request->header('CF-Connecting-IP') ?: $request->ip());
+                : 'ip:'.$request->ip();
 
             return Limit::perMinute((int) env('API_RATE_LIMIT_PER_MINUTE', 600))->by($key);
         });
+
+        // Login: throttle per-IP AND per-email so neither a single IP nor a
+        // distributed spray against one account can brute-force credentials.
+        RateLimiter::for('login', function (Request $request) {
+            $email = strtolower(trim((string) $request->input('email')));
+
+            return [
+                Limit::perMinute(6)->by('login-ip:'.$request->ip()),
+                Limit::perMinute(6)->by('login-email:'.($email !== '' ? sha1($email) : 'unknown')),
+            ];
+        });
+    }
+
+    /**
+     * Abort boot in production if the access-token secret is empty, too short,
+     * or still the public dev placeholder shipped in .env.example.
+     */
+    private function assertStrongJwtSecret(): void
+    {
+        $secret = (string) config('auth_tokens.access_secret');
+        $isPlaceholder = str_starts_with($secret, 'dev-') || str_contains($secret, 'change-in-prod');
+
+        if ($secret === '' || strlen($secret) < 32 || $isPlaceholder) {
+            throw new \RuntimeException(
+                'JWT_ACCESS_SECRET must be a strong, unique secret (>=32 chars, not the dev placeholder) in production.'
+            );
+        }
     }
 }
