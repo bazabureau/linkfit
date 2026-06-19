@@ -22,21 +22,7 @@ class OAuthController extends ApiController
         $data = $this->validateBody($request, ['id_token' => ['required', 'string', 'min:8', 'max:8192']]);
         $payload = Http::asForm()->get('https://oauth2.googleapis.com/tokeninfo', ['id_token' => $data['id_token']])->json();
 
-        // Validate issuer, expiry, audience, and a verified email — tokeninfo
-        // verifies the signature server-side, we enforce the remaining claims.
-        $iss = (string) ($payload['iss'] ?? '');
-        $emailVerified = ($payload['email_verified'] ?? null);
-        $exp = (int) ($payload['exp'] ?? 0);
-        $clientId = config('services.google.client_id');
-        $ok = is_array($payload)
-            && ! empty($payload['sub'])
-            && ! empty($payload['email'])
-            && in_array($iss, ['accounts.google.com', 'https://accounts.google.com'], true)
-            && ($exp === 0 || $exp > time())
-            && ($emailVerified === true || $emailVerified === 'true')
-            && (! $clientId || ($payload['aud'] ?? null) === $clientId);
-
-        if (! $ok) {
+        if (! is_array($payload) || ! $this->validGooglePayload($payload)) {
             return $this->unauth($request, 'Invalid Google token');
         }
 
@@ -103,6 +89,28 @@ class OAuthController extends ApiController
         // Throw through ApiException so the response goes through ErrorEnvelope
         // like every other auth path (consistent envelope + request_id).
         throw ApiException::unauthenticated($message);
+    }
+
+    /**
+     * tokeninfo verifies Google's signature server-side. We still enforce the
+     * security-critical claims locally, including accepting every configured
+     * mobile/web OAuth audience for the same LinkFit backend.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    private function validGooglePayload(array $payload): bool
+    {
+        $iss = (string) ($payload['iss'] ?? '');
+        $emailVerified = $payload['email_verified'] ?? null;
+        $exp = (int) ($payload['exp'] ?? 0);
+        $clientIds = array_values(array_filter(array_map('strval', (array) config('services.google.client_ids', []))));
+
+        return ! empty($payload['sub'])
+            && ! empty($payload['email'])
+            && in_array($iss, ['accounts.google.com', 'https://accounts.google.com'], true)
+            && ($exp === 0 || $exp > time())
+            && ($emailVerified === true || $emailVerified === 'true')
+            && ($clientIds === [] || in_array((string) ($payload['aud'] ?? ''), $clientIds, true));
     }
 
     private function sessionForOAuth(string $column, string $sub, string $email, string $displayName): array
