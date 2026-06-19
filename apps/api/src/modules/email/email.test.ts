@@ -5,19 +5,15 @@ import { buildServer, type LinkfitServer } from "../../shared/http/server.js";
 import { buildTestDb } from "../../../tests/helpers/db.js";
 import { buildTestEnv } from "../../../tests/helpers/env.js";
 import { type DbHandle } from "../../shared/db/pool.js";
-import {
-  LoggingTransport,
-  type MailTransport,
-  type OutgoingEmail,
-} from "./email.transport.js";
+import { LoggingTransport, type MailTransport, type OutgoingEmail } from "./email.transport.js";
 
 /**
  * Integration tests for the Email agent. Every test runs against a real
  * Postgres (provided by globalSetup.ts via Testcontainers) and a fake
  * MailTransport that simply collects outgoing messages.
  *
- * Code extraction strategy: verification emails now contain a six-digit
- * code. Password reset still uses the legacy "Token: <value>" line.
+ * Code extraction strategy: verification and password-reset emails both
+ * contain a six-digit code. The plain code is never stored in the database.
  */
 
 const env = buildTestEnv();
@@ -38,12 +34,16 @@ interface ErrorBody {
 
 class CaptureTransport implements MailTransport {
   private readonly _outbox: OutgoingEmail[] = [];
-  public get outbox(): readonly OutgoingEmail[] { return this._outbox; }
+  public get outbox(): readonly OutgoingEmail[] {
+    return this._outbox;
+  }
   public send(message: OutgoingEmail): Promise<void> {
     this._outbox.push(message);
     return Promise.resolve();
   }
-  public clear(): void { this._outbox.length = 0; }
+  public clear(): void {
+    this._outbox.length = 0;
+  }
   public lastFor(to: string): OutgoingEmail | undefined {
     return [...this._outbox].reverse().find((m) => m.to === to);
   }
@@ -52,14 +52,6 @@ class CaptureTransport implements MailTransport {
 const VALID_PASSWORD = "CorrectHorse42";
 const uniqueEmail = (prefix = "email"): string =>
   `${prefix}-${Date.now().toString()}-${Math.random().toString(36).slice(2)}@example.com`;
-
-function extractToken(body: string): string {
-  const match = /Token:\s+([A-Za-z0-9_-]+)/.exec(body);
-  if (!match?.[1]) {
-    throw new Error(`No token found in email body:\n${body}`);
-  }
-  return match[1];
-}
 
 function extractCode(body: string): string {
   const match = /\b(\d{6})\b/.exec(body);
@@ -107,8 +99,9 @@ describe("email module — verification + password reset", () => {
   });
 
   beforeEach(async () => {
-    await sql`TRUNCATE TABLE email_tokens, refresh_tokens, users RESTART IDENTITY CASCADE`
-      .execute(db.db);
+    await sql`TRUNCATE TABLE email_tokens, refresh_tokens, users RESTART IDENTITY CASCADE`.execute(
+      db.db,
+    );
     transport.clear();
   });
 
@@ -311,7 +304,7 @@ describe("email module — verification + password reset", () => {
       expect(transport.outbox[0]?.html).toContain("https://linkfit.az/brand/logolinkfit-dark.png");
     });
 
-    it("resets password with a valid token and revokes refresh tokens", async () => {
+    it("resets password with a valid code and revokes refresh tokens", async () => {
       const email = uniqueEmail();
       const session = await register(app, email);
 
@@ -320,13 +313,13 @@ describe("email module — verification + password reset", () => {
         url: "/api/v1/auth/request-password-reset",
         payload: { email },
       });
-      const token = extractToken(transport.lastFor(email.toLowerCase())?.text ?? "");
+      const code = extractCode(transport.lastFor(email.toLowerCase())?.text ?? "");
 
       const NEW_PASSWORD = "BrandNewPass99";
       const res = await app.inject({
         method: "POST",
         url: "/api/v1/auth/reset-password",
-        payload: { token, new_password: NEW_PASSWORD },
+        payload: { email, code, new_password: NEW_PASSWORD },
       });
       expect(res.statusCode).toBe(200);
       expect(res.json<{ reset: boolean }>().reset).toBe(true);
@@ -352,7 +345,7 @@ describe("email module — verification + password reset", () => {
       expect(newLogin.statusCode).toBe(200);
     });
 
-    it("rejects a re-used reset token on the second attempt", async () => {
+    it("rejects a re-used reset code on the second attempt", async () => {
       const email = uniqueEmail();
       await register(app, email);
       await app.inject({
@@ -360,22 +353,22 @@ describe("email module — verification + password reset", () => {
         url: "/api/v1/auth/request-password-reset",
         payload: { email },
       });
-      const token = extractToken(transport.lastFor(email.toLowerCase())?.text ?? "");
+      const code = extractCode(transport.lastFor(email.toLowerCase())?.text ?? "");
       const first = await app.inject({
         method: "POST",
         url: "/api/v1/auth/reset-password",
-        payload: { token, new_password: "AnotherStrong42" },
+        payload: { email, code, new_password: "AnotherStrong42" },
       });
       expect(first.statusCode).toBe(200);
       const second = await app.inject({
         method: "POST",
         url: "/api/v1/auth/reset-password",
-        payload: { token, new_password: "AndAnother42Aa" },
+        payload: { email, code, new_password: "AndAnother42Aa" },
       });
       expect(second.statusCode).toBe(400);
     });
 
-    it("invalidates older pending reset tokens when a newer reset is requested", async () => {
+    it("invalidates older pending reset codes when a newer reset is requested", async () => {
       const email = uniqueEmail();
       await register(app, email);
 
@@ -384,7 +377,7 @@ describe("email module — verification + password reset", () => {
         url: "/api/v1/auth/request-password-reset",
         payload: { email },
       });
-      const firstToken = extractToken(transport.lastFor(email.toLowerCase())?.text ?? "");
+      const firstCode = extractCode(transport.lastFor(email.toLowerCase())?.text ?? "");
 
       await sql`
         UPDATE email_tokens
@@ -398,19 +391,19 @@ describe("email module — verification + password reset", () => {
         url: "/api/v1/auth/request-password-reset",
         payload: { email },
       });
-      const secondToken = extractToken(transport.lastFor(email.toLowerCase())?.text ?? "");
+      const secondCode = extractCode(transport.lastFor(email.toLowerCase())?.text ?? "");
 
       const oldReset = await app.inject({
         method: "POST",
         url: "/api/v1/auth/reset-password",
-        payload: { token: firstToken, new_password: "OlderTokenPass99" },
+        payload: { email, code: firstCode, new_password: "OlderTokenPass99" },
       });
       expect(oldReset.statusCode).toBe(400);
 
       const newestReset = await app.inject({
         method: "POST",
         url: "/api/v1/auth/reset-password",
-        payload: { token: secondToken, new_password: "NewestTokenPass99" },
+        payload: { email, code: secondCode, new_password: "NewestTokenPass99" },
       });
       expect(newestReset.statusCode).toBe(200);
     });
@@ -423,11 +416,11 @@ describe("email module — verification + password reset", () => {
         url: "/api/v1/auth/request-password-reset",
         payload: { email },
       });
-      const token = extractToken(transport.lastFor(email.toLowerCase())?.text ?? "");
+      const code = extractCode(transport.lastFor(email.toLowerCase())?.text ?? "");
       const res = await app.inject({
         method: "POST",
         url: "/api/v1/auth/reset-password",
-        payload: { token, new_password: "short" },
+        payload: { email, code, new_password: "short" },
       });
       expect(res.statusCode).toBe(400);
     });

@@ -33,6 +33,7 @@ class AuthController extends Controller
         $data = $this->validate($request, [
             'email' => ['required', 'string', 'email', 'max:254'],
             'password' => ['required', 'string', 'min:12', 'max:200'],
+            'password_confirmation' => ['sometimes', 'string', 'same:password'],
             'display_name' => ['required', 'string', 'max:80'],
             'birth_date' => ['nullable', 'string', 'regex:/^\d{4}-\d{2}-\d{2}$/'],
             'ref' => ['nullable', 'string', 'max:16'],

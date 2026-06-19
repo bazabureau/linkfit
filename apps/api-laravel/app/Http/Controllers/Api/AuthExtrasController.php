@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\Auth\EmailTokenService;
 use App\Services\Auth\PasswordService;
 use App\Services\Mail\TransactionalMailService;
+use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,8 +44,8 @@ class AuthExtrasController extends ApiController
         $data = $this->validateBody($request, ['email' => ['required', 'email']]);
         $user = User::where('email', strtolower($data['email']))->first();
         if ($user !== null) {
-            $token = $this->emailTokens->create($user->id, 'reset_password', 60);
-            $this->mail->passwordReset($user->email, $user->display_name ?: 'Linkfit user', $token);
+            $code = $this->emailTokens->createCode($user->id, 'reset_password', 10);
+            $this->mail->passwordReset($user->email, $user->display_name ?: 'Linkfit user', $code);
         }
 
         return response()->json(['requested' => true]);
@@ -53,12 +54,22 @@ class AuthExtrasController extends ApiController
     public function resetPassword(Request $request): JsonResponse
     {
         $data = $this->validateBody($request, [
-            'token' => ['required', 'string', 'min:10', 'max:200'],
+            'email' => ['required_without:token', 'email'],
+            'code' => ['required_without:token', 'string', 'regex:/^\d{6}$/'],
+            'token' => ['required_without:code', 'string', 'min:6', 'max:200'],
             'password' => ['required_without:new_password', 'string', 'min:12', 'max:200'],
             'new_password' => ['required_without:password', 'string', 'min:12', 'max:200'],
         ]);
         $password = (string) ($data['password'] ?? $data['new_password']);
-        $row = $this->emailTokens->consume($data['token'], 'reset_password');
+        if (isset($data['email'], $data['code'])) {
+            $user = User::where('email', strtolower($data['email']))->first();
+            if ($user === null) {
+                throw ApiException::unauthenticated('Invalid or expired code');
+            }
+            $row = $this->emailTokens->consumeCodeForUser($user->id, 'reset_password', $data['code']);
+        } else {
+            $row = $this->emailTokens->consume($data['token'], 'reset_password');
+        }
         DB::table('users')->where('id', $row->user_id)->update([
             'password_hash' => $this->passwords->hash($password),
             'updated_at' => now(),

@@ -7,7 +7,7 @@ import { type Logger } from "pino";
  *     satisfies it without leaking nodemailer types up the stack.
  *
  * We model an "outbox" rather than a fire-and-forget callback so tests can
- * assert on body content (the magic link is buried inside `text`/`html`).
+ * assert on body content.
  */
 export interface OutgoingEmail {
   to: string;
@@ -27,17 +27,16 @@ export interface MailTransport {
 }
 
 /**
- * Dev/test fallback. Logs every outgoing message at INFO level — the magic
- * link is wrapped in `**` markers so it's easy to scan terminal output:
- *
- *     [email] verify link → **https://app/verify?token=...**
+ * Dev/test fallback. Logs every outgoing message at INFO level.
  *
  * Also keeps an in-memory `outbox` so unit tests can inspect what was sent
  * without intercepting the logger.
  */
 export class LoggingTransport implements MailTransport {
   private readonly _outbox: OutgoingEmail[] = [];
-  public get outbox(): readonly OutgoingEmail[] { return this._outbox; }
+  public get outbox(): readonly OutgoingEmail[] {
+    return this._outbox;
+  }
 
   constructor(private readonly logger: Logger) {}
 
@@ -96,10 +95,7 @@ export async function buildSmtpTransport(
   try {
     mod = await import("nodemailer");
   } catch (err) {
-    logger.warn(
-      { err },
-      "nodemailer not installed; falling back to LoggingTransport",
-    );
+    logger.warn({ err }, "nodemailer not installed; falling back to LoggingTransport");
     return new LoggingTransport(logger);
   }
 

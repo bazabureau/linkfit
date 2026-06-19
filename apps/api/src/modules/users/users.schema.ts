@@ -8,33 +8,38 @@ export const PasswordSchema = z.string().min(12).max(200);
 
 export const DisplayNameSchema = z.string().trim().min(1).max(80);
 
-export const RegisterRequest = z.object({
-  email: EmailSchema,
-  password: PasswordSchema,
-  display_name: DisplayNameSchema,
-  birth_date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD format")
-    .optional(),
-  /**
-   * Wave-10 viral referral hook. When present, the signup endpoint looks
-   * the code up against `users.referral_code` and atomically:
-   *   - sets `users.referred_by_user_id` on the new account,
-   *   - bumps `users.referral_count` on the referrer,
-   *   - writes a `referrals` ledger row,
-   *   - emits a "Yeni dəvətli!" push to the referrer post-commit.
-   * Wire shape is the same 6-char ambiguity-free code the redeem endpoint
-   * accepts. Malformed / unknown codes are silently dropped server-side so
-   * a fat-fingered query string never blocks signup. The route layer also
-   * mirrors the `?ref=<code>` query param into this field for convenience.
-   */
-  ref: z
-    .string()
-    .trim()
-    .min(1)
-    .max(16)
-    .optional(),
-});
+export const RegisterRequest = z
+  .object({
+    email: EmailSchema,
+    password: PasswordSchema,
+    password_confirmation: z.string().max(200).optional(),
+    display_name: DisplayNameSchema,
+    birth_date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD format")
+      .optional(),
+    /**
+     * Wave-10 viral referral hook. When present, the signup endpoint looks
+     * the code up against `users.referral_code` and atomically:
+     *   - sets `users.referred_by_user_id` on the new account,
+     *   - bumps `users.referral_count` on the referrer,
+     *   - writes a `referrals` ledger row,
+     *   - emits a "Yeni dəvətli!" push to the referrer post-commit.
+     * Wire shape is the same 6-char ambiguity-free code the redeem endpoint
+     * accepts. Malformed / unknown codes are silently dropped server-side so
+     * a fat-fingered query string never blocks signup. The route layer also
+     * mirrors the `?ref=<code>` query param into this field for convenience.
+     */
+    ref: z.string().trim().min(1).max(16).optional(),
+  })
+  .refine(
+    (body) =>
+      body.password_confirmation === undefined || body.password_confirmation === body.password,
+    {
+      message: "Passwords do not match",
+      path: ["password_confirmation"],
+    },
+  );
 export type RegisterRequest = z.infer<typeof RegisterRequest>;
 
 export const LoginRequest = z.object({

@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomBytes, randomInt } from "node:crypto";
 
 /**
- * Magic-link tokens are 256 bits of CSPRNG entropy, base64url-encoded for
+ * Legacy email tokens are 256 bits of CSPRNG entropy, base64url-encoded for
  * transport. We never store the raw token — only its sha256 digest in
  * `email_tokens.token_hash`. A leaked DB snapshot can't be replayed.
  *
@@ -11,7 +11,7 @@ import { createHash, createHmac, randomBytes, randomInt } from "node:crypto";
 const TOKEN_BYTES = 32;
 
 export interface NewEmailToken {
-  /** Opaque token included in the magic-link URL. Never log this. */
+  /** Opaque token included in legacy email URLs. Never log this. */
   token: string;
   /** sha256 digest stored in DB; re-derived on submit. */
   hash: Buffer;

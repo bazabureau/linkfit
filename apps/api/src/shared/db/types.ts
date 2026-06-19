@@ -109,10 +109,10 @@ export interface ReferralTable {
 }
 
 // === Email agent ===
-// Single-purpose magic-link token table. `kind` partitions the table into
-// the two flows the email module owns; `token_hash` is the sha256 of the
-// raw token we mail out. See `apps/api/src/modules/email/` for the full
-// life-cycle (issue → mail → verify/consume).
+// Single-purpose email token/code table. `kind` partitions the table into
+// the two flows the email module owns; `token_hash` stores a one-way digest
+// of the raw secret we mail out. See `apps/api/src/modules/email/` for the
+// full life-cycle (issue -> mail -> verify/consume).
 export type EmailTokenKind = "verify" | "reset_password";
 
 export interface EmailTokenTable {

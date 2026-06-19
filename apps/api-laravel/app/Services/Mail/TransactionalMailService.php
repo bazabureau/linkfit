@@ -20,13 +20,14 @@ class TransactionalMailService
         ));
     }
 
-    public function passwordReset(string $email, string $name, string $token): void
+    public function passwordReset(string $email, string $name, string $code): void
     {
-        $url = $this->authUrl('reset-password', $token);
+        $url = $this->resetUrl($email);
         $this->send($email, 'Reset your Linkfit password', $this->layout(
             'Reset your password',
-            'Hi '.$this->e($name).', use this secure link to choose a new password. The link expires soon.',
-            'Reset password',
+            '<p>Hi '.$this->e($name).', enter this 6-digit code to choose a new password. It expires in 10 minutes.</p>'
+                .'<p style="font-size:28px;letter-spacing:0.18em;font-weight:700;margin:18px 0;color:#101418">'.$this->e($code).'</p>',
+            'Enter code',
             $url,
         ));
     }
@@ -189,6 +190,14 @@ class TransactionalMailService
         $prefix = $locale !== '' ? '/'.$locale : '';
 
         return rtrim($this->webUrl(), '/').$prefix.'/'.$path.'?token='.urlencode($token);
+    }
+
+    private function resetUrl(string $email): string
+    {
+        $locale = trim((string) config('services.linkfit.web_locale', 'az'), '/');
+        $prefix = $locale !== '' ? '/'.$locale : '';
+
+        return rtrim($this->webUrl(), '/').$prefix.'/reset-password?step=code&email='.urlencode($email);
     }
 
     private function adminUrl(): string

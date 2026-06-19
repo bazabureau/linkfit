@@ -7,32 +7,23 @@ import {
   UnauthenticatedError,
   ValidationError,
 } from "../../shared/errors/AppError.js";
-import {
-  checkPasswordPolicy,
-  hashPassword,
-} from "../../shared/auth/password.js";
+import { checkPasswordPolicy, hashPassword } from "../../shared/auth/password.js";
 import { emailRepository } from "./email.repository.js";
-import {
-  generateEmailToken,
-  generateVerificationCode,
-  hashEmailToken,
-  hashVerificationCode,
-} from "./email.tokens.js";
+import { generateVerificationCode, hashEmailToken, hashVerificationCode } from "./email.tokens.js";
 import { type MailTransport } from "./email.transport.js";
 
 /**
- * Default expiry windows. Verification links live longer than reset links
- * because the user has no urgency to act, while reset links are higher-risk
- * if intercepted. Numbers tuned to be friendly without becoming dangerous:
+ * Default expiry windows for emailed codes. Numbers tuned to be friendly
+ * without becoming dangerous:
  *
  *  - verify         → 10m
- *  - reset_password → 1h
+ *  - reset_password → 10m
  *
  * Cool-down keeps abusive resend loops in check; 60s is the contractual
  * floor (see task spec).
  */
 const VERIFY_TTL_MS = 10 * 60 * 1000;
-const RESET_TTL_MS = 60 * 60 * 1000;
+const RESET_TTL_MS = 10 * 60 * 1000;
 const RESEND_COOLDOWN_SECONDS = 60;
 const VERIFY_MAX_ATTEMPTS = 5;
 const EMAIL_LOGO_URL = "https://linkfit.az/brand/logolinkfit-dark.png";
@@ -43,7 +34,7 @@ export interface EmailServiceDeps {
   transport: MailTransport;
   /** Secret used to HMAC the six-digit verification code before storing it. */
   verificationCodeSecret: string;
-  /** Base URL used to build the password-reset magic-link sent by email. */
+  /** Base URL used to build email action links. */
   publicAppUrl: string;
 }
 
@@ -141,21 +132,15 @@ export class EmailService {
   /**
    * Always returns `{ requested: true }` — never surfaces whether the email
    * exists. This is the standard anti-enumeration pattern. If the email
-   * IS valid we drop a reset token + dispatch a mail; if not, we still
+   * IS valid we drop a reset code + dispatch a mail; if not, we still
    * burn the cool-down window so timing analysis stays uninformative.
    */
   async requestPasswordReset(email: string): Promise<{ requested: true }> {
     const normalized = email.trim().toLowerCase();
-    const user = await emailRepository.findActiveUserByEmail(
-      this.deps.db.db,
-      normalized,
-    );
+    const user = await emailRepository.findActiveUserByEmail(this.deps.db.db, normalized);
     if (user === null) {
       // Silent no-op. We still log at debug for ops visibility.
-      this.deps.logger.debug(
-        { email: normalized },
-        "password reset requested for unknown email",
-      );
+      this.deps.logger.debug({ email: normalized }, "password reset requested for unknown email");
       return { requested: true };
     }
 
@@ -171,7 +156,7 @@ export class EmailService {
       return { requested: true };
     }
 
-    const fresh = generateEmailToken();
+    const fresh = generateVerificationCode(this.deps.verificationCodeSecret);
     const expiresAt = new Date(Date.now() + RESET_TTL_MS);
     await withTransaction(this.deps.db.db, async (tx) => {
       await emailRepository.invalidatePendingForUser(tx, user.id, "reset_password");
@@ -182,14 +167,18 @@ export class EmailService {
         expires_at: expiresAt,
       });
     });
-    await this.deliverReset(user.email, fresh.token);
+    await this.deliverReset(user.email, fresh.code);
     return { requested: true };
   }
 
   // ───────────────────────── reset-password ─────────────────────────
 
-  /** Atomically: validate token, rehash password, revoke all refresh tokens. */
-  async resetPassword(rawToken: string, newPassword: string): Promise<{ reset: true }> {
+  /** Atomically: validate reset code, rehash password, revoke all refresh tokens. */
+  async resetPassword(
+    rawToken: string,
+    newPassword: string,
+    email?: string,
+  ): Promise<{ reset: true }> {
     const policy = checkPasswordPolicy(newPassword);
     if (!policy.ok) {
       throw new ValidationError("Password does not meet policy", {
@@ -197,11 +186,38 @@ export class EmailService {
       });
     }
 
-    const tokenHash = hashEmailToken(rawToken);
     const passwordHash = await hashPassword(newPassword);
 
     return withTransaction(this.deps.db.db, async (tx) => {
-      const row = await emailRepository.findByHash(tx, tokenHash, "reset_password");
+      let row: Awaited<ReturnType<typeof emailRepository.findByHash>>;
+      if (email) {
+        const user = await emailRepository.findActiveUserByEmail(tx, email.trim().toLowerCase());
+        if (user === null) {
+          throw new ValidationError("Invalid reset code");
+        }
+        row = await emailRepository.findLatestPendingForUser(tx, user.id, "reset_password");
+        const code = rawToken.trim();
+        const tokenHash = /^\d{6}$/.test(code)
+          ? hashVerificationCode(code, this.deps.verificationCodeSecret)
+          : null;
+        const matches =
+          row !== null &&
+          tokenHash !== null &&
+          tokenHash.length === row.token_hash.length &&
+          timingSafeEqual(tokenHash, row.token_hash);
+        if (row === null || row.expires_at.getTime() <= Date.now() || !matches) {
+          if (row !== null) {
+            const attempted = await emailRepository.incrementAttempts(tx, row.id);
+            if ((attempted?.attempts ?? VERIFY_MAX_ATTEMPTS) >= VERIFY_MAX_ATTEMPTS) {
+              await emailRepository.invalidateToken(tx, row.id);
+            }
+          }
+          throw new ValidationError("Invalid reset code");
+        }
+      } else {
+        const tokenHash = hashEmailToken(rawToken);
+        row = await emailRepository.findByHash(tx, tokenHash, "reset_password");
+      }
       if (row === null) {
         throw new ValidationError("Invalid reset token");
       }
@@ -217,7 +233,11 @@ export class EmailService {
 
   // ───────────────────────── internals ─────────────────────────
 
-  private async deliverVerify(to: string, code: string, locale: "az" | "en" | "ru" = "az"): Promise<void> {
+  private async deliverVerify(
+    to: string,
+    code: string,
+    locale: "az" | "en" | "ru" = "az",
+  ): Promise<void> {
     const link = `${this.deps.publicAppUrl}/${locale}/verify-email?code=${encodeURIComponent(code)}`;
     const copy = {
       az: {
@@ -246,26 +266,27 @@ export class EmailService {
     });
   }
 
-  private async deliverReset(to: string, token: string): Promise<void> {
-    const link = `${this.deps.publicAppUrl}/az/reset-password?token=${encodeURIComponent(token)}`;
+  private async deliverReset(to: string, code: string): Promise<void> {
+    const link = `${this.deps.publicAppUrl}/az/reset-password?step=code&email=${encodeURIComponent(to)}`;
     await this.deps.transport.send({
       to,
       subject: "Reset your Linkfit password",
       text:
         `Someone (hopefully you) asked to reset the password on this account.\n\n` +
-        `Use the link below or paste the token into the app:\n\n` +
+        `Enter this 6-digit code to choose a new password:\n\n` +
+        `${code}\n\n` +
+        `Open the reset page:\n\n` +
         `${link}\n\n` +
-        `Token: ${token}\n\n` +
         `If this wasn't you, you can ignore this email — your password is still safe.\n` +
-        `This link expires in 1 hour.`,
+        `This code expires in 10 minutes.`,
       html:
         emailLogoHtml() +
         `<p>Someone (hopefully you) asked to reset the password on this account.</p>` +
-        `<p>Use the link below or paste the token into the app:</p>` +
-        `<p><a href="${link}"><strong>${link}</strong></a></p>` +
-        `<p>Token: <code>${token}</code></p>` +
+        `<p>Enter this 6-digit code to choose a new password:</p>` +
+        `<p style="font-size:28px;letter-spacing:0.18em;font-weight:700;margin:18px 0;color:#101418">${code}</p>` +
+        `<p><a href="${link}"><strong>Open reset page</strong></a></p>` +
         `<p>If this wasn't you, you can ignore this email — your password is still safe.</p>` +
-        `<p>This link expires in 1 hour.</p>`,
+        `<p>This code expires in 10 minutes.</p>`,
     });
   }
 }

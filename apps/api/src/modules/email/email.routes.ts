@@ -32,10 +32,26 @@ const RequestPasswordResetRequest = z.object({
  *  whether the email was on file. See `EmailService.requestPasswordReset`. */
 const RequestPasswordResetResponse = z.object({ requested: z.literal(true) });
 
-const ResetPasswordRequest = z.object({
-  token: z.string().min(8).max(512),
-  new_password: z.string().min(12).max(200),
-});
+const ResetPasswordRequest = z
+  .object({
+    email: z.string().trim().toLowerCase().email().max(254).optional(),
+    code: z
+      .string()
+      .regex(/^\d{6}$/)
+      .optional(),
+    token: z.string().min(6).max(512).optional(),
+    password: z.string().min(12).max(200).optional(),
+    new_password: z.string().min(12).max(200).optional(),
+  })
+  .refine(
+    (body) => body.token !== undefined || (body.email !== undefined && body.code !== undefined),
+    {
+      message: "Either token or email + code is required",
+    },
+  )
+  .refine((body) => body.password !== undefined || body.new_password !== undefined, {
+    message: "Password is required",
+  });
 const ResetPasswordResponse = z.object({ reset: z.literal(true) });
 
 export function registerEmailRoutes(app: LinkfitServer, deps: EmailRouteDeps): void {
@@ -120,9 +136,11 @@ export function registerEmailRoutes(app: LinkfitServer, deps: EmailRouteDeps): v
       },
     },
     async (req, reply) => {
+      const body = req.body;
       const result = await deps.service.resetPassword(
-        req.body.token,
-        req.body.new_password,
+        body.code ?? body.token ?? "",
+        body.password ?? body.new_password ?? "",
+        body.email,
       );
       return reply.status(200).send(result);
     },
