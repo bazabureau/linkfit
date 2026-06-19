@@ -39,4 +39,13 @@ class ApiSurfaceTest extends TestCase
             ->assertOk()
             ->assertJsonPath('features.google_login', true);
     }
+
+    public function test_membership_plans_are_public_without_user_auth(): void
+    {
+        $this->getJson('/api/v1/membership/plans')
+            ->assertOk()
+            ->assertJsonPath('plans.free.name', 'Free')
+            ->assertJsonPath('plans.premium.name', 'Premium')
+            ->assertJsonPath('payments.free_trial_days', 50);
+    }
 }

@@ -10,6 +10,16 @@ use App\Support\ApiException;
 
 class MembershipController extends ApiController
 {
+    public function plans(): JsonResponse
+    {
+        $svc = app(MembershipService::class);
+
+        return response()->json([
+            'plans' => $svc->featureMatrix(),
+            'payments' => $this->paymentState(),
+        ]);
+    }
+
     public function show(Request $request): JsonResponse
     {
         $user = $this->authUser($request);

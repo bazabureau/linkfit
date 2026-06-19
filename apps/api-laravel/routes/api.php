@@ -75,6 +75,7 @@ Route::prefix('api/v1')->group(function () {
     Route::get('app/metadata', [AppInfoController::class, 'metadata']);
     Route::get('app/capabilities', [AppInfoController::class, 'capabilities']);
     Route::get('mobile/config', [MobileController::class, 'config']);
+    Route::get('membership/plans', [MembershipController::class, 'plans']);
     Route::get('links/resolve', [MobileController::class, 'resolveLink']);
     Route::get('sports', [CatalogController::class, 'sports']);
     Route::get('venues', [CatalogController::class, 'venues']);
