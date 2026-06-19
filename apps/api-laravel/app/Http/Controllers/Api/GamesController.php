@@ -190,7 +190,7 @@ class GamesController extends ApiController
         $row = $this->gameSummaryQuery(['detail' => true])
             ->when(
                 preg_match('/^[0-9a-f]{8}$/i', $id) === 1,
-                fn ($q) => $q->where('g.id', 'ilike', $id.'%'),
+                fn ($q) => $q->whereRaw('g.id::text ilike ?', [$id.'%']),
                 fn ($q) => $q->where('g.id', $id),
             )
             ->first();
