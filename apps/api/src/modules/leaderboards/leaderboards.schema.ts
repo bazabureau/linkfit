@@ -12,18 +12,17 @@ import { SkillLevelEnum } from "../../shared/skill/skillLevel.js";
  * - `offset` is the classic SQL offset for pagination — fine here because
  *   the underlying ranking is deterministic (ELO DESC, games_played DESC)
  *   and the data churns slowly compared to a feed timeline.
- * - `region` is free-text for now (see service for the TODO on real
- *   venue→region mapping). Kept for backwards compat.
+ * - `region` filters to players with confirmed games at matching venue
+ *   names/addresses.
  *
  * Wave-9 additions — retention-focused filters surfaced on the iOS
  * Leaderboards screen so the player can carve the ladder by where they
  * play, who they want to compare against, and how recent the games are:
  *
- * - `scope` — `"city"` or `"global"`. Currently both behave the same
- *   server-side (no city column on users yet) so callers pass it for
- *   forward-compat. When the venue→city mapping ships we'll filter
- *   `"city"` to the viewer's local players without iOS needing a
- *   client update.
+ * - `scope` — `"city"` or `"global"`. `"city"` filters to players whose
+ *   home coordinates are within the local radius of the signed-in viewer
+ *   when the viewer has home coordinates. Anonymous callers or viewers
+ *   without home coordinates gracefully fall back to global.
  * - `skill` — `"beginner"|"intermediate"|"advanced"|"expert"|"all"`.
  *   Maps to ELO ranges identical to `skillLevelFromElo`. `"all"` skips
  *   the filter entirely (the default behavior).
@@ -52,7 +51,7 @@ export const LeaderboardEloQuery = z.object({
   sport: z.string().min(1),
   limit: z.coerce.number().int().min(1).max(200).default(50),
   offset: z.coerce.number().int().min(0).default(0),
-  region: z.string().optional(),
+  region: z.string().trim().max(80).optional(),
   scope: z.enum(ScopeEnum).optional(),
   skill: z.enum(SkillFilterEnum).optional(),
   period: z.enum(PeriodEnum).optional(),

@@ -201,6 +201,15 @@ export class UsersService {
       this.deps.telemetry?.business.authAttempts.inc({ method: "password", result: "fail" });
       throw new UnauthenticatedError("Invalid email or password");
     }
+    if (row.password_hash === null) {
+      // OAuth-only accounts have no local password until the user completes
+      // the reset-password flow. Burn the normal verifier cost so this path
+      // does not identify which emails are OAuth-only.
+      await performDummyVerify();
+      this.deps.telemetry?.business.authAttempts.inc({ method: "password", result: "fail" });
+      throw new UnauthenticatedError("Invalid email or password");
+    }
+
     const ok = await verifyPassword(row.password_hash, req.password);
     if (!ok) {
       this.deps.telemetry?.business.authAttempts.inc({ method: "password", result: "fail" });

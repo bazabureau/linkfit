@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import pino from "pino";
 import { sql } from "kysely";
+import { randomUUID } from "node:crypto";
 import { buildServer, type LinkfitServer } from "../../shared/http/server.js";
 import { buildTestDb } from "../../../tests/helpers/db.js";
 import { buildTestEnv } from "../../../tests/helpers/env.js";
@@ -151,6 +152,23 @@ describe("users routes", () => {
       expect(wrongPw.json<ErrorBody>().error.message).toBe(
         unknown.json<ErrorBody>().error.message,
       );
+    });
+
+    it("returns 401 for OAuth-only accounts without a local password", async () => {
+      const email = uniqueEmail("google-only");
+      await sql`
+        INSERT INTO users (email, password_hash, display_name, google_sub, email_verified_at)
+        VALUES (${email}, NULL, 'Google Only', ${`google-${randomUUID()}`}, now())
+      `.execute(db.db);
+
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/v1/auth/login",
+        payload: { email, password: VALID_PASSWORD },
+      });
+
+      expect(res.statusCode).toBe(401);
+      expect(res.json<ErrorBody>().error.code).toBe("UNAUTHENTICATED");
     });
   });
 

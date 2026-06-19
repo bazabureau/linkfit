@@ -31,6 +31,7 @@ const HIGH_RELIABILITY = 100; // 100 → 1, 0 → 0
 const DEFAULT_ELO = 1200;
 const DEFAULT_RELIABILITY = 100;
 const MAX_CANDIDATES = 200; // hard cap on the candidate pool before scoring
+const HOUR_MS = 60 * 60 * 1000;
 
 /**
  * "Sənə uyğun oyunçular" presets — recommendPlayersForMe surface.
@@ -45,6 +46,26 @@ const SAME_AREA_KM = 25; // distance < 25 km earns the "same_city" chip
 const NEARBY_KM = 5; // < 5 km earns the "nearby" chip
 const RECENT_GAME_DAYS = 14; // played a game in last 14d → "recently_active"
 const RECENT_SEEN_DAYS = 7; // last_seen_at within 7d → "recently_active"
+
+/**
+ * Score how actionable a game start time is without pretending we know the
+ * user's personal availability. The best window is soon enough to plan around
+ * but not so soon that the user is likely to miss it. Far-future games remain
+ * eligible but lose most of the timing boost.
+ */
+export function startTimeScore(startsAt: Date, now: Date = new Date()): number {
+  const hoursUntilStart = (startsAt.getTime() - now.getTime()) / HOUR_MS;
+  if (hoursUntilStart <= 0) return 0;
+  if (hoursUntilStart < 2) return 0.5;
+  if (hoursUntilStart <= 48) return 1;
+  if (hoursUntilStart <= 168) {
+    return Math.round((1 - ((hoursUntilStart - 48) / 120) * 0.7) * 100) / 100;
+  }
+  if (hoursUntilStart <= 336) {
+    return Math.round((0.3 - ((hoursUntilStart - 168) / 168) * 0.2) * 100) / 100;
+  }
+  return 0.05;
+}
 
 interface CandidateGameRow {
   id: string;
@@ -513,9 +534,7 @@ export class MatchmakingService {
         ? 0
         : Math.max(0, 1 - distanceKm / DISTANCE_SATURATION_KM);
 
-    // Time-of-day placeholder — uniform 0.5 so the signal nudges every
-    // candidate equally until we ship per-user time preferences.
-    const timeScore = 0.5;
+    const timeScore = startTimeScore(row.starts_at);
 
     // Friends bonus saturates at 2 friends — beyond that the curve flat-
     // lines so a stacked game doesn't dominate ranking.

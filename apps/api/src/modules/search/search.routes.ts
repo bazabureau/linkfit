@@ -10,15 +10,8 @@ export interface SearchRouteDeps {
    * JWT access-token secret used to soft-authenticate the caller. When
    * supplied we use it to detect a signed-in viewer and drop blocked users
    * from the player results (mirrors the pattern in `feed.routes.ts`).
-   *
-   * Optional because search is public — anonymous callers see everyone and
-   * the route still works if the secret isn't wired. When omitted we fall
-   * back to `process.env.JWT_ACCESS_SECRET`, which is guaranteed populated
-   * in a properly-booted server (the env loader validates it). Tests that
-   * don't set process.env get the anonymous code path, which is fine — the
-   * block filter is exercised through service-level tests.
    */
-  jwtAccessSecret?: string;
+  jwtAccessSecret: string;
 }
 
 const ErrorEnvelope = z.object({
@@ -53,12 +46,6 @@ function extractOptionalViewer(
 }
 
 export function registerSearchRoutes(app: LinkfitServer, deps: SearchRouteDeps): void {
-  // Resolve once at registration time. We accept either a value passed by
-  // the caller (the canonical wiring path through server.ts) or the
-  // already-validated process.env fallback. When neither is present we set
-  // a sentinel that forces the anonymous branch.
-  const secret = deps.jwtAccessSecret ?? process.env.JWT_ACCESS_SECRET ?? "";
-
   // GET /api/v1/search?q=...&type=...&limit=...
   // Unified search across players, games, tournaments and venues. The
   // endpoint is intentionally public — discovery never requires an account
@@ -75,9 +62,7 @@ export function registerSearchRoutes(app: LinkfitServer, deps: SearchRouteDeps):
       },
     },
     async (req, reply) => {
-      const viewerUserId = secret.length > 0
-        ? extractOptionalViewer(req, secret)
-        : null;
+      const viewerUserId = extractOptionalViewer(req, deps.jwtAccessSecret);
       const result = await deps.service.search(req.query, viewerUserId);
       return reply.status(200).send(result);
     },

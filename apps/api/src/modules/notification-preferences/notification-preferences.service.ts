@@ -72,37 +72,25 @@ const ALL_TYPES: readonly NotificationType[] = [
 ];
 
 /**
- * 🎯 USER DECISION REQUIRED 🎯
+ * Default push-enabled state for users who have not overridden a type.
  *
- * Default push-enabled state for each notification type, applied to users
- * who have NOT overridden the preference. This is the engagement vs.
- * annoyance trade-off:
- *
- *   - Returning `true` for everything: maximum engagement out-of-the-box,
- *     but new users get hit with 5 push notifications per game day.
- *     Likely to drive immediate "Disable all" + churn.
- *
- *   - Returning `false` for most: respectful default, but users miss
- *     real-time events (their game starts in 1h, somebody joined their
- *     match) until they discover the settings screen.
- *
- *   - A curated middle ground: defaults that reflect what the user EXPECTS
- *     ("yes I want to know my game starts in 1h" but "no I don't need a
- *     ping for every rating I get").
- *
- * Pick a policy and fill in the returns below. The signature is just:
- *
- *   (type: NotificationType) => boolean   // true = push by default
- *
- * Lazım olan kod ~10 sətir-dir. Hansı default policy seçirsiniz?
+ * Policy: push time-sensitive coordination and direct human contact by
+ * default; keep lower-urgency reputation/admin/system events in-app/email
+ * only until the user explicitly opts in.
  */
 export function defaultPushEnabledForType(type: NotificationType): boolean {
-  // TODO: replace the conservative blanket-false with your chosen policy.
-  // The conservative default (no surprises) is shipped here so a forgotten
-  // implementation never accidentally spams users. Replace with your
-  // curated `switch (type)` once you've decided.
-  void type;
-  return false;
+  switch (type) {
+    case "game_joined":
+    case "game_cancelled":
+    case "game_reminder":
+    case "no_show_marked":
+    case "tournament_invite":
+    case "message_received":
+      return true;
+    case "rating_received":
+    case "system":
+      return false;
+  }
 }
 
 /**

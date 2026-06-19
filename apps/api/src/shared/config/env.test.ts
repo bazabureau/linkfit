@@ -85,6 +85,12 @@ describe("env loader", () => {
     expect(env.AUTH_RATE_LIMIT_MAX).toBe(10);
     expect(env.FEATURE_BOOKINGS).toBe(false);
     expect(env.APNS_USE_SANDBOX).toBe(false);
+    expect(env.SMTP_PORT).toBe(587);
+    expect(env.MAIL_FROM).toBe("no-reply@linkfit.app");
+    expect(env.OAUTH_APPLE_CLIENT_IDS).toEqual(["az.linkfit.app"]);
+    expect(env.OAUTH_GOOGLE_CLIENT_IDS).toEqual([
+      "655337821050-pi74ppu4gjv7b0gs0v417djtndrl7nt2.apps.googleusercontent.com",
+    ]);
     // UPLOAD_DIR has a default — exists but is opinionated.
     expect(env.UPLOAD_DIR.length).toBeGreaterThan(0);
   });
@@ -101,6 +107,73 @@ describe("env loader", () => {
     ).toThrowError(EnvValidationError);
   });
 
+  it("parses OAuth client ID CSVs with stable de-duplication", () => {
+    const env = loadEnv({
+      ...valid,
+      OAUTH_APPLE_CLIENT_IDS: "az.linkfit.app, com.example.debug, az.linkfit.app",
+      OAUTH_GOOGLE_CLIENT_IDS: "google-ios, google-web, google-ios",
+    });
+    expect(env.OAUTH_APPLE_CLIENT_IDS).toEqual([
+      "az.linkfit.app",
+      "com.example.debug",
+    ]);
+    expect(env.OAUTH_GOOGLE_CLIENT_IDS).toEqual(["google-ios", "google-web"]);
+  });
+
+  it("treats blank optional SMTP and public URL settings as unset", () => {
+    const env = loadEnv({
+      ...valid,
+      SMTP_HOST: "",
+      SMTP_USER: " ",
+      SMTP_PASS: "",
+      SMTP_PORT: "",
+      PUBLIC_BASE_URL: "",
+      PUBLIC_APP_URL: "",
+      OAUTH_GOOGLE_CLIENT_IDS: "",
+      SENTRY_DSN: "",
+      SENTRY_RELEASE: "",
+      MEDICAL_ENCRYPTION_KEY: "",
+    });
+    expect(env.SMTP_HOST).toBeUndefined();
+    expect(env.SMTP_USER).toBeUndefined();
+    expect(env.SMTP_PASS).toBeUndefined();
+    expect(env.SMTP_PORT).toBe(587);
+    expect(env.PUBLIC_BASE_URL).toBeUndefined();
+    expect(env.PUBLIC_APP_URL).toBeUndefined();
+    expect(env.SENTRY_DSN).toBeUndefined();
+    expect(env.SENTRY_RELEASE).toBeUndefined();
+    expect(env.MEDICAL_ENCRYPTION_KEY).toBeUndefined();
+    expect(env.OAUTH_GOOGLE_CLIENT_IDS).toEqual([
+      "655337821050-pi74ppu4gjv7b0gs0v417djtndrl7nt2.apps.googleusercontent.com",
+    ]);
+  });
+
+  it("rejects partial SMTP configuration", () => {
+    expect(() =>
+      loadEnv({
+        ...valid,
+        SMTP_HOST: "smtp.example.com",
+        SMTP_USER: "mailer",
+      }),
+    ).toThrowError(/SMTP_HOST, SMTP_USER, and SMTP_PASS/);
+  });
+
+  it("rejects partial APNs configuration", () => {
+    expect(() =>
+      loadEnv({
+        ...valid,
+        APNS_KEY_ID: "ABC123DEFG",
+        APNS_TEAM_ID: "TEAM123456",
+      }),
+    ).toThrowError(/APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID, and APNS_AUTH_KEY/);
+  });
+
+  it("rejects OAuth client ID CSVs that resolve to no values", () => {
+    expect(() =>
+      loadEnv({ ...valid, OAUTH_APPLE_CLIENT_IDS: ", , ," }),
+    ).toThrowError(/OAUTH_APPLE_CLIENT_IDS/);
+  });
+
   // ── Production-only invariants ─────────────────────────────────────
   // These guards run after Zod parsing when NODE_ENV=production. They
   // reject placeholder secrets that would otherwise let the API serve
@@ -113,8 +186,20 @@ describe("env loader", () => {
     JWT_REFRESH_SECRET: "b".repeat(40),
     STRIPE_SECRET_KEY: "sk_live_real_key",
     STRIPE_WEBHOOK_SECRET: "whsec_real",
+    STRIPE_MEMBERSHIP_PLUS_PRICE_ID: "price_plus",
+    STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID: "price_premium",
     METRICS_PASSWORD: "real-strong-password",
     CORS_ORIGINS: "https://app.linkfit.app",
+    PUBLIC_BASE_URL: "https://api.linkfit.app",
+    PUBLIC_APP_URL: "https://linkfit.app",
+    APNS_KEY_ID: "ABC123DEFG",
+    APNS_TEAM_ID: "TEAM123456",
+    APNS_BUNDLE_ID: "az.linkfit.app",
+    APNS_AUTH_KEY: "-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----",
+    MEDICAL_ENCRYPTION_KEY: "a".repeat(64),
+    SMTP_HOST: "smtp.linkfit.app",
+    SMTP_USER: "mailer",
+    SMTP_PASS: "smtp-secret",
   };
 
   it("accepts a properly-configured production environment", () => {
@@ -125,12 +210,33 @@ describe("env loader", () => {
     expect(() =>
       loadEnv({ ...prodBase, STRIPE_SECRET_KEY: "sk_test_dummy" }),
     ).toThrowError(/Stripe secret key/);
+    expect(() =>
+      loadEnv({ ...prodBase, STRIPE_SECRET_KEY: "sk_live_dummy" }),
+    ).toThrowError(/Stripe secret key/);
+  });
+
+  it("rejects non-live Stripe secret keys in production", () => {
+    expect(() =>
+      loadEnv({ ...prodBase, STRIPE_SECRET_KEY: "sk_test_real_key" }),
+    ).toThrowError(/non-live Stripe secret key/);
   });
 
   it("rejects placeholder Stripe webhook secret in production", () => {
     expect(() =>
       loadEnv({ ...prodBase, STRIPE_WEBHOOK_SECRET: "whsec_test_dummy" }),
     ).toThrowError(/Stripe webhook secret/);
+    expect(() =>
+      loadEnv({ ...prodBase, STRIPE_WEBHOOK_SECRET: "whsec_live_dummy" }),
+    ).toThrowError(/Stripe webhook secret/);
+  });
+
+  it("rejects missing membership Stripe Price IDs in production with real Stripe keys", () => {
+    expect(() =>
+      loadEnv({ ...prodBase, STRIPE_MEMBERSHIP_PLUS_PRICE_ID: "" }),
+    ).toThrowError(/Plus membership price id/);
+    expect(() =>
+      loadEnv({ ...prodBase, STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID: "" }),
+    ).toThrowError(/Premium membership price id/);
   });
 
   it("rejects dev-prefixed JWT secrets in production", () => {
@@ -152,6 +258,53 @@ describe("env loader", () => {
     expect(() =>
       loadEnv({ ...prodBase, CORS_ORIGINS: "" }),
     ).toThrowError(/CORS allowlist/);
+  });
+
+  it("rejects missing SMTP credentials in production", () => {
+    expect(() =>
+      loadEnv({
+        ...prodBase,
+        SMTP_HOST: undefined,
+        SMTP_USER: undefined,
+        SMTP_PASS: undefined,
+      }),
+    ).toThrowError(/SMTP credentials/);
+  });
+
+  it("rejects missing public URLs and APNs credentials in production", () => {
+    expect(() =>
+      loadEnv({ ...prodBase, PUBLIC_BASE_URL: "" }),
+    ).toThrowError(/public API base URL/);
+    expect(() =>
+      loadEnv({ ...prodBase, PUBLIC_APP_URL: "" }),
+    ).toThrowError(/public app URL/);
+    expect(() =>
+      loadEnv({
+        ...prodBase,
+        APNS_KEY_ID: undefined,
+        APNS_TEAM_ID: undefined,
+        APNS_BUNDLE_ID: undefined,
+        APNS_AUTH_KEY: undefined,
+      }),
+    ).toThrowError(/APNs credentials/);
+  });
+
+  it("rejects non-HTTPS public URLs and APNs sandbox in production", () => {
+    expect(() =>
+      loadEnv({ ...prodBase, PUBLIC_BASE_URL: "http://api.linkfit.app" }),
+    ).toThrowError(/non-HTTPS public API base URL/);
+    expect(() =>
+      loadEnv({ ...prodBase, PUBLIC_APP_URL: "http://linkfit.app" }),
+    ).toThrowError(/non-HTTPS public app URL/);
+    expect(() =>
+      loadEnv({ ...prodBase, APNS_USE_SANDBOX: "true" }),
+    ).toThrowError(/APNs sandbox/);
+  });
+
+  it("rejects missing medical encryption key in production", () => {
+    expect(() =>
+      loadEnv({ ...prodBase, MEDICAL_ENCRYPTION_KEY: "" }),
+    ).toThrowError(/medical encryption key/);
   });
 
   it("allows placeholder secrets in development/test", () => {

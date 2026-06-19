@@ -54,7 +54,7 @@ npm run dev                          # http://localhost:3000
 curl -s localhost:3000/health | jq
 open http://localhost:3000/docs       # Swagger UI
 
-# 3. Tests (spins fresh Postgres 16 via Testcontainers, applies migrations)
+# 3. Tests (uses TEST_DATABASE_URL/DATABASE_URL or localhost:5432/linkfit_test, applies migrations)
 npm test                              # 120 tests
 
 # 4. iOS

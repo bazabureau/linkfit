@@ -18,8 +18,7 @@
  *    `request_id` (Pino's `req.id`) is attached as a Sentry tag for
  *    cross-system correlation.
  *
- * The release version is read from `npm_package_version` (set by pnpm) or
- * `SENTRY_RELEASE` env var; the environment is read from `NODE_ENV`.
+ * The server passes environment and release from typed config during boot.
  */
 import * as Sentry from "@sentry/node";
 import { type FastifyInstance } from "fastify";
@@ -54,9 +53,9 @@ let isEnabled = false;
 export interface InitSentryOptions {
   /** Sentry DSN. Undefined or empty disables the integration entirely. */
   dsn: string | undefined;
-  /** Defaults to `process.env.NODE_ENV ?? "development"`. */
+  /** Defaults to `"development"` when omitted. */
   environment?: string;
-  /** Defaults to `process.env.SENTRY_RELEASE ?? process.env.npm_package_version`. */
+  /** Release tag attached to Sentry events. */
   release?: string;
   /**
    * Traces sample rate (0..1). Defaults to 0 — performance monitoring is
@@ -81,11 +80,8 @@ export function initSentry(options: InitSentryOptions): void {
     return;
   }
 
-  const environment = options.environment ?? process.env.NODE_ENV ?? "development";
-  const release =
-    options.release ??
-    process.env.SENTRY_RELEASE ??
-    process.env.npm_package_version;
+  const environment = options.environment ?? "development";
+  const release = options.release;
 
   // `exactOptionalPropertyTypes: true` (set in our tsconfig) rejects
   // `release: undefined` — only include the key when we actually have a

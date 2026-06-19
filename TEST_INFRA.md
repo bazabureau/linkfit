@@ -10,13 +10,14 @@ The E2E test suite leverages the existing backend testing architecture:
 - **Database Layer**: [Kysely](https://kysely.dev/) query builder connected to a PostgreSQL database pool.
 - **Fixtures & Seeders**: Pre-baked helpers located in `tests/helpers/fixtures.ts` to manage transactions, seed central Baku venues/courts, and provision authenticated test users dynamically.
 
-## Local PostgreSQL Fallback
+## Test PostgreSQL Selection
 
-To support environments where a container runtime (Docker/Podman) is not available, the global test coordinator (`globalSetup.ts`) is designed with an automatic fallback:
-1. It attempts to provision a fresh, isolated PostgreSQL 16 container via `@testcontainers/postgresql`.
-2. If the container runtime client cannot start, it catches the error and silently falls back to connecting to a locally running PostgreSQL instance:
-   - **URI**: `postgres://localhost:5432/linkfit_test`
-3. The coordinator then applies Kysely SQL migrations dynamically against the target database via `node-pg-migrate` prior to executing any test suites.
+The global test coordinator (`globalSetup.ts`) uses a PostgreSQL database that is already reachable from the machine. It connects to the test database URL in this order:
+1. `TEST_DATABASE_URL`
+2. `DATABASE_URL`
+3. `postgres://localhost:5432/linkfit_test`
+
+The coordinator then applies SQL migrations dynamically against the target database via `node-pg-migrate` prior to executing any test suites.
 
 ## The 4-Tier Test Methodology
 
@@ -57,9 +58,14 @@ Orchestrates complex, multi-user journeys simulating complete app sessions.
 ## Test Execution
 
 ### Pre-requisites
-Ensure that a local PostgreSQL service is running and the `linkfit_test` database is created:
+Ensure that a local PostgreSQL service is running and either set `TEST_DATABASE_URL` or create the default `linkfit_test` database:
 ```bash
 createdb linkfit_test
+```
+
+For the repo Docker Compose database, create a dedicated test database and pass it explicitly:
+```bash
+TEST_DATABASE_URL=postgres://linkfit:linkfit_dev_password@localhost:55432/linkfit_test npm test -- --run
 ```
 
 ### Running the E2E Test Suite

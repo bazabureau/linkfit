@@ -249,8 +249,11 @@ describe("medical routes", () => {
       // own app instance — the rest share the suite-wide `app` configured
       // with the plaintext fallback (mirroring CI default).
       const key = randomBytes(32).toString("base64");
-      process.env.MEDICAL_ENCRYPTION_KEY = key;
-      const encApp = await buildServer({ env, logger: pino({ level: "silent" }), db });
+      const encApp = await buildServer({
+        env: { ...env, MEDICAL_ENCRYPTION_KEY: key },
+        logger: pino({ level: "silent" }),
+        db,
+      });
       await encApp.ready();
       try {
         const u = await createTestUser(encApp);
@@ -285,7 +288,6 @@ describe("medical routes", () => {
         expect(get.json<ProfileBody>().allergies).toBe(allergies);
       } finally {
         await encApp.close();
-        delete process.env.MEDICAL_ENCRYPTION_KEY;
       }
     });
   });

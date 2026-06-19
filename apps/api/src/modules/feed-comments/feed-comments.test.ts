@@ -106,6 +106,22 @@ describe("feed comments", () => {
     expect(page.comments).toHaveLength(1);
     expect(page.comments[0]?.id).toBe(created.id);
     expect(page.next_cursor).toBeNull();
+
+    const notification = await db.db
+      .selectFrom("notifications")
+      .select(["type", "title", "body", "payload"])
+      .where("user_id", "=", alice.id)
+      .executeTakeFirstOrThrow();
+    expect(notification.type).toBe("system");
+    expect(notification.title).toBe("Bob");
+    expect(notification.body).toBe("Nice game!");
+    expect(notification.payload).toMatchObject({
+      kind: "feed:comment",
+      entity_id: eventId,
+      event_id: eventId,
+      comment_id: created.id,
+      commenter_user_id: bob.id,
+    });
   });
 
   it("POST trims whitespace and rejects empty / oversized bodies", async () => {

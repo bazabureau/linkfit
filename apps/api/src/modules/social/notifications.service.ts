@@ -152,9 +152,11 @@ export class NotificationsService {
    * - `tournament_invite`: { game_id?: string, tournament_id?: string,
    *                          invitation_id?: string, inviter_user_id?: string,
    *                          kind?: "game_invite" | "tournament_invite" }
-   * - `system`:            free-form, but if the event is a follow include
-   *                        `{ event: "follow", follower_user_id: string }`
-   *                        so iOS can route to the follower's profile.
+   * - `system`:            free-form. Known routing shapes:
+   *                        follow → `{ event: "follow", follower_user_id: string }`
+   *                        feed comment → `{ kind: "feed:comment",
+   *                        entity_id: string, event_id: string,
+   *                        comment_id: string, commenter_user_id: string }`
    *
    * The `payload` parameter is typed `Record<string, unknown>` for flexibility,
    * but call sites are expected to honour the above contract. A discriminated
@@ -283,9 +285,11 @@ function extractEntityId(payload: Record<string, unknown>): string | undefined {
  *    `no_show_marked`, `rating_received`) keyed by `game_id` →
  *    thread `game:<id>`.
  *  - `tournament_invite` keyed by `game_id` when present → thread `game:<id>`.
- *  - `system` (and anything without a clear anchor) → no grouping; iOS will
- *    show each banner standalone, which is the right default for free-form
- *    events.
+ *  - feed-comment `system` notifications keyed by `entity_id`/`event_id` →
+ *    thread `feed_comment:<id>`.
+ *  - other `system` events (and anything without a clear anchor) → no
+ *    grouping; iOS will show each banner standalone, which is the right
+ *    default for free-form events.
  *
  * `collapseId` mirrors `threadId` so that repeated reminders about the same
  * game replace each other rather than stacking. Conversation messages use a
@@ -307,6 +311,18 @@ function deriveGrouping(
   if (type === "message_received" && conversationId !== undefined && conversationId.length > 0) {
     const thread = `conversation:${conversationId}`;
     return { threadId: thread, collapseId: `message:${thread}` };
+  }
+
+  if (type === "system" && payload.kind === "feed:comment") {
+    const feedEventId = typeof payload.entity_id === "string"
+      ? payload.entity_id
+      : typeof payload.event_id === "string"
+        ? payload.event_id
+        : undefined;
+    if (feedEventId !== undefined && feedEventId.length > 0) {
+      const thread = `feed_comment:${feedEventId}`;
+      return { threadId: thread, collapseId: `system:${thread}` };
+    }
   }
 
   // Every game-anchored type groups under the game thread. A second

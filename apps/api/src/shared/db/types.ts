@@ -15,7 +15,7 @@ export type AdminRole = "admin" | "moderator" | "partner";
 export interface UserTable {
   id: Generated<string>;
   email: string;
-  password_hash: string;
+  password_hash: ColumnType<string | null, string | null | undefined, string | null>;
   display_name: string;
   photo_url: string | null;
   home_lat: string | null; // numeric(9,6) — pg returns as string

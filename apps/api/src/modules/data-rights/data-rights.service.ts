@@ -37,8 +37,8 @@ const MIN_EXPORT_INTERVAL_HOURS = 1;
  *     photo cleared, `users.deleted_at` set) and inserts an
  *     `account_deletion_requests` row with `hard_delete_at = now() + 30d`.
  *     `cancelDeletion()` flips status back to 'cancelled' if still within
- *     the window. The actual hard-delete is performed by an out-of-band
- *     cron sweeper that's intentionally out of scope here.
+ *     the window. `DataRightsSweeper` performs the eventual hard-delete and
+ *     expired export cleanup from the server lifecycle.
  *
  *  2. **Data export** — `requestExport()` queues a job (status='queued')
  *     and synchronously walks every owning module's tables to produce a

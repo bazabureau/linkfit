@@ -327,7 +327,7 @@ describe("invitations routes", () => {
     });
   });
 
-  // ───────────────────── expire cron stub ─────────────────────
+  // ───────────────────── stale invitation expiration ─────────────────────
 
   describe("InvitationsService.expireStalePending()", () => {
     it("expires pending invites whose game has already started", async () => {

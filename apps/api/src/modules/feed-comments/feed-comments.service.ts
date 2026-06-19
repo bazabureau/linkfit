@@ -3,13 +3,13 @@ import { type Logger } from "pino";
 import { sql } from "kysely";
 import { type DbHandle } from "../../shared/db/pool.js";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../shared/errors/AppError.js";
-import { type PushService } from "../push/push.service.js";
 import { type RealtimeBus } from "../realtime/realtime.bus.js";
+import { type NotificationsService } from "../social/notifications.service.js";
 import { type CommentOut, type CommentsPage } from "./feed-comments.schema.js";
 
 export interface FeedCommentsServiceDeps {
   db: DbHandle;
-  push: PushService;
+  notifications: NotificationsService;
   realtime: RealtimeBus;
   logger: Logger;
 }
@@ -64,8 +64,8 @@ function clampLimit(limit: number | undefined): number {
 }
 
 /**
- * FeedCommentsService — CRUD over `feed_comments` plus the SSE + push
- * side-effects fired from `create`.
+ * FeedCommentsService — CRUD over `feed_comments` plus the realtime +
+ * notification side-effects fired from `create`.
  *
  * All SQL is hand-written with the `sql` template tag rather than going
  * through Kysely's typed query builder. That's a deliberate choice: the
@@ -93,8 +93,9 @@ function clampLimit(limit: number | undefined): number {
  *     bump the comment count + slide the new row into the bottom of the
  *     thread without a refetch). Fire-and-forget — a missing subscriber
  *     is fine, the comment is durable in DB regardless.
- *   - Pushes an APNs alert to the actor IF the commenter is not the actor.
- *     Self-comments don't push; that would be obnoxious.
+ *   - Emits a durable in-app notification + APNs alert to the actor IF the
+ *     commenter is not the actor. Self-comments stay live-only; that would
+ *     otherwise buzz the actor for their own typing.
  *   - Both side-effects are skipped when the actor has blocked the
  *     commenter or vice versa (the row insert is also blocked in that
  *     case via a NOT EXISTS guard).
@@ -201,35 +202,33 @@ export class FeedCommentsService {
       },
     });
 
-    // APNs alert — only when the commenter is NOT the actor. Self-comments
-    // don't push because that would buzz the actor's phone for their own
-    // typing. We don't fail the request on push errors; deliverToUser
-    // already isolates per-token errors internally.
+    // Durable notification + APNs alert — only when the commenter is NOT
+    // the actor. Self-comments don't notify because that would buzz the
+    // actor's phone for their own typing. We don't fail the request on a
+    // notification error; the comment row and feed SSE event are already
+    // committed.
     if (commenterUserId !== actorUserId) {
       try {
-        await this.deps.push.deliverToUser(actorUserId, {
-          // `system` covers the feed-comment category — the iOS tap handler
-          // routes on `data.entity_id` + `data.kind` to land on the feed
-          // card. Adding a dedicated NotificationType enum value would be a
-          // schema change owned by the notifications agent; out of scope.
+        await this.deps.notifications.emit({
+          userId: actorUserId,
           type: "system",
           title: row.display_name,
           body:
             trimmed.length > 120
               ? `${trimmed.slice(0, 117)}...`
               : trimmed,
-          data: {
+          payload: {
             kind: "feed:comment",
             entity_id: eventId,
+            event_id: eventId,
             comment_id: out.id,
+            commenter_user_id: commenterUserId,
           },
-          // Group all comments on a single card into one APNs banner stack.
-          threadId: `feed_comment:${eventId}`,
         });
       } catch (err) {
         this.deps.logger.warn(
           { err, eventId, actorUserId, commenterUserId },
-          "feed_comments.push.failed",
+          "feed_comments.notification.failed",
         );
       }
     }

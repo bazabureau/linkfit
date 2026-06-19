@@ -41,6 +41,12 @@ export function buildTestEnv(): Env {
     // endpoint so any non-empty API key in CI smoke jobs still routes
     // somewhere sane instead of a default fallback.
     POSTHOG_HOST: "https://app.posthog.com",
+    SMTP_PORT: 587,
+    MAIL_FROM: "no-reply@linkfit.app",
+    OAUTH_APPLE_CLIENT_IDS: ["az.linkfit.app"],
+    OAUTH_GOOGLE_CLIENT_IDS: [
+      "655337821050-pi74ppu4gjv7b0gs0v417djtndrl7nt2.apps.googleusercontent.com",
+    ],
     SIGNUP_RATE_LIMIT_PER_DAY: 10_000,
     FOLLOW_BURST_THRESHOLD: 10_000,
     FOLLOW_BURST_WINDOW_SEC: 60,

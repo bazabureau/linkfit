@@ -32,6 +32,8 @@ export interface MembershipServiceDeps {
   /** Caller pipes the env value here so the service can detect demo mode
    *  on its own — keeps env reads out of the route handler. */
   stripeSecretKey: string;
+  /** Public app/web origin used as the Stripe portal return URL. */
+  publicAppUrl: string;
 }
 
 /** AZN pricing in qəpik (minor units). Free is zero; the two paid tiers
@@ -238,9 +240,9 @@ export class MembershipService {
    * nothing for them to manage. The iOS client surfaces that as a toast
    * pointing the user at the Upgrade flow.
    *
-   * The return URL is derived from `PUBLIC_APP_URL` / `PUBLIC_BASE_URL`
-   * with a sane production default so the membership-screen deep link
-   * (`/membership`) always resolves regardless of deploy environment.
+   * The return URL is injected from the typed server env so the
+   * membership-screen deep link (`/membership`) always resolves without
+   * relying on process-global state.
    */
   async createPortalSession(userId: string): Promise<PortalResponse> {
     const row = await this.deps.db.db
@@ -268,7 +270,7 @@ export class MembershipService {
       throw new PreconditionFailedError("No subscription to manage");
     }
 
-    const returnUrl = `${resolvePublicAppUrl()}/membership`;
+    const returnUrl = `${this.deps.publicAppUrl.replace(/\/+$/, "")}/membership`;
     const session = await this.deps.stripe.createBillingPortalSession({
       customer_id: customerId,
       return_url: returnUrl,
@@ -468,16 +470,4 @@ function readPeriodEnd(obj: Record<string, unknown>): Date | null {
     return new Date(raw * 1000);
   }
   return null;
-}
-
-/**
- * Resolve the public-facing app URL the Stripe portal redirects to. The
- * same precedence order is used elsewhere (referrals, email links) — the
- * env-var lookup happens here rather than in the route handler so the
- * service stays self-sufficient and the routes file stays I/O-free.
- */
-function resolvePublicAppUrl(): string {
-  return (
-    process.env.PUBLIC_APP_URL ?? process.env.PUBLIC_BASE_URL ?? "https://linkfit.app"
-  );
 }

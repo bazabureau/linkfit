@@ -373,6 +373,46 @@ describe("email module — verification + password reset", () => {
       expect(second.statusCode).toBe(400);
     });
 
+    it("invalidates older pending reset tokens when a newer reset is requested", async () => {
+      const email = uniqueEmail();
+      await register(app, email);
+
+      await app.inject({
+        method: "POST",
+        url: "/api/v1/auth/request-password-reset",
+        payload: { email },
+      });
+      const firstToken = extractToken(transport.lastFor(email.toLowerCase())?.text ?? "");
+
+      await sql`
+        UPDATE email_tokens
+           SET created_at = now() - interval '61 seconds'
+         WHERE kind = 'reset_password'
+           AND used_at IS NULL
+      `.execute(db.db);
+
+      await app.inject({
+        method: "POST",
+        url: "/api/v1/auth/request-password-reset",
+        payload: { email },
+      });
+      const secondToken = extractToken(transport.lastFor(email.toLowerCase())?.text ?? "");
+
+      const oldReset = await app.inject({
+        method: "POST",
+        url: "/api/v1/auth/reset-password",
+        payload: { token: firstToken, new_password: "OlderTokenPass99" },
+      });
+      expect(oldReset.statusCode).toBe(400);
+
+      const newestReset = await app.inject({
+        method: "POST",
+        url: "/api/v1/auth/reset-password",
+        payload: { token: secondToken, new_password: "NewestTokenPass99" },
+      });
+      expect(newestReset.statusCode).toBe(200);
+    });
+
     it("rejects a weak password against the reset endpoint", async () => {
       const email = uniqueEmail();
       await register(app, email);

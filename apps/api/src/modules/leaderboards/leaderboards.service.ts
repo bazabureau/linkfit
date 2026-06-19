@@ -30,6 +30,7 @@ export interface LeaderboardEloListQuery {
  * lucky-streak 1- or 2-game accounts.
  */
 const MIN_GAMES_PLAYED = 3;
+const CITY_SCOPE_RADIUS_KM = 50;
 
 interface LeaderboardRow {
   user_id: string;
@@ -65,6 +66,10 @@ function skillBoundsForFilter(
   }
 }
 
+function escapeLikePattern(input: string): string {
+  return input.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
 /**
  * LeaderboardsService — read-only ranking of players per sport, ordered by
  * ELO with games_played as the tie-breaker. The route layer feeds it an
@@ -72,9 +77,11 @@ function skillBoundsForFilter(
  * that have blocked the viewer (bidirectional). Anonymous callers get the
  * unfiltered ladder.
  *
- * Region / scope filtering is a placeholder: we accept the params so the
- * iOS client can wire them now, but skip the actual filter until we have
- * a venue→region (city) mapping. See TODOs below.
+ * Region and scope filters use the data we already have:
+ *   - `region` matches venue name/address from the player's confirmed games.
+ *   - `scope=city` matches players with home coordinates within 50km of the
+ *     signed-in viewer's home coordinates. Anonymous callers or viewers
+ *     without home coordinates gracefully fall back to global.
  *
  * Skill and period filters ARE applied:
  *   - `skill` translates to an inclusive ELO range via `skillBoundsForFilter`.
@@ -100,13 +107,6 @@ export class LeaderboardsService {
       .executeTakeFirst();
     if (!sport) throw new NotFoundError("Sport not found");
 
-    // TODO(wave-9+): regional / scope filter once we have a venue→city
-    // mapping. For now we accept the params and ignore them. Keeping the
-    // branch here keeps the surface stable so iOS doesn't need a client
-    // update when we wire it.
-    void query.region;
-    void query.scope;
-
     // The same WHERE-clause fragment drives both the page query and the
     // total_count query, so both stay consistent under filter changes.
     // `users.deleted_at IS NULL` is the standard soft-delete guard the
@@ -118,6 +118,49 @@ export class LeaderboardsService {
                  WHERE (ub.blocker_user_id = ${viewerUserId} AND ub.blocked_user_id = pss.user_id)
                     OR (ub.blocker_user_id = pss.user_id AND ub.blocked_user_id = ${viewerUserId})
               )`
+        : sql``;
+
+    const region = query.region?.trim();
+    const regionFilter =
+      region !== undefined && region.length > 0
+        ? sql`AND EXISTS (
+                SELECT 1
+                  FROM game_participants rgp
+                  JOIN games rg ON rg.id = rgp.game_id
+                  LEFT JOIN courts rc ON rc.id = rg.court_id
+                  LEFT JOIN venues rv ON rv.id = rc.venue_id
+                 WHERE rgp.user_id = pss.user_id
+                   AND rgp.status = 'confirmed'
+                   AND rg.sport_id = ${sport.id}
+                   AND (
+                     rv.name ILIKE ${`%${escapeLikePattern(region)}%`} ESCAPE '\\'
+                     OR rv.address ILIKE ${`%${escapeLikePattern(region)}%`} ESCAPE '\\'
+                   )
+              )`
+        : sql``;
+
+    const viewerHome =
+      query.scope === "city" && viewerUserId !== null
+        ? await this.deps.db.db
+            .selectFrom("users")
+            .select(["home_lat", "home_lng"])
+            .where("id", "=", viewerUserId)
+            .where("deleted_at", "is", null)
+            .executeTakeFirst()
+        : undefined;
+    const hasViewerHome =
+      viewerHome?.home_lat !== null &&
+      viewerHome?.home_lat !== undefined &&
+      viewerHome.home_lng !== null &&
+      viewerHome.home_lng !== undefined;
+    const scopeFilter =
+      query.scope === "city" && hasViewerHome
+        ? sql`AND u.home_lat IS NOT NULL
+              AND u.home_lng IS NOT NULL
+              AND earth_distance(
+                    ll_to_earth(${Number(viewerHome.home_lat)}::float8, ${Number(viewerHome.home_lng)}::float8),
+                    ll_to_earth(u.home_lat::float8, u.home_lng::float8)
+                  ) <= ${CITY_SCOPE_RADIUS_KM * 1000}`
         : sql``;
 
     // Skill bucket → ELO range. `[minElo, maxElo)` half-open interval keeps
@@ -157,6 +200,8 @@ export class LeaderboardsService {
          AND pss.games_played >= ${MIN_GAMES_PLAYED}
          AND u.deleted_at IS NULL
          ${blockFilter}
+         ${regionFilter}
+         ${scopeFilter}
          ${skillFilter}
          ${periodFilter}
        ORDER BY pss.elo_rating DESC, pss.games_played DESC, pss.user_id ASC
@@ -175,6 +220,8 @@ export class LeaderboardsService {
          AND pss.games_played >= ${MIN_GAMES_PLAYED}
          AND u.deleted_at IS NULL
          ${blockFilter}
+         ${regionFilter}
+         ${scopeFilter}
          ${skillFilter}
          ${periodFilter}
     `.execute(this.deps.db.db);

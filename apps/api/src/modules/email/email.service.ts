@@ -172,11 +172,14 @@ export class EmailService {
 
     const fresh = generateEmailToken();
     const expiresAt = new Date(Date.now() + RESET_TTL_MS);
-    await emailRepository.insertToken(this.deps.db.db, {
-      user_id: user.id,
-      kind: "reset_password",
-      token_hash: fresh.hash,
-      expires_at: expiresAt,
+    await withTransaction(this.deps.db.db, async (tx) => {
+      await emailRepository.invalidatePendingForUser(tx, user.id, "reset_password");
+      await emailRepository.insertToken(tx, {
+        user_id: user.id,
+        kind: "reset_password",
+        token_hash: fresh.hash,
+        expires_at: expiresAt,
+      });
     });
     await this.deliverReset(user.email, fresh.token);
     return { requested: true };

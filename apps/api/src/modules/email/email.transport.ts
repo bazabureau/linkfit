@@ -18,6 +18,8 @@ export interface OutgoingEmail {
 
 export interface MailTransport {
   send(message: OutgoingEmail): Promise<void>;
+  /** Optional health probe used by /health/ready when SMTP is configured. */
+  verify?(): Promise<void>;
   /** Optional capture — tests provide a real implementation; production
    *  transports just return `[]`. Kept on the interface so we never have
    *  to cast in test code. */
@@ -45,6 +47,10 @@ export class LoggingTransport implements MailTransport {
       { to: message.to, subject: message.subject },
       `[email] **${message.subject}** to ${message.to}\n  ${message.text}`,
     );
+    return Promise.resolve();
+  }
+
+  public verify(): Promise<void> {
     return Promise.resolve();
   }
 }
@@ -83,11 +89,11 @@ export async function buildSmtpTransport(
         text: string;
         html: string;
       }) => Promise<unknown>;
+      verify: () => Promise<unknown>;
     };
   }
   let mod: NodemailerLike;
   try {
-     
     mod = await import("nodemailer");
   } catch (err) {
     logger.warn(
@@ -113,6 +119,9 @@ export async function buildSmtpTransport(
         text: message.text,
         html: message.html,
       });
+    },
+    async verify(): Promise<void> {
+      await inner.verify();
     },
   };
 }

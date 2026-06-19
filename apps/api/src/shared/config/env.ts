@@ -1,6 +1,45 @@
 import { z } from "zod";
+import {
+  isPlaceholderStripeSecretKey,
+  isPlaceholderStripeWebhookSecret,
+} from "./stripePlaceholders.js";
 
 const NodeEnv = z.enum(["development", "test", "production"]);
+
+const emptyStringToUndefined = (value: unknown): unknown =>
+  typeof value === "string" && value.trim().length === 0 ? undefined : value;
+
+const OptionalNonEmptyString = z.preprocess(
+  emptyStringToUndefined,
+  z.string().trim().min(1).optional(),
+);
+
+const OptionalUrl = z.preprocess(
+  emptyStringToUndefined,
+  z.string().url().optional(),
+);
+
+const csvListWithDefault = (fallback: string) =>
+  z
+    .preprocess(emptyStringToUndefined, z.string().default(fallback))
+    .transform((s) =>
+      s
+        .split(",")
+        .map((value) => value.trim())
+        .filter((value, index, values) => value.length > 0 && values.indexOf(value) === index),
+    )
+    .refine((values) => values.length > 0, {
+      message: "must contain at least one value",
+    });
+
+function isHttpsUrl(value: string | undefined): boolean {
+  if (value === undefined) return false;
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 const EnvSchema = z.object({
   NODE_ENV: NodeEnv.default("development"),
@@ -60,7 +99,11 @@ const EnvSchema = z.object({
   /** Base URL used when building absolute URLs for uploaded assets.
    *  In dev/test this defaults to `http://<HOST>:<PORT>`. In production
    *  point this at the public origin (e.g. `https://api.linkfit.app`). */
-  PUBLIC_BASE_URL: z.string().url().optional(),
+  PUBLIC_BASE_URL: OptionalUrl,
+  /** Public app/web origin used in password-reset links, referral links,
+   *  and Stripe return URLs. Defaults to `PUBLIC_BASE_URL` at use sites
+   *  when omitted. */
+  PUBLIC_APP_URL: OptionalUrl,
 
   /** Filesystem location for uploaded message attachments. The path is
    *  served at `/uploads/*` via @fastify/static. Defaults to `/tmp` so
@@ -98,6 +141,10 @@ const EnvSchema = z.object({
   // not here — env load shouldn't depend on runtime gates).
   STRIPE_SECRET_KEY: z.string().min(1).default("sk_test_dummy"),
   STRIPE_WEBHOOK_SECRET: z.string().min(1).default("whsec_test_dummy"),
+  /** Stripe recurring Price IDs for membership Checkout Sessions. Required
+   *  in production when STRIPE_SECRET_KEY is real. */
+  STRIPE_MEMBERSHIP_PLUS_PRICE_ID: OptionalNonEmptyString,
+  STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID: OptionalNonEmptyString,
 
   // ── Metrics endpoint (Prometheus scraper) ──────────────────────────
   // Basic-auth credentials for `GET /metrics`. Defaults are intentionally
@@ -173,6 +220,34 @@ const EnvSchema = z.object({
   // keys at build time via xcodegen substitution.
   POSTHOG_API_KEY: z.string().optional(),
   POSTHOG_HOST: z.string().url().default("https://app.posthog.com"),
+
+  // ── Sentry crash reporting ─────────────────────────────────────────
+  // Empty/unset disables the integration.
+  SENTRY_DSN: OptionalNonEmptyString,
+  SENTRY_RELEASE: OptionalNonEmptyString,
+
+  // ── Email transport ────────────────────────────────────────────────
+  // All of SMTP_HOST, SMTP_USER, and SMTP_PASS must be set to send real
+  // email. SMTP_PORT and MAIL_FROM have safe defaults once SMTP is enabled.
+  SMTP_HOST: OptionalNonEmptyString,
+  SMTP_PORT: z.preprocess(emptyStringToUndefined, z.coerce.number().int().positive().max(65_535).default(587)),
+  SMTP_USER: OptionalNonEmptyString,
+  SMTP_PASS: OptionalNonEmptyString,
+  MAIL_FROM: z.preprocess(emptyStringToUndefined, z.string().email().default("no-reply@linkfit.app")),
+
+  // ── OAuth providers ────────────────────────────────────────────────
+  // Apple native sign-in audience defaults to the iOS bundle id. Google
+  // includes the shipped iOS client id by default and accepts a CSV for
+  // additional web/debug client ids.
+  OAUTH_APPLE_CLIENT_IDS: csvListWithDefault("az.linkfit.app"),
+  OAUTH_GOOGLE_CLIENT_IDS: csvListWithDefault(
+    "655337821050-pi74ppu4gjv7b0gs0v417djtndrl7nt2.apps.googleusercontent.com",
+  ),
+
+  // ── Medical profile encryption ─────────────────────────────────────
+  // Base64 or hex encoded 32-byte key. Empty/unset uses the plaintext
+  // fallback and logs a startup warning.
+  MEDICAL_ENCRYPTION_KEY: OptionalNonEmptyString,
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -184,6 +259,41 @@ export class EnvValidationError extends Error {
       .map((i) => `  - ${i.path.join(".") || "(root)"}: ${i.message}`)
       .join("\n");
     super(`Invalid environment variables:\n${summary}`);
+  }
+}
+
+function enforceConfigInvariants(env: Env): void {
+  const violations: z.ZodIssue[] = [];
+  const smtpFields = [env.SMTP_HOST, env.SMTP_USER, env.SMTP_PASS];
+  const hasPartialSmtp = smtpFields.some((value) => value !== undefined);
+  const hasCompleteSmtp = smtpFields.every((value) => value !== undefined);
+  const apnsFields = [
+    env.APNS_KEY_ID,
+    env.APNS_TEAM_ID,
+    env.APNS_BUNDLE_ID,
+    env.APNS_AUTH_KEY,
+  ];
+  const hasPartialApns = apnsFields.some((value) => value !== undefined);
+  const hasCompleteApns = apnsFields.every((value) => value !== undefined);
+
+  if (hasPartialSmtp && !hasCompleteSmtp) {
+    violations.push({
+      code: "custom",
+      path: ["SMTP_HOST"],
+      message: "SMTP_HOST, SMTP_USER, and SMTP_PASS must be set together",
+    });
+  }
+
+  if (hasPartialApns && !hasCompleteApns) {
+    violations.push({
+      code: "custom",
+      path: ["APNS_KEY_ID"],
+      message: "APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID, and APNS_AUTH_KEY must be set together",
+    });
+  }
+
+  if (violations.length > 0) {
+    throw new EnvValidationError(violations);
   }
 }
 
@@ -213,10 +323,19 @@ function enforceProductionInvariants(env: Env): void {
     }
   };
 
-  guard("STRIPE_SECRET_KEY", env.STRIPE_SECRET_KEY === "sk_test_dummy",
+  guard("STRIPE_SECRET_KEY", isPlaceholderStripeSecretKey(env.STRIPE_SECRET_KEY),
     "placeholder Stripe secret key");
-  guard("STRIPE_WEBHOOK_SECRET", env.STRIPE_WEBHOOK_SECRET === "whsec_test_dummy",
+  guard("STRIPE_WEBHOOK_SECRET", isPlaceholderStripeWebhookSecret(env.STRIPE_WEBHOOK_SECRET),
     "placeholder Stripe webhook secret");
+  const stripeKeyIsPlaceholder = isPlaceholderStripeSecretKey(env.STRIPE_SECRET_KEY);
+  guard("STRIPE_SECRET_KEY", !stripeKeyIsPlaceholder && !env.STRIPE_SECRET_KEY.startsWith("sk_live_"),
+    "non-live Stripe secret key");
+  guard("STRIPE_MEMBERSHIP_PLUS_PRICE_ID",
+    !stripeKeyIsPlaceholder && env.STRIPE_MEMBERSHIP_PLUS_PRICE_ID === undefined,
+    "missing Stripe Plus membership price id");
+  guard("STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID",
+    !stripeKeyIsPlaceholder && env.STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID === undefined,
+    "missing Stripe Premium membership price id");
   guard("JWT_ACCESS_SECRET", env.JWT_ACCESS_SECRET.startsWith("dev-"),
     "dev-prefixed JWT access secret");
   guard("JWT_REFRESH_SECRET", env.JWT_REFRESH_SECRET.startsWith("dev-"),
@@ -225,6 +344,22 @@ function enforceProductionInvariants(env: Env): void {
     "default /metrics password");
   guard("CORS_ORIGINS", env.CORS_ORIGINS.length === 0,
     "empty CORS allowlist (would deny all browser clients)");
+  guard("SMTP_HOST", env.SMTP_HOST === undefined,
+    "missing SMTP credentials");
+  guard("PUBLIC_BASE_URL", env.PUBLIC_BASE_URL === undefined,
+    "missing public API base URL");
+  guard("PUBLIC_APP_URL", env.PUBLIC_APP_URL === undefined,
+    "missing public app URL");
+  guard("PUBLIC_BASE_URL", env.PUBLIC_BASE_URL !== undefined && !isHttpsUrl(env.PUBLIC_BASE_URL),
+    "non-HTTPS public API base URL");
+  guard("PUBLIC_APP_URL", env.PUBLIC_APP_URL !== undefined && !isHttpsUrl(env.PUBLIC_APP_URL),
+    "non-HTTPS public app URL");
+  guard("APNS_KEY_ID", env.APNS_KEY_ID === undefined,
+    "missing APNs credentials");
+  guard("APNS_USE_SANDBOX", env.APNS_USE_SANDBOX,
+    "APNs sandbox enabled");
+  guard("MEDICAL_ENCRYPTION_KEY", env.MEDICAL_ENCRYPTION_KEY === undefined,
+    "missing medical encryption key");
 
   if (violations.length > 0) {
     throw new EnvValidationError(violations);
@@ -236,6 +371,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   if (!parsed.success) {
     throw new EnvValidationError(parsed.error.issues);
   }
+  enforceConfigInvariants(parsed.data);
   enforceProductionInvariants(parsed.data);
   return parsed.data;
 }

@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { isInQuietHours } from "./notification-preferences.service.js";
+import {
+  defaultPushEnabledForType,
+  isInQuietHours,
+} from "./notification-preferences.service.js";
 
 /**
  * Pure unit tests for the quiet-hours decision. Building a clock is
@@ -67,5 +70,21 @@ describe("isInQuietHours", () => {
       expect(isInQuietHours(at(13), 13, 13)).toBe(true);
       expect(isInQuietHours(at(20), 13, 13)).toBe(true);
     });
+  });
+});
+
+describe("defaultPushEnabledForType", () => {
+  it("enables time-sensitive coordination and direct-contact pushes", () => {
+    expect(defaultPushEnabledForType("game_joined")).toBe(true);
+    expect(defaultPushEnabledForType("game_cancelled")).toBe(true);
+    expect(defaultPushEnabledForType("game_reminder")).toBe(true);
+    expect(defaultPushEnabledForType("no_show_marked")).toBe(true);
+    expect(defaultPushEnabledForType("tournament_invite")).toBe(true);
+    expect(defaultPushEnabledForType("message_received")).toBe(true);
+  });
+
+  it("keeps lower-urgency events in-app/email only by default", () => {
+    expect(defaultPushEnabledForType("rating_received")).toBe(false);
+    expect(defaultPushEnabledForType("system")).toBe(false);
   });
 });

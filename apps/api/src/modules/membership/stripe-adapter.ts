@@ -14,6 +14,10 @@
  * keep the test doubles trivial.
  */
 
+import Stripe from "stripe";
+import { type Logger } from "pino";
+import { isPlaceholderStripeSecretKey } from "../../shared/config/stripePlaceholders.js";
+
 export interface CreateCheckoutSessionArgs {
   /** Stripe Customer id — we attach the subscription to a stable Customer
    *  so the iOS PaymentSheet path can later swap to "manage subscription". */
@@ -79,6 +83,114 @@ export interface StripeMembershipAdapter {
  * that flips the membership row server-side.
  */
 export function isPlaceholderStripeKey(secret: string): boolean {
-  if (secret.length === 0) return true;
-  return secret === "sk_test_dummy" || secret === "sk_live_dummy";
+  return isPlaceholderStripeSecretKey(secret);
+}
+
+export interface LiveStripeMembershipAdapterConfig {
+  secretKey: string;
+  plusPriceId: string;
+  premiumPriceId: string;
+  publicAppUrl: string;
+  logger: Logger;
+}
+
+/** Production / staging implementation for recurring subscriptions. */
+export class LiveStripeMembershipAdapter implements StripeMembershipAdapter {
+  private readonly client: Stripe;
+  private readonly priceByTier: Record<"plus" | "premium", string>;
+  private readonly publicAppUrl: string;
+
+  constructor(config: LiveStripeMembershipAdapterConfig) {
+    this.client = new Stripe(config.secretKey, {
+      apiVersion: "2026-04-22.dahlia",
+      typescript: true,
+      appInfo: { name: "Linkfit", version: "0.1.0" },
+    });
+    this.priceByTier = {
+      plus: config.plusPriceId,
+      premium: config.premiumPriceId,
+    };
+    this.publicAppUrl = config.publicAppUrl.replace(/\/+$/, "");
+    this.logger = config.logger;
+  }
+
+  private readonly logger: Logger;
+
+  async ensureCustomer(args: { email: string; user_id: string }): Promise<{ id: string }> {
+    const existing = await this.client.customers.search({
+      query: `metadata['linkfit_user_id']:'${args.user_id}'`,
+      limit: 1,
+    });
+    if (existing.data[0]) {
+      this.logger.debug(
+        { stripe_customer_id: existing.data[0].id, user_id: args.user_id },
+        "membership stripe: customer found",
+      );
+      return { id: existing.data[0].id };
+    }
+
+    const created = await this.client.customers.create({
+      email: args.email,
+      metadata: { linkfit_user_id: args.user_id },
+    });
+    this.logger.info(
+      { stripe_customer_id: created.id, user_id: args.user_id },
+      "membership stripe: customer created",
+    );
+    return { id: created.id };
+  }
+
+  async createCheckoutSession(args: CreateCheckoutSessionArgs): Promise<CheckoutSession> {
+    const session = await this.client.checkout.sessions.create(
+      {
+        mode: "subscription",
+        customer: args.customer_id,
+        line_items: [{ price: this.priceByTier[args.tier], quantity: 1 }],
+        success_url: `${this.publicAppUrl}/membership?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${this.publicAppUrl}/membership?checkout=cancelled`,
+        metadata: {
+          linkfit_kind: "membership",
+          linkfit_user_id: args.user_id,
+          linkfit_tier: args.tier,
+        },
+        subscription_data: {
+          metadata: {
+            linkfit_kind: "membership",
+            linkfit_user_id: args.user_id,
+            linkfit_tier: args.tier,
+          },
+        },
+        allow_promotion_codes: true,
+      },
+      { idempotencyKey: args.idempotency_key },
+    );
+    if (session.url === null) {
+      throw new Error("Stripe checkout session did not return a URL");
+    }
+    this.logger.info(
+      {
+        stripe_customer_id: args.customer_id,
+        session_id: session.id,
+        tier: args.tier,
+      },
+      "membership stripe: checkout session created",
+    );
+    return { id: session.id, url: session.url };
+  }
+
+  async cancelAtPeriodEnd(subscriptionId: string): Promise<void> {
+    await this.client.subscriptions.update(subscriptionId, {
+      cancel_at_period_end: true,
+    });
+  }
+
+  async createBillingPortalSession(
+    args: CreateBillingPortalSessionArgs,
+  ): Promise<BillingPortalSession> {
+    const session = await this.client.billingPortal.sessions.create({
+      customer: args.customer_id,
+      return_url: args.return_url,
+    });
+    return { id: session.id, url: session.url };
+  }
 }

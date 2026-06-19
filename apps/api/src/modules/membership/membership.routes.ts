@@ -13,6 +13,7 @@ import { type MembershipService } from "./membership.service.js";
 export interface MembershipRouteDeps {
   service: MembershipService;
   jwtAccessSecret: string;
+  allowUnsignedWebhooks: boolean;
 }
 
 const ErrorEnvelope = z.object({
@@ -148,9 +149,9 @@ export function registerMembershipRoutes(
   // event types (including `customer.subscription.*`) there.
   //
   // Dev/test still need the unsigned shim so the existing test suite
-  // and local Stripe-CLI replays work; we keep the routes alive only
-  // when `NODE_ENV !== "production"`.
-  if (process.env.NODE_ENV !== "production") {
+  // and local Stripe-CLI replays work; server wiring keeps the routes
+  // alive only outside production.
+  if (deps.allowUnsignedWebhooks) {
     app.post(
       "/api/v1/webhooks/stripe/subscription",
       {

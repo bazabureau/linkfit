@@ -67,6 +67,7 @@ import { registerReportsRoutes } from "../../modules/reports/reports.routes.js";
 import { registerAgendaRoutes } from "../../modules/agenda/agenda.routes.js";
 import { registerInvitationsRoutes } from "../../modules/invitations/invitations.routes.js";
 import { InvitationsService } from "../../modules/invitations/invitations.service.js";
+import { InvitationsExpireSweeper } from "../../modules/invitations/invitations-expire.sweeper.js";
 import { registerOauthRoutes } from "../../modules/users/oauth.routes.js";
 import {
   HttpJwksProvider,
@@ -110,7 +111,14 @@ import { SquadsService } from "../../modules/squads/squads.service.js";
 // === Membership agent ===
 import { registerMembershipRoutes } from "../../modules/membership/membership.routes.js";
 import { MembershipService } from "../../modules/membership/membership.service.js";
-import { type StripeMembershipAdapter } from "../../modules/membership/stripe-adapter.js";
+import {
+  LiveStripeMembershipAdapter,
+  type StripeMembershipAdapter,
+} from "../../modules/membership/stripe-adapter.js";
+import {
+  isPlaceholderStripeSecretKey,
+  isPlaceholderStripeWebhookSecret,
+} from "../config/stripePlaceholders.js";
 // === Email agent ===
 import { registerEmailRoutes } from "../../modules/email/email.routes.js";
 import { EmailService } from "../../modules/email/email.service.js";
@@ -165,8 +173,8 @@ import { registerMetricsRoute } from "../telemetry/metricsRoute.js";
 // === Observability (Sentry crash reporting) ===
 // Initialized at the top of `buildServer` — before any route registration —
 // so the Fastify `onError` hook fires for every subsequent route. A nil/empty
-// `SENTRY_DSN` makes both calls no-ops so the server still boots cleanly in
-// dev/CI without a configured Sentry project.
+// typed `SENTRY_DSN` makes both calls no-ops so the server still boots cleanly
+// in dev/CI without a configured Sentry project.
 import {
   initSentry,
   setupFastify as setupSentryFastify,
@@ -203,8 +211,8 @@ export interface ServerDeps {
   stripeGateway?: StripeGateway;
   /** Optional injection seam for the Email agent. Integration tests pass a
    *  `LoggingTransport` (or a custom capture transport) so no real SMTP
-   *  socket is opened. When omitted we build an SMTP transport when all
-   *  four `SMTP_*` env vars are set, and fall back to `LoggingTransport`
+   *  socket is opened. When omitted we build an SMTP transport when the
+   *  typed env carries SMTP host/user/pass, and fall back to `LoggingTransport`
    *  otherwise. */
   mailTransport?: MailTransport;
   /** Optional injection seam for the Membership agent. Tests pass an
@@ -230,10 +238,17 @@ export type LinkfitServer = FastifyInstance<
 export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
   // Initialize Sentry crash reporting before constructing Fastify so the
   // SDK's process-level handlers (uncaughtException, unhandledRejection) are
-  // installed first. Reads `SENTRY_DSN` from process env — a missing or
-  // empty value makes this a no-op and `setupSentryFastify` further down
-  // skips registering the hook. See `shared/observability/sentry.ts`.
-  initSentry({ dsn: process.env.SENTRY_DSN });
+  // installed first. A missing `SENTRY_DSN` makes this a no-op and
+  // `setupSentryFastify` further down skips registering the hook.
+  // See `shared/observability/sentry.ts`.
+  const sentryOptions: Parameters<typeof initSentry>[0] = {
+    dsn: deps.env.SENTRY_DSN,
+    environment: deps.env.NODE_ENV,
+  };
+  if (deps.env.SENTRY_RELEASE !== undefined) {
+    sentryOptions.release = deps.env.SENTRY_RELEASE;
+  }
+  initSentry(sentryOptions);
 
   // Initialize product analytics (PostHog) alongside Sentry. A missing or
   // empty `POSTHOG_API_KEY` makes this a no-op so dev/CI environments boot
@@ -448,6 +463,7 @@ export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
     registerBookingsRoutes(app, {
       service: bookingsService,
       jwtAccessSecret: deps.env.JWT_ACCESS_SECRET,
+      allowManualPaymentOverride: deps.env.NODE_ENV !== "production",
     });
   }
 
@@ -601,7 +617,10 @@ export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
   });
 
   const searchService = new SearchService({ db: deps.db });
-  registerSearchRoutes(app, { service: searchService });
+  registerSearchRoutes(app, {
+    service: searchService,
+    jwtAccessSecret: deps.env.JWT_ACCESS_SECRET,
+  });
 
   // In-app calendar agent — aggregated agenda endpoint. Owns no service of
   // its own; reads directly from games/bookings/tournaments using SQL.
@@ -612,25 +631,14 @@ export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
 
   // OAuth providers (Apple + Google) — sign-in endpoints that verify provider
   // JWS locally against cached JWKS and issue a Linkfit session.
-  const oauthClientIdsApple = (process.env.OAUTH_APPLE_CLIENT_IDS ?? "az.linkfit.app")
-    .split(",").map((s) => s.trim()).filter((s) => s.length > 0);
-  const googleIosClientId =
-    "655337821050-pi74ppu4gjv7b0gs0v417djtndrl7nt2.apps.googleusercontent.com";
-  const oauthClientIdsGoogle = [
-    ...(process.env.OAUTH_GOOGLE_CLIENT_IDS ?? "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0),
-    googleIosClientId,
-  ].filter((value, index, values) => values.indexOf(value) === index);
   const oauthService = new OauthService({
     db: deps.db,
     logger: deps.logger,
     jwtAccessSecret: deps.env.JWT_ACCESS_SECRET,
     accessTtlSeconds: deps.env.JWT_ACCESS_TTL_SECONDS,
     refreshTtlDays: deps.env.JWT_REFRESH_TTL_DAYS,
-    appleClientIds: oauthClientIdsApple,
-    googleClientIds: oauthClientIdsGoogle,
+    appleClientIds: deps.env.OAUTH_APPLE_CLIENT_IDS,
+    googleClientIds: deps.env.OAUTH_GOOGLE_CLIENT_IDS,
     jwks: new HttpJwksProvider(),
     telemetry,
   });
@@ -649,30 +657,29 @@ export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
   // Transport resolution: explicit injection (tests) > SMTP env (production)
   // > LoggingTransport fallback. The fallback exists so dev/test environments
   // never need real SMTP credentials.
-  const smtpHost = process.env.SMTP_HOST;
-  const smtpPort = process.env.SMTP_PORT;
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
-  const mailFrom = process.env.MAIL_FROM ?? "no-reply@linkfit.app";
   let mailTransport: MailTransport;
   if (deps.mailTransport !== undefined) {
     mailTransport = deps.mailTransport;
   } else if (
-    smtpHost !== undefined && smtpHost.length > 0 &&
-    smtpPort !== undefined && smtpPort.length > 0 &&
-    smtpUser !== undefined && smtpUser.length > 0 &&
-    smtpPass !== undefined && smtpPass.length > 0
+    deps.env.SMTP_HOST !== undefined &&
+    deps.env.SMTP_USER !== undefined &&
+    deps.env.SMTP_PASS !== undefined
   ) {
     mailTransport = await buildSmtpTransport(
-      { host: smtpHost, port: Number.parseInt(smtpPort, 10), user: smtpUser, pass: smtpPass },
-      mailFrom,
+      {
+        host: deps.env.SMTP_HOST,
+        port: deps.env.SMTP_PORT,
+        user: deps.env.SMTP_USER,
+        pass: deps.env.SMTP_PASS,
+      },
+      deps.env.MAIL_FROM,
       deps.logger,
     );
   } else {
     mailTransport = new LoggingTransport(deps.logger);
   }
   const publicAppUrl =
-    process.env.PUBLIC_APP_URL ?? deps.env.PUBLIC_BASE_URL ?? "https://linkfit.app";
+    deps.env.PUBLIC_APP_URL ?? deps.env.PUBLIC_BASE_URL ?? "https://linkfit.app";
   const emailService = new EmailService({
     db: deps.db,
     logger: deps.logger,
@@ -716,6 +723,18 @@ export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
     service: invitationsService,
     jwtAccessSecret: deps.env.JWT_ACCESS_SECRET,
   });
+  const invitationsExpireSweeper = new InvitationsExpireSweeper({
+    service: invitationsService,
+    logger: deps.logger,
+  });
+  app.addHook("onReady", () => {
+    invitationsExpireSweeper.start();
+    return Promise.resolve();
+  });
+  app.addHook("onClose", () => {
+    invitationsExpireSweeper.stop();
+    return Promise.resolve();
+  });
 
   // Recurring game series — host schedules a weekly slot, server
   // materializes N future games tagged with series_id so the rest of the
@@ -750,13 +769,13 @@ export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
   });
 
   // === Feed comments (Wave-9) ===
-  // Threaded comments under each feed_events row. POST fires an APNs alert
-  // to the event actor (unless they're the commenter) and publishes a
-  // `feed:comment` SSE event for live UI updates. DELETE allows either
-  // the comment author OR the event actor to moderate.
+  // Threaded comments under each feed_events row. POST emits a durable
+  // notification/APNs alert to the event actor (unless they're the commenter)
+  // and publishes a `feed:comment` SSE event for live UI updates. DELETE
+  // allows either the comment author OR the event actor to moderate.
   const feedCommentsService = new FeedCommentsService({
     db: deps.db,
-    push: pushService,
+    notifications: notificationsService,
     realtime: realtimeBus,
     logger: deps.logger,
   });
@@ -779,6 +798,7 @@ export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
   // signup transaction.
   const referralsService = new ReferralsService({
     db: deps.db,
+    shareBaseUrl: publicAppUrl,
     notifications: notificationsService,
     logger: deps.logger,
   });
@@ -915,10 +935,11 @@ export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
       deps.env.STRIPE_WEBHOOK_SECRET,
       deps.logger,
     );
-  if (
-    deps.env.STRIPE_SECRET_KEY === "sk_test_dummy" ||
-    deps.env.STRIPE_WEBHOOK_SECRET === "whsec_test_dummy"
-  ) {
+  const stripeSecretIsPlaceholder = isPlaceholderStripeSecretKey(deps.env.STRIPE_SECRET_KEY);
+  const stripeWebhookSecretIsPlaceholder = isPlaceholderStripeWebhookSecret(
+    deps.env.STRIPE_WEBHOOK_SECRET,
+  );
+  if (stripeSecretIsPlaceholder || stripeWebhookSecretIsPlaceholder) {
     if (deps.env.NODE_ENV === "production") {
       throw new Error(
         "Stripe credentials are placeholders in production — set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET",
@@ -950,32 +971,49 @@ export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
   // the Membership module owns its own Stripe Customer + Subscription
   // surface and persists state in the `memberships` table.
   //
-  // When the caller doesn't inject a real adapter we fall back to a
-  // synthetic one. That adapter is never invoked while
-  // `STRIPE_SECRET_KEY` is the placeholder (service runs the demo-mode
-  // path); when real keys are wired the deployment also needs to pass a
-  // live adapter via `deps.membershipStripe`. Keeping this seam explicit
-  // beats silently calling a production Stripe SDK from a fallback.
+  const stripeKeyIsPlaceholder = stripeSecretIsPlaceholder;
+  if (
+    !stripeKeyIsPlaceholder &&
+    (deps.env.STRIPE_MEMBERSHIP_PLUS_PRICE_ID === undefined ||
+      deps.env.STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID === undefined)
+  ) {
+    throw new Error(
+      "Stripe membership Price IDs are required with a real STRIPE_SECRET_KEY — set STRIPE_MEMBERSHIP_PLUS_PRICE_ID and STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID",
+    );
+  }
+  const membershipPlusPriceId = deps.env.STRIPE_MEMBERSHIP_PLUS_PRICE_ID!;
+  const membershipPremiumPriceId = deps.env.STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID!;
   const membershipStripe: StripeMembershipAdapter =
-    deps.membershipStripe ?? {
-      ensureCustomer: ({ user_id }) =>
-        Promise.resolve({ id: `cus_placeholder_${user_id}` }),
-      createCheckoutSession: ({ user_id, tier }) =>
-        Promise.resolve({
-          id: `cs_placeholder_${user_id}_${tier}`,
-          url: `https://checkout.stripe.test/placeholder/${user_id}/${tier}`,
-        }),
-      cancelAtPeriodEnd: () => Promise.resolve(),
-    };
+    deps.membershipStripe ??
+    (stripeKeyIsPlaceholder
+      ? {
+          ensureCustomer: ({ user_id }) =>
+            Promise.resolve({ id: `cus_placeholder_${user_id}` }),
+          createCheckoutSession: ({ user_id, tier }) =>
+            Promise.resolve({
+              id: `cs_placeholder_${user_id}_${tier}`,
+              url: `https://checkout.stripe.test/placeholder/${user_id}/${tier}`,
+            }),
+          cancelAtPeriodEnd: () => Promise.resolve(),
+        }
+      : new LiveStripeMembershipAdapter({
+          secretKey: deps.env.STRIPE_SECRET_KEY,
+          plusPriceId: membershipPlusPriceId,
+          premiumPriceId: membershipPremiumPriceId,
+          publicAppUrl,
+          logger: deps.logger,
+        }));
   const membershipService = new MembershipService({
     db: deps.db,
     stripe: membershipStripe,
     logger: deps.logger,
     stripeSecretKey: deps.env.STRIPE_SECRET_KEY,
+    publicAppUrl,
   });
   registerMembershipRoutes(app, {
     service: membershipService,
     jwtAccessSecret: deps.env.JWT_ACCESS_SECRET,
+    allowUnsignedWebhooks: deps.env.NODE_ENV !== "production",
   });
 
   // === Scoring agent ===
@@ -1053,7 +1091,7 @@ export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
   // UTF-8. We emit a one-shot `medical_unencrypted_warning` log here so
   // ops notices the missing key.
   const medical: { crypto: MedicalCrypto; unencrypted: boolean } =
-    loadMedicalCrypto(process.env.MEDICAL_ENCRYPTION_KEY);
+    loadMedicalCrypto(deps.env.MEDICAL_ENCRYPTION_KEY);
   if (medical.unencrypted) {
     deps.logger.warn(
       { event: "medical_unencrypted_warning" },
@@ -1178,7 +1216,7 @@ export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
   const readinessProbes: Record<string, Probe> = {};
 
   // Stripe probe — skipped on dummy key, otherwise a 1s account.retrieve.
-  if (deps.env.STRIPE_SECRET_KEY === "sk_test_dummy") {
+  if (stripeSecretIsPlaceholder || stripeWebhookSecretIsPlaceholder) {
     readinessProbes.stripe = () =>
       Promise.resolve({ status: "skipped", reason: "dummy_key" });
   } else {
@@ -1212,20 +1250,27 @@ export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
     };
   }
 
-  // SMTP probe — skipped when no SMTP_HOST is set, otherwise verify the
-  // configured transporter is still connected.
-  if (process.env.SMTP_HOST === undefined || process.env.SMTP_HOST.length === 0) {
+  // SMTP probe — skipped when no SMTP_HOST is set, otherwise use the
+  // configured transport's own verify hook.
+  if (deps.env.SMTP_HOST === undefined) {
     readinessProbes.smtp = () =>
       Promise.resolve({ status: "skipped", reason: "not_configured" });
   } else {
-    readinessProbes.smtp = () =>
-      // We don't open a fresh socket on every readiness call — that would
-      // hammer the SMTP server. A genuine probe would be `transporter.verify()`,
-      // but Nodemailer doesn't expose that on our MailTransport adapter,
-      // and threading the raw transporter through is out of scope here.
-      // Status is "ok" if the env is configured; failure surfaces via the
-      // actual send path's metrics + logs.
-      Promise.resolve({ status: "ok" });
+    readinessProbes.smtp = async () => {
+      if (mailTransport.verify === undefined) {
+        return { status: "fail", reason: "mail transport does not support verify" };
+      }
+      const start = Date.now();
+      try {
+        await mailTransport.verify();
+        return { status: "ok", latency_ms: Date.now() - start };
+      } catch (err) {
+        return {
+          status: "fail",
+          reason: err instanceof Error ? err.message : "smtp verify failed",
+        };
+      }
+    };
   }
 
   // APNs probe — same logic: skipped without config, otherwise "ok".

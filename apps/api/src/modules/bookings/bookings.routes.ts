@@ -13,6 +13,7 @@ import { type BookingsService } from "./bookings.service.js";
 export interface BookingsRouteDeps {
   service: BookingsService;
   jwtAccessSecret: string;
+  allowManualPaymentOverride: boolean;
 }
 
 const ErrorEnvelope = z.object({
@@ -158,30 +159,33 @@ export function registerBookingsRoutes(app: LinkfitServer, deps: BookingsRouteDe
   );
 
   // ───────────────────────────────────────────────────────────────────────
-  // POST /api/v1/bookings/:id/mark-paid — stub for the future Stripe wiring.
-  // Flips the booking to `paid` so the iOS flow can be exercised end-to-end
-  // without a payment provider.
+  // POST /api/v1/bookings/:id/mark-paid — dev/test manual payment override.
+  // Production payment completion is handled by the signed Stripe webhook via
+  // PaymentsService; this route is deliberately not registered there because
+  // a user-callable "mark my booking paid" endpoint would bypass Stripe.
   // ───────────────────────────────────────────────────────────────────────
-  app.post(
-    "/api/v1/bookings/:id/mark-paid",
-    {
-      preHandler: authenticate,
-      schema: {
-        params: IdParams,
-        response: {
-          200: BookingSchema,
-          401: ErrorEnvelope,
-          403: ErrorEnvelope,
-          404: ErrorEnvelope,
-          422: ErrorEnvelope,
+  if (deps.allowManualPaymentOverride) {
+    app.post(
+      "/api/v1/bookings/:id/mark-paid",
+      {
+        preHandler: authenticate,
+        schema: {
+          params: IdParams,
+          response: {
+            200: BookingSchema,
+            401: ErrorEnvelope,
+            403: ErrorEnvelope,
+            404: ErrorEnvelope,
+            422: ErrorEnvelope,
+          },
+          tags: ["bookings"],
         },
-        tags: ["bookings"],
       },
-    },
-    async (req, reply) => {
-      const userId = requireUserId(req);
-      const detail = await deps.service.markPaid(req.params.id, userId);
-      return reply.status(200).send(detail);
-    },
-  );
+      async (req, reply) => {
+        const userId = requireUserId(req);
+        const detail = await deps.service.markPaid(req.params.id, userId);
+        return reply.status(200).send(detail);
+      },
+    );
+  }
 }

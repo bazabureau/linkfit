@@ -22,10 +22,9 @@ export interface ReferralsServiceDeps {
   db: DbHandle;
   /**
    * Public origin used to build referral share URLs (e.g.
-   * `https://linkfit.app`). Optional — when omitted we honour
-   * `PUBLIC_APP_URL` / `PUBLIC_BASE_URL` from the environment, falling back
-   * to the production origin. Passed explicitly so tests can pin the value
-   * without leaking env state across suites.
+   * `https://linkfit.app`). Optional — when omitted we fall back to the
+   * production origin. Passed explicitly so tests can pin the value without
+   * leaking env state across suites.
    */
   shareBaseUrl?: string;
   /**
@@ -53,11 +52,7 @@ const VIRAL_SHARE_HOST = "https://linkfit.az";
  * we can always append `/r/CODE` without producing `//r/CODE`.
  */
 function resolveShareBaseUrl(deps: ReferralsServiceDeps): string {
-  const raw =
-    deps.shareBaseUrl ??
-    process.env.PUBLIC_APP_URL ??
-    process.env.PUBLIC_BASE_URL ??
-    "https://linkfit.app";
+  const raw = deps.shareBaseUrl ?? "https://linkfit.app";
   return raw.replace(/\/+$/, "");
 }
 
