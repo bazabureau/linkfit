@@ -176,6 +176,7 @@ class LessonsController extends ApiController
         }
 
         $rows = $query->orderByDesc('co.rating')->orderBy('co.display_name')
+            ->selectSub($this->ratingCountSub(), 'rating_count')
             ->get([
                 'co.id', 'co.display_name', 'co.photo_url', 'co.bio', 'co.rating',
                 'co.years_experience', 'co.hourly_rate_minor', 'co.currency',
@@ -193,6 +194,7 @@ class LessonsController extends ApiController
             ->leftJoin('sports as s', 's.id', '=', 'co.sport_id')
             ->leftJoin('venues as v', 'v.id', '=', 'co.venue_id')
             ->where('co.id', $id)
+            ->selectSub($this->ratingCountSub(), 'rating_count')
             ->first([
                 'co.id', 'co.display_name', 'co.photo_url', 'co.bio', 'co.rating',
                 'co.years_experience', 'co.hourly_rate_minor', 'co.currency',
@@ -281,7 +283,9 @@ class LessonsController extends ApiController
             'id' => $c->id,
             'display_name' => $c->display_name,
             'photo_url' => $c->photo_url,
+            'bio' => $c->bio ?? null,
             'rating' => $c->rating !== null ? (float) $c->rating : null,
+            'rating_count' => (int) ($c->rating_count ?? 0),
             'years_experience' => $c->years_experience !== null ? (int) $c->years_experience : null,
             'hourly_rate_minor' => $c->hourly_rate_minor !== null ? (int) $c->hourly_rate_minor : null,
             'currency' => $c->currency,
@@ -289,6 +293,21 @@ class LessonsController extends ApiController
             'venue_id' => $c->venue_id,
             'venue_name' => $c->venue_name ?? null,
         ];
+    }
+
+    /**
+     * Correlated subquery counting how many lessons of this coach have been
+     * completed/attended — used as the coach's review/`rating_count`. There is
+     * no dedicated coach-reviews table, so attended lesson bookings are the
+     * available signal. Additive: emitted as a new `rating_count` column.
+     */
+    private function ratingCountSub()
+    {
+        return DB::table('lesson_bookings as lb')
+            ->join('lessons as ll', 'll.id', '=', 'lb.lesson_id')
+            ->whereColumn('ll.coach_id', 'co.id')
+            ->whereIn('lb.status', ['attended', 'booked'])
+            ->selectRaw('count(*)');
     }
 
     /**

@@ -30,9 +30,27 @@ class SquadsController extends ApiController
 
     public function mine(Request $request): JsonResponse
     {
-        $rows = DB::table('squad_members as m')->join('squads as s', 's.id', '=', 'm.squad_id')->where('m.user_id', $this->authUser($request)->id)->where('m.status', 'active')->get('s.*');
+        // Include squads the user is an ACTIVE member of as well as PENDING
+        // invites (so invitations surface in "My Squads").
+        $rows = DB::table('squad_members as m')
+            ->join('squads as s', 's.id', '=', 'm.squad_id')
+            ->where('m.user_id', $this->authUser($request)->id)
+            ->whereIn('m.status', ['active', 'pending'])
+            ->get('s.*');
 
-        return response()->json(['squads' => $rows->map(fn ($s) => $this->summary($s))]);
+        // Batch the active-member COUNT for every listed squad into ONE GROUP BY
+        // query (replaces the prior per-squad COUNT inside summary(), an N+1).
+        $squadIds = $rows->pluck('id')->all();
+        $memberCounts = empty($squadIds)
+            ? collect()
+            : DB::table('squad_members')
+                ->whereIn('squad_id', $squadIds)
+                ->where('status', 'active')
+                ->groupBy('squad_id')
+                ->selectRaw('squad_id, count(*) as cnt')
+                ->pluck('cnt', 'squad_id');
+
+        return response()->json(['squads' => $rows->map(fn ($s) => $this->summary($s, (int) ($memberCounts[$s->id] ?? 0)))]);
     }
 
     /**
@@ -241,7 +259,7 @@ class SquadsController extends ApiController
         }
     }
 
-    private function summary(object $s): array
+    private function summary(object $s, ?int $memberCount = null): array
     {
         return [
             'id' => $s->id,
@@ -251,7 +269,9 @@ class SquadsController extends ApiController
             'description' => $s->description,
             'photo_url' => $s->photo_url,
             'max_size' => (int) $s->max_size,
-            'member_count' => DB::table('squad_members')->where('squad_id', $s->id)->where('status', 'active')->count(),
+            // Use a batched count when the caller precomputed one (mine()), else
+            // fall back to a per-row COUNT (show()/update()/invite()/accept()).
+            'member_count' => $memberCount ?? DB::table('squad_members')->where('squad_id', $s->id)->where('status', 'active')->count(),
             'created_at' => $this->iso($s->created_at),
         ];
     }

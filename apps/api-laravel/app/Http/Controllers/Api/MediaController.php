@@ -21,23 +21,41 @@ class MediaController extends ApiController
         if ($file === null || ! $file->isValid()) {
             throw ApiException::validation("No file uploaded - expected multipart field 'file'");
         }
-        if ($file->getSize() > 8 * 1024 * 1024) {
+        $mime = (string) $file->getMimeType();
+        $isVideo = in_array($mime, ['video/mp4', 'video/quicktime'], true);
+        $isImage = in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true);
+        if (! $isVideo && ! $isImage) {
+            throw ApiException::validation('Only jpeg, png, webp images and mp4/quicktime videos are allowed');
+        }
+        // Images stay capped at 8MB; videos allow up to 50MB (uncompressed original).
+        $maxBytes = $isVideo ? 52428800 : 8 * 1024 * 1024;
+        if ($file->getSize() > $maxBytes) {
             throw ApiException::validation('File is too large');
         }
-        $mime = (string) $file->getMimeType();
-        if (! in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
-            throw ApiException::validation('Only jpeg, png and webp images are allowed');
-        }
-        $info = @getimagesize($file->getRealPath());
-        if ($info === false) {
-            throw ApiException::validation('Invalid image file');
-        }
-        [$width, $height] = $info;
+
         $disk = env('MEDIA_DISK', config('filesystems.default') === 's3' ? 's3' : 'public');
         $purpose = (string) $request->input('purpose', 'general');
-        $extension = $mime === 'image/png' ? 'png' : ($mime === 'image/webp' ? 'webp' : 'jpg');
+
+        if ($isVideo) {
+            // Videos skip the image-compression path entirely — store the
+            // original bytes as-is so video stories play back unmodified.
+            $type = 'video';
+            $width = null;
+            $height = null;
+            $extension = $mime === 'video/quicktime' ? 'mov' : 'mp4';
+            $contents = (string) file_get_contents($file->getRealPath());
+        } else {
+            $type = 'image';
+            $info = @getimagesize($file->getRealPath());
+            if ($info === false) {
+                throw ApiException::validation('Invalid image file');
+            }
+            [$width, $height] = $info;
+            $extension = $mime === 'image/png' ? 'png' : ($mime === 'image/webp' ? 'webp' : 'jpg');
+            [$contents, $width, $height] = $this->compressedImage($file->getRealPath(), $mime, $width, $height);
+        }
+
         $path = 'uploads/'.now()->format('Y/m').'/'.Str::uuid().'.'.$extension;
-        [$contents, $width, $height] = $this->compressedImage($file->getRealPath(), $mime, $width, $height);
         Storage::disk($disk)->put($path, $contents, ['visibility' => 'public']);
         $url = Storage::disk($disk)->url($path);
         $id = (string) Str::uuid();
@@ -56,7 +74,7 @@ class MediaController extends ApiController
             'updated_at' => now(),
         ]);
 
-        return response()->json(['id' => $id, 'url' => $url, 'width' => $width, 'height' => $height, 'mime' => $mime], 201);
+        return response()->json(['id' => $id, 'url' => $url, 'type' => $type, 'width' => $width, 'height' => $height, 'mime' => $mime], 201);
     }
 
     /**

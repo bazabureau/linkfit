@@ -165,6 +165,7 @@ class MessagingController extends ApiController
             ->limit($limit + 1)
             ->get([
                 'c.id',
+                'c.kind',
                 'other.id as other_user_id',
                 'other.display_name as other_display_name',
                 'other.photo_url as other_photo_url',
@@ -194,6 +195,7 @@ class MessagingController extends ApiController
 
                 return [
                     'id' => $r->id,
+                    'kind' => $r->kind,
                     'other_user_id' => $r->other_user_id,
                     'other_display_name' => $r->other_display_name,
                     'other_photo_url' => $r->other_photo_url,

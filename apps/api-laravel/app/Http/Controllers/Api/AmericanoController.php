@@ -6,6 +6,7 @@ use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AmericanoController extends ApiController
@@ -44,8 +45,27 @@ class AmericanoController extends ApiController
 
     public function mine(Request $request): JsonResponse
     {
+        $userId = $this->authUser($request)->id;
+
+        // Tournaments the user joined as a team member, in addition to the ones
+        // they host. The team→user link lives on a `user_id` column of
+        // `americano_teams`; it is detected at runtime so this stays a no-op
+        // (host-only) on schemas that don't yet have that column.
+        $joinedIds = collect();
+        if (Schema::hasColumn('americano_teams', 'user_id')) {
+            $joinedIds = DB::table('americano_teams')
+                ->where('user_id', $userId)
+                ->whereNotNull('tournament_id')
+                ->pluck('tournament_id');
+        }
+
         $rows = DB::table('americano_tournaments')
-            ->where('host_id', $this->authUser($request)->id)
+            ->where(function ($q) use ($userId, $joinedIds) {
+                $q->where('host_id', $userId);
+                if ($joinedIds->isNotEmpty()) {
+                    $q->orWhereIn('id', $joinedIds->all());
+                }
+            })
             ->orderByDesc('created_at')
             ->get();
 

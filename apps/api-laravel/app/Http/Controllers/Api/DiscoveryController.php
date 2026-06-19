@@ -712,14 +712,20 @@ class DiscoveryController extends ApiController
     public function checkChallenge(Request $request, string $code): JsonResponse
     {
         $user = $this->authUser($request);
+        $today = now()->toDateString();
         DB::table('user_challenges')
             ->where('user_id', $user->id)
-            ->where('date', now()->toDateString())
+            ->where('date', $today)
             ->where('challenge_code', $code)
             ->whereNull('completed_at')
             ->update(['completed_at' => now()]);
 
-        return response()->json(['ok' => true]);
+        // Return the refreshed challenge set so the client can update its UI
+        // without issuing a second GET /challenges.
+        return response()->json([
+            'ok' => true,
+            'items' => DB::table('user_challenges')->where('user_id', $user->id)->where('date', $today)->get(),
+        ]);
     }
 
     private function publicUser(object $u): array
