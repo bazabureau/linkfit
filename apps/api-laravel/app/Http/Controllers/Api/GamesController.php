@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
+use App\Http\Controllers\Api\Concerns\BlocksPendingGameResults;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,7 @@ use Illuminate\Support\Str;
 
 class GamesController extends ApiController
 {
+    use BlocksPendingGameResults;
     use FiltersBlockedUsers;
 
     public function index(Request $request): JsonResponse
@@ -88,6 +90,7 @@ class GamesController extends ApiController
     public function store(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
+        $this->ensureNoPendingHostedGameResult((string) $user->id);
         // Freemium gate: free users have a monthly hosted-game cap (premium = unlimited).
         app(\App\Services\Membership\MembershipService::class)->ensureCanHostGame($user->id);
         $data = $this->validateBody($request, [
@@ -249,6 +252,7 @@ class GamesController extends ApiController
     public function join(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        $this->ensureNoPendingHostedGameResult((string) $user->id);
         $game = DB::table('games')->where('id', $id)->whereNull('deleted_at')->first();
         if ($game === null) {
             throw ApiException::notFound('Game not found');

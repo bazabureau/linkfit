@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\BlocksPendingGameResults;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -10,9 +11,12 @@ use Illuminate\Support\Str;
 
 class SeriesController extends ApiController
 {
+    use BlocksPendingGameResults;
+
     public function store(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
+        $this->ensureNoPendingHostedGameResult((string) $user->id);
         $id = (string) Str::uuid();
         DB::table('game_series')->insert([
             'id' => $id,

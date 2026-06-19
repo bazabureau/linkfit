@@ -242,6 +242,8 @@ class StoriesController extends ApiController
                 'conversation_id' => $conversationId,
                 'sender_user_id' => $user->id,
                 'body' => $messageBody,
+                'attachment_url' => $story->media_type === 'image' ? $story->media_url : null,
+                'attachment_type' => $story->media_type === 'image' ? 'image' : null,
                 'created_at' => now(),
             ]);
         });

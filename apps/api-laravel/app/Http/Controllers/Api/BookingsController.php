@@ -451,13 +451,16 @@ class BookingsController extends ApiController
         $query = $this->validateQuery($request, [
             'sport' => ['nullable', 'in:padel,tennis'],
         ]);
-        $rows = $this->bookingsQuery($user->id, $query)->orderByDesc('b.starts_at')->get(['b.*']);
-        $items = $rows->map(fn ($r) => $this->bookingPayload($r));
         $now = now();
+        $rows = $this->bookingsQuery($user->id, $query)->orderByDesc('b.starts_at')->get(['b.*']);
+        $upcoming = $rows->filter(fn ($b) => CarbonImmutable::parse($b->starts_at)->greaterThanOrEqualTo($now)
+            && ! in_array($b->status, ['cancelled', 'refunded', 'failed'], true));
+        $past = $rows->reject(fn ($b) => CarbonImmutable::parse($b->starts_at)->greaterThanOrEqualTo($now)
+            && ! in_array($b->status, ['cancelled', 'refunded', 'failed'], true));
 
         return response()->json([
-            'upcoming' => $items->filter(fn ($b) => $b['starts_at'] >= $now->toIso8601ZuluString('millisecond'))->values(),
-            'past' => $items->filter(fn ($b) => $b['starts_at'] < $now->toIso8601ZuluString('millisecond'))->values(),
+            'upcoming' => $upcoming->map(fn ($r) => $this->bookingPayload($r))->values(),
+            'past' => $past->map(fn ($r) => $this->bookingPayload($r))->values(),
         ]);
     }
 
