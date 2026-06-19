@@ -51,29 +51,30 @@ class MembershipController extends ApiController
         $tier = $data['tier'] ?? 'premium';
 
         if (! (bool) config('membership.payments_enabled')) {
-            $svc = app(MembershipService::class);
-            $m = $svc->resolve($user->id);
-
             return response()->json([
-                'mode' => 'provider_pending',
+                'mode' => 'free_launch',
                 'checkout_url' => null,
                 'tier' => $tier,
                 'message' => 'Premium payments are not enabled yet. Full access is currently free during the launch period.',
-                'membership' => [
-                    ...$this->statePayload($this->membershipForUser($user->id)),
-                    'is_premium' => $m->is_premium,
-                    'on_trial' => $m->on_trial,
-                    'trial_ends_at' => $m->trial_ends_at,
-                    'global_full_access' => $m->global_full_access,
-                ],
+                'membership' => $this->effectiveStatePayload($user->id),
                 'payments' => $this->paymentState(),
             ], 202);
         }
 
+        if (! $this->paymentProviderConfigured()) {
+            throw new ApiException(
+                501,
+                'PAYMENT_PROVIDER_NOT_CONFIGURED',
+                'Membership payments are enabled, but no payment provider is configured yet.',
+                ['payments' => $this->paymentState()]
+            );
+        }
+
         throw new ApiException(
             501,
-            'PAYMENT_PROVIDER_NOT_CONFIGURED',
-            'Membership payments are enabled, but no payment provider adapter is configured yet.'
+            'PAYMENT_ADAPTER_NOT_IMPLEMENTED',
+            'Membership payment provider is configured, but its checkout adapter is not implemented yet.',
+            ['payments' => $this->paymentState()]
         );
     }
 
@@ -81,21 +82,36 @@ class MembershipController extends ApiController
     {
         $user = $this->authUser($request);
 
+        $payments = $this->paymentState();
+
         return response()->json([
-            'mode' => (bool) config('membership.payments_enabled') ? 'provider_pending' : 'disabled',
+            'mode' => $payments['status'],
             'portal_url' => null,
-            'membership' => $this->statePayload($this->membershipForUser($user->id)),
-            'payments' => $this->paymentState(),
-        ]);
+            'membership' => $this->effectiveStatePayload($user->id),
+            'payments' => $payments,
+            'message' => $payments['enabled']
+                ? 'Billing portal is not available until the payment provider adapter is connected.'
+                : 'Billing is disabled during the free launch access period.',
+        ], $payments['checkout_available'] ? 200 : 202);
     }
 
     public function cancel(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
-        $this->membershipForUser($user->id);
+        $row = $this->membershipForUser($user->id);
+
+        if (! $this->hasActivePaidSubscription($row)) {
+            throw new ApiException(
+                409,
+                'NO_ACTIVE_SUBSCRIPTION',
+                'There is no active paid subscription to cancel.',
+                ['membership' => $this->effectiveStatePayload($user->id), 'payments' => $this->paymentState()]
+            );
+        }
 
         DB::table('memberships')->where('user_id', $user->id)->update([
             'cancel_at_period_end' => true,
+            'subscription_status' => 'cancel_at_period_end',
             'updated_at' => now(),
         ]);
         $row = $this->membershipForUser($user->id);
@@ -135,8 +151,45 @@ class MembershipController extends ApiController
             'benefits' => $this->tierBenefits($tier),
             'price_minor' => $this->tierPrice($tier),
             'currency' => (string) config('membership.currency', 'AZN'),
+            'billing' => [
+                'provider' => $row->payment_provider ?? null,
+                'customer_id' => $row->provider_customer_id ?? null,
+                'subscription_id' => $row->provider_subscription_id ?? null,
+                'status' => $row->subscription_status ?? null,
+                'trial_ends_at' => $this->iso($row->trial_ends_at ?? null),
+                'subscribed_at' => $this->iso($row->subscribed_at ?? null),
+            ],
             'updated_at' => $this->iso($row->updated_at),
         ];
+    }
+
+    private function effectiveStatePayload(string $userId): array
+    {
+        $svc = app(MembershipService::class);
+        $m = $svc->resolve($userId);
+        $state = $this->statePayload($this->membershipForUser($userId));
+        $state['is_premium'] = $m->is_premium;
+        $state['on_trial'] = $m->on_trial;
+        $state['trial_ends_at'] = $m->trial_ends_at;
+        $state['global_full_access'] = $m->global_full_access;
+        if ($m->is_premium) {
+            $state['benefits'] = $this->tierBenefits('premium');
+        }
+
+        return $state;
+    }
+
+    private function hasActivePaidSubscription(object $row): bool
+    {
+        $tier = in_array($row->tier, ['plus', 'premium'], true) ? $row->tier : 'free';
+        if ($tier === 'free') {
+            return false;
+        }
+        if (($row->provider_subscription_id ?? null) === null && ($row->current_period_end ?? null) === null) {
+            return false;
+        }
+
+        return $row->current_period_end === null || strtotime((string) $row->current_period_end) > time();
     }
 
     private function tierBenefits(string $tier): array
@@ -177,12 +230,23 @@ class MembershipController extends ApiController
 
     private function paymentState(): array
     {
+        $enabled = (bool) config('membership.payments_enabled');
+        $provider = trim((string) config('membership.payment_provider', ''));
+        $providerConfigured = $provider !== '';
+
         return [
-            'enabled' => (bool) config('membership.payments_enabled'),
-            'provider' => config('membership.payment_provider'),
-            'status' => (bool) config('membership.payments_enabled') ? 'provider_pending' : 'free_launch',
+            'enabled' => $enabled,
+            'provider' => $providerConfigured ? $provider : null,
+            'provider_configured' => $providerConfigured,
+            'checkout_available' => false,
+            'status' => ! $enabled ? 'free_launch' : ($providerConfigured ? 'adapter_pending' : 'provider_missing'),
             'launch_free_access_until' => config('membership.global_full_access_until') ?: null,
             'free_trial_days' => (int) config('membership.free_trial_days', 50),
         ];
+    }
+
+    private function paymentProviderConfigured(): bool
+    {
+        return trim((string) config('membership.payment_provider', '')) !== '';
     }
 }
