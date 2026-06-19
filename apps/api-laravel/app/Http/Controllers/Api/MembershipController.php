@@ -187,7 +187,7 @@ class MembershipController extends ApiController
         if ($tier === 'free') {
             return false;
         }
-        if (($row->provider_subscription_id ?? null) === null && ($row->current_period_end ?? null) === null) {
+        if (($row->provider_subscription_id ?? null) === null) {
             return false;
         }
 

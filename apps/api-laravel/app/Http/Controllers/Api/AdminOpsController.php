@@ -737,6 +737,12 @@ class AdminOpsController extends ApiController
                 'tier' => $data['tier'],
                 'current_period_end' => $periodEnd,
                 'cancel_at_period_end' => false,
+                'payment_provider' => null,
+                'provider_customer_id' => null,
+                'provider_subscription_id' => null,
+                'subscription_status' => $isPaid ? 'manual_grant' : null,
+                'trial_ends_at' => null,
+                'subscribed_at' => null,
                 'updated_at' => now(),
             ],
         );

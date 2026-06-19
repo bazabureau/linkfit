@@ -196,6 +196,34 @@ class MembershipAccessTest extends TestCase
         $this->assertFalse((bool) DB::table('memberships')->where('user_id', 'user-free-launch')->value('cancel_at_period_end'));
     }
 
+    public function test_cancel_rejects_manual_premium_grant_without_provider_subscription(): void
+    {
+        DB::table('users')->insert([
+            'id' => 'user-manual-premium',
+            'created_at' => now()->subYear(),
+        ]);
+        DB::table('memberships')->insert([
+            'user_id' => 'user-manual-premium',
+            'tier' => 'premium',
+            'current_period_end' => now()->addMonth(),
+            'provider_subscription_id' => null,
+            'subscription_status' => 'manual_grant',
+            'cancel_at_period_end' => false,
+            'updated_at' => now(),
+        ]);
+
+        try {
+            app(MembershipController::class)->cancel($this->requestForUser('user-manual-premium'));
+            $this->fail('Expected cancel to reject a manual premium grant without a provider subscription.');
+        } catch (ApiException $exception) {
+            $this->assertSame('NO_ACTIVE_SUBSCRIPTION', $exception->wireCode());
+            $this->assertSame(409, $exception->getStatusCode());
+        }
+
+        $this->assertFalse((bool) DB::table('memberships')->where('user_id', 'user-manual-premium')->value('cancel_at_period_end'));
+        $this->assertTrue(app(MembershipService::class)->isPremium('user-manual-premium'));
+    }
+
     public function test_cancel_marks_active_paid_subscription_for_period_end(): void
     {
         DB::table('users')->insert([
