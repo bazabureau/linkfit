@@ -6,7 +6,6 @@ use App\Models\User;
 use App\Services\Auth\EmailTokenService;
 use App\Services\Auth\PasswordService;
 use App\Services\Mail\TransactionalMailService;
-use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -55,11 +54,13 @@ class AuthExtrasController extends ApiController
     {
         $data = $this->validateBody($request, [
             'token' => ['required', 'string', 'min:10', 'max:200'],
-            'password' => ['required', 'string', 'min:12', 'max:200'],
+            'password' => ['required_without:new_password', 'string', 'min:12', 'max:200'],
+            'new_password' => ['required_without:password', 'string', 'min:12', 'max:200'],
         ]);
+        $password = (string) ($data['password'] ?? $data['new_password']);
         $row = $this->emailTokens->consume($data['token'], 'reset_password');
         DB::table('users')->where('id', $row->user_id)->update([
-            'password_hash' => $this->passwords->hash($data['password']),
+            'password_hash' => $this->passwords->hash($password),
             'updated_at' => now(),
         ]);
 
