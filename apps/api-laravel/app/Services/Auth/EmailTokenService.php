@@ -3,6 +3,7 @@
 namespace App\Services\Auth;
 
 use App\Support\ApiException;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -85,6 +86,20 @@ class EmailTokenService
 
     private function scopedCodeHash(string $userId, string $kind, string $code): string
     {
-        return hash('sha256', $userId.':'.$kind.':'.$code);
+        return hash_hmac('sha256', $userId.':'.$kind.':'.$code, $this->tokenHashSecret());
+    }
+
+    private function tokenHashSecret(): string
+    {
+        $key = (string) Config::get('app.key', '');
+
+        if (str_starts_with($key, 'base64:')) {
+            $decoded = base64_decode(substr($key, 7), true);
+            if ($decoded !== false && $decoded !== '') {
+                return $decoded;
+            }
+        }
+
+        return $key;
     }
 }

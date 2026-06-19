@@ -85,6 +85,28 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perMinute(6)->by('login-email:'.($email !== '' ? sha1($email) : 'unknown')),
             ];
         });
+
+        // Password reset has two attack surfaces: code delivery abuse and
+        // six-digit code guessing. Limit both per real client IP and per email.
+        RateLimiter::for('password-reset-request', function (Request $request) {
+            $email = strtolower(trim((string) $request->input('email')));
+            $emailKey = $email !== '' ? sha1($email) : 'unknown';
+
+            return [
+                Limit::perMinute(3)->by('reset-request-ip:'.$request->ip()),
+                Limit::perMinute(3)->by('reset-request-email:'.$emailKey),
+            ];
+        });
+
+        RateLimiter::for('password-reset', function (Request $request) {
+            $email = strtolower(trim((string) $request->input('email')));
+            $emailKey = $email !== '' ? sha1($email) : 'unknown';
+
+            return [
+                Limit::perMinute(10)->by('reset-code-ip:'.$request->ip()),
+                Limit::perMinute(5)->by('reset-code-email:'.$emailKey),
+            ];
+        });
     }
 
     /**

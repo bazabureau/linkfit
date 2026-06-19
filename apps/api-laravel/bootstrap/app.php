@@ -52,7 +52,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 '2405:b500::/32', '2405:8100::/32', '2a06:98c0::/29',
                 '2c0f:f248::/32',
             ],
-            headers: Request::HEADER_X_FORWARDED_FOR,
+            headers: Request::HEADER_X_FORWARDED_FOR
+                | Request::HEADER_X_FORWARDED_HOST
+                | Request::HEADER_X_FORWARDED_PORT
+                | Request::HEADER_X_FORWARDED_PROTO,
         );
 
         // Every API request gets a request_id for
