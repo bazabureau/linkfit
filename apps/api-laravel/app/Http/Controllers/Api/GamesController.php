@@ -187,7 +187,13 @@ class GamesController extends ApiController
             $id = $matches[0];
         }
 
-        $row = $this->gameSummaryQuery(['detail' => true])->where('g.id', $id)->first();
+        $row = $this->gameSummaryQuery(['detail' => true])
+            ->when(
+                preg_match('/^[0-9a-f]{8}$/i', $id) === 1,
+                fn ($q) => $q->where('g.id', 'ilike', $id.'%'),
+                fn ($q) => $q->where('g.id', $id),
+            )
+            ->first();
         if ($row === null) {
             throw ApiException::notFound('Game not found');
         }
