@@ -26,6 +26,11 @@ return [
     'payments_enabled' => (bool) env('MEMBERSHIP_PAYMENTS_ENABLED', false),
     'payment_provider' => env('MEMBERSHIP_PAYMENT_PROVIDER'),
 
+    // Subscription/paywall UI is intentionally hidden during the launch free
+    // access period. Turn this on only when the product is ready to present
+    // Free/Premium plans to users.
+    'public_subscriptions_enabled' => (bool) env('MEMBERSHIP_PUBLIC_SUBSCRIPTIONS_ENABLED', false),
+
     'plans' => [
         'free' => [
             'name' => 'Free',

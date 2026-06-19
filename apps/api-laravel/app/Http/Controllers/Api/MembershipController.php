@@ -14,6 +14,10 @@ class MembershipController extends ApiController
     {
         $svc = app(MembershipService::class);
 
+        if (! $svc->publicSubscriptionsEnabled()) {
+            return response()->json($this->publicAccessPayload($svc));
+        }
+
         return response()->json([
             'plans' => $svc->featureMatrix(),
             'payments' => $this->paymentState(),
@@ -25,6 +29,10 @@ class MembershipController extends ApiController
         $user = $this->authUser($request);
         $svc = app(MembershipService::class);
         $m = $svc->resolve($user->id);
+
+        if (! $svc->publicSubscriptionsEnabled()) {
+            return response()->json($this->publicAccessPayload($svc, $user->id));
+        }
 
         $state = $this->statePayload($this->membershipForUser($user->id));
         // Reflect EFFECTIVE access (incl. the free trial) so the client gates correctly.
@@ -50,6 +58,14 @@ class MembershipController extends ApiController
             'tier' => ['sometimes', 'in:premium'],
         ]);
         $tier = $data['tier'] ?? 'premium';
+
+        if (! app(MembershipService::class)->publicSubscriptionsEnabled()) {
+            throw new ApiException(
+                404,
+                'SUBSCRIPTIONS_NOT_AVAILABLE',
+                'This feature is not available yet.'
+            );
+        }
 
         if (! (bool) config('membership.payments_enabled')) {
             return response()->json([
@@ -83,6 +99,14 @@ class MembershipController extends ApiController
     {
         $user = $this->authUser($request);
 
+        if (! app(MembershipService::class)->publicSubscriptionsEnabled()) {
+            throw new ApiException(
+                404,
+                'SUBSCRIPTIONS_NOT_AVAILABLE',
+                'This feature is not available yet.'
+            );
+        }
+
         $payments = $this->paymentState();
 
         return response()->json([
@@ -99,6 +123,15 @@ class MembershipController extends ApiController
     public function cancel(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
+
+        if (! app(MembershipService::class)->publicSubscriptionsEnabled()) {
+            throw new ApiException(
+                404,
+                'SUBSCRIPTIONS_NOT_AVAILABLE',
+                'This feature is not available yet.'
+            );
+        }
+
         $row = $this->membershipForUser($user->id);
 
         if (! $this->hasActivePaidSubscription($row)) {
@@ -133,6 +166,30 @@ class MembershipController extends ApiController
         ]);
 
         return DB::table('memberships')->where('user_id', $userId)->first();
+    }
+
+    private function publicAccessPayload(MembershipService $svc, ?string $userId = null): array
+    {
+        $features = $userId !== null
+            ? $svc->featuresForUser($userId)
+            : $svc->featuresForTier('premium');
+
+        $fullAccess = $userId !== null
+            ? $svc->resolve($userId)->is_premium
+            : true;
+
+        return [
+            'access' => [
+                'full_access' => $fullAccess,
+                'features' => $features,
+            ],
+            'features' => [
+                'payments' => false,
+                'membership' => false,
+                'premium' => false,
+                'free_launch_access' => true,
+            ],
+        ];
     }
 
     private function statePayload(object $row): array
@@ -232,19 +289,7 @@ class MembershipController extends ApiController
 
     private function paymentState(): array
     {
-        $enabled = (bool) config('membership.payments_enabled');
-        $provider = trim((string) config('membership.payment_provider', ''));
-        $providerConfigured = $provider !== '';
-
-        return [
-            'enabled' => $enabled,
-            'provider' => $providerConfigured ? $provider : null,
-            'provider_configured' => $providerConfigured,
-            'checkout_available' => false,
-            'status' => ! $enabled ? 'free_launch' : ($providerConfigured ? 'adapter_pending' : 'provider_missing'),
-            'launch_free_access_until' => config('membership.global_full_access_until') ?: null,
-            'free_trial_days' => (int) config('membership.free_trial_days', 50),
-        ];
+        return app(MembershipService::class)->paymentState();
     }
 
     private function paymentProviderConfigured(): bool

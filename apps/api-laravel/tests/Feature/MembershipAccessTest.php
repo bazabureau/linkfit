@@ -171,6 +171,7 @@ class MembershipAccessTest extends TestCase
 
     public function test_cancel_rejects_free_launch_access_without_paid_subscription(): void
     {
+        config()->set('membership.public_subscriptions_enabled', true);
         config()->set('membership.global_full_access_until', now()->addDays(50)->toIso8601String());
         config()->set('membership.free_trial_days', 0);
 
@@ -198,6 +199,8 @@ class MembershipAccessTest extends TestCase
 
     public function test_cancel_rejects_manual_premium_grant_without_provider_subscription(): void
     {
+        config()->set('membership.public_subscriptions_enabled', true);
+
         DB::table('users')->insert([
             'id' => 'user-manual-premium',
             'created_at' => now()->subYear(),
@@ -226,6 +229,8 @@ class MembershipAccessTest extends TestCase
 
     public function test_cancel_marks_active_paid_subscription_for_period_end(): void
     {
+        config()->set('membership.public_subscriptions_enabled', true);
+
         DB::table('users')->insert([
             'id' => 'user-paid',
             'created_at' => now()->subYear(),
@@ -254,17 +259,35 @@ class MembershipAccessTest extends TestCase
         config()->set('membership.payments_enabled', false);
         config()->set('membership.payment_provider', null);
 
-        $freeLaunch = app(MembershipController::class)->plans()->getData(true);
-        $this->assertSame('free_launch', $freeLaunch['payments']['status']);
-        $this->assertFalse($freeLaunch['payments']['checkout_available']);
-        $this->assertFalse($freeLaunch['payments']['provider_configured']);
+        $freeLaunch = app(MembershipService::class)->paymentState();
+        $this->assertSame('free_launch', $freeLaunch['status']);
+        $this->assertFalse($freeLaunch['checkout_available']);
+        $this->assertFalse($freeLaunch['provider_configured']);
 
         config()->set('membership.payments_enabled', true);
 
-        $providerMissing = app(MembershipController::class)->plans()->getData(true);
-        $this->assertSame('provider_missing', $providerMissing['payments']['status']);
-        $this->assertFalse($providerMissing['payments']['checkout_available']);
-        $this->assertFalse($providerMissing['payments']['provider_configured']);
+        $providerMissing = app(MembershipService::class)->paymentState();
+        $this->assertSame('provider_missing', $providerMissing['status']);
+        $this->assertFalse($providerMissing['checkout_available']);
+        $this->assertFalse($providerMissing['provider_configured']);
+    }
+
+    public function test_subscription_actions_are_hidden_until_public_subscriptions_are_enabled(): void
+    {
+        config()->set('membership.public_subscriptions_enabled', false);
+
+        DB::table('users')->insert([
+            'id' => 'user-hidden-subscriptions',
+            'created_at' => now()->subYear(),
+        ]);
+
+        try {
+            app(MembershipController::class)->cancel($this->requestForUser('user-hidden-subscriptions'));
+            $this->fail('Expected subscription actions to be hidden.');
+        } catch (ApiException $exception) {
+            $this->assertSame('SUBSCRIPTIONS_NOT_AVAILABLE', $exception->wireCode());
+            $this->assertSame(404, $exception->getStatusCode());
+        }
     }
 
     private function requestForUser(string $userId): Request

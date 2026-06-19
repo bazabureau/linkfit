@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\User;
+use App\Services\Membership\MembershipService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -41,10 +42,12 @@ class MobileController extends ApiController
     public function bootstrap(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
+        $membership = app(MembershipService::class);
 
         return response()->json([
             'me' => $user->toPublicUser(),
             'config' => $this->mobileConfig(),
+            'access' => $this->accessPayload((string) $user->id, $membership),
             'unread_counts' => $this->unreadCounts((string) $user->id),
             'notification_preferences' => $this->notificationPreferences((string) $user->id),
             'announcement' => $this->announcement((string) $user->id, (string) $request->query('locale', 'az')),
@@ -107,11 +110,19 @@ class MobileController extends ApiController
 
     private function mobileConfig(): array
     {
+        $membership = app(MembershipService::class);
+
         return [
+            'app' => [
+                'brand' => 'LinkFit',
+                'environment' => app()->environment(),
+                'server_time' => now()->toIso8601ZuluString('millisecond'),
+            ],
             'api' => [
                 'version' => 'v1',
                 'base_url' => rtrim((string) config('app.url'), '/'),
                 'media_base_url' => rtrim((string) config('app.url'), '/').'/storage',
+                'requires_app_key' => (bool) config('app.require_api_key'),
             ],
             'ios' => [
                 'latest_build' => (int) config('services.linkfit.ios_latest_build', 13),
@@ -120,13 +131,13 @@ class MobileController extends ApiController
                 'force_update' => (bool) config('services.linkfit.ios_force_update', false),
                 'release_notes_url' => config('services.linkfit.ios_release_notes_url'),
             ],
-            'payments' => [
-                'stripe_publishable_key' => config('services.stripe.publishable_key'),
-                'apple_pay_merchant_id' => config('services.apple_pay.merchant_id'),
-            ],
             'support' => [
                 'email' => config('services.linkfit.support_email', 'support@linkfit.az'),
                 'web_url' => config('services.linkfit.web_url'),
+            ],
+            'access' => [
+                'full_access' => true,
+                'features' => $membership->featuresForTier('premium'),
             ],
             'features' => [
                 'apple_login' => filled(config('services.apple.client_id')),
@@ -135,7 +146,10 @@ class MobileController extends ApiController
                 'push_notifications' => true,
                 'stories' => true,
                 'bookings' => true,
-                'payments' => true,
+                'payments' => false,
+                'membership' => false,
+                'premium' => false,
+                'free_launch_access' => true,
                 'deep_links' => true,
                 'user_reporting' => true,
                 'content_reporting' => true,
@@ -146,6 +160,16 @@ class MobileController extends ApiController
                 'content_deletion' => true,
                 'moderation_review' => true,
             ],
+        ];
+    }
+
+    private function accessPayload(string $userId, MembershipService $membership): array
+    {
+        $state = $membership->resolve($userId);
+
+        return [
+            'full_access' => $state->is_premium,
+            'features' => $membership->featuresForUser($userId),
         ];
     }
 

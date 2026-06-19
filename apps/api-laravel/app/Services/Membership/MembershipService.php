@@ -225,6 +225,28 @@ class MembershipService
         ];
     }
 
+    public function publicSubscriptionsEnabled(): bool
+    {
+        return (bool) config('membership.public_subscriptions_enabled', false);
+    }
+
+    public function paymentState(): array
+    {
+        $enabled = (bool) config('membership.payments_enabled');
+        $provider = trim((string) config('membership.payment_provider', ''));
+        $providerConfigured = $provider !== '';
+
+        return [
+            'enabled' => $enabled,
+            'provider' => $providerConfigured ? $provider : null,
+            'provider_configured' => $providerConfigured,
+            'checkout_available' => false,
+            'status' => ! $enabled ? 'free_launch' : ($providerConfigured ? 'adapter_pending' : 'provider_missing'),
+            'launch_free_access_until' => config('membership.global_full_access_until') ?: null,
+            'free_trial_days' => (int) config('membership.free_trial_days', 50),
+        ];
+    }
+
     private function parseFutureTimestamp(mixed $value): ?int
     {
         $raw = trim((string) $value);
