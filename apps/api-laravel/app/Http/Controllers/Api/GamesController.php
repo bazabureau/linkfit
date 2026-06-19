@@ -197,6 +197,7 @@ class GamesController extends ApiController
         if ($row === null) {
             throw ApiException::notFound('Game not found');
         }
+        $id = (string) $row->id;
 
         $payload = $this->summaryPayload($row);
         $payload['notes'] = $row->notes;
