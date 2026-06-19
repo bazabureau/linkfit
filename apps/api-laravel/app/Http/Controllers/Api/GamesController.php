@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Http\Controllers\Api\Concerns\BlocksPendingGameResults;
+use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
+use App\Services\Membership\MembershipService;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -92,7 +93,7 @@ class GamesController extends ApiController
         $user = $this->authUser($request);
         $this->ensureNoPendingHostedGameResult((string) $user->id);
         // Freemium gate: free users have a monthly hosted-game cap (premium = unlimited).
-        app(\App\Services\Membership\MembershipService::class)->ensureCanHostGame($user->id);
+        app(MembershipService::class)->ensureCanHostGame($user->id);
         $data = $this->validateBody($request, [
             'sport_id' => ['required', 'uuid'],
             'court_id' => ['sometimes', 'nullable', 'uuid'],
@@ -182,6 +183,10 @@ class GamesController extends ApiController
 
     public function show(string $id, int $status = 200): JsonResponse
     {
+        if (preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', $id, $matches) === 1) {
+            $id = $matches[0];
+        }
+
         $row = $this->gameSummaryQuery(['detail' => true])->where('g.id', $id)->first();
         if ($row === null) {
             throw ApiException::notFound('Game not found');
@@ -194,9 +199,10 @@ class GamesController extends ApiController
             ->join('users as u', 'u.id', '=', 'gp.user_id')
             ->where('gp.game_id', $id)
             ->orderBy('gp.joined_at')
-            ->get(['gp.user_id', 'u.display_name', 'u.photo_url', 'gp.status', 'gp.joined_at'])
+            ->get(['gp.user_id', 'u.username', 'u.display_name', 'u.photo_url', 'gp.status', 'gp.joined_at'])
             ->map(fn ($p) => [
                 'user_id' => $p->user_id,
+                'username' => $p->username ?? null,
                 'display_name' => $p->display_name,
                 'photo_url' => $p->photo_url,
                 'status' => $p->status,
@@ -379,7 +385,7 @@ class GamesController extends ApiController
             ->whereIn('s.slug', ['padel', 'tennis'])
             ->selectRaw("
                 g.id, g.sport_id, s.slug as sport_slug, g.host_user_id,
-                u.display_name as host_display_name, u.photo_url as host_photo_url,
+                u.username as host_username, u.display_name as host_display_name, u.photo_url as host_photo_url,
                 hps.elo_rating as host_elo, g.court_id, c.name as court_name,
                 c.hourly_price_minor, c.currency,
                 v.id as venue_id, v.name as venue_name, v.address as venue_address,
@@ -431,6 +437,7 @@ class GamesController extends ApiController
             // Nested host object consumed by the web client (game detail + discover cards).
             'host' => [
                 'id' => $r->host_user_id,
+                'username' => $r->host_username ?? null,
                 'display_name' => $r->host_display_name,
                 'photo_url' => $r->host_photo_url ?? null,
                 'elo' => isset($r->host_elo) && $r->host_elo !== null ? (int) $r->host_elo : null,
