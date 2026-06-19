@@ -35,6 +35,7 @@ class MembershipController extends ApiController
         if ($m->is_premium) {
             $state['benefits'] = $this->tierBenefits('premium');
         }
+        $state['features'] = $svc->featuresForUser($user->id);
         $state['usage'] = $svc->usage($user->id);
         $state['plans'] = $svc->featureMatrix();
         $state['payments'] = $this->paymentState();
@@ -175,6 +176,7 @@ class MembershipController extends ApiController
         if ($m->is_premium) {
             $state['benefits'] = $this->tierBenefits('premium');
         }
+        $state['features'] = $svc->featuresForUser($userId);
 
         return $state;
     }

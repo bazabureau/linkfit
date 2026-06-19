@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
+use App\Services\Membership\MembershipService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -269,7 +270,8 @@ class DiscoveryController extends ApiController
 
         // Free vs premium: headline stats + ELO/win-rate curves stay free; the
         // deeper analytics (rival breakdown, weekly volume) are premium-only.
-        $isPremium = app(\App\Services\Membership\MembershipService::class)->isPremium($user->id);
+        $membership = app(MembershipService::class);
+        $hasAdvancedInsights = $membership->canUseFeature($user->id, 'advanced_insights');
 
         // Scalar win-rate (0..1) and games-won, derived from the window so simpler
         // clients (e.g. the mobile home stats strip) don't have to read the series.
@@ -289,11 +291,12 @@ class DiscoveryController extends ApiController
             'reliability' => $currentReliability,
             'elo_series' => $eloSeries,
             'win_rate_series' => $winRateSeries,
-            'games_per_week' => $isPremium ? $gamesPerWeek : [],
-            'opponents' => $isPremium ? $opponents : [],
+            'games_per_week' => $hasAdvancedInsights ? $gamesPerWeek : [],
+            'opponents' => $hasAdvancedInsights ? $opponents : [],
             'reliability_series' => [],
-            'is_premium' => $isPremium,
-            'premium_locked' => ! $isPremium,
+            'is_premium' => $membership->isPremium($user->id),
+            'premium_locked' => ! $hasAdvancedInsights,
+            'locked_features' => $hasAdvancedInsights ? [] : ['advanced_insights'],
         ]);
     }
 
@@ -347,7 +350,7 @@ class DiscoveryController extends ApiController
 
         $membership = null;
         try {
-            $m = app(\App\Services\Membership\MembershipService::class)
+            $m = app(MembershipService::class)
                 ->resolve($user->id, optional($user->created_at)->toIso8601String());
             $membership = [
                 'tier' => $m->tier,
@@ -610,7 +613,15 @@ class DiscoveryController extends ApiController
             ")
             ->get();
 
-        return response()->json(['items' => $rows]);
+        $membership = app(MembershipService::class);
+        $hasPriorityMatchmaking = $membership->canUseFeature($user->id, 'priority_matchmaking');
+
+        return response()->json([
+            'items' => $rows,
+            'is_premium' => $membership->isPremium($user->id),
+            'premium_locked' => ! $hasPriorityMatchmaking,
+            'locked_features' => $hasPriorityMatchmaking ? [] : ['priority_matchmaking'],
+        ]);
     }
 
     public function matchmakingPlayers(Request $request): JsonResponse
@@ -658,40 +669,48 @@ class DiscoveryController extends ApiController
 
         // iOS `RecommendedPlayer` requires non-optional mutual_followers_count:Int,
         // score:Double and reasons:[String]; the rest are optional.
-        return response()->json(['items' => $rows->map(function ($u) use ($mutualCounts) {
-            $mutual = (int) ($mutualCounts[$u->id] ?? 0);
-            $elo = $u->elo_rating !== null ? (int) $u->elo_rating : null;
+        $membership = app(MembershipService::class);
+        $hasPriorityMatchmaking = $membership->canUseFeature($user->id, 'priority_matchmaking');
 
-            $reasons = [];
-            if ($mutual > 0) {
-                $reasons[] = $mutual === 1 ? '1 ortaq izləyici' : $mutual.' ortaq izləyici';
-            }
-            if ($u->primary_sport_slug !== null) {
-                $reasons[] = 'Eyni idman növü';
-            }
-            if ($reasons === []) {
-                $reasons[] = 'Yeni oyunçu';
-            }
+        return response()->json([
+            'items' => $rows->map(function ($u) use ($mutualCounts) {
+                $mutual = (int) ($mutualCounts[$u->id] ?? 0);
+                $elo = $u->elo_rating !== null ? (int) $u->elo_rating : null;
 
-            return [
-                'user_id' => $u->id,
-                // Aliases so web clients that read id/primary_sport/primary_elo
-                // get populated values (consistent with players & suggested-follows).
-                'id' => $u->id,
-                'display_name' => $u->display_name,
-                'photo_url' => $u->photo_url,
-                'primary_sport_slug' => $u->primary_sport_slug,
-                'primary_sport' => $u->primary_sport_slug,
-                'elo_rating' => $elo,
-                'primary_elo' => $elo,
-                'reliability_score' => $u->reliability_score !== null ? (int) $u->reliability_score : null,
-                'distance_km' => null,
-                'mutual_followers_count' => (int) $mutual,
-                'score' => (float) ($mutual * 2 + ($elo !== null ? 1 : 0)),
-                'reasons' => $reasons,
-                'reason_codes' => null,
-            ];
-        })]);
+                $reasons = [];
+                if ($mutual > 0) {
+                    $reasons[] = $mutual === 1 ? '1 ortaq izləyici' : $mutual.' ortaq izləyici';
+                }
+                if ($u->primary_sport_slug !== null) {
+                    $reasons[] = 'Eyni idman növü';
+                }
+                if ($reasons === []) {
+                    $reasons[] = 'Yeni oyunçu';
+                }
+
+                return [
+                    'user_id' => $u->id,
+                    // Aliases so web clients that read id/primary_sport/primary_elo
+                    // get populated values (consistent with players & suggested-follows).
+                    'id' => $u->id,
+                    'display_name' => $u->display_name,
+                    'photo_url' => $u->photo_url,
+                    'primary_sport_slug' => $u->primary_sport_slug,
+                    'primary_sport' => $u->primary_sport_slug,
+                    'elo_rating' => $elo,
+                    'primary_elo' => $elo,
+                    'reliability_score' => $u->reliability_score !== null ? (int) $u->reliability_score : null,
+                    'distance_km' => null,
+                    'mutual_followers_count' => (int) $mutual,
+                    'score' => (float) ($mutual * 2 + ($elo !== null ? 1 : 0)),
+                    'reasons' => $reasons,
+                    'reason_codes' => null,
+                ];
+            }),
+            'is_premium' => $membership->isPremium($user->id),
+            'premium_locked' => ! $hasPriorityMatchmaking,
+            'locked_features' => $hasPriorityMatchmaking ? [] : ['priority_matchmaking'],
+        ]);
     }
 
     public function challenges(Request $request): JsonResponse

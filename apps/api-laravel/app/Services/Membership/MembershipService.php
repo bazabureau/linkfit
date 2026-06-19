@@ -85,6 +85,43 @@ class MembershipService
         return $this->resolve($userId)->tier;
     }
 
+    /** @return array<int,string> */
+    public function featuresForTier(string $tier): array
+    {
+        $plans = (array) config('membership.plans', []);
+        $tier = in_array($tier, ['free', 'premium'], true) ? $tier : 'free';
+
+        return array_values(array_unique(array_map(
+            'strval',
+            (array) data_get($plans, "{$tier}.features", [])
+        )));
+    }
+
+    /** @return array<int,string> */
+    public function featuresForUser(string $userId): array
+    {
+        return $this->featuresForTier($this->resolve($userId)->is_premium ? 'premium' : 'free');
+    }
+
+    public function canUseFeature(string $userId, string $feature): bool
+    {
+        return in_array($feature, $this->featuresForUser($userId), true);
+    }
+
+    public function ensureFeature(string $userId, string $feature): void
+    {
+        if ($this->canUseFeature($userId, $feature)) {
+            return;
+        }
+
+        throw new ApiException(
+            403,
+            'PREMIUM_REQUIRED',
+            'This feature requires Premium.',
+            ['feature' => $feature, 'upgrade' => true]
+        );
+    }
+
     // ---- Free-tier limits ("who can do what") ----------------------------
     // Premium = unlimited. Free has a generous, env-tunable monthly cap so the
     // freemium model is enforced without hurting normal usage / club bookings.
@@ -175,7 +212,7 @@ class MembershipService
                 'currency' => (string) config('membership.currency', 'AZN'),
                 'games_per_month' => $limits['games_per_month'],
                 'bookings_per_month' => $limits['bookings_per_month'],
-                'features' => (array) data_get($plans, 'free.features', []),
+                'features' => $this->featuresForTier('free'),
             ],
             'premium' => [
                 'name' => (string) data_get($plans, 'premium.name', 'Premium'),
@@ -183,7 +220,7 @@ class MembershipService
                 'currency' => (string) config('membership.currency', 'AZN'),
                 'games_per_month' => null,
                 'bookings_per_month' => null,
-                'features' => (array) data_get($plans, 'premium.features', []),
+                'features' => $this->featuresForTier('premium'),
             ],
         ];
     }

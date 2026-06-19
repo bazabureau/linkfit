@@ -129,6 +129,46 @@ class MembershipAccessTest extends TestCase
         }
     }
 
+    public function test_effective_premium_gets_premium_feature_matrix_during_launch_access(): void
+    {
+        config()->set('membership.global_full_access_until', now()->addDays(50)->toIso8601String());
+        config()->set('membership.free_trial_days', 0);
+
+        DB::table('users')->insert([
+            'id' => 'user-feature-launch',
+            'created_at' => now()->subYear(),
+        ]);
+
+        $service = app(MembershipService::class);
+
+        $this->assertTrue($service->canUseFeature('user-feature-launch', 'advanced_insights'));
+        $this->assertTrue($service->canUseFeature('user-feature-launch', 'priority_matchmaking'));
+        $this->assertContains('premium_badge', $service->featuresForUser('user-feature-launch'));
+    }
+
+    public function test_free_user_without_access_window_is_blocked_from_premium_features(): void
+    {
+        config()->set('membership.global_full_access_until', null);
+        config()->set('membership.free_trial_days', 0);
+
+        DB::table('users')->insert([
+            'id' => 'user-feature-free',
+            'created_at' => now()->subYear(),
+        ]);
+
+        $service = app(MembershipService::class);
+        $this->assertFalse($service->canUseFeature('user-feature-free', 'advanced_insights'));
+
+        try {
+            $service->ensureFeature('user-feature-free', 'advanced_insights');
+            $this->fail('Expected premium feature gate to be enforced.');
+        } catch (ApiException $exception) {
+            $this->assertSame('PREMIUM_REQUIRED', $exception->wireCode());
+            $this->assertSame(403, $exception->getStatusCode());
+            $this->assertSame('advanced_insights', $exception->getDetails()['feature'] ?? null);
+        }
+    }
+
     public function test_cancel_rejects_free_launch_access_without_paid_subscription(): void
     {
         config()->set('membership.global_full_access_until', now()->addDays(50)->toIso8601String());
