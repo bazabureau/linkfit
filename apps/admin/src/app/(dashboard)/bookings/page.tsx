@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { api, API_BASE_URL } from "@/lib/api";
+import { api, API_BASE_URL, apiHeaders } from "@/lib/api";
 import { ACCESS_TOKEN_COOKIE, getCookie } from "@/lib/cookies";
 import {
   useAdminBookings,
@@ -252,7 +252,7 @@ export default function BookingsPage(): React.JSX.Element {
       const token = getCookie(ACCESS_TOKEN_COOKIE);
       const response = await fetch(
         `${API_BASE_URL}/api/v1/admin/bookings/export${qs ? `?${qs}` : ""}`,
-        { headers: token ? { Authorization: `Bearer ${token}` } : undefined },
+        { headers: apiHeaders(undefined, token) },
       );
       if (!response.ok) throw new Error(t("Export faylı yaradılmadı"));
       const blob = await response.blob();

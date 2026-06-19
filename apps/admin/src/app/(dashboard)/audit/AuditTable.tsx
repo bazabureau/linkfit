@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { type AuditEntry, useAudit } from "@/lib/admin-audit";
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, apiHeaders } from "@/lib/api";
 import { ACCESS_TOKEN_COOKIE, getCookie } from "@/lib/cookies";
 import {
   actionDotClass,
@@ -207,7 +207,7 @@ export function AuditTable(): React.JSX.Element {
     try {
       const token = getCookie(ACCESS_TOKEN_COOKIE);
       const response = await fetch(`${API_BASE_URL}/api/v1/admin/audit/export`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        headers: apiHeaders(undefined, token),
       });
       if (!response.ok) throw new Error("Export file could not be generated");
       const blob = await response.blob();

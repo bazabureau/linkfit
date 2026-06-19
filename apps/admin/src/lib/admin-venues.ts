@@ -7,7 +7,7 @@ import {
   type UseMutationResult,
   type UseQueryResult,
 } from "@tanstack/react-query";
-import { api, API_BASE_URL, apiFetch, APIError } from "./api";
+import { api, API_BASE_URL, apiFetch, APIError, apiHeaders } from "./api";
 import { ACCESS_TOKEN_COOKIE, getCookie } from "./cookies";
 
 // ---------- Types ----------
@@ -465,7 +465,7 @@ export async function uploadVenueImage(file: File): Promise<string> {
   form.append("file", file);
   const res = await fetch(`${API_BASE_URL}/api/v1/messages/upload-image`, {
     method: "POST",
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    headers: apiHeaders(undefined, accessToken),
     body: form,
   });
   if (!res.ok) {

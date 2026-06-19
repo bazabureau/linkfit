@@ -27,7 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { api, API_BASE_URL } from "@/lib/api";
+import { api, API_BASE_URL, apiHeaders } from "@/lib/api";
 import { ACCESS_TOKEN_COOKIE, getCookie } from "@/lib/cookies";
 import { formatDate, formatTime } from "@/lib/date-format";
 import { RevenueChart } from "./RevenueChart";
@@ -218,7 +218,7 @@ export default function RevenuePage(): React.JSX.Element {
       const res = await fetch(
         `${API_BASE_URL}/api/v1/partner/revenue?${usp.toString()}`,
         {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          headers: apiHeaders(undefined, token),
         },
       );
       if (!res.ok) throw new Error("İxrac alınmadı");
