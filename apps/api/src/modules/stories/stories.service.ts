@@ -1088,7 +1088,7 @@ export class StoriesService {
    * followers so any live viewer rerenders the reaction counts. Bidir
    * blocks are filtered at the SQL layer so we never publish to a
    * follower the author has since blocked (or vice versa) — matches
-   * the predicate used by `broadcastStoryPosted` in `stories-realtime.ts`.
+   * the predicate used by the feed and comment visibility queries.
    *
    * `my_reaction: null` in the data payload because per-viewer state is
    * not the broadcaster's to know — iOS re-fetches `/stories/feed` or

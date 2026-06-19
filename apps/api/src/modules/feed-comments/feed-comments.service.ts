@@ -136,7 +136,7 @@ export class FeedCommentsService {
     // Bidirectional block check. We check before the INSERT so the user
     // never accidentally creates an orphaned row that the actor would
     // immediately want torn down. The NOT EXISTS form matches the rest of
-    // the codebase (feed.service.list, stories-realtime, etc.).
+    // the codebase (feed.service.list, story reaction fan-out, etc.).
     if (commenterUserId !== actorUserId) {
       const blocked = await sql<{ blocked: boolean }>`
         SELECT EXISTS (

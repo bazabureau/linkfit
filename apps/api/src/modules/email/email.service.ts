@@ -217,30 +217,35 @@ export class EmailService {
   // ───────────────────────── internals ─────────────────────────
 
   private async deliverVerify(to: string, code: string, locale: "az" | "en" | "ru" = "az"): Promise<void> {
+    const link = `${this.deps.publicAppUrl}/${locale}/verify-email?code=${encodeURIComponent(code)}`;
     const copy = {
       az: {
         subject: `Linkfit təsdiq kodu: ${code}`,
-        body: `Hesabını təsdiqləmək üçün kod: ${code}. Kod 10 dəqiqə etibarlıdır, kimsə ilə paylaşma.`,
+        body: `Hesabını təsdiqləmək üçün kod: ${code}. Kod 10 dəqiqə etibarlıdır, kimsə ilə paylaşma.\n\nLink: ${link}`,
       },
       en: {
         subject: `Your Linkfit code: ${code}`,
-        body: `Your verification code is ${code}. It expires in 10 minutes. Don't share it.`,
+        body: `Your verification code is ${code}. It expires in 10 minutes. Don't share it.\n\nLink: ${link}`,
       },
       ru: {
         subject: `Код Linkfit: ${code}`,
-        body: `Ваш код подтверждения: ${code}. Он действует 10 минут. Никому его не сообщайте.`,
+        body: `Ваш код подтверждения: ${code}. Он действует 10 минут. Никому его не сообщайте.\n\nСсылка: ${link}`,
       },
     }[locale];
     await this.deps.transport.send({
       to,
       subject: copy.subject,
       text: copy.body,
-      html: `<p>${copy.body.replace(code, `<strong style="font-size:24px;letter-spacing:0.18em">${code}</strong>`)}</p>`,
+      html:
+        `<p>${copy.body
+          .replace(code, `<strong style="font-size:24px;letter-spacing:0.18em">${code}</strong>`)
+          .replace(/\n\n.+$/, "")}</p>` +
+        `<p><a href="${link}"><strong>${link}</strong></a></p>`,
     });
   }
 
   private async deliverReset(to: string, token: string): Promise<void> {
-    const link = `${this.deps.publicAppUrl}/reset-password?token=${encodeURIComponent(token)}`;
+    const link = `${this.deps.publicAppUrl}/az/reset-password?token=${encodeURIComponent(token)}`;
     await this.deps.transport.send({
       to,
       subject: "Reset your Linkfit password",

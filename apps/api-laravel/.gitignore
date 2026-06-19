@@ -14,11 +14,15 @@
 /.zed
 /auth.json
 /node_modules
+/bootstrap/cache/*.php
 /public/build
 /public/fonts-manifest.dev.json
 /public/hot
 /public/storage
+/database/database.sqlite
 /storage/*.key
+/storage/framework/cache/data/*
+/storage/framework/views/*.php
 /storage/pail
 /vendor
 _ide_helper.php
