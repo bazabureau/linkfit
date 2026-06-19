@@ -242,16 +242,50 @@ class PaymentsController extends ApiController
 
     private function paymentSheet(string $kind, string $ref, int $amount, string $currency, array $metadata): array
     {
-        $id = 'local_pi_'.$kind.'_'.Str::uuid();
+        if (! (bool) config('membership.payments_enabled')) {
+            throw new ApiException(
+                409,
+                'PAYMENTS_DISABLED',
+                'Online payments are disabled during the free launch access period.',
+                [
+                    'kind' => $kind,
+                    'ref' => $ref,
+                    'amount_minor' => $amount,
+                    'currency' => $currency,
+                    'checkout_available' => false,
+                ]
+            );
+        }
 
-        return [
-            'payment_intent_id' => $id,
-            'client_secret' => $id.'_secret_local',
-            'ephemeral_key' => 'local_ephemeral_key',
-            'customer_id' => 'local_customer_'.$metadata['user_id'],
-            'publishable_key_hint' => null,
-            'mode' => 'local',
-        ];
+        $provider = trim((string) config('membership.payment_provider', ''));
+        if ($provider === '') {
+            throw new ApiException(
+                501,
+                'PAYMENT_PROVIDER_NOT_CONFIGURED',
+                'Online payments are enabled, but no payment provider is configured yet.',
+                [
+                    'kind' => $kind,
+                    'ref' => $ref,
+                    'amount_minor' => $amount,
+                    'currency' => $currency,
+                    'checkout_available' => false,
+                ]
+            );
+        }
+
+        throw new ApiException(
+            501,
+            'PAYMENT_ADAPTER_NOT_IMPLEMENTED',
+            'Online payment provider is configured, but its checkout adapter is not implemented yet.',
+            [
+                'kind' => $kind,
+                'ref' => $ref,
+                'amount_minor' => $amount,
+                'currency' => $currency,
+                'provider' => $provider,
+                'checkout_available' => false,
+            ]
+        );
     }
 
     private function bookingPayments(string $userId, ?string $status)
