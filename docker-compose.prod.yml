@@ -57,29 +57,32 @@ services:
       AUTH_RATE_LIMIT_WINDOW_SECONDS: ${AUTH_RATE_LIMIT_WINDOW_SECONDS:-60}
       FEATURE_BOOKINGS: ${FEATURE_BOOKINGS:-true}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?PUBLIC_BASE_URL must be set}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:?PUBLIC_APP_URL must be set}
       UPLOAD_DIR: /app/uploads
       METRICS_USER: ${METRICS_USER:-metrics}
       METRICS_PASSWORD: ${METRICS_PASSWORD:?METRICS_PASSWORD must be set}
       # Stripe — required in production.
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:?STRIPE_SECRET_KEY must be a live key}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?STRIPE_WEBHOOK_SECRET must be set}
-      # APNs (optional — set all four to enable real push)
-      APNS_KEY_ID: ${APNS_KEY_ID:-}
-      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
-      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-}
-      APNS_AUTH_KEY: ${APNS_AUTH_KEY:-}
+      STRIPE_MEMBERSHIP_PLUS_PRICE_ID: ${STRIPE_MEMBERSHIP_PLUS_PRICE_ID:?STRIPE_MEMBERSHIP_PLUS_PRICE_ID must be set}
+      STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID: ${STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID:?STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID must be set}
+      # APNs — required in production; set all four.
+      APNS_KEY_ID: ${APNS_KEY_ID:?APNS_KEY_ID must be set}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:?APNS_TEAM_ID must be set}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:?APNS_BUNDLE_ID must be set}
+      APNS_AUTH_KEY: ${APNS_AUTH_KEY:?APNS_AUTH_KEY must be set}
       APNS_USE_SANDBOX: ${APNS_USE_SANDBOX:-false}
-      # SMTP (optional — set all four to enable real email)
-      SMTP_HOST: ${SMTP_HOST:-}
+      # SMTP — required in production for verification/password-reset email.
+      SMTP_HOST: ${SMTP_HOST:?SMTP_HOST must be set}
       SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_USER: ${SMTP_USER:?SMTP_USER must be set}
+      SMTP_PASS: ${SMTP_PASS:?SMTP_PASS must be set}
       MAIL_FROM: ${MAIL_FROM:-no-reply@linkfit.app}
       # OAuth (optional)
       OAUTH_APPLE_CLIENT_IDS: ${OAUTH_APPLE_CLIENT_IDS:-az.linkfit.app}
       OAUTH_GOOGLE_CLIENT_IDS: ${OAUTH_GOOGLE_CLIENT_IDS:-}
-      # Medical encryption (recommended — strong key required for AES-256-GCM)
-      MEDICAL_ENCRYPTION_KEY: ${MEDICAL_ENCRYPTION_KEY:-}
+      # Medical encryption — required in production.
+      MEDICAL_ENCRYPTION_KEY: ${MEDICAL_ENCRYPTION_KEY:?MEDICAL_ENCRYPTION_KEY must be set}
     volumes:
       - uploads:/app/uploads
     expose:
