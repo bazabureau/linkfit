@@ -146,6 +146,39 @@ class MembershipAccessTest extends TestCase
         $this->assertContains('premium_badge', $service->featuresForUser('user-feature-launch'));
     }
 
+    public function test_public_user_payload_hides_subscription_state(): void
+    {
+        DB::table('users')->insert([
+            'id' => 'user-public-shape',
+            'created_at' => now()->subDay(),
+        ]);
+        DB::table('memberships')->insert([
+            'user_id' => 'user-public-shape',
+            'tier' => 'premium',
+            'current_period_end' => now()->addMonth(),
+            'provider_subscription_id' => 'sub_public_shape',
+            'subscription_status' => 'active',
+            'cancel_at_period_end' => false,
+            'updated_at' => now(),
+        ]);
+
+        $user = new User();
+        $user->forceFill([
+            'id' => 'user-public-shape',
+            'email' => 'player@example.test',
+            'username' => 'player_shape',
+            'display_name' => 'Player Shape',
+            'created_at' => now()->subDay(),
+        ]);
+
+        $payload = $user->toPublicUser();
+
+        $this->assertArrayNotHasKey('membership_tier', $payload);
+        $this->assertArrayNotHasKey('is_premium', $payload);
+        $this->assertArrayNotHasKey('on_trial', $payload);
+        $this->assertArrayNotHasKey('trial_ends_at', $payload);
+    }
+
     public function test_free_user_without_access_window_is_blocked_from_premium_features(): void
     {
         config()->set('membership.global_full_access_until', null);

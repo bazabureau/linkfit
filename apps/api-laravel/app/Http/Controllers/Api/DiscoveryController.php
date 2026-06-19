@@ -348,18 +348,14 @@ class DiscoveryController extends ApiController
             report($e);
         }
 
-        $membership = null;
+        $access = null;
         try {
-            $m = app(MembershipService::class)
+            $membership = app(MembershipService::class);
+            $m = $membership
                 ->resolve($user->id, optional($user->created_at)->toIso8601String());
-            $membership = [
-                'tier' => $m->tier,
-                'is_premium' => $m->is_premium,
-                'is_plus' => $m->is_plus,
-                'on_trial' => $m->on_trial,
-                'trial_ends_at' => $m->trial_ends_at,
-                'current_period_end' => $this->iso($m->current_period_end),
-                'cancel_at_period_end' => $m->cancel_at_period_end,
+            $access = [
+                'full_access' => $m->is_premium,
+                'features' => $membership->featuresForUser((string) $user->id),
             ];
         } catch (\Throwable $e) {
             report($e);
@@ -404,7 +400,7 @@ class DiscoveryController extends ApiController
 
         return response()->json([
             'me' => $me,
-            'membership' => $membership,
+            'access' => $access,
             'unread' => $unread,
             'agenda' => $agenda,
             'nearby_games' => $nearbyGames,
