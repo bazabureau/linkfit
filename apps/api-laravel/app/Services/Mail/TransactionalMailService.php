@@ -161,7 +161,7 @@ class TransactionalMailService
     private function layout(string $headline, string $bodyHtml, string $buttonLabel, string $url): string
     {
         return '<div style="font-family:Arial,sans-serif;color:#101418;line-height:1.5;max-width:560px;margin:0 auto;padding:24px">'
-            .'<h1 style="font-size:24px;margin:0 0 16px">Linkfit</h1>'
+            .'<div style="margin:0 0 20px"><img src="'.$this->e($this->logoUrl()).'" alt="Linkfit" width="150" style="display:block;width:150px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none"></div>'
             .'<h2 style="font-size:20px;margin:0 0 16px">'.$this->e($headline).'</h2>'
             .$bodyHtml
             .'<p style="margin:24px 0"><a href="'.$this->e($url).'" style="background:#b8ff00;color:#101418;text-decoration:none;padding:12px 16px;border-radius:6px;font-weight:700">'.$this->e($buttonLabel).'</a></p>'
@@ -172,6 +172,15 @@ class TransactionalMailService
     private function webUrl(): string
     {
         return (string) config('services.linkfit.web_url', config('app.url'));
+    }
+
+    private function logoUrl(): string
+    {
+        $configured = (string) config('services.linkfit.logo_url', '');
+
+        return $configured !== ''
+            ? $configured
+            : rtrim($this->webUrl(), '/').'/brand/logolinkfit-dark.png';
     }
 
     private function authUrl(string $path, string $token): string

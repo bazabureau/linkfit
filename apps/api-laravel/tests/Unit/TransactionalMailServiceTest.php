@@ -15,16 +15,23 @@ class TransactionalMailServiceTest extends TestCase
         Mail::fake();
         config()->set('services.linkfit.web_url', 'https://linkfit.az');
         config()->set('services.linkfit.web_locale', 'az');
+        config()->set('services.linkfit.logo_url', 'https://linkfit.az/brand/logolinkfit-dark.png');
 
         $mail = app(TransactionalMailService::class);
         $mail->emailVerification('player@example.com', 'Player', 'verify-token');
         $mail->passwordReset('player@example.com', 'Player', 'reset-token');
 
         Mail::assertSent(LinkfitTransactionalMail::class, function (LinkfitTransactionalMail $message): bool {
-            return str_contains($this->htmlBody($message), 'https://linkfit.az/az/verify-email?token=verify-token');
+            $html = $this->htmlBody($message);
+
+            return str_contains($html, 'https://linkfit.az/brand/logolinkfit-dark.png')
+                && str_contains($html, 'https://linkfit.az/az/verify-email?token=verify-token');
         });
         Mail::assertSent(LinkfitTransactionalMail::class, function (LinkfitTransactionalMail $message): bool {
-            return str_contains($this->htmlBody($message), 'https://linkfit.az/az/reset-password?token=reset-token');
+            $html = $this->htmlBody($message);
+
+            return str_contains($html, 'https://linkfit.az/brand/logolinkfit-dark.png')
+                && str_contains($html, 'https://linkfit.az/az/reset-password?token=reset-token');
         });
     }
 

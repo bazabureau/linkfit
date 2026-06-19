@@ -52,6 +52,7 @@ const MONTH_LABEL = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ] as const;
+const DIGEST_LOGO_URL = "https://linkfit.az/brand/logolinkfit.png";
 
 function fmtWhen(d: Date): string {
   // UTC formatting — the iOS client converts to local time. Email clients
@@ -147,8 +148,8 @@ export function renderWeeklyDigest(data: WeeklyDigestData): RenderedDigest {
 function renderHtml(data: WeeklyDigestData): string {
   const headerStyle =
     "background:#101418;padding:32px 24px;text-align:left;";
-  const wordmarkStyle =
-    "color:#c1ff72;font:700 24px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;letter-spacing:-0.02em;margin:0;";
+  const logoStyle =
+    "display:block;width:150px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;";
   const subheadStyle =
     "color:#9ca3af;font:400 13px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:8px 0 0 0;";
   const bodyStyle =
@@ -172,7 +173,7 @@ function renderHtml(data: WeeklyDigestData): string {
 
   // Header
   parts.push(`<tr><td style="${headerStyle}">`);
-  parts.push(`<p style="${wordmarkStyle}">LINKFIT</p>`);
+  parts.push(`<img src="${DIGEST_LOGO_URL}" alt="Linkfit" width="150" style="${logoStyle}">`);
   parts.push(
     `<p style="${subheadStyle}">Your weekly digest, ${escapeHtml(data.display_name)}.</p>`,
   );

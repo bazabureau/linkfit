@@ -35,6 +35,7 @@ const VERIFY_TTL_MS = 10 * 60 * 1000;
 const RESET_TTL_MS = 60 * 60 * 1000;
 const RESEND_COOLDOWN_SECONDS = 60;
 const VERIFY_MAX_ATTEMPTS = 5;
+const EMAIL_LOGO_URL = "https://linkfit.az/brand/logolinkfit-dark.png";
 
 export interface EmailServiceDeps {
   db: DbHandle;
@@ -237,6 +238,7 @@ export class EmailService {
       subject: copy.subject,
       text: copy.body,
       html:
+        emailLogoHtml() +
         `<p>${copy.body
           .replace(code, `<strong style="font-size:24px;letter-spacing:0.18em">${code}</strong>`)
           .replace(/\n\n.+$/, "")}</p>` +
@@ -257,6 +259,7 @@ export class EmailService {
         `If this wasn't you, you can ignore this email — your password is still safe.\n` +
         `This link expires in 1 hour.`,
       html:
+        emailLogoHtml() +
         `<p>Someone (hopefully you) asked to reset the password on this account.</p>` +
         `<p>Use the link below or paste the token into the app:</p>` +
         `<p><a href="${link}"><strong>${link}</strong></a></p>` +
@@ -265,4 +268,13 @@ export class EmailService {
         `<p>This link expires in 1 hour.</p>`,
     });
   }
+}
+
+function emailLogoHtml(): string {
+  return (
+    `<div style="margin:0 0 20px">` +
+    `<img src="${EMAIL_LOGO_URL}" alt="Linkfit" width="150" ` +
+    `style="display:block;width:150px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none">` +
+    `</div>`
+  );
 }

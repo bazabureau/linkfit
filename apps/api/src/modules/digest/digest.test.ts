@@ -155,7 +155,8 @@ describe("digest agent", () => {
     if (!msg) return;
 
     // Brand markers + lime accent hex string somewhere in the HTML.
-    expect(msg.html).toContain("LINKFIT");
+    expect(msg.html).toContain("https://linkfit.az/brand/logolinkfit.png");
+    expect(msg.html).toContain('alt="Linkfit"');
     expect(msg.html).toContain("#c1ff72");
     // Dark charcoal header hex too.
     expect(msg.html).toContain("#101418");

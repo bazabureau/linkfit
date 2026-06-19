@@ -131,6 +131,7 @@ describe("email module — verification + password reset", () => {
       const message = transport.lastFor(email.toLowerCase());
       expect(message).toBeDefined();
       expect(message?.subject).toMatch(/\d{6}/);
+      expect(message?.html).toContain("https://linkfit.az/brand/logolinkfit-dark.png");
       expect(extractCode(message?.text ?? "")).toMatch(/^\d{6}$/);
     });
 
@@ -307,6 +308,7 @@ describe("email module — verification + password reset", () => {
       expect(real.json<{ requested: boolean }>().requested).toBe(true);
       expect(transport.outbox.length).toBe(1);
       expect(transport.outbox[0]?.subject).toContain("Reset");
+      expect(transport.outbox[0]?.html).toContain("https://linkfit.az/brand/logolinkfit-dark.png");
     });
 
     it("resets password with a valid token and revokes refresh tokens", async () => {

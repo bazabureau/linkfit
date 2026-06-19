@@ -82,6 +82,7 @@ return [
     'linkfit' => [
         'web_url' => env('LINKFIT_WEB_URL', env('APP_URL')),
         'web_locale' => env('LINKFIT_WEB_LOCALE', 'az'),
+        'logo_url' => env('LINKFIT_LOGO_URL'),
         'admin_url' => env('LINKFIT_ADMIN_URL', env('APP_URL')),
         'owner_url' => env('LINKFIT_OWNER_URL', env('APP_URL')),
         'support_email' => env('LINKFIT_SUPPORT_EMAIL', 'support@linkfit.az'),
