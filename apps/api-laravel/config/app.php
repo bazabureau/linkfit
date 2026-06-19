@@ -67,9 +67,17 @@ return [
         'trim',
         explode(',', (string) env('APP_PUBLIC_API_KEYS', env('API_KEY', ''))),
     ))),
+    'api_key_hashes' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('APP_PUBLIC_API_KEY_HASHES', '')),
+    ))),
     'internal_api_keys' => array_values(array_filter(array_map(
         'trim',
         explode(',', (string) env('INTERNAL_API_KEYS', env('INTERNAL_API_KEY', ''))),
+    ))),
+    'internal_api_key_hashes' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('INTERNAL_API_KEY_HASHES', '')),
     ))),
     'require_api_key' => (bool) env('REQUIRE_API_KEY', false),
 

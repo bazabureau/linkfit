@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Mail\GmailApiTransport;
+use App\Support\ApiKeyRing;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -138,23 +139,17 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $keys = (array) config('app.api_keys', []);
-        if ($keys === []) {
+        $hashes = (array) config('app.api_key_hashes', []);
+        if ($keys === [] && $hashes === []) {
             throw new \RuntimeException(
-                'APP_PUBLIC_API_KEYS must contain at least one strong client key when REQUIRE_API_KEY=true.'
+                'APP_PUBLIC_API_KEYS or APP_PUBLIC_API_KEY_HASHES must contain at least one strong client key when REQUIRE_API_KEY=true.'
             );
         }
 
-        foreach ($keys as $key) {
-            $key = (string) $key;
-            $isPlaceholder = str_starts_with($key, 'dev-')
-                || str_contains($key, 'change-in-prod')
-                || str_contains($key, 'example');
+        ApiKeyRing::assertStrongPlainKeys('APP_PUBLIC_API_KEYS', $keys);
+        ApiKeyRing::assertValidHashes('APP_PUBLIC_API_KEY_HASHES', $hashes);
 
-            if (strlen($key) < 32 || $isPlaceholder) {
-                throw new \RuntimeException(
-                    'APP_PUBLIC_API_KEYS values must be strong random strings (>=32 chars, not placeholders) in production.'
-                );
-            }
-        }
+        ApiKeyRing::assertStrongPlainKeys('INTERNAL_API_KEYS', (array) config('app.internal_api_keys', []));
+        ApiKeyRing::assertValidHashes('INTERNAL_API_KEY_HASHES', (array) config('app.internal_api_key_hashes', []));
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Support\ApiException;
+use App\Support\ApiKeyRing;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -27,26 +28,16 @@ class ApiKeyGuard
 
         $provided = (string) ($request->header('X-Linkfit-App-Key') ?? $request->header('X-API-Key', ''));
 
-        if ($provided === '' || ! $this->matchesAnyKey($provided, (array) config('app.api_keys', []))) {
+        if (! ApiKeyRing::matches(
+            $provided,
+            (array) config('app.api_keys', []),
+            (array) config('app.api_key_hashes', [])
+        )) {
             throw ApiException::forbidden('Invalid or missing API key');
         }
 
         $request->attributes->set('linkfit_api_key_type', 'public_app');
 
         return $next($request);
-    }
-
-    /**
-     * @param  array<int,string>  $keys
-     */
-    private function matchesAnyKey(string $provided, array $keys): bool
-    {
-        foreach ($keys as $expected) {
-            if ($expected !== '' && hash_equals($expected, $provided)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }
