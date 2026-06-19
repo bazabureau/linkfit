@@ -5,6 +5,7 @@ use App\Services\Notifications\ReminderDispatcher;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Storage;
 
 Artisan::command('inspire', function () {
@@ -61,3 +62,15 @@ Artisan::command('ops:cleanup-media {--days=7} {--limit=500} {--dry-run}', funct
     $this->line('failed: '.$failed);
     $this->line('dry_run: '.($dryRun ? '1' : ''));
 })->purpose('Prune storage files for media assets already soft-deleted');
+
+Schedule::command('push:process --limit=100')
+    ->everyMinute()
+    ->withoutOverlapping(5);
+
+Schedule::command('ops:send-reminders --window=120 --lookahead=150')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(10);
+
+Schedule::command('ops:cleanup-media --days=7 --limit=500')
+    ->dailyAt('03:20')
+    ->withoutOverlapping(60);
