@@ -129,8 +129,8 @@ class MobileController extends ApiController
                 'web_url' => config('services.linkfit.web_url'),
             ],
             'features' => [
-                'apple_login' => config('services.apple.client_id') !== null,
-                'google_login' => config('services.google.client_id') !== null,
+                'apple_login' => filled(config('services.apple.client_id')),
+                'google_login' => filled(config('services.google.client_ids')),
                 'media_upload' => true,
                 'push_notifications' => true,
                 'stories' => true,

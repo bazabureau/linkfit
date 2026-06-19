@@ -26,4 +26,17 @@ class ApiSurfaceTest extends TestCase
             ->assertOk()
             ->assertJsonPath('transport', 'polling');
     }
+
+    public function test_mobile_config_reports_google_login_when_any_google_client_id_is_configured(): void
+    {
+        config()->set('services.google.client_id', null);
+        config()->set('services.google.client_ids', [
+            'ios-client.apps.googleusercontent.com',
+            'android-client.apps.googleusercontent.com',
+        ]);
+
+        $this->getJson('/api/v1/mobile/config')
+            ->assertOk()
+            ->assertJsonPath('features.google_login', true);
+    }
 }
