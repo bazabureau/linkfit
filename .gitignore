@@ -6,6 +6,8 @@ DerivedData/
 dist/
 .next/
 apps/api/dist/
+.postgres-data/
+.env.production
 
 # iosv2 lives in its own GitHub repo (linkfit-iosv2)
 apps/iosv2/

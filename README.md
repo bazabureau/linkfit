@@ -63,6 +63,24 @@ xcodegen generate
 open Linkfit.xcodeproj                # Cmd-R
 ```
 
+## Production deploy
+
+The repository includes a single-host Docker Compose deploy path for the
+backend API, Postgres, uploads volume, and nginx reverse proxy.
+
+```bash
+cp .env.production.example .env.production
+# Fill every blank secret/value in .env.production.
+# Put TLS files at infra/certs/fullchain.pem and infra/certs/privkey.pem.
+
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+docker compose -f docker-compose.prod.yml --env-file .env.production exec api npm run migrate:up:prod
+```
+
+Production boot fails fast if required secrets are missing, if Stripe is not
+live-mode, if public URLs are not HTTPS, if SMTP/APNs are incomplete, or if
+medical profile encryption is not configured.
+
 ## Endpoints (Phase 1)
 
 | Method | Path | Auth | Notes |
