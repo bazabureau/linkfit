@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\ApiKeyGuard;
+use App\Http\Middleware\InternalApiKeyGuard;
 use App\Http\Middleware\JwtAuthenticate;
 use App\Http\Middleware\RequestId;
 use App\Http\Middleware\SecurityHeaders;
@@ -72,6 +73,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->alias([
             'jwt' => JwtAuthenticate::class,
+            'internal.key' => InternalApiKeyGuard::class,
             'throttle' => ThrottleRequests::class,
         ]);
     })

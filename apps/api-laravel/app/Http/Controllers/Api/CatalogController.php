@@ -101,24 +101,39 @@ class CatalogController extends ApiController
 
     public function venue(string $id): JsonResponse
     {
-        $venue = DB::table('venues')->where('id', $id)->first();
+        $venue = DB::table('venues')
+            ->when(
+                preg_match('/^[0-9a-f]{8}$/i', $id) === 1,
+                fn ($q) => $q->whereRaw('id::text ilike ?', [$id.'%']),
+                fn ($q) => $q->where('id', $id),
+            )
+            ->where(fn ($q) => $q->whereNull('status')->orWhere('status', 'published'))
+            ->first();
         if ($venue === null) {
             throw ApiException::notFound('Venue not found');
         }
 
         $courts = DB::table('courts as c')
+            ->join('venues as v', 'v.id', '=', 'c.venue_id')
             ->join('sports as s', 's.id', '=', 'c.sport_id')
-            ->where('c.venue_id', $id)
+            ->where('c.venue_id', $venue->id)
             ->orderBy('c.name')
             ->get([
                 'c.id',
                 'c.venue_id',
+                'v.name as venue_name',
+                'v.address as venue_address',
                 'c.sport_id',
                 's.slug as sport_slug',
+                's.name as sport_name',
                 'c.name',
                 'c.hourly_price_minor',
                 'c.currency',
-            ]);
+                'c.status',
+                'c.photo_url',
+                'c.photo_urls',
+            ])
+            ->map(fn ($court) => $this->courtPayload($court));
 
         $payload = $this->venuePayload($venue);
         $payload['courts'] = $courts;
@@ -201,6 +216,42 @@ class CatalogController extends ApiController
                 'total' => $total,
             ],
         ]);
+    }
+
+    public function court(string $id): JsonResponse
+    {
+        $court = DB::table('courts as c')
+            ->join('venues as v', 'v.id', '=', 'c.venue_id')
+            ->join('sports as s', 's.id', '=', 'c.sport_id')
+            ->when(
+                preg_match('/^[0-9a-f]{8}$/i', $id) === 1,
+                fn ($q) => $q->whereRaw('c.id::text ilike ?', [$id.'%']),
+                fn ($q) => $q->where('c.id', $id),
+            )
+            ->whereIn('s.slug', ['padel', 'tennis'])
+            ->where(fn ($q) => $q->whereNull('v.status')->orWhere('v.status', 'published'))
+            ->where(fn ($q) => $q->whereNull('c.status')->orWhere('c.status', 'active'))
+            ->first([
+                'c.id',
+                'c.venue_id',
+                'v.name as venue_name',
+                'v.address as venue_address',
+                'c.sport_id',
+                's.slug as sport_slug',
+                's.name as sport_name',
+                'c.name',
+                'c.hourly_price_minor',
+                'c.currency',
+                'c.status',
+                'c.photo_url',
+                'c.photo_urls',
+            ]);
+
+        if ($court === null) {
+            throw ApiException::notFound('Court not found');
+        }
+
+        return response()->json($this->courtPayload($court));
     }
 
     public function venueAvailability(Request $request, string $id): JsonResponse

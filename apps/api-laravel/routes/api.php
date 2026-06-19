@@ -81,6 +81,7 @@ Route::prefix('api/v1')->group(function () {
     Route::get('courts', [CatalogController::class, 'courts']);
     Route::get('venues/{id}/availability', [CatalogController::class, 'venueAvailability']);
     Route::get('venues/{id}', [CatalogController::class, 'venue']);
+    Route::get('courts/{id}', [CatalogController::class, 'court']);
     Route::get('courts/{id}/availability', [BookingsController::class, 'availability']);
     Route::get('courts/{id}/suggested-slots', [BookingsController::class, 'suggestedSlots']);
     Route::post('bookings/quote', [BookingsController::class, 'quote']);

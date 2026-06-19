@@ -9,9 +9,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Optional application API-key gate. When REQUIRE_API_KEY=true, every API
- * request must carry a matching `X-API-Key` header (the app/web secret). It is
- * OFF by default so existing mobile clients keep working — enable it only after
- * shipping a client build that sends the key.
+ * request must carry a matching public Linkfit app key header. This is an app
+ * identification layer, not user auth and not a private browser/mobile secret.
  */
 class ApiKeyGuard
 {
@@ -26,13 +25,28 @@ class ApiKeyGuard
             return $next($request);
         }
 
-        $expected = (string) config('app.api_key');
-        $provided = (string) ($request->header('X-API-Key') ?? $request->query('api_key', ''));
+        $provided = (string) ($request->header('X-Linkfit-App-Key') ?? $request->header('X-API-Key', ''));
 
-        if ($expected === '' || ! hash_equals($expected, $provided)) {
+        if ($provided === '' || ! $this->matchesAnyKey($provided, (array) config('app.api_keys', []))) {
             throw ApiException::forbidden('Invalid or missing API key');
         }
 
+        $request->attributes->set('linkfit_api_key_type', 'public_app');
+
         return $next($request);
+    }
+
+    /**
+     * @param  array<int,string>  $keys
+     */
+    private function matchesAnyKey(string $provided, array $keys): bool
+    {
+        foreach ($keys as $expected) {
+            if ($expected !== '' && hash_equals($expected, $provided)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

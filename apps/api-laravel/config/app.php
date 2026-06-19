@@ -59,9 +59,18 @@ return [
     // build user-shareable links (e.g. referral links → linkfit.az/r/{code}).
     'web_url' => env('APP_WEB_URL', 'https://linkfit.az'),
 
-    // Optional client API key (see App\Http\Middleware\ApiKeyGuard). Disabled
-    // unless REQUIRE_API_KEY=true so existing mobile clients are unaffected.
-    'api_key' => env('API_KEY'),
+    // Optional public client app keys (see App\Http\Middleware\ApiKeyGuard).
+    // These identify Linkfit-owned web/mobile builds but are not user secrets:
+    // browser/mobile bundles can be inspected. Keep truly private automation
+    // keys in INTERNAL_API_KEYS and never ship them to clients.
+    'api_keys' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('APP_PUBLIC_API_KEYS', env('API_KEY', ''))),
+    ))),
+    'internal_api_keys' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('INTERNAL_API_KEYS', env('INTERNAL_API_KEY', ''))),
+    ))),
     'require_api_key' => (bool) env('REQUIRE_API_KEY', false),
 
     /*

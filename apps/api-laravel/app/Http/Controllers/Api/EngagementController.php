@@ -93,9 +93,19 @@ class EngagementController extends ApiController
 
     public function leaderboards(Request $request): JsonResponse
     {
-        $sport = $request->query('sport');
-        $limit = min(max((int) $request->query('limit', 50), 1), 100);
-        $offset = max((int) $request->query('offset', 0), 0);
+        $query = $this->validateQuery($request, [
+            'sport' => ['nullable', 'string', 'max:80'],
+            'q' => ['nullable', 'string', 'max:120'],
+            'sort' => ['nullable', 'in:elo,points,wins,played'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'offset' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $sport = $query['sport'] ?? null;
+        $search = trim((string) ($query['q'] ?? ''));
+        $sort = $query['sort'] ?? 'elo';
+        $limit = min(max((int) ($query['limit'] ?? 50), 1), 100);
+        $offset = max((int) ($query['offset'] ?? 0), 0);
 
         $base = DB::table('player_sport_stats as p')
             ->join('users as u', 'u.id', '=', 'p.user_id')
@@ -104,19 +114,43 @@ class EngagementController extends ApiController
         if ($sport) {
             $base->where('s.slug', $sport);
         }
+        if ($search !== '') {
+            $needle = '%'.mb_strtolower($search).'%';
+            $base->where(function ($q) use ($needle) {
+                $q->whereRaw('LOWER(u.display_name) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(u.username) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(u.email) LIKE ?', [$needle]);
+            });
+        }
 
         // iOS `LeaderboardPage` requires `total_count` (the global size, before
         // the page window) so the client can show "X of Y" + stop paging.
         $total = (clone $base)->count();
 
-        $rows = (clone $base)
-            ->orderByDesc('p.elo_rating')
+        $rowsQuery = (clone $base);
+        if ($sort === 'points') {
+            $rowsQuery->orderByDesc('p.games_won')->orderByDesc('p.elo_rating');
+        } elseif ($sort === 'wins') {
+            $rowsQuery->orderByDesc('p.games_won')->orderByDesc('p.games_played');
+        } elseif ($sort === 'played') {
+            $rowsQuery->orderByDesc('p.games_played')->orderByDesc('p.elo_rating');
+        } else {
+            $rowsQuery->orderByDesc('p.elo_rating')->orderByDesc('p.games_won');
+        }
+
+        $rows = $rowsQuery
+            ->orderBy('u.display_name')
             ->offset($offset)
             ->limit($limit)
             ->get([
                 'p.user_id',
+                'u.username',
                 'u.display_name',
                 'u.photo_url',
+                'u.is_verified',
+                'u.is_vip',
+                'u.vip_badge_label as vip_label',
+                'u.is_ambassador',
                 's.slug as sport_slug',
                 'p.elo_rating',
                 'p.games_played',
@@ -135,9 +169,14 @@ class EngagementController extends ApiController
                     'rank' => $offset + $i + 1,
                     'user_id' => $r->user_id,
                     'id' => $r->user_id,
+                    'username' => $r->username,
                     'display_name' => $r->display_name,
                     'name' => $r->display_name,
                     'photo_url' => $r->photo_url,
+                    'is_verified' => (bool) ($r->is_verified ?? false),
+                    'is_vip' => (bool) ($r->is_vip ?? false),
+                    'vip_label' => $r->vip_label ?? null,
+                    'is_ambassador' => (bool) ($r->is_ambassador ?? false),
                     'sport_slug' => $r->sport_slug,
                     'elo_rating' => $elo,
                     'games_played' => $played,
@@ -154,7 +193,15 @@ class EngagementController extends ApiController
                 ];
             });
 
-        return response()->json(['items' => $rows, 'total_count' => (int) $total]);
+        return response()->json([
+            'items' => $rows,
+            'total_count' => (int) $total,
+            'pagination' => [
+                'limit' => $limit,
+                'offset' => $offset,
+                'total' => (int) $total,
+            ],
+        ]);
     }
 
     public function announcements(Request $request): JsonResponse

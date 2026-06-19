@@ -45,6 +45,7 @@ class AppServiceProvider extends ServiceProvider
             // Fail fast on a missing/weak/placeholder JWT signing secret — a
             // known secret lets anyone forge access tokens (account takeover).
             $this->assertStrongJwtSecret();
+            $this->assertStrongApiKeys();
         }
 
         if ((bool) env('HEALTH_CHECK_HORIZON', false)) {
@@ -122,6 +123,38 @@ class AppServiceProvider extends ServiceProvider
             throw new \RuntimeException(
                 'JWT_ACCESS_SECRET must be a strong, unique secret (>=32 chars, not the dev placeholder) in production.'
             );
+        }
+    }
+
+    /**
+     * If the global API-key gate is enabled, refuse to boot with empty, short,
+     * or obvious placeholder keys. Public app keys identify our clients; they
+     * are not a substitute for JWT/user authorization.
+     */
+    private function assertStrongApiKeys(): void
+    {
+        if (! (bool) config('app.require_api_key')) {
+            return;
+        }
+
+        $keys = (array) config('app.api_keys', []);
+        if ($keys === []) {
+            throw new \RuntimeException(
+                'APP_PUBLIC_API_KEYS must contain at least one strong client key when REQUIRE_API_KEY=true.'
+            );
+        }
+
+        foreach ($keys as $key) {
+            $key = (string) $key;
+            $isPlaceholder = str_starts_with($key, 'dev-')
+                || str_contains($key, 'change-in-prod')
+                || str_contains($key, 'example');
+
+            if (strlen($key) < 32 || $isPlaceholder) {
+                throw new \RuntimeException(
+                    'APP_PUBLIC_API_KEYS values must be strong random strings (>=32 chars, not placeholders) in production.'
+                );
+            }
         }
     }
 }

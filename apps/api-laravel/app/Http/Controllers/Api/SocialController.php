@@ -23,7 +23,13 @@ class SocialController extends ApiController
         $viewerId = $this->optionalViewerId($request);
 
         $rows = $this->playersBaseQuery()
-            ->when(! empty($query['q']), fn ($q) => $q->where('u.display_name', 'ilike', '%'.$query['q'].'%'))
+            ->when(! empty($query['q']), function ($q) use ($query) {
+                $needle = '%'.$query['q'].'%';
+                $q->where(function ($qq) use ($needle) {
+                    $qq->where('u.display_name', 'ilike', $needle)
+                        ->orWhere('u.username', 'ilike', $needle);
+                });
+            })
             ->when($viewerId !== null, fn ($q) => $this->whereNotBlocked($q, $viewerId, 'u.id'))
             ->orderBy('u.display_name')
             ->limit((int) ($query['limit'] ?? 50))
@@ -151,10 +157,14 @@ class SocialController extends ApiController
 
     public function profile(Request $request, string $id): JsonResponse
     {
-        // The route param may be either a UUID or a human-readable username.
+        // The route param may be either a UUID, an 8-char short id, or a
+        // human-readable username.
         $isUuid = (bool) preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $id);
+        $isShortId = (bool) preg_match('/^[0-9a-f]{8}$/i', $id);
         $user = DB::table('users')
-            ->when($isUuid, fn ($q) => $q->where('id', $id), fn ($q) => $q->where('username', $id))
+            ->when($isUuid, fn ($q) => $q->where('id', $id))
+            ->when($isShortId, fn ($q) => $q->whereRaw('id::text ilike ?', [$id.'%']))
+            ->when(! $isUuid && ! $isShortId, fn ($q) => $q->whereRaw('LOWER(username) = ?', [mb_strtolower($id)]))
             ->whereNull('deleted_at')
             ->first();
         if ($user === null) {
@@ -259,7 +269,18 @@ class SocialController extends ApiController
             ->orderByDesc('f.created_at')
             ->offset($offset)
             ->limit($limit + 1)
-            ->get(['u.id', 'u.display_name', 'u.photo_url', 'f.created_at as followed_at']);
+            ->get([
+                'u.id',
+                'u.username',
+                'u.display_name',
+                'u.photo_url',
+                'u.is_vip',
+                'u.vip_expires_at',
+                'u.vip_badge_label',
+                'u.is_verified',
+                'u.is_ambassador',
+                'f.created_at as followed_at',
+            ]);
 
         return response()->json($this->followsPage($rows, $limit, $offset, $viewerId));
     }
@@ -290,7 +311,18 @@ class SocialController extends ApiController
             ->orderByDesc('f.created_at')
             ->offset($offset)
             ->limit($limit + 1)
-            ->get(['u.id', 'u.display_name', 'u.photo_url', 'f.created_at as followed_at']);
+            ->get([
+                'u.id',
+                'u.username',
+                'u.display_name',
+                'u.photo_url',
+                'u.is_vip',
+                'u.vip_expires_at',
+                'u.vip_badge_label',
+                'u.is_verified',
+                'u.is_ambassador',
+                'f.created_at as followed_at',
+            ]);
 
         return response()->json($this->followsPage($rows, $limit, $offset, $viewerId));
     }
@@ -485,11 +517,13 @@ class SocialController extends ApiController
         return [
             'items' => $page->map(fn ($u) => [
                 'id' => $u->id,
+                'username' => $u->username ?? null,
                 'display_name' => $u->display_name,
                 'photo_url' => $u->photo_url,
                 'followed_at' => $this->iso($u->followed_at),
                 'is_following' => isset($followedIds[(string) $u->id]) ?: null,
                 'is_followed_by_me' => isset($followedIds[(string) $u->id]),
+                ...$this->badgeFields($u),
             ])->values(),
             'next_offset' => $nextOffset,
             // Alias as a string cursor for clients that page via `next_cursor`.
