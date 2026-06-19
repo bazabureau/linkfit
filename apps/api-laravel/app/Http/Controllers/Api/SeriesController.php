@@ -16,7 +16,7 @@ class SeriesController extends ApiController
     public function store(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
-        $this->ensureNoPendingHostedGameResult((string) $user->id);
+        $this->ensureNoPendingGameResult((string) $user->id);
         $id = (string) Str::uuid();
         DB::table('game_series')->insert([
             'id' => $id,
