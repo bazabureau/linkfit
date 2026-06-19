@@ -25,7 +25,9 @@ export default function LoginPage(): React.JSX.Element {
   const router = useRouter();
   const { t } = useI18n();
   const [redirectTo, setRedirectTo] = React.useState("/");
-  React.useEffect(() => { if (typeof window === "undefined") return; const p = new URLSearchParams(window.location.search); const r = p.get("from"); if (r) setRedirectTo(r); }, []);
+  // Only accept a same-origin relative path for `from` (block //evil.com,
+  // https://evil.com, etc.) — otherwise login becomes an open redirect.
+  React.useEffect(() => { if (typeof window === "undefined") return; const p = new URLSearchParams(window.location.search); const r = p.get("from"); if (r && r.startsWith("/") && !r.startsWith("//")) setRedirectTo(r); }, []);
   
 
   const [serverError, setServerError] = React.useState<string | null>(null);

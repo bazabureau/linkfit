@@ -26,7 +26,8 @@ export default function LoginPage(): React.JSX.Element {
     if (typeof window === "undefined") return;
     const p = new URLSearchParams(window.location.search);
     const r = p.get("from");
-    if (r) setRedirectTo(r);
+    // Only a same-origin relative path — block //evil.com, https://… open redirects.
+    if (r && r.startsWith("/") && !r.startsWith("//")) setRedirectTo(r);
   }, []);
 
   const [serverError, setServerError] = React.useState<string | null>(null);
