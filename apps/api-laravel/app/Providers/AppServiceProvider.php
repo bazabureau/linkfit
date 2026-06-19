@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Mail\GmailApiTransport;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Spatie\Health\Checks\Checks\CacheCheck;
@@ -50,6 +52,14 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Health::checks($checks);
+
+        // Custom "gmail" mail transport — sends via the Gmail API over HTTPS
+        // (host blocks SMTP ports). Activated by MAIL_MAILER=gmail.
+        Mail::extend('gmail', fn (array $config) => new GmailApiTransport(
+            (string) config('services.gmail.client_id'),
+            (string) config('services.gmail.client_secret'),
+            (string) config('services.gmail.refresh_token'),
+        ));
 
         // Global API rate limit. Keyed by JWT session (per-token) when present so
         // many users behind one carrier/NAT IP don't share a bucket; anonymous
