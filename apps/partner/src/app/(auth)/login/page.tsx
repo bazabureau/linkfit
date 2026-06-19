@@ -24,10 +24,15 @@ export default function LoginPage(): React.JSX.Element {
   const [redirectTo, setRedirectTo] = React.useState("/");
   React.useEffect(() => {
     if (typeof window === "undefined") return;
-    const p = new URLSearchParams(window.location.search);
-    const r = p.get("from");
-    // Only a same-origin relative path — block //evil.com, https://… open redirects.
-    if (r && r.startsWith("/") && !r.startsWith("//")) setRedirectTo(r);
+    const r = new URLSearchParams(window.location.search).get("from");
+    if (!r) return;
+    // Resolve against our own origin and accept ONLY if it stays same-origin.
+    // Parser-grounded so backslash-normalized (`/\evil`), protocol-relative
+    // (`//evil`) and absolute URLs can't escape.
+    try {
+      const u = new URL(r, window.location.origin);
+      if (u.origin === window.location.origin) setRedirectTo(u.pathname + u.search + u.hash);
+    } catch { /* malformed `from` — keep the default redirect */ }
   }, []);
 
   const [serverError, setServerError] = React.useState<string | null>(null);
