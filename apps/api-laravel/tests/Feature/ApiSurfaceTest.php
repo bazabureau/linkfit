@@ -59,6 +59,32 @@ class ApiSurfaceTest extends TestCase
             ->assertJsonMissingPath('membership.plans');
     }
 
+    public function test_app_capabilities_hide_payment_surface_during_free_access_period(): void
+    {
+        config()->set('membership.payments_enabled', false);
+        config()->set('membership.public_subscriptions_enabled', false);
+
+        $this->getJson('/api/v1/app/capabilities')
+            ->assertOk()
+            ->assertJsonMissingPath('clients.ios.payment_history')
+            ->assertJsonMissingPath('clients.web.payment_history')
+            ->assertJsonMissingPath('endpoints.payment_history')
+            ->assertJsonMissingPath('endpoints.payment_summary');
+    }
+
+    public function test_app_capabilities_expose_payment_surface_when_public_payments_are_enabled(): void
+    {
+        config()->set('membership.payments_enabled', true);
+        config()->set('membership.public_subscriptions_enabled', false);
+
+        $this->getJson('/api/v1/app/capabilities')
+            ->assertOk()
+            ->assertJsonPath('clients.ios.payment_history', true)
+            ->assertJsonPath('clients.web.payment_history', true)
+            ->assertJsonPath('endpoints.payment_history', '/api/v1/payments/history')
+            ->assertJsonPath('endpoints.payment_summary', '/api/v1/payments/summary');
+    }
+
     public function test_membership_plans_hide_subscription_details_during_free_access_period(): void
     {
         config()->set('membership.public_subscriptions_enabled', false);

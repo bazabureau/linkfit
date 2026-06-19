@@ -50,6 +50,8 @@ class PaymentProviderGuardTest extends TestCase
         } catch (ApiException $exception) {
             $this->assertSame('PAYMENTS_DISABLED', $exception->wireCode());
             $this->assertSame(409, $exception->getStatusCode());
+            $this->assertSame('Online checkout is not available yet.', $exception->getMessage());
+            $this->assertStringNotContainsString('launch', strtolower($exception->getMessage()));
             $this->assertFalse($exception->getDetails()['checkout_available'] ?? true);
         }
 
@@ -68,7 +70,8 @@ class PaymentProviderGuardTest extends TestCase
         } catch (ApiException $exception) {
             $this->assertSame('PAYMENT_ADAPTER_NOT_IMPLEMENTED', $exception->wireCode());
             $this->assertSame(501, $exception->getStatusCode());
-            $this->assertSame('azerbaijan-provider', $exception->getDetails()['provider'] ?? null);
+            $this->assertSame('Online checkout is not available yet.', $exception->getMessage());
+            $this->assertArrayNotHasKey('provider', $exception->getDetails() ?? []);
             $this->assertFalse($exception->getDetails()['checkout_available'] ?? true);
         }
 

@@ -246,7 +246,7 @@ class PaymentsController extends ApiController
             throw new ApiException(
                 409,
                 'PAYMENTS_DISABLED',
-                'Online payments are disabled during the free launch access period.',
+                'Online checkout is not available yet.',
                 [
                     'kind' => $kind,
                     'ref' => $ref,
@@ -262,7 +262,7 @@ class PaymentsController extends ApiController
             throw new ApiException(
                 501,
                 'PAYMENT_PROVIDER_NOT_CONFIGURED',
-                'Online payments are enabled, but no payment provider is configured yet.',
+                'Online checkout is not available yet.',
                 [
                     'kind' => $kind,
                     'ref' => $ref,
@@ -276,13 +276,12 @@ class PaymentsController extends ApiController
         throw new ApiException(
             501,
             'PAYMENT_ADAPTER_NOT_IMPLEMENTED',
-            'Online payment provider is configured, but its checkout adapter is not implemented yet.',
+            'Online checkout is not available yet.',
             [
                 'kind' => $kind,
                 'ref' => $ref,
                 'amount_minor' => $amount,
                 'currency' => $currency,
-                'provider' => $provider,
                 'checkout_available' => false,
             ]
         );
