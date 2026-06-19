@@ -5,13 +5,15 @@ namespace App\Http\Controllers\Api;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Services\Membership\MembershipService;
+use App\Support\ApiException;
 
 class MembershipController extends ApiController
 {
     public function show(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
-        $svc = app(\App\Services\Membership\MembershipService::class);
+        $svc = app(MembershipService::class);
         $m = $svc->resolve($user->id);
 
         $state = $this->statePayload($this->membershipForUser($user->id));
@@ -19,10 +21,13 @@ class MembershipController extends ApiController
         $state['is_premium'] = $m->is_premium;
         $state['on_trial'] = $m->on_trial;
         $state['trial_ends_at'] = $m->trial_ends_at;
+        $state['global_full_access'] = $m->global_full_access;
         if ($m->is_premium) {
             $state['benefits'] = $this->tierBenefits('premium');
         }
         $state['usage'] = $svc->usage($user->id);
+        $state['plans'] = $svc->featureMatrix();
+        $state['payments'] = $this->paymentState();
 
         return response()->json($state);
     }
@@ -31,26 +36,35 @@ class MembershipController extends ApiController
     {
         $user = $this->authUser($request);
         $data = $this->validateBody($request, [
-            'tier' => ['sometimes', 'in:plus,premium'],
+            'tier' => ['sometimes', 'in:premium'],
         ]);
-        // Mobile "Subscribe" sends no body — default to premium.
         $tier = $data['tier'] ?? 'premium';
-        $periodEnd = now()->addMonth();
 
-        $this->membershipForUser($user->id);
-        DB::table('memberships')->where('user_id', $user->id)->update([
-            'tier' => $tier,
-            'current_period_end' => $periodEnd,
-            'cancel_at_period_end' => false,
-            'updated_at' => now(),
-        ]);
+        if (! (bool) config('membership.payments_enabled')) {
+            $svc = app(MembershipService::class);
+            $m = $svc->resolve($user->id);
 
-        return response()->json([
-            'mode' => 'demo',
-            'checkout_url' => null,
-            'tier' => $tier,
-            'current_period_end' => $this->iso($periodEnd),
-        ]);
+            return response()->json([
+                'mode' => 'provider_pending',
+                'checkout_url' => null,
+                'tier' => $tier,
+                'message' => 'Premium payments are not enabled yet. Full access is currently free during the launch period.',
+                'membership' => [
+                    ...$this->statePayload($this->membershipForUser($user->id)),
+                    'is_premium' => $m->is_premium,
+                    'on_trial' => $m->on_trial,
+                    'trial_ends_at' => $m->trial_ends_at,
+                    'global_full_access' => $m->global_full_access,
+                ],
+                'payments' => $this->paymentState(),
+            ], 202);
+        }
+
+        throw new ApiException(
+            501,
+            'PAYMENT_PROVIDER_NOT_CONFIGURED',
+            'Membership payments are enabled, but no payment provider adapter is configured yet.'
+        );
     }
 
     public function portal(Request $request): JsonResponse
@@ -58,9 +72,10 @@ class MembershipController extends ApiController
         $user = $this->authUser($request);
 
         return response()->json([
-            'mode' => 'local',
+            'mode' => (bool) config('membership.payments_enabled') ? 'provider_pending' : 'disabled',
             'portal_url' => null,
             'membership' => $this->statePayload($this->membershipForUser($user->id)),
+            'payments' => $this->paymentState(),
         ]);
     }
 
@@ -109,7 +124,7 @@ class MembershipController extends ApiController
             'cancel_at_period_end' => (bool) $row->cancel_at_period_end,
             'benefits' => $this->tierBenefits($tier),
             'price_minor' => $this->tierPrice($tier),
-            'currency' => 'AZN',
+            'currency' => (string) config('membership.currency', 'AZN'),
             'updated_at' => $this->iso($row->updated_at),
         ];
     }
@@ -145,8 +160,19 @@ class MembershipController extends ApiController
     {
         return match ($tier) {
             'plus' => 999,
-            'premium' => 1999,
+            'premium' => (int) config('membership.premium_price_minor', 0),
             default => 0,
         };
+    }
+
+    private function paymentState(): array
+    {
+        return [
+            'enabled' => (bool) config('membership.payments_enabled'),
+            'provider' => config('membership.payment_provider'),
+            'status' => (bool) config('membership.payments_enabled') ? 'provider_pending' : 'free_launch',
+            'launch_free_access_until' => config('membership.global_full_access_until') ?: null,
+            'free_trial_days' => (int) config('membership.free_trial_days', 50),
+        ];
     }
 }

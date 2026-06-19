@@ -16,12 +16,12 @@ class MembershipService
      * Resolve a user's effective membership. Pass $createdAt (the user's
      * registration timestamp) when the caller already has it to skip a query.
      *
-     * Effective premium = an active PAID tier OR an active 1-month free trial
-     * (every new user gets full premium access for `FREE_TRIAL_DAYS` from
-     * registration). `tier` stays honest (the real paid tier, else free);
-     * `is_premium` is the effective access used by all gates.
+     * Effective premium = an active paid tier OR a free-access window. Free
+     * access can be global (launch promo for every account) or per-user
+     * (FREE_TRIAL_DAYS from registration). `tier` stays honest (the real paid
+     * tier, else free); `is_premium` is the effective access used by gates.
      *
-     * @return object{tier:string,is_premium:bool,is_plus:bool,on_trial:bool,trial_ends_at:?string,current_period_end:?string,cancel_at_period_end:bool}
+     * @return object{tier:string,is_premium:bool,is_plus:bool,on_trial:bool,trial_ends_at:?string,global_full_access:bool,current_period_end:?string,cancel_at_period_end:bool}
      */
     public function resolve(string $userId, ?string $createdAt = null): object
     {
@@ -34,20 +34,27 @@ class MembershipService
         $paidActive = $rawTier !== 'free'
             && ($periodEnd === null || strtotime((string) $periodEnd) > time());
 
-        // 1-month free trial from registration — full premium while it lasts.
         $onTrial = false;
         $trialEndsAt = null;
+        $globalFullAccess = false;
         if (! $paidActive) {
+            $globalUntil = $this->parseFutureTimestamp(config('membership.global_full_access_until'));
+            if ($globalUntil !== null) {
+                $globalFullAccess = true;
+                $onTrial = true;
+                $trialEndsAt = gmdate('Y-m-d\TH:i:s\Z', $globalUntil);
+            }
+
             // config() — survives `php artisan config:cache` (env() would return
             // null when cached and silently disable trials for everyone).
-            $trialDays = (int) config('membership.free_trial_days', 30);
+            $trialDays = (int) config('membership.free_trial_days', 50);
             if ($trialDays > 0) {
                 $created = $createdAt ?? DB::table('users')->where('id', $userId)->value('created_at');
                 if ($created !== null) {
                     $end = strtotime((string) $created) + $trialDays * 86400;
                     if (time() < $end) {
                         $onTrial = true;
-                        $trialEndsAt = gmdate('Y-m-d\TH:i:s\Z', $end);
+                        $trialEndsAt = gmdate('Y-m-d\TH:i:s\Z', max($end, $this->timestampOrZero($trialEndsAt)));
                     }
                 }
             }
@@ -62,6 +69,7 @@ class MembershipService
             'is_plus' => $tier === 'plus',
             'on_trial' => $onTrial,
             'trial_ends_at' => $trialEndsAt,
+            'global_full_access' => $globalFullAccess,
             'current_period_end' => $periodEnd,
             'cancel_at_period_end' => (bool) ($row->cancel_at_period_end ?? false),
         ];
@@ -102,6 +110,7 @@ class MembershipService
             'is_premium' => $isPremium,
             'on_trial' => $m->on_trial,
             'trial_ends_at' => $m->trial_ends_at,
+            'global_full_access' => $m->global_full_access,
             'games_this_month' => $this->monthlyGames($userId, $start),
             'bookings_this_month' => $this->monthlyBookings($userId, $start),
             'games_limit' => $isPremium ? null : $limits['games_per_month'],
@@ -152,5 +161,56 @@ class MembershipService
         return (int) DB::table('bookings')->where('user_id', $userId)
             ->whereNotIn('status', ['cancelled', 'failed', 'refunded'])
             ->where('created_at', '>=', $since)->count();
+    }
+
+    public function featureMatrix(): array
+    {
+        $limits = $this->freeLimits();
+        $plans = (array) config('membership.plans', []);
+
+        return [
+            'free' => [
+                'name' => (string) data_get($plans, 'free.name', 'Free'),
+                'price_minor' => 0,
+                'currency' => (string) config('membership.currency', 'AZN'),
+                'games_per_month' => $limits['games_per_month'],
+                'bookings_per_month' => $limits['bookings_per_month'],
+                'features' => (array) data_get($plans, 'free.features', []),
+            ],
+            'premium' => [
+                'name' => (string) data_get($plans, 'premium.name', 'Premium'),
+                'price_minor' => (int) config('membership.premium_price_minor', 0),
+                'currency' => (string) config('membership.currency', 'AZN'),
+                'games_per_month' => null,
+                'bookings_per_month' => null,
+                'features' => (array) data_get($plans, 'premium.features', []),
+            ],
+        ];
+    }
+
+    private function parseFutureTimestamp(mixed $value): ?int
+    {
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return null;
+        }
+
+        $ts = strtotime($raw);
+        if ($ts === false || $ts <= time()) {
+            return null;
+        }
+
+        return $ts;
+    }
+
+    private function timestampOrZero(?string $value): int
+    {
+        if ($value === null || $value === '') {
+            return 0;
+        }
+
+        $ts = strtotime($value);
+
+        return $ts === false ? 0 : $ts;
     }
 }
