@@ -11,7 +11,7 @@ class TransactionalMailService
 {
     public function emailVerification(string $email, string $name, string $token): void
     {
-        $url = rtrim($this->webUrl(), '/').'/verify-email?token='.urlencode($token);
+        $url = $this->authUrl('verify-email', $token);
         $this->send($email, 'Verify your Linkfit email', $this->layout(
             'Verify your email',
             'Hi '.$this->e($name).', confirm your email address to finish setting up your Linkfit account.',
@@ -22,7 +22,7 @@ class TransactionalMailService
 
     public function passwordReset(string $email, string $name, string $token): void
     {
-        $url = rtrim($this->webUrl(), '/').'/reset-password?token='.urlencode($token);
+        $url = $this->authUrl('reset-password', $token);
         $this->send($email, 'Reset your Linkfit password', $this->layout(
             'Reset your password',
             'Hi '.$this->e($name).', use this secure link to choose a new password. The link expires soon.',
@@ -172,6 +172,14 @@ class TransactionalMailService
     private function webUrl(): string
     {
         return (string) config('services.linkfit.web_url', config('app.url'));
+    }
+
+    private function authUrl(string $path, string $token): string
+    {
+        $locale = trim((string) config('services.linkfit.web_locale', 'az'), '/');
+        $prefix = $locale !== '' ? '/'.$locale : '';
+
+        return rtrim($this->webUrl(), '/').$prefix.'/'.$path.'?token='.urlencode($token);
     }
 
     private function adminUrl(): string
