@@ -26,6 +26,10 @@ class ApiKeyGuard
             return $next($request);
         }
 
+        if ($this->isPublicInfrastructurePath($request)) {
+            return $next($request);
+        }
+
         // Server-to-server routes are protected by the stronger private
         // internal key. Do not require the public app key there; browser/mobile
         // clients must never receive the internal key.
@@ -59,5 +63,11 @@ class ApiKeyGuard
 
         return in_array('internal.key', $middleware, true)
             || in_array(InternalApiKeyGuard::class, $middleware, true);
+    }
+
+    private function isPublicInfrastructurePath(Request $request): bool
+    {
+        return $request->is('.well-known/apple-app-site-association')
+            || $request->is('og/*');
     }
 }

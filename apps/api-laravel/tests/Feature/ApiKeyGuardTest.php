@@ -89,6 +89,23 @@ class ApiKeyGuardTest extends TestCase
             ->assertJsonPath('api', 'laravel');
     }
 
+    public function test_public_infrastructure_assets_do_not_require_app_key(): void
+    {
+        config()->set('app.require_api_key', true);
+        config()->set('app.api_keys', ['test-public-client-key-1234567890abcdef']);
+
+        $this->getJson('/.well-known/apple-app-site-association')
+            ->assertOk()
+            ->assertJsonPath('applinks.apps', []);
+
+        $this->get('/og/game/test')
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/png');
+
+        $this->getJson('/api/v1/app/metadata')
+            ->assertForbidden();
+    }
+
     public function test_browser_origin_must_be_allowed_even_with_valid_public_api_key(): void
     {
         config()->set('app.require_api_key', true);
