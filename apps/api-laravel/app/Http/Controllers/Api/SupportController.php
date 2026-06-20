@@ -64,6 +64,43 @@ class SupportController extends ApiController
         return response()->json($this->ticketPayload($this->ticketRow($id), true), 201);
     }
 
+    public function publicCreate(Request $request): JsonResponse
+    {
+        $data = $this->validateBody($request, [
+            'name' => ['required', 'string', 'min:2', 'max:120'],
+            'email' => ['required', 'string', 'email', 'max:254'],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:40'],
+            'category' => ['sometimes', 'in:general,booking,payment,venue,account,bug,owner'],
+            'subject' => ['required', 'string', 'min:2', 'max:160'],
+            'message' => ['required', 'string', 'min:2', 'max:4000'],
+        ]);
+
+        $contact = [
+            'Ad: '.trim($data['name']),
+            'E-poct: '.mb_strtolower(trim($data['email'])),
+        ];
+        if (! empty($data['phone'])) {
+            $contact[] = 'Telefon: '.trim($data['phone']);
+        }
+
+        $id = (string) Str::uuid();
+        DB::table('support_tickets')->insert([
+            'id' => $id,
+            'user_id' => null,
+            'category' => $data['category'] ?? 'general',
+            'subject' => $data['subject'],
+            'message' => implode("\n", $contact)."\n\n".$data['message'],
+            'status' => 'open',
+            'priority' => 'normal',
+            'related_kind' => null,
+            'related_id' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json($this->ticketPayload($this->ticketRow($id)), 201);
+    }
+
     public function show(Request $request, string $id): JsonResponse
     {
         $ticket = $this->ticketRow($id);

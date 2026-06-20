@@ -43,6 +43,7 @@ class User extends Model
         return [
             'id' => $this->id,
             'email' => $this->email,
+            'phone' => $this->phone ?? null,
             'username' => $this->username ?? null,
             'display_name' => $this->display_name,
             'photo_url' => $this->photo_url,

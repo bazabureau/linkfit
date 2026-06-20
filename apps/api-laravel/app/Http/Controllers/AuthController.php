@@ -33,6 +33,7 @@ class AuthController extends Controller
     {
         $data = $this->validate($request, [
             'email' => ['required', 'string', 'email', 'max:254'],
+            'phone' => ['required', 'string', 'min:7', 'max:40', 'regex:/^\+?[0-9\s().-]{7,40}$/'],
             'password' => ['required', 'string', 'min:12', 'max:200'],
             'password_confirmation' => ['sometimes', 'string', 'same:password'],
             'display_name' => ['required', 'string', 'max:80'],
@@ -43,6 +44,7 @@ class AuthController extends Controller
         ]);
 
         $email = mb_strtolower(trim($data['email']));
+        $phone = preg_replace('/\s+/', ' ', trim($data['phone']));
         $displayName = trim($data['display_name']);
         $requestedUsername = isset($data['username']) ? $this->normalizeUsername((string) $data['username']) : '';
         $username = $requestedUsername !== '' ? $requestedUsername : $this->uniqueUsernameFromDisplayName($displayName);
@@ -67,6 +69,7 @@ class AuthController extends Controller
 
         $user = new User;
         $user->email = $email;
+        $user->phone = $phone;
         $user->password_hash = $this->passwords->hash($data['password']);
         $user->username = $username;
         $user->display_name = $displayName;

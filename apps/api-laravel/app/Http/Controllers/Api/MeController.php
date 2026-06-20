@@ -25,6 +25,7 @@ class MeController extends ApiController
     {
         $data = $this->validateBody($request, [
             'display_name' => ['sometimes', 'string', 'min:1', 'max:80'],
+            'phone' => ['sometimes', 'nullable', 'string', 'min:7', 'max:40', 'regex:/^\+?[0-9\s().-]{7,40}$/'],
             'photo_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
             'home_lat' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
             'home_lng' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
