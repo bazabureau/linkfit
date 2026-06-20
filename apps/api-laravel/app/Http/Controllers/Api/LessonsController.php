@@ -176,12 +176,13 @@ class LessonsController extends ApiController
         }
 
         $rows = $query->orderByDesc('co.rating')->orderBy('co.display_name')
-            ->selectSub($this->ratingCountSub(), 'rating_count')
-            ->get([
+            ->select([
                 'co.id', 'co.display_name', 'co.photo_url', 'co.bio', 'co.rating',
                 'co.years_experience', 'co.hourly_rate_minor', 'co.currency',
                 's.slug as sport_slug', 'co.venue_id', 'v.name as venue_name',
-            ]);
+            ])
+            ->selectSub($this->ratingCountSub(), 'rating_count')
+            ->get();
 
         return response()->json(['items' => $rows->map(fn ($c) => $this->coachPayload($c))->values()]);
     }
@@ -194,12 +195,13 @@ class LessonsController extends ApiController
             ->leftJoin('sports as s', 's.id', '=', 'co.sport_id')
             ->leftJoin('venues as v', 'v.id', '=', 'co.venue_id')
             ->where('co.id', $id)
-            ->selectSub($this->ratingCountSub(), 'rating_count')
-            ->first([
+            ->select([
                 'co.id', 'co.display_name', 'co.photo_url', 'co.bio', 'co.rating',
                 'co.years_experience', 'co.hourly_rate_minor', 'co.currency',
                 's.slug as sport_slug', 'co.venue_id', 'v.name as venue_name',
-            ]);
+            ])
+            ->selectSub($this->ratingCountSub(), 'rating_count')
+            ->first();
         if ($c === null) {
             throw ApiException::notFound('Coach not found');
         }
