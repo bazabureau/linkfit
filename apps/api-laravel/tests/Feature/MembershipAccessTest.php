@@ -286,6 +286,38 @@ class MembershipAccessTest extends TestCase
         $this->assertTrue(app(MembershipService::class)->isPremium('user-manual-premium'));
     }
 
+    public function test_legacy_plus_tier_is_normalized_to_premium_access(): void
+    {
+        config()->set('membership.public_subscriptions_enabled', true);
+        config()->set('membership.global_full_access_until', null);
+        config()->set('membership.free_trial_days', 0);
+
+        DB::table('users')->insert([
+            'id' => 'user-legacy-plus',
+            'created_at' => now()->subYear(),
+        ]);
+        DB::table('memberships')->insert([
+            'user_id' => 'user-legacy-plus',
+            'tier' => 'plus',
+            'current_period_end' => now()->addMonth(),
+            'provider_subscription_id' => 'sub_legacy_plus',
+            'subscription_status' => 'active',
+            'cancel_at_period_end' => false,
+            'updated_at' => now(),
+        ]);
+
+        $state = app(MembershipService::class)->resolve('user-legacy-plus');
+        $this->assertSame('premium', $state->tier);
+        $this->assertTrue($state->is_premium);
+
+        $response = app(MembershipController::class)->show($this->requestForUser('user-legacy-plus'));
+        $payload = $response->getData(true);
+
+        $this->assertSame('premium', $payload['tier']);
+        $this->assertTrue($payload['is_premium']);
+        $this->assertContains('host_unlimited_games', $payload['features']);
+    }
+
     public function test_cancel_marks_active_paid_subscription_for_period_end(): void
     {
         config()->set('membership.public_subscriptions_enabled', true);

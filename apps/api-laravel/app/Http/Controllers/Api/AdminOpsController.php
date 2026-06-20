@@ -712,7 +712,7 @@ class AdminOpsController extends ApiController
     }
 
     /**
-     * Set a user's membership tier (free / plus / premium). A paid tier is
+     * Set a user's membership tier (free / premium). A paid tier is
      * granted for `months` (default 1); 'free' clears the period.
      */
     public function setMembership(Request $request, string $id): JsonResponse
@@ -720,7 +720,7 @@ class AdminOpsController extends ApiController
         $admin = $this->authUser($request);
         $this->staff($request, "users");
         $data = $this->validateBody($request, [
-            'tier' => ['required', 'in:free,plus,premium'],
+            'tier' => ['required', 'in:free,premium'],
             'months' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:36'],
         ]);
         if (! DB::table('users')->where('id', $id)->exists()) {

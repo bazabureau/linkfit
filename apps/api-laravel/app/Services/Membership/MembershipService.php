@@ -21,13 +21,13 @@ class MembershipService
      * (FREE_TRIAL_DAYS from registration). `tier` stays honest (the real paid
      * tier, else free); `is_premium` is the effective access used by gates.
      *
-     * @return object{tier:string,is_premium:bool,is_plus:bool,on_trial:bool,trial_ends_at:?string,global_full_access:bool,current_period_end:?string,cancel_at_period_end:bool}
+     * @return object{tier:string,is_premium:bool,on_trial:bool,trial_ends_at:?string,global_full_access:bool,current_period_end:?string,cancel_at_period_end:bool}
      */
     public function resolve(string $userId, ?string $createdAt = null): object
     {
         $row = DB::table('memberships')->where('user_id', $userId)->first();
 
-        $rawTier = ($row && in_array($row->tier, ['free', 'plus', 'premium'], true)) ? $row->tier : 'free';
+        $rawTier = $this->normalizeTier($row->tier ?? null);
         $periodEnd = $row->current_period_end ?? null;
 
         // Active PAID subscription (not past its billing period)?
@@ -66,7 +66,6 @@ class MembershipService
         return (object) [
             'tier' => $tier,
             'is_premium' => $isPremium,
-            'is_plus' => $tier === 'plus',
             'on_trial' => $onTrial,
             'trial_ends_at' => $trialEndsAt,
             'global_full_access' => $globalFullAccess,
@@ -83,6 +82,14 @@ class MembershipService
     public function tier(string $userId): string
     {
         return $this->resolve($userId)->tier;
+    }
+
+    public function normalizeTier(mixed $tier): string
+    {
+        return match ((string) $tier) {
+            'premium', 'plus' => 'premium',
+            default => 'free',
+        };
     }
 
     /** @return array<int,string> */

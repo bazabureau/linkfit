@@ -210,7 +210,7 @@ class MembershipController extends ApiController
 
     private function statePayload(object $row): array
     {
-        $tier = in_array($row->tier, ['free', 'plus', 'premium'], true) ? $row->tier : 'free';
+        $tier = app(MembershipService::class)->normalizeTier($row->tier ?? null);
 
         // A paid tier past its billing period is no longer active → free.
         if ($tier !== 'free' && $row->current_period_end !== null && strtotime((string) $row->current_period_end) <= time()) {
@@ -256,7 +256,7 @@ class MembershipController extends ApiController
 
     private function hasActivePaidSubscription(object $row): bool
     {
-        $tier = in_array($row->tier, ['plus', 'premium'], true) ? $row->tier : 'free';
+        $tier = app(MembershipService::class)->normalizeTier($row->tier ?? null);
         if ($tier === 'free') {
             return false;
         }
@@ -274,7 +274,7 @@ class MembershipController extends ApiController
             ['key' => 'join_games', 'label' => 'Join public games'],
         ];
 
-        if (in_array($tier, ['plus', 'premium'], true)) {
+        if ($tier === 'premium') {
             $benefits = [
                 ...$benefits,
                 ['key' => 'unlimited_bookings', 'label' => 'Unlimited bookings'],
@@ -297,7 +297,6 @@ class MembershipController extends ApiController
     private function tierPrice(string $tier): int
     {
         return match ($tier) {
-            'plus' => 999,
             'premium' => (int) config('membership.premium_price_minor', 0),
             default => 0,
         };
