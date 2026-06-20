@@ -32,6 +32,30 @@ class ApiKeyGuardTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_broadcasting_auth_requires_public_api_key_when_gate_is_enabled(): void
+    {
+        config()->set('app.require_api_key', true);
+        config()->set('app.api_keys', ['test-public-client-key-1234567890abcdef']);
+
+        $this->postJson('/broadcasting/auth', [
+            'channel_name' => 'private-conversation.test',
+            'socket_id' => '123.456',
+        ])->assertForbidden();
+    }
+
+    public function test_broadcasting_auth_reaches_jwt_guard_after_public_api_key_passes(): void
+    {
+        config()->set('app.require_api_key', true);
+        config()->set('app.api_keys', ['test-public-client-key-1234567890abcdef']);
+
+        $this->postJson('/broadcasting/auth', [
+            'channel_name' => 'private-conversation.test',
+            'socket_id' => '123.456',
+        ], [
+            'X-Linkfit-App-Key' => 'test-public-client-key-1234567890abcdef',
+        ])->assertUnauthorized();
+    }
+
     public function test_public_api_key_can_be_stored_as_sha256_hash(): void
     {
         $key = 'test-public-client-key-1234567890abcdef';

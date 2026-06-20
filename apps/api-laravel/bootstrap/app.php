@@ -24,11 +24,17 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    // Real-time broadcasting: the /broadcasting/auth route is gated by our JWT
-    // middleware so private channel auth uses the same Bearer token as the API.
+    // Real-time broadcasting: /broadcasting/auth sits outside the api route
+    // group, so explicitly apply the same app-key gate before JWT auth.
     ->withBroadcasting(
         __DIR__.'/../routes/channels.php',
-        ['middleware' => ['jwt']],
+        ['middleware' => [
+            RequestId::class,
+            'throttle:api',
+            ApiKeyGuard::class,
+            'jwt',
+            SecurityHeaders::class,
+        ]],
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Trust the local nginx reverse proxy + Cloudflare edge so $request->ip()
