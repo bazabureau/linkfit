@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Http\Middleware\InternalApiKeyGuard;
+use App\Providers\AppServiceProvider;
 use Illuminate\Support\Facades\Route;
+use ReflectionMethod;
 use Tests\TestCase;
 
 class ApiKeyGuardTest extends TestCase
@@ -149,5 +151,41 @@ class ApiKeyGuardTest extends TestCase
         ])
             ->assertOk()
             ->assertJson(['ok' => true]);
+    }
+
+    public function test_production_public_app_keys_must_be_hash_only(): void
+    {
+        $this->app->detectEnvironment(fn () => 'production');
+        config()->set('app.require_api_key', true);
+        config()->set('app.api_keys', ['test-public-client-key-1234567890abcdef']);
+        config()->set('app.api_key_hashes', []);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('APP_PUBLIC_API_KEYS must be empty in production');
+
+        $this->invokeApiKeyBootGuard();
+    }
+
+    public function test_production_internal_app_keys_must_be_hash_only(): void
+    {
+        $this->app->detectEnvironment(fn () => 'production');
+        config()->set('app.require_api_key', true);
+        config()->set('app.api_keys', []);
+        config()->set('app.api_key_hashes', [hash('sha256', 'test-public-client-key-1234567890abcdef')]);
+        config()->set('app.internal_api_keys', ['test-internal-server-key-1234567890abcdef']);
+        config()->set('app.internal_api_key_hashes', []);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('INTERNAL_API_KEYS must be empty in production');
+
+        $this->invokeApiKeyBootGuard();
+    }
+
+    private function invokeApiKeyBootGuard(): void
+    {
+        $provider = new AppServiceProvider($this->app);
+        $method = new ReflectionMethod($provider, 'assertStrongApiKeys');
+        $method->setAccessible(true);
+        $method->invoke($provider);
     }
 }

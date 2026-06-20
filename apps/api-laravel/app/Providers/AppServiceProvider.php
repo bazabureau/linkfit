@@ -146,10 +146,23 @@ class AppServiceProvider extends ServiceProvider
             );
         }
 
+        if ($this->app->isProduction() && $keys !== []) {
+            throw new \RuntimeException(
+                'APP_PUBLIC_API_KEYS must be empty in production; use APP_PUBLIC_API_KEY_HASHES instead.'
+            );
+        }
+
         ApiKeyRing::assertStrongPlainKeys('APP_PUBLIC_API_KEYS', $keys);
         ApiKeyRing::assertValidHashes('APP_PUBLIC_API_KEY_HASHES', $hashes);
 
-        ApiKeyRing::assertStrongPlainKeys('INTERNAL_API_KEYS', (array) config('app.internal_api_keys', []));
+        $internalKeys = (array) config('app.internal_api_keys', []);
+        if ($this->app->isProduction() && $internalKeys !== []) {
+            throw new \RuntimeException(
+                'INTERNAL_API_KEYS must be empty in production; use INTERNAL_API_KEY_HASHES instead.'
+            );
+        }
+
+        ApiKeyRing::assertStrongPlainKeys('INTERNAL_API_KEYS', $internalKeys);
         ApiKeyRing::assertValidHashes('INTERNAL_API_KEY_HASHES', (array) config('app.internal_api_key_hashes', []));
     }
 }
