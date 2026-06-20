@@ -16,6 +16,8 @@ class PaymentsController extends ApiController
 
     public function history(Request $request): JsonResponse
     {
+        $this->assertPaymentHistoryAvailable();
+
         $user = $this->authUser($request);
         $query = $this->validateQuery($request, [
             'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
@@ -51,6 +53,8 @@ class PaymentsController extends ApiController
 
     public function summary(Request $request): JsonResponse
     {
+        $this->assertPaymentHistoryAvailable();
+
         $user = $this->authUser($request);
         $items = $this->bookingPayments($user->id, null)->merge($this->tournamentPayments($user->id, null));
 
@@ -284,6 +288,19 @@ class PaymentsController extends ApiController
                 'currency' => $currency,
                 'checkout_available' => false,
             ]
+        );
+    }
+
+    private function assertPaymentHistoryAvailable(): void
+    {
+        if ((bool) config('membership.payments_enabled')) {
+            return;
+        }
+
+        throw new ApiException(
+            404,
+            'PAYMENTS_NOT_AVAILABLE',
+            'This feature is not available yet.'
         );
     }
 

@@ -78,6 +78,34 @@ class PaymentProviderGuardTest extends TestCase
         $this->assertNull(DB::table('bookings')->where('id', 'booking-1')->value('external_ref'));
     }
 
+    public function test_payment_history_is_hidden_while_payments_are_disabled(): void
+    {
+        config()->set('membership.payments_enabled', false);
+
+        try {
+            app(PaymentsController::class)->history($this->requestForUser('user-1'));
+            $this->fail('Expected disabled payments to hide payment history.');
+        } catch (ApiException $exception) {
+            $this->assertSame('PAYMENTS_NOT_AVAILABLE', $exception->wireCode());
+            $this->assertSame(404, $exception->getStatusCode());
+            $this->assertSame('This feature is not available yet.', $exception->getMessage());
+        }
+    }
+
+    public function test_payment_summary_is_hidden_while_payments_are_disabled(): void
+    {
+        config()->set('membership.payments_enabled', false);
+
+        try {
+            app(PaymentsController::class)->summary($this->requestForUser('user-1'));
+            $this->fail('Expected disabled payments to hide payment summary.');
+        } catch (ApiException $exception) {
+            $this->assertSame('PAYMENTS_NOT_AVAILABLE', $exception->wireCode());
+            $this->assertSame(404, $exception->getStatusCode());
+            $this->assertSame('This feature is not available yet.', $exception->getMessage());
+        }
+    }
+
     private function insertBooking(): void
     {
         DB::table('bookings')->insert([
