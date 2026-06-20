@@ -47,6 +47,7 @@ class AppServiceProvider extends ServiceProvider
             // known secret lets anyone forge access tokens (account takeover).
             $this->assertStrongJwtSecret();
             $this->assertStrongApiKeys();
+            $this->assertLaunchMembershipConfig();
         }
 
         if ((bool) env('HEALTH_CHECK_HORIZON', false)) {
@@ -170,5 +171,26 @@ class AppServiceProvider extends ServiceProvider
 
         ApiKeyRing::assertStrongPlainKeys('INTERNAL_API_KEYS', $internalKeys);
         ApiKeyRing::assertValidHashes('INTERNAL_API_KEY_HASHES', (array) config('app.internal_api_key_hashes', []));
+    }
+
+    /**
+     * During the launch phase subscription controls are deliberately hidden.
+     * In production that mode must also provide a future global full-access
+     * window, otherwise existing users could silently fall back to free-tier
+     * limits while the upgrade path is not public.
+     */
+    private function assertLaunchMembershipConfig(): void
+    {
+        if ((bool) config('membership.public_subscriptions_enabled')) {
+            return;
+        }
+
+        $until = trim((string) config('membership.global_full_access_until'));
+        $timestamp = $until !== '' ? strtotime($until) : false;
+        if ($timestamp === false || $timestamp <= time()) {
+            throw new \RuntimeException(
+                'GLOBAL_FULL_ACCESS_UNTIL must be a future timestamp while public subscriptions are disabled in production.'
+            );
+        }
     }
 }
