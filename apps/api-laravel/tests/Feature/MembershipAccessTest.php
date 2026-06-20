@@ -345,13 +345,29 @@ class MembershipAccessTest extends TestCase
         $this->assertSame('cancel_at_period_end', DB::table('memberships')->where('user_id', 'user-paid')->value('subscription_status'));
     }
 
-    public function test_payment_state_distinguishes_provider_missing_from_free_launch(): void
+    public function test_payment_state_stays_free_launch_while_subscriptions_are_private(): void
     {
+        config()->set('membership.public_subscriptions_enabled', false);
+        config()->set('membership.payments_enabled', true);
+        config()->set('membership.payment_provider', 'hidden-provider');
+
+        $freeLaunch = app(MembershipService::class)->paymentState();
+        $this->assertSame('free_launch', $freeLaunch['status']);
+        $this->assertFalse($freeLaunch['enabled']);
+        $this->assertFalse($freeLaunch['checkout_available']);
+        $this->assertFalse($freeLaunch['provider_configured']);
+        $this->assertNull($freeLaunch['provider']);
+    }
+
+    public function test_payment_state_distinguishes_provider_missing_when_subscriptions_are_public(): void
+    {
+        config()->set('membership.public_subscriptions_enabled', true);
         config()->set('membership.payments_enabled', false);
         config()->set('membership.payment_provider', null);
 
         $freeLaunch = app(MembershipService::class)->paymentState();
         $this->assertSame('free_launch', $freeLaunch['status']);
+        $this->assertFalse($freeLaunch['enabled']);
         $this->assertFalse($freeLaunch['checkout_available']);
         $this->assertFalse($freeLaunch['provider_configured']);
 
@@ -359,6 +375,7 @@ class MembershipAccessTest extends TestCase
 
         $providerMissing = app(MembershipService::class)->paymentState();
         $this->assertSame('provider_missing', $providerMissing['status']);
+        $this->assertTrue($providerMissing['enabled']);
         $this->assertFalse($providerMissing['checkout_available']);
         $this->assertFalse($providerMissing['provider_configured']);
     }

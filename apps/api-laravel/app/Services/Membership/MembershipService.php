@@ -273,9 +273,10 @@ class MembershipService
 
     public function paymentState(): array
     {
-        $enabled = (bool) config('membership.payments_enabled');
+        $subscriptionsEnabled = $this->publicSubscriptionsEnabled();
+        $enabled = $subscriptionsEnabled && (bool) config('membership.payments_enabled');
         $provider = trim((string) config('membership.payment_provider', ''));
-        $providerConfigured = $provider !== '';
+        $providerConfigured = $enabled && $provider !== '';
 
         return [
             'enabled' => $enabled,
