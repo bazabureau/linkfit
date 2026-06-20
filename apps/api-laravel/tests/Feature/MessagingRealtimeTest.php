@@ -126,6 +126,21 @@ class MessagingRealtimeTest extends TestCase
             && in_array(self::USER_TWO, $event->userIds, true));
     }
 
+    public function test_audio_attachment_type_is_accepted_as_voice_alias(): void
+    {
+        Event::fake();
+
+        $response = $this->controller->sendMessage($this->requestFor(self::USER_ONE, [
+            'attachment_url' => 'https://api.linkfit.az/storage/uploads/voice.m4a',
+            'attachment_type' => 'audio',
+        ]), self::CONVERSATION);
+        $payload = $response->getData(true);
+
+        $this->assertSame(201, $response->getStatusCode());
+        $this->assertSame('voice', $payload['attachment_type']);
+        $this->assertSame('voice', DB::table('messages')->where('id', $payload['id'])->value('attachment_type'));
+    }
+
     public function test_typing_broadcasts_to_conversation_channel(): void
     {
         Event::fake();

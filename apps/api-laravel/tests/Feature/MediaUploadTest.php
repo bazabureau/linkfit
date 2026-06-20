@@ -71,6 +71,22 @@ class MediaUploadTest extends TestCase
         Storage::disk('public')->assertExists($asset->path);
     }
 
+    public function test_voice_message_upload_accepts_ios_m4a_when_reported_as_octet_stream(): void
+    {
+        $file = UploadedFile::fake()->create('voice-message.m4a', 12, 'application/octet-stream');
+
+        $response = app(MediaController::class)->upload($this->requestFor($file, 'message_voice'));
+        $payload = $response->getData(true);
+
+        $this->assertSame(201, $response->getStatusCode());
+        $this->assertSame('audio', $payload['type']);
+        $this->assertContains($payload['mime'], ['audio/x-m4a', 'audio/mp4']);
+
+        $asset = DB::table('media_assets')->where('id', $payload['id'])->first();
+        $this->assertStringEndsWith('.m4a', $asset->path);
+        Storage::disk('public')->assertExists($asset->path);
+    }
+
     private function requestFor(UploadedFile $file, string $purpose): Request
     {
         $request = Request::create('/api/v1/media', 'POST', ['purpose' => $purpose], [], ['file' => $file]);

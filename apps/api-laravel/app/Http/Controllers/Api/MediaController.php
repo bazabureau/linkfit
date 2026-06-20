@@ -26,14 +26,22 @@ class MediaController extends ApiController
         $purpose = (string) $request->input('purpose', 'general');
         $isVoicePurpose = in_array($purpose, ['message_voice', 'voice', 'audio'], true);
 
-        $audioMimes = ['audio/aac', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/wav', 'audio/webm', 'audio/x-m4a', 'application/ogg'];
-        $videoMimes = ['video/mp4', 'video/quicktime', 'video/webm'];
+        $audioMimes = ['audio/aac', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/wav', 'audio/webm', 'audio/x-m4a', 'audio/m4a', 'audio/caf', 'audio/x-caf', 'audio/amr', 'audio/3gpp', 'application/ogg'];
+        $videoMimes = ['video/mp4', 'video/quicktime', 'video/webm', 'video/3gpp'];
+        $extensionMime = $this->mimeFromExtension((string) $file->getClientOriginalExtension());
 
         $isAudio = in_array($detectedMime, $audioMimes, true)
             || in_array($clientMime, $audioMimes, true)
+            || ($isVoicePurpose && $extensionMime !== null && in_array($extensionMime, $audioMimes, true))
+            || ($isVoicePurpose && $extensionMime === 'video/3gpp')
             || ($isVoicePurpose && in_array($detectedMime, ['video/webm', 'application/octet-stream'], true));
-        $mime = $isAudio && in_array($clientMime, $audioMimes, true) ? $clientMime : $detectedMime;
-        $isVideo = ! $isAudio && in_array($mime, $videoMimes, true);
+        $mime = $isAudio && in_array($clientMime, $audioMimes, true)
+            ? $clientMime
+            : (($isAudio && $extensionMime !== null && in_array($extensionMime, $audioMimes, true)) ? $extensionMime : (($isAudio && $isVoicePurpose && $extensionMime === 'video/3gpp') ? 'audio/3gpp' : $detectedMime));
+        $isVideo = ! $isAudio && (in_array($mime, $videoMimes, true) || in_array($clientMime, $videoMimes, true) || ($extensionMime !== null && in_array($extensionMime, $videoMimes, true)));
+        if ($isVideo && ! in_array($mime, $videoMimes, true)) {
+            $mime = in_array($clientMime, $videoMimes, true) ? $clientMime : (string) $extensionMime;
+        }
         $isImage = in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true);
         if (! $isVideo && ! $isImage && ! $isAudio) {
             throw ApiException::validation('Only jpeg, png, webp images, mp4/quicktime/webm videos and audio messages are allowed');
@@ -57,10 +65,13 @@ class MediaController extends ApiController
                 'video/webm' => 'webm',
                 'audio/aac' => 'aac',
                 'audio/mpeg' => 'mp3',
-                'audio/mp4', 'audio/x-m4a' => 'm4a',
+                'audio/mp4', 'audio/x-m4a', 'audio/m4a' => 'm4a',
                 'audio/ogg', 'application/ogg' => 'ogg',
                 'audio/wav' => 'wav',
                 'audio/webm' => 'webm',
+                'audio/caf', 'audio/x-caf' => 'caf',
+                'audio/amr' => 'amr',
+                'audio/3gpp' => '3gp',
                 default => 'mp4',
             };
             $contents = (string) file_get_contents($file->getRealPath());
@@ -100,6 +111,24 @@ class MediaController extends ApiController
     private function normalizeMime(string $mime): string
     {
         return strtolower(trim(explode(';', $mime)[0] ?? ''));
+    }
+
+    private function mimeFromExtension(string $extension): ?string
+    {
+        return match (strtolower(trim($extension))) {
+            'aac' => 'audio/aac',
+            'mp3' => 'audio/mpeg',
+            'm4a' => 'audio/x-m4a',
+            'caf' => 'audio/x-caf',
+            'amr' => 'audio/amr',
+            'ogg', 'oga' => 'audio/ogg',
+            'wav' => 'audio/wav',
+            'webm' => 'audio/webm',
+            '3gp', '3gpp' => 'video/3gpp',
+            'mp4' => 'video/mp4',
+            'mov' => 'video/quicktime',
+            default => null,
+        };
     }
 
     /**

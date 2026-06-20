@@ -67,6 +67,29 @@ class ApiSurfaceTest extends TestCase
             ->assertJsonPath('features.google_login', true);
     }
 
+    public function test_mobile_config_exposes_full_mobile_api_contract(): void
+    {
+        $this->getJson('/api/v1/mobile/config')
+            ->assertOk()
+            ->assertJsonPath('features.messaging', true)
+            ->assertJsonPath('features.voice_messages', true)
+            ->assertJsonPath('features.follow_graph', true)
+            ->assertJsonPath('endpoints.app.bootstrap', '/api/v1/mobile/bootstrap')
+            ->assertJsonPath('endpoints.auth.login', '/api/v1/auth/login')
+            ->assertJsonPath('endpoints.social.players', '/api/v1/players?q={query}&limit={limit}')
+            ->assertJsonPath('endpoints.social.follow', '/api/v1/users/{id}/follow')
+            ->assertJsonPath('endpoints.messaging.send_message', '/api/v1/conversations/{id}/messages')
+            ->assertJsonPath('endpoints.messaging.upload_media', '/api/v1/media')
+            ->assertJsonPath('endpoints.bookings.create', '/api/v1/bookings')
+            ->assertJsonPath('endpoints.games.join', '/api/v1/games/{id}/join')
+            ->assertJsonPath('endpoints.stories.reply', '/api/v1/stories/{id}/reply')
+            ->assertJsonPath('contracts.media.multipart_field', 'file')
+            ->assertJsonPath('contracts.media.message_attachment_aliases.audio', 'voice')
+            ->assertJsonPath('contracts.media.max_bytes.voice', 26214400)
+            ->assertJsonPath('contracts.messaging.audio_attachment_type_is_accepted_as_alias', true)
+            ->assertJsonPath('contracts.payments.bank_transfer_enabled', false);
+    }
+
     public function test_mobile_config_hides_subscription_details_during_free_access_period(): void
     {
         config()->set('membership.payments_enabled', false);
@@ -85,6 +108,7 @@ class ApiSurfaceTest extends TestCase
             ->assertJsonPath('features.membership', false)
             ->assertJsonPath('features.premium', false)
             ->assertJsonPath('features.free_launch_access', true)
+            ->assertJsonMissingPath('endpoints.membership')
             ->assertJsonPath('access.full_access', true)
             ->assertJsonPath('access.on_trial', true)
             ->assertJsonPath('access.trial_ends_at', '2026-08-09T23:59:59Z')

@@ -479,8 +479,11 @@ class MessagingController extends ApiController
         $data = $this->validateBody($request, [
             'body' => ['sometimes', 'nullable', 'string', 'max:4000'],
             'attachment_url' => ['sometimes', 'nullable', 'string', 'max:2048'],
-            'attachment_type' => ['sometimes', 'nullable', 'in:image,voice,video'],
+            'attachment_type' => ['sometimes', 'nullable', 'in:image,voice,video,audio'],
         ]);
+        if (($data['attachment_type'] ?? null) === 'audio') {
+            $data['attachment_type'] = 'voice';
+        }
         $body = trim((string) ($data['body'] ?? ''));
         if ($body === '' && empty($data['attachment_url'])) {
             throw ApiException::validation('Message must have a body or an attachment');
