@@ -185,6 +185,12 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
+        if ((bool) config('membership.payments_enabled')) {
+            throw new \RuntimeException(
+                'MEMBERSHIP_PAYMENTS_ENABLED must be false while public subscriptions are disabled in production.'
+            );
+        }
+
         $until = trim((string) config('membership.global_full_access_until'));
         $timestamp = $until !== '' ? strtotime($until) : false;
         if ($timestamp === false || $timestamp <= time()) {

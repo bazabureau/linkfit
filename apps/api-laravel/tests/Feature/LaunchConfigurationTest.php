@@ -33,6 +33,7 @@ class LaunchConfigurationTest extends TestCase
     {
         $this->app->detectEnvironment(fn () => 'production');
         config()->set('membership.public_subscriptions_enabled', false);
+        config()->set('membership.payments_enabled', false);
         config()->set('membership.global_full_access_until', null);
 
         $this->expectException(\RuntimeException::class);
@@ -41,10 +42,24 @@ class LaunchConfigurationTest extends TestCase
         $this->invokeLaunchMembershipGuard();
     }
 
+    public function test_production_launch_mode_rejects_enabled_payments(): void
+    {
+        $this->app->detectEnvironment(fn () => 'production');
+        config()->set('membership.public_subscriptions_enabled', false);
+        config()->set('membership.payments_enabled', true);
+        config()->set('membership.global_full_access_until', now()->addDays(50)->toIso8601String());
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('MEMBERSHIP_PAYMENTS_ENABLED must be false');
+
+        $this->invokeLaunchMembershipGuard();
+    }
+
     public function test_production_launch_mode_accepts_future_global_full_access_window(): void
     {
         $this->app->detectEnvironment(fn () => 'production');
         config()->set('membership.public_subscriptions_enabled', false);
+        config()->set('membership.payments_enabled', false);
         config()->set('membership.global_full_access_until', now()->addDays(50)->toIso8601String());
 
         $this->invokeLaunchMembershipGuard();
@@ -56,6 +71,7 @@ class LaunchConfigurationTest extends TestCase
     {
         $this->app->detectEnvironment(fn () => 'production');
         config()->set('membership.public_subscriptions_enabled', true);
+        config()->set('membership.payments_enabled', true);
         config()->set('membership.global_full_access_until', null);
 
         $this->invokeLaunchMembershipGuard();
