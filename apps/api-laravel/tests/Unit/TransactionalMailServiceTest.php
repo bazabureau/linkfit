@@ -18,14 +18,15 @@ class TransactionalMailServiceTest extends TestCase
         config()->set('services.linkfit.logo_url', 'https://linkfit.az/brand/logolinkfit-dark.png');
 
         $mail = app(TransactionalMailService::class);
-        $mail->emailVerification('player@example.com', 'Player', 'verify-token');
+        $mail->emailVerification('player@example.com', 'Player', '123456');
         $mail->passwordReset('player@example.com', 'Player', '123456');
 
         Mail::assertSent(LinkfitTransactionalMail::class, function (LinkfitTransactionalMail $message): bool {
             $html = $this->htmlBody($message);
 
             return str_contains($html, 'https://linkfit.az/brand/logolinkfit-dark.png')
-                && str_contains($html, 'https://linkfit.az/az/verify-email?token=verify-token');
+                && str_contains($html, '123456')
+                && str_contains($html, 'https://linkfit.az/az/verify-email?step=code&amp;email=player%40example.com');
         });
         Mail::assertSent(LinkfitTransactionalMail::class, function (LinkfitTransactionalMail $message): bool {
             $html = $this->htmlBody($message);

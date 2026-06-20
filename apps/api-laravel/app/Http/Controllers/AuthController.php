@@ -85,8 +85,8 @@ class AuthController extends Controller
         if (! empty($data['ref'])) {
             $this->applyReferral($user, strtoupper(trim($data['ref'])));
         }
-        $token = $this->emailTokens->create($user->id, 'verify');
-        $this->mail->emailVerification($user->email, $user->display_name ?: 'Linkfit user', $token);
+        $code = $this->emailTokens->createCode($user->id, 'verify', 10);
+        $this->mail->emailVerification($user->email, $user->display_name ?: 'Linkfit user', $code);
 
         return response()->json($this->tokens->issueSession($user, $request->userAgent()), 201);
     }

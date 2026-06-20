@@ -23,17 +23,35 @@ class AuthExtrasController extends ApiController
     {
         $user = $this->authUser($request);
         if ($user->email_verified_at === null) {
-            $token = $this->emailTokens->create($user->id, 'verify');
-            $this->mail->emailVerification($user->email, $user->display_name ?: 'Linkfit user', $token);
+            $code = $this->emailTokens->createCode($user->id, 'verify', 10);
+            $this->mail->emailVerification($user->email, $user->display_name ?: 'Linkfit user', $code);
         }
 
-        return response()->json(['sent' => $user->email_verified_at === null]);
+        return response()->json([
+            'sent' => $user->email_verified_at === null,
+            'email' => $user->email,
+            'expires_in_minutes' => $user->email_verified_at === null ? 10 : null,
+        ]);
     }
 
     public function verifyEmail(Request $request): JsonResponse
     {
-        $data = $this->validateBody($request, ['token' => ['required', 'string', 'min:10', 'max:200']]);
-        $row = $this->emailTokens->consume($data['token'], 'verify');
+        $data = $this->validateBody($request, [
+            'email' => ['required_without:token', 'email'],
+            'code' => ['required_without:token', 'string', 'regex:/^\d{6}$/'],
+            'token' => ['required_without:code', 'string', 'min:6', 'max:200'],
+        ]);
+
+        if (isset($data['email'], $data['code'])) {
+            $user = User::where('email', strtolower($data['email']))->first();
+            if ($user === null) {
+                throw ApiException::unauthenticated('Invalid or expired code');
+            }
+            $row = $this->emailTokens->consumeCodeForUser($user->id, 'verify', $data['code']);
+        } else {
+            $row = $this->emailTokens->consume($data['token'], 'verify');
+        }
+
         DB::table('users')->where('id', $row->user_id)->update(['email_verified_at' => now(), 'updated_at' => now()]);
 
         return response()->json(['verified' => true]);

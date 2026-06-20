@@ -9,13 +9,14 @@ use Illuminate\Support\Facades\Mail;
 
 class TransactionalMailService
 {
-    public function emailVerification(string $email, string $name, string $token): void
+    public function emailVerification(string $email, string $name, string $code): void
     {
-        $url = $this->authUrl('verify-email', $token);
+        $url = $this->verifyEmailUrl($email);
         $this->send($email, 'Verify your Linkfit email', $this->layout(
             'Verify your email',
-            'Hi '.$this->e($name).', confirm your email address to finish setting up your Linkfit account.',
-            'Verify email',
+            '<p>Hi '.$this->e($name).', enter this 6-digit code to confirm your email address. It expires in 10 minutes.</p>'
+                .'<p style="font-size:28px;letter-spacing:0.18em;font-weight:700;margin:18px 0;color:#101418">'.$this->e($code).'</p>',
+            'Enter code',
             $url,
         ));
     }
@@ -194,12 +195,12 @@ class TransactionalMailService
             : rtrim($this->webUrl(), '/').'/brand/logolinkfit-dark.png';
     }
 
-    private function authUrl(string $path, string $token): string
+    private function verifyEmailUrl(string $email): string
     {
         $locale = trim((string) config('services.linkfit.web_locale', 'az'), '/');
         $prefix = $locale !== '' ? '/'.$locale : '';
 
-        return rtrim($this->webUrl(), '/').$prefix.'/'.$path.'?token='.urlencode($token);
+        return rtrim($this->webUrl(), '/').$prefix.'/verify-email?step=code&email='.urlencode($email);
     }
 
     private function resetUrl(string $email): string
