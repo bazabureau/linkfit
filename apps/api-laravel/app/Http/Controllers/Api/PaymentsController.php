@@ -93,6 +93,8 @@ class PaymentsController extends ApiController
 
     public function bookingStatus(Request $request, string $id): JsonResponse
     {
+        $this->assertPaymentHistoryAvailable();
+
         $user = $this->authUser($request);
         $booking = DB::table('bookings')->where('id', $id)->first();
         if ($booking === null) {
@@ -246,7 +248,7 @@ class PaymentsController extends ApiController
 
     private function paymentSheet(string $kind, string $ref, int $amount, string $currency, array $metadata): array
     {
-        if (! (bool) config('membership.payments_enabled')) {
+        if (! $this->paymentSurfaceAvailable()) {
             throw new ApiException(
                 409,
                 'PAYMENTS_DISABLED',
@@ -293,7 +295,7 @@ class PaymentsController extends ApiController
 
     private function assertPaymentHistoryAvailable(): void
     {
-        if ((bool) config('membership.payments_enabled')) {
+        if ($this->paymentSurfaceAvailable()) {
             return;
         }
 
@@ -302,6 +304,12 @@ class PaymentsController extends ApiController
             'PAYMENTS_NOT_AVAILABLE',
             'This feature is not available yet.'
         );
+    }
+
+    private function paymentSurfaceAvailable(): bool
+    {
+        return (bool) config('membership.public_subscriptions_enabled')
+            && (bool) config('membership.payments_enabled');
     }
 
     private function bookingPayments(string $userId, ?string $status)
