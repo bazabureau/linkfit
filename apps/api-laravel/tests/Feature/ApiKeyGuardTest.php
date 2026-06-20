@@ -90,6 +90,21 @@ class ApiKeyGuardTest extends TestCase
             ->assertJsonPath('api', 'laravel');
     }
 
+    public function test_null_or_malformed_browser_origin_is_rejected(): void
+    {
+        config()->set('app.require_api_key', true);
+        config()->set('app.api_keys', ['test-public-client-key-1234567890abcdef']);
+        config()->set('cors.allowed_origins', ['https://linkfit.az']);
+
+        foreach (['null', 'file://local-app', 'not-a-valid-origin'] as $origin) {
+            $this->getJson('/api/v1/app/metadata', [
+                'Origin' => $origin,
+                'X-Linkfit-App-Key' => 'test-public-client-key-1234567890abcdef',
+            ])
+                ->assertForbidden();
+        }
+    }
+
     public function test_native_requests_without_origin_still_use_public_api_key_only(): void
     {
         config()->set('app.require_api_key', true);

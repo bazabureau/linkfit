@@ -20,9 +20,14 @@ class BrowserOriginGuard
             return $next($request);
         }
 
-        $origin = $this->normalizeOrigin((string) $request->headers->get('Origin', ''));
-        if ($origin === null) {
+        $rawOrigin = trim((string) $request->headers->get('Origin', ''));
+        if ($rawOrigin === '') {
             return $next($request);
+        }
+
+        $origin = $this->normalizeOrigin($rawOrigin);
+        if ($origin === null) {
+            throw ApiException::forbidden('Origin is not allowed');
         }
 
         $allowed = array_values(array_filter(array_map(
