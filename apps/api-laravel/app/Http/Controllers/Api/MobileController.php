@@ -114,7 +114,7 @@ class MobileController extends ApiController
         $subscriptionsEnabled = $membership->publicSubscriptionsEnabled();
         $payments = $membership->paymentState();
 
-        return [
+        $payload = [
             'app' => [
                 'brand' => 'LinkFit',
                 'environment' => app()->environment(),
@@ -160,6 +160,15 @@ class MobileController extends ApiController
                 'moderation_review' => true,
             ],
         ];
+
+        if ($subscriptionsEnabled) {
+            $payload['membership'] = [
+                'plans' => $membership->featureMatrix(),
+                'payments' => $payments,
+            ];
+        }
+
+        return $payload;
     }
 
     private function configAccessPayload(MembershipService $membership, bool $subscriptionsEnabled): array

@@ -52,11 +52,13 @@ class AppInfoController extends ApiController
 
     public function capabilities(): JsonResponse
     {
+        $showSubscriptionSurface = $this->showSubscriptionSurface();
         $showPaymentSurface = $this->showPaymentSurface();
         $clients = [
             'ios' => [
                 'auth' => true,
                 'account_security' => true,
+                'membership' => true,
                 'catalog' => true,
                 'catalog_filters' => true,
                 'court_availability' => true,
@@ -93,6 +95,7 @@ class AppInfoController extends ApiController
             'web' => [
                 'auth' => true,
                 'account_security' => true,
+                'membership' => true,
                 'catalog' => true,
                 'catalog_filters' => true,
                 'checkout' => true,
@@ -195,6 +198,9 @@ class AppInfoController extends ApiController
                 'moderation_content_delete' => true,
             ],
         ];
+        if (! $showSubscriptionSurface) {
+            unset($clients['ios']['membership'], $clients['web']['membership']);
+        }
         if (! $showPaymentSurface) {
             unset($clients['ios']['payment_history'], $clients['web']['payment_history']);
         }
@@ -225,6 +231,11 @@ class AppInfoController extends ApiController
             'booking_update' => '/api/v1/bookings/{id}',
             'booking_cancel' => '/api/v1/bookings/{id}/cancel',
             'booking_receipt' => '/api/v1/bookings/{id}/receipt',
+            'membership_plans' => '/api/v1/membership/plans',
+            'me_membership' => '/api/v1/me/membership',
+            'membership_subscribe' => '/api/v1/membership/subscribe',
+            'membership_portal' => '/api/v1/me/membership/portal',
+            'membership_cancel' => '/api/v1/membership/cancel',
             'payment_history' => '/api/v1/payments/history',
             'payment_summary' => '/api/v1/payments/summary',
             'web_bootstrap' => '/api/v1/web/bootstrap',
@@ -253,6 +264,15 @@ class AppInfoController extends ApiController
             'saved_courts' => '/api/v1/me/saved-courts',
             'save_court' => '/api/v1/courts/{id}/save',
         ];
+        if (! $showSubscriptionSurface) {
+            unset(
+                $endpoints['membership_plans'],
+                $endpoints['me_membership'],
+                $endpoints['membership_subscribe'],
+                $endpoints['membership_portal'],
+                $endpoints['membership_cancel'],
+            );
+        }
         if (! $showPaymentSurface) {
             unset($endpoints['payment_history'], $endpoints['payment_summary']);
         }
@@ -348,8 +368,13 @@ class AppInfoController extends ApiController
 
     private function showPaymentSurface(): bool
     {
-        return (bool) config('membership.public_subscriptions_enabled')
+        return $this->showSubscriptionSurface()
             && (bool) config('membership.payments_enabled');
+    }
+
+    private function showSubscriptionSurface(): bool
+    {
+        return (bool) config('membership.public_subscriptions_enabled');
     }
 
     public function appleAppSiteAssociation(): JsonResponse

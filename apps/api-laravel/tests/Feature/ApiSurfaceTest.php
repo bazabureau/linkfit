@@ -69,6 +69,7 @@ class ApiSurfaceTest extends TestCase
     {
         config()->set('membership.public_subscriptions_enabled', true);
         config()->set('membership.payments_enabled', true);
+        config()->set('membership.payment_provider', 'azerbaijan-provider');
         config()->set('membership.global_full_access_until', null);
 
         $this->getJson('/api/v1/mobile/config')
@@ -79,7 +80,10 @@ class ApiSurfaceTest extends TestCase
             ->assertJsonPath('features.payments', true)
             ->assertJsonPath('features.membership', true)
             ->assertJsonPath('features.premium', true)
-            ->assertJsonPath('features.free_launch_access', false);
+            ->assertJsonPath('features.free_launch_access', false)
+            ->assertJsonPath('membership.plans.free.name', 'Free')
+            ->assertJsonPath('membership.plans.premium.name', 'Premium')
+            ->assertJsonPath('membership.payments.status', 'adapter_pending');
     }
 
     public function test_app_capabilities_hide_payment_surface_during_free_access_period(): void
@@ -89,6 +93,13 @@ class ApiSurfaceTest extends TestCase
 
         $this->getJson('/api/v1/app/capabilities')
             ->assertOk()
+            ->assertJsonMissingPath('clients.ios.membership')
+            ->assertJsonMissingPath('clients.web.membership')
+            ->assertJsonMissingPath('endpoints.membership_plans')
+            ->assertJsonMissingPath('endpoints.me_membership')
+            ->assertJsonMissingPath('endpoints.membership_subscribe')
+            ->assertJsonMissingPath('endpoints.membership_portal')
+            ->assertJsonMissingPath('endpoints.membership_cancel')
             ->assertJsonMissingPath('clients.ios.payment_history')
             ->assertJsonMissingPath('clients.web.payment_history')
             ->assertJsonMissingPath('endpoints.payment_history')
@@ -102,6 +113,13 @@ class ApiSurfaceTest extends TestCase
 
         $this->getJson('/api/v1/app/capabilities')
             ->assertOk()
+            ->assertJsonMissingPath('clients.ios.membership')
+            ->assertJsonMissingPath('clients.web.membership')
+            ->assertJsonMissingPath('endpoints.membership_plans')
+            ->assertJsonMissingPath('endpoints.me_membership')
+            ->assertJsonMissingPath('endpoints.membership_subscribe')
+            ->assertJsonMissingPath('endpoints.membership_portal')
+            ->assertJsonMissingPath('endpoints.membership_cancel')
             ->assertJsonMissingPath('clients.ios.payment_history')
             ->assertJsonMissingPath('clients.web.payment_history')
             ->assertJsonMissingPath('endpoints.payment_history')
@@ -115,6 +133,13 @@ class ApiSurfaceTest extends TestCase
 
         $this->getJson('/api/v1/app/capabilities')
             ->assertOk()
+            ->assertJsonPath('clients.ios.membership', true)
+            ->assertJsonPath('clients.web.membership', true)
+            ->assertJsonPath('endpoints.membership_plans', '/api/v1/membership/plans')
+            ->assertJsonPath('endpoints.me_membership', '/api/v1/me/membership')
+            ->assertJsonPath('endpoints.membership_subscribe', '/api/v1/membership/subscribe')
+            ->assertJsonPath('endpoints.membership_portal', '/api/v1/me/membership/portal')
+            ->assertJsonPath('endpoints.membership_cancel', '/api/v1/membership/cancel')
             ->assertJsonPath('clients.ios.payment_history', true)
             ->assertJsonPath('clients.web.payment_history', true)
             ->assertJsonPath('endpoints.payment_history', '/api/v1/payments/history')
