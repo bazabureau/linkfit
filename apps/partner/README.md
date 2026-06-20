@@ -133,17 +133,6 @@ npm run build        # produces .next/
 npm run start        # production server, port 3100
 ```
 
-### Vercel
-
-The app is Vercel-friendly out of the box:
-
-1. Import `apps/admin` as the Vercel project root.
-2. Set environment variables in the Vercel dashboard:
-   - `NEXT_PUBLIC_API_URL` — e.g. `https://api.linkfit.app`
-   - `NEXT_PUBLIC_API_PREFIX` — `/api/v1`
-3. Build command: `npm run build`. Output: `.next` (default).
-4. Restrict access via Vercel team SSO or a Vercel password (the panel is for internal use only).
-
 ### Self-hosted
 
 `npm run build && npm run start` behind any Node-friendly reverse proxy (nginx, Caddy). The process is stateless — scale horizontally.

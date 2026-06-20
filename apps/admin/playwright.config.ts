@@ -5,7 +5,7 @@ import { defineConfig, devices } from "@playwright/test";
  *
  * Boots the Next.js dev server on :3100 before running specs, and points
  * tests at the Linkfit API on :3000. Override via env when running against
- * staging or a Vercel preview.
+ * staging or a deployed server.
  */
 const PORT = Number(process.env.PORT ?? 3100);
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`;
