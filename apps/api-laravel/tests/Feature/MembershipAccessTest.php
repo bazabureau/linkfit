@@ -324,6 +324,50 @@ class MembershipAccessTest extends TestCase
         }
     }
 
+    public function test_membership_show_returns_launch_access_without_subscription_details(): void
+    {
+        config()->set('membership.public_subscriptions_enabled', false);
+        config()->set('membership.global_full_access_until', now()->addDays(50)->toIso8601String());
+        config()->set('membership.free_trial_days', 0);
+
+        DB::table('users')->insert([
+            'id' => 'user-launch-membership',
+            'created_at' => now()->subYear(),
+        ]);
+        DB::table('games')->insert([
+            'id' => 'launch-game-1',
+            'host_user_id' => 'user-launch-membership',
+            'created_at' => now(),
+            'deleted_at' => null,
+        ]);
+        DB::table('bookings')->insert([
+            'id' => 'launch-booking-1',
+            'user_id' => 'user-launch-membership',
+            'status' => 'paid',
+            'created_at' => now(),
+        ]);
+
+        $response = app(MembershipController::class)->show($this->requestForUser('user-launch-membership'));
+        $payload = $response->getData(true);
+
+        $this->assertSame('free_launch', $payload['mode']);
+        $this->assertTrue($payload['access']['full_access']);
+        $this->assertTrue($payload['access']['on_trial']);
+        $this->assertTrue($payload['access']['global_full_access']);
+        $this->assertNotNull($payload['access']['trial_ends_at']);
+        $this->assertSame(1, $payload['usage']['games_this_month']);
+        $this->assertSame(1, $payload['usage']['bookings_this_month']);
+        $this->assertNull($payload['usage']['games_limit']);
+        $this->assertFalse($payload['features']['payments']);
+        $this->assertFalse($payload['features']['membership']);
+        $this->assertFalse($payload['features']['premium']);
+        $this->assertArrayNotHasKey('tier', $payload);
+        $this->assertArrayNotHasKey('is_premium', $payload);
+        $this->assertArrayNotHasKey('billing', $payload);
+        $this->assertArrayNotHasKey('plans', $payload);
+        $this->assertArrayNotHasKey('payments', $payload);
+    }
+
     private function requestForUser(string $userId): Request
     {
         $request = Request::create('/api/v1/membership/cancel', 'POST');

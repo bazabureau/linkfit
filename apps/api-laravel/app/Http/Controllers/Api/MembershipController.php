@@ -174,13 +174,17 @@ class MembershipController extends ApiController
             ? $svc->publicFeaturesForUser($userId)
             : $svc->publicFeaturesForTier('premium');
 
-        $fullAccess = $userId !== null
-            ? $svc->resolve($userId)->is_premium
-            : true;
+        $state = $userId !== null ? $svc->resolve($userId) : null;
+        $fullAccess = $state?->is_premium ?? true;
+        $usage = $userId !== null ? $svc->usage($userId) : null;
 
-        return [
+        $payload = [
+            'mode' => 'free_launch',
             'access' => [
                 'full_access' => $fullAccess,
+                'on_trial' => $state?->on_trial ?? true,
+                'trial_ends_at' => $state?->trial_ends_at ?? (config('membership.global_full_access_until') ?: null),
+                'global_full_access' => $state?->global_full_access ?? (config('membership.global_full_access_until') !== null),
                 'features' => $features,
             ],
             'features' => [
@@ -189,7 +193,24 @@ class MembershipController extends ApiController
                 'premium' => false,
                 'free_launch_access' => true,
             ],
+            'limits' => [
+                'games_per_month' => null,
+                'bookings_per_month' => null,
+            ],
+            'message' => 'Full access is active during the launch period. Subscription and payment controls are not available yet.',
+            'next_action' => null,
         ];
+
+        if ($usage !== null) {
+            $payload['usage'] = [
+                'games_this_month' => $usage['games_this_month'],
+                'bookings_this_month' => $usage['bookings_this_month'],
+                'games_limit' => $usage['games_limit'],
+                'bookings_limit' => $usage['bookings_limit'],
+            ];
+        }
+
+        return $payload;
     }
 
     private function statePayload(object $row): array
