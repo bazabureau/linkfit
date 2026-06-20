@@ -13,6 +13,15 @@ class ApiSurfaceTest extends TestCase
             ->assertJson(['ok' => true]);
     }
 
+    public function test_api_root_is_closed_and_does_not_render_framework_welcome_page(): void
+    {
+        $this->getJson('/')
+            ->assertNotFound()
+            ->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive')
+            ->assertJsonPath('error.code', 'NOT_FOUND')
+            ->assertJsonMissingPath('laravel');
+    }
+
     public function test_app_metadata_reports_laravel_api(): void
     {
         $this->getJson('/api/v1/app/metadata')
