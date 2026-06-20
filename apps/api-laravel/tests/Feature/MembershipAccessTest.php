@@ -324,6 +324,48 @@ class MembershipAccessTest extends TestCase
         }
     }
 
+    public function test_subscribe_is_hidden_before_body_validation_when_subscriptions_are_disabled(): void
+    {
+        config()->set('membership.public_subscriptions_enabled', false);
+
+        DB::table('users')->insert([
+            'id' => 'user-hidden-subscribe',
+            'created_at' => now()->subYear(),
+        ]);
+
+        try {
+            app(MembershipController::class)->subscribe($this->requestForUser(
+                'user-hidden-subscribe',
+                '/api/v1/membership/subscribe',
+                ['tier' => 'enterprise']
+            ));
+            $this->fail('Expected subscribe to be hidden before validating subscription fields.');
+        } catch (ApiException $exception) {
+            $this->assertSame('SUBSCRIPTIONS_NOT_AVAILABLE', $exception->wireCode());
+            $this->assertSame(404, $exception->getStatusCode());
+            $this->assertNull($exception->getDetails());
+        }
+    }
+
+    public function test_billing_portal_is_hidden_until_public_subscriptions_are_enabled(): void
+    {
+        config()->set('membership.public_subscriptions_enabled', false);
+
+        DB::table('users')->insert([
+            'id' => 'user-hidden-portal',
+            'created_at' => now()->subYear(),
+        ]);
+
+        try {
+            app(MembershipController::class)->portal($this->requestForUser('user-hidden-portal', '/api/v1/me/membership/portal'));
+            $this->fail('Expected billing portal to be hidden.');
+        } catch (ApiException $exception) {
+            $this->assertSame('SUBSCRIPTIONS_NOT_AVAILABLE', $exception->wireCode());
+            $this->assertSame(404, $exception->getStatusCode());
+            $this->assertNull($exception->getDetails());
+        }
+    }
+
     public function test_membership_show_returns_launch_access_without_subscription_details(): void
     {
         config()->set('membership.public_subscriptions_enabled', false);
@@ -368,9 +410,13 @@ class MembershipAccessTest extends TestCase
         $this->assertArrayNotHasKey('payments', $payload);
     }
 
-    private function requestForUser(string $userId): Request
+    private function requestForUser(
+        string $userId,
+        string $path = '/api/v1/membership/cancel',
+        array $payload = []
+    ): Request
     {
-        $request = Request::create('/api/v1/membership/cancel', 'POST');
+        $request = Request::create($path, 'POST', $payload);
         $user = new User();
         $user->forceFill(['id' => $userId]);
         $request->attributes->set('auth_user', $user);

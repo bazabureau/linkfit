@@ -53,19 +53,13 @@ class MembershipController extends ApiController
 
     public function subscribe(Request $request): JsonResponse
     {
+        $this->assertPublicSubscriptionsAvailable();
+
         $user = $this->authUser($request);
         $data = $this->validateBody($request, [
             'tier' => ['sometimes', 'in:premium'],
         ]);
         $tier = $data['tier'] ?? 'premium';
-
-        if (! app(MembershipService::class)->publicSubscriptionsEnabled()) {
-            throw new ApiException(
-                404,
-                'SUBSCRIPTIONS_NOT_AVAILABLE',
-                'This feature is not available yet.'
-            );
-        }
 
         if (! (bool) config('membership.payments_enabled')) {
             return response()->json([
@@ -97,15 +91,9 @@ class MembershipController extends ApiController
 
     public function portal(Request $request): JsonResponse
     {
-        $user = $this->authUser($request);
+        $this->assertPublicSubscriptionsAvailable();
 
-        if (! app(MembershipService::class)->publicSubscriptionsEnabled()) {
-            throw new ApiException(
-                404,
-                'SUBSCRIPTIONS_NOT_AVAILABLE',
-                'This feature is not available yet.'
-            );
-        }
+        $user = $this->authUser($request);
 
         $payments = $this->paymentState();
 
@@ -122,15 +110,9 @@ class MembershipController extends ApiController
 
     public function cancel(Request $request): JsonResponse
     {
-        $user = $this->authUser($request);
+        $this->assertPublicSubscriptionsAvailable();
 
-        if (! app(MembershipService::class)->publicSubscriptionsEnabled()) {
-            throw new ApiException(
-                404,
-                'SUBSCRIPTIONS_NOT_AVAILABLE',
-                'This feature is not available yet.'
-            );
-        }
+        $user = $this->authUser($request);
 
         $row = $this->membershipForUser($user->id);
 
@@ -155,6 +137,19 @@ class MembershipController extends ApiController
             'cancel_at_period_end' => (bool) $row->cancel_at_period_end,
             'current_period_end' => $this->iso($row->current_period_end),
         ]);
+    }
+
+    private function assertPublicSubscriptionsAvailable(): void
+    {
+        if (app(MembershipService::class)->publicSubscriptionsEnabled()) {
+            return;
+        }
+
+        throw new ApiException(
+            404,
+            'SUBSCRIPTIONS_NOT_AVAILABLE',
+            'This feature is not available yet.'
+        );
     }
 
     private function membershipForUser(string $userId): object
