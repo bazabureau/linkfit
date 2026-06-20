@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\GamesController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\InvitationsController;
 use App\Http\Controllers\Api\InternalController;
+use App\Http\Controllers\Api\LaunchWaitlistController;
 use App\Http\Controllers\Api\LessonsController;
 use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\MeController;
@@ -79,6 +80,7 @@ Route::prefix('api/v1')->group(function () {
     Route::get('app/version', [AppInfoController::class, 'version']);
     Route::get('app/metadata', [AppInfoController::class, 'metadata']);
     Route::get('app/capabilities', [AppInfoController::class, 'capabilities']);
+    Route::post('launch-waitlist', [LaunchWaitlistController::class, 'store'])->middleware('throttle:10,1');
     Route::get('mobile/config', [MobileController::class, 'config']);
     Route::get('membership/plans', [MembershipController::class, 'plans']);
     Route::get('links/resolve', [MobileController::class, 'resolveLink']);
