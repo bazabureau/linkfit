@@ -137,7 +137,7 @@ class MobileController extends ApiController
             ],
             'access' => [
                 'full_access' => true,
-                'features' => $membership->featuresForTier('premium'),
+                'features' => $membership->publicFeaturesForTier('premium'),
             ],
             'features' => [
                 'apple_login' => filled(config('services.apple.client_id')),
@@ -169,7 +169,7 @@ class MobileController extends ApiController
 
         return [
             'full_access' => $state->is_premium,
-            'features' => $membership->featuresForUser($userId),
+            'features' => $membership->publicFeaturesForUser($userId),
         ];
     }
 

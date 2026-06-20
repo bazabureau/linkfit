@@ -103,6 +103,18 @@ class MembershipService
         return $this->featuresForTier($this->resolve($userId)->is_premium ? 'premium' : 'free');
     }
 
+    /** @return array<int,string> */
+    public function publicFeaturesForTier(string $tier): array
+    {
+        return $this->publicFeatureList($this->featuresForTier($tier));
+    }
+
+    /** @return array<int,string> */
+    public function publicFeaturesForUser(string $userId): array
+    {
+        return $this->publicFeatureList($this->featuresForUser($userId));
+    }
+
     public function canUseFeature(string $userId, string $feature): bool
     {
         return in_array($feature, $this->featuresForUser($userId), true);
@@ -228,6 +240,19 @@ class MembershipService
     public function publicSubscriptionsEnabled(): bool
     {
         return (bool) config('membership.public_subscriptions_enabled', false);
+    }
+
+    /** @param array<int,string> $features @return array<int,string> */
+    private function publicFeatureList(array $features): array
+    {
+        if ($this->publicSubscriptionsEnabled()) {
+            return array_values($features);
+        }
+
+        return array_values(array_filter(
+            $features,
+            fn (string $feature): bool => ! str_contains($feature, 'premium')
+        ));
     }
 
     public function paymentState(): array

@@ -55,6 +55,7 @@ class DiscoveryAccessPayloadTest extends TestCase
 
         $this->assertArrayHasKey('access', $payload);
         $this->assertTrue($payload['access']['full_access']);
+        $this->assertNotContains('premium_badge', $payload['access']['features']);
         $this->assertSame([], $payload['feature_locks']);
         $this->assertArrayNotHasKey('is_premium', $payload);
         $this->assertArrayNotHasKey('premium_locked', $payload);

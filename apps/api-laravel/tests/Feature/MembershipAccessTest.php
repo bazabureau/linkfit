@@ -144,6 +144,7 @@ class MembershipAccessTest extends TestCase
         $this->assertTrue($service->canUseFeature('user-feature-launch', 'advanced_insights'));
         $this->assertTrue($service->canUseFeature('user-feature-launch', 'priority_matchmaking'));
         $this->assertContains('premium_badge', $service->featuresForUser('user-feature-launch'));
+        $this->assertNotContains('premium_badge', $service->publicFeaturesForUser('user-feature-launch'));
     }
 
     public function test_public_user_payload_hides_subscription_state(): void

@@ -357,7 +357,7 @@ class DiscoveryController extends ApiController
                 ->resolve($user->id, optional($user->created_at)->toIso8601String());
             $access = [
                 'full_access' => $m->is_premium,
-                'features' => $membership->featuresForUser((string) $user->id),
+                'features' => $membership->publicFeaturesForUser((string) $user->id),
             ];
         } catch (\Throwable $e) {
             report($e);
@@ -711,7 +711,7 @@ class DiscoveryController extends ApiController
         $payload = [
             'access' => [
                 'full_access' => $state->is_premium,
-                'features' => $membership->featuresForUser($userId),
+                'features' => $membership->publicFeaturesForUser($userId),
             ],
             'feature_locks' => $allowed ? [] : [[
                 'feature' => $feature,

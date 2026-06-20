@@ -57,6 +57,8 @@ class ApiSurfaceTest extends TestCase
             ->assertJsonPath('access.full_access', true)
             ->assertJsonMissingPath('payments')
             ->assertJsonMissingPath('membership.plans');
+
+        $this->assertNotContains('premium_badge', $this->getJson('/api/v1/mobile/config')->json('access.features'));
     }
 
     public function test_app_capabilities_hide_payment_surface_during_free_access_period(): void
@@ -97,6 +99,8 @@ class ApiSurfaceTest extends TestCase
             ->assertJsonPath('features.premium', false)
             ->assertJsonMissingPath('plans')
             ->assertJsonMissingPath('payments');
+
+        $this->assertNotContains('premium_badge', $this->getJson('/api/v1/membership/plans')->json('access.features'));
     }
 
     public function test_membership_plans_can_be_exposed_when_public_subscriptions_are_enabled(): void

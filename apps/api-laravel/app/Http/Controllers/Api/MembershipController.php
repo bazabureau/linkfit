@@ -171,8 +171,8 @@ class MembershipController extends ApiController
     private function publicAccessPayload(MembershipService $svc, ?string $userId = null): array
     {
         $features = $userId !== null
-            ? $svc->featuresForUser($userId)
-            : $svc->featuresForTier('premium');
+            ? $svc->publicFeaturesForUser($userId)
+            : $svc->publicFeaturesForTier('premium');
 
         $fullAccess = $userId !== null
             ? $svc->resolve($userId)->is_premium
