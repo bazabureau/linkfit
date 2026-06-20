@@ -481,8 +481,20 @@ class SocialController extends ApiController
             'is_followed_by_me' => isset($followedIds[$u->id]),
             'followers_count' => (int) $u->followers_count,
             'last_seen_at' => $this->iso($u->last_seen_at ?? null),
+            'is_online' => $this->isOnline($u->last_seen_at ?? null),
             ...$this->badgeFields($u),
         ];
+    }
+
+    private function isOnline(mixed $lastSeenAt): bool
+    {
+        if ($lastSeenAt === null) {
+            return false;
+        }
+
+        $timestamp = strtotime((string) $lastSeenAt);
+
+        return $timestamp !== false && $timestamp >= now()->subMinutes(2)->getTimestamp();
     }
 
     /**

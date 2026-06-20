@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\ConversationTyping;
+use App\Events\ConversationUpdated;
+use App\Events\MessageSent;
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Support\ApiException;
@@ -169,6 +172,7 @@ class MessagingController extends ApiController
                 'other.id as other_user_id',
                 'other.display_name as other_display_name',
                 'other.photo_url as other_photo_url',
+                'other.last_seen_at as other_last_seen_at',
                 'c.last_message_at',
                 'me.last_read_at',
             ]);
@@ -199,6 +203,8 @@ class MessagingController extends ApiController
                     'other_user_id' => $r->other_user_id,
                     'other_display_name' => $r->other_display_name,
                     'other_photo_url' => $r->other_photo_url,
+                    'other_last_seen_at' => $this->iso($r->other_last_seen_at),
+                    'other_is_online' => $this->isOnline($r->other_last_seen_at),
                     'last_message_body' => $last->body ?? null,
                     'last_message_at' => $this->iso($r->last_message_at),
                     'unread' => $last !== null && ($r->last_read_at === null || $last->created_at > $r->last_read_at),
@@ -235,6 +241,7 @@ class MessagingController extends ApiController
             ->value('a.conversation_id');
         if ($existing !== null) {
             DB::table('conversation_participants')->where('conversation_id', $existing)->whereIn('user_id', [$user->id, $data['other_user_id']])->update(['left_at' => null]);
+            $this->broadcastConversationUpdated((string) $existing, 'conversation_opened');
 
             return response()->json(['conversation_id' => $existing]);
         }
@@ -247,6 +254,7 @@ class MessagingController extends ApiController
                 ['conversation_id' => $id, 'user_id' => $data['other_user_id']],
             ]);
         });
+        $this->broadcastConversationUpdated($id, 'conversation_created');
 
         return response()->json(['conversation_id' => $id]);
     }
@@ -285,6 +293,7 @@ class MessagingController extends ApiController
             ['left_at' => null]
         );
         $row = DB::table('conversations')->where('id', $id)->first();
+        $this->broadcastConversationUpdated($id, $created ? 'conversation_created' : 'conversation_opened');
 
         return response()->json([
             'conversation_id' => $id,
@@ -329,6 +338,8 @@ class MessagingController extends ApiController
                 'conversation_id' => $id,
                 'other_user_id' => $id,
                 'other_display_name' => $conversation->title ?? 'Group chat',
+                'other_last_seen_at' => null,
+                'other_is_online' => false,
                 'other_last_read_at' => null,
                 'messages' => $messages,
             ]);
@@ -339,7 +350,7 @@ class MessagingController extends ApiController
             ->join('users as u', 'u.id', '=', 'cp.user_id')
             ->where('cp.conversation_id', $id)
             ->where('cp.user_id', '!=', $user->id)
-            ->first(['u.id', 'u.display_name', 'u.photo_url', 'cp.last_read_at']);
+            ->first(['u.id', 'u.display_name', 'u.photo_url', 'u.last_seen_at', 'cp.last_read_at']);
         if ($other === null) {
             throw ApiException::notFound('Conversation not found');
         }
@@ -348,6 +359,9 @@ class MessagingController extends ApiController
             'conversation_id' => $id,
             'other_user_id' => $other->id,
             'other_display_name' => $other->display_name,
+            'other_photo_url' => $other->photo_url,
+            'other_last_seen_at' => $this->iso($other->last_seen_at),
+            'other_is_online' => $this->isOnline($other->last_seen_at),
             'other_last_read_at' => $this->iso($other->last_read_at),
             'messages' => $messages,
         ]);
@@ -401,6 +415,7 @@ class MessagingController extends ApiController
                 'participant_user_id' => $data['user_id'],
             ]);
         }
+        $this->broadcastConversationUpdated($id, 'participant_added');
 
         return response()->json([
             'added' => (bool) $added,
@@ -425,17 +440,20 @@ class MessagingController extends ApiController
                 'participant_user_id' => $userId,
             ]);
         }
+        $this->broadcastConversationUpdated($id, 'participant_removed', [(string) $userId]);
 
         return response()->json(null, 204);
     }
 
     public function leave(Request $request, string $id): JsonResponse
     {
+        $userId = (string) $this->authUser($request)->id;
         DB::table('conversation_participants')
             ->where('conversation_id', $id)
-            ->where('user_id', $this->authUser($request)->id)
+            ->where('user_id', $userId)
             ->whereNull('left_at')
             ->update(['left_at' => now()]);
+        $this->broadcastConversationUpdated($id, 'participant_left', [$userId]);
 
         return response()->json(null, 204);
     }
@@ -484,11 +502,12 @@ class MessagingController extends ApiController
         // broadcasting outage can NEVER fail message delivery (chat also polls).
         if (! in_array((string) config('broadcasting.default'), ['log', 'null', ''], true)) {
             try {
-                broadcast(new \App\Events\MessageSent($id, $payload))->toOthers();
+                broadcast(new MessageSent($id, $payload))->toOthers();
             } catch (\Throwable $e) {
                 report($e);
             }
         }
+        $this->broadcastConversationUpdated($id, 'message_sent');
 
         // Persisted notification + push for every OTHER active participant (group
         // threads notify all of them; a direct thread has exactly one). Wrapped so
@@ -527,9 +546,80 @@ class MessagingController extends ApiController
 
     public function typing(Request $request, string $id): JsonResponse
     {
-        $this->authUser($request);
+        $user = $this->authUser($request);
+        if (! DB::table('conversation_participants')->where('conversation_id', $id)->where('user_id', $user->id)->whereNull('left_at')->exists()) {
+            throw ApiException::forbidden('Conversation not available');
+        }
+        $data = $this->validateBody($request, [
+            'is_typing' => ['required', 'boolean'],
+        ]);
+
+        $this->broadcastTyping($id, (string) $user->id, (bool) $data['is_typing']);
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * @param  array<int,string>  $extraUserIds
+     */
+    private function broadcastConversationUpdated(string $conversationId, string $reason, array $extraUserIds = []): void
+    {
+        if (! $this->broadcastingEnabled()) {
+            return;
+        }
+
+        $userIds = array_values(array_unique([...$this->activeParticipantIds($conversationId), ...$extraUserIds]));
+        if ($userIds === []) {
+            return;
+        }
+
+        try {
+            broadcast(new ConversationUpdated($conversationId, $userIds, $reason));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    private function broadcastTyping(string $conversationId, string $userId, bool $isTyping): void
+    {
+        if (! $this->broadcastingEnabled()) {
+            return;
+        }
+
+        try {
+            broadcast(new ConversationTyping($conversationId, $userId, $isTyping))->toOthers();
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function activeParticipantIds(string $conversationId): array
+    {
+        return DB::table('conversation_participants')
+            ->where('conversation_id', $conversationId)
+            ->whereNull('left_at')
+            ->pluck('user_id')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+    }
+
+    private function broadcastingEnabled(): bool
+    {
+        return ! in_array((string) config('broadcasting.default'), ['log', 'null', ''], true);
+    }
+
+    private function isOnline(mixed $lastSeenAt): bool
+    {
+        if ($lastSeenAt === null) {
+            return false;
+        }
+
+        $timestamp = strtotime((string) $lastSeenAt);
+
+        return $timestamp !== false && $timestamp >= now()->subMinutes(2)->getTimestamp();
     }
 
     private function notificationPayload(object $n): array

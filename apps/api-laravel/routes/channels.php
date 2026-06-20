@@ -15,3 +15,7 @@ Broadcast::channel('conversation.{conversationId}', function ($user, string $con
         ->whereNull('left_at')
         ->exists();
 });
+
+Broadcast::channel('user.{userId}', function ($user, string $userId) {
+    return (string) $user->id === $userId;
+});
