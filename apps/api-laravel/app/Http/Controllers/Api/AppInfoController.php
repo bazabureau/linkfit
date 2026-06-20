@@ -348,7 +348,8 @@ class AppInfoController extends ApiController
 
     private function showPaymentSurface(): bool
     {
-        return (bool) config('membership.payments_enabled');
+        return (bool) config('membership.public_subscriptions_enabled')
+            && (bool) config('membership.payments_enabled');
     }
 
     public function appleAppSiteAssociation(): JsonResponse

@@ -95,10 +95,23 @@ class ApiSurfaceTest extends TestCase
             ->assertJsonMissingPath('endpoints.payment_summary');
     }
 
-    public function test_app_capabilities_expose_payment_surface_when_public_payments_are_enabled(): void
+    public function test_app_capabilities_hide_payment_surface_when_subscriptions_are_private_even_if_payments_are_enabled(): void
     {
         config()->set('membership.payments_enabled', true);
         config()->set('membership.public_subscriptions_enabled', false);
+
+        $this->getJson('/api/v1/app/capabilities')
+            ->assertOk()
+            ->assertJsonMissingPath('clients.ios.payment_history')
+            ->assertJsonMissingPath('clients.web.payment_history')
+            ->assertJsonMissingPath('endpoints.payment_history')
+            ->assertJsonMissingPath('endpoints.payment_summary');
+    }
+
+    public function test_app_capabilities_expose_payment_surface_when_public_payments_are_enabled(): void
+    {
+        config()->set('membership.payments_enabled', true);
+        config()->set('membership.public_subscriptions_enabled', true);
 
         $this->getJson('/api/v1/app/capabilities')
             ->assertOk()
