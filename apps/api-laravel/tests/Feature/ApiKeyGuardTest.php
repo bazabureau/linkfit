@@ -170,6 +170,19 @@ class ApiKeyGuardTest extends TestCase
             ->assertJson(['ok' => true]);
     }
 
+    public function test_production_requires_api_key_gate_to_be_enabled(): void
+    {
+        $this->app->detectEnvironment(fn () => 'production');
+        config()->set('app.require_api_key', false);
+        config()->set('app.api_keys', []);
+        config()->set('app.api_key_hashes', []);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('REQUIRE_API_KEY must be true in production');
+
+        $this->invokeApiKeyBootGuard();
+    }
+
     public function test_production_public_app_keys_must_be_hash_only(): void
     {
         $this->app->detectEnvironment(fn () => 'production');

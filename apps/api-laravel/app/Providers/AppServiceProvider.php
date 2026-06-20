@@ -135,6 +135,12 @@ class AppServiceProvider extends ServiceProvider
     private function assertStrongApiKeys(): void
     {
         if (! (bool) config('app.require_api_key')) {
+            if ($this->app->isProduction()) {
+                throw new \RuntimeException(
+                    'REQUIRE_API_KEY must be true in production so API routes are limited to Linkfit clients.'
+                );
+            }
+
             return;
         }
 
