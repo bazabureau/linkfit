@@ -144,7 +144,7 @@ class GamesController extends ApiController
                 ->whereNull('deleted_at')
                 ->first();
             if ($existing !== null) {
-                return $this->show($existing->id);
+                return $this->showResponse($request, (string) $existing->id);
             }
         }
 
@@ -178,10 +178,15 @@ class GamesController extends ApiController
             ]);
         });
 
-        return $this->show($id, 201);
+        return $this->showResponse($request, $id, 201);
     }
 
-    public function show(string $id, int $status = 200): JsonResponse
+    public function show(Request $request, string $id, int $status = 200): JsonResponse
+    {
+        return $this->showResponse($request, $id, $status);
+    }
+
+    private function showResponse(Request $request, string $id, int $status = 200): JsonResponse
     {
         if (preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', $id, $matches) === 1) {
             $id = $matches[0];
@@ -202,19 +207,35 @@ class GamesController extends ApiController
         $payload = $this->summaryPayload($row);
         $payload['notes'] = $row->notes;
         $payload['created_at'] = $this->iso($row->created_at);
-        $payload['participants'] = DB::table('game_participants as gp')
+        $viewerId = $this->optionalViewerId($request);
+        $hasResultAccessColumn = Schema::hasColumn('game_participants', 'can_report_result');
+        $participantColumns = ['gp.user_id', 'u.username', 'u.display_name', 'u.photo_url', 'gp.status', 'gp.joined_at'];
+        if ($hasResultAccessColumn) {
+            $participantColumns[] = 'gp.can_report_result';
+        }
+        $participants = DB::table('game_participants as gp')
             ->join('users as u', 'u.id', '=', 'gp.user_id')
             ->where('gp.game_id', $id)
             ->orderBy('gp.joined_at')
-            ->get(['gp.user_id', 'u.username', 'u.display_name', 'u.photo_url', 'gp.status', 'gp.joined_at'])
+            ->get($participantColumns)
             ->map(fn ($p) => [
                 'user_id' => $p->user_id,
                 'username' => $p->username ?? null,
                 'display_name' => $p->display_name,
                 'photo_url' => $p->photo_url,
                 'status' => $p->status,
+                'can_report_result' => $hasResultAccessColumn ? (bool) ($p->can_report_result ?? false) : false,
                 'joined_at' => $this->iso($p->joined_at),
             ]);
+        $payload['participants'] = $participants;
+        $payload['viewer_can_report_result'] = $viewerId !== null && (
+            (string) $row->host_user_id === $viewerId
+            || $participants->contains(fn ($p) => (string) $p['user_id'] === $viewerId && (bool) $p['can_report_result'] === true)
+        );
+        $payload['result_access_user_ids'] = $participants
+            ->filter(fn ($p) => (bool) $p['can_report_result'] === true)
+            ->pluck('user_id')
+            ->values();
 
         return response()->json($payload, $status);
     }
@@ -244,14 +265,14 @@ class GamesController extends ApiController
         if (($data['cancel'] ?? false) === true) {
             DB::table('games')->where('id', $id)->update(['status' => 'cancelled', 'updated_at' => now()]);
 
-            return $this->show($id);
+            return $this->showResponse($request, $id);
         }
 
         unset($data['cancel']);
         $data['updated_at'] = now();
         DB::table('games')->where('id', $id)->update($data);
 
-        return $this->show($id);
+        return $this->showResponse($request, $id);
     }
 
     public function destroy(Request $request, string $id): JsonResponse
@@ -297,7 +318,7 @@ class GamesController extends ApiController
             $this->enqueueNotification((string) $game->host_user_id, 'game_joined', 'Player joined', 'A player joined your game.', ['game_id' => $id, 'user_id' => $user->id]);
         }
 
-        return $this->show($id);
+        return $this->showResponse($request, $id);
     }
 
     public function leave(Request $request, string $id): JsonResponse
@@ -318,7 +339,7 @@ class GamesController extends ApiController
         DB::table('games')->where('id', $id)->where('status', 'full')->update(['status' => 'open', 'updated_at' => now()]);
         $this->enqueueNotification((string) $game->host_user_id, 'game_cancelled', 'Player left', 'A player left your game.', ['game_id' => $id, 'user_id' => $user->id]);
 
-        return $this->show($id);
+        return $this->showResponse($request, $id);
     }
 
     public function cancel(Request $request, string $id): JsonResponse
@@ -348,7 +369,7 @@ class GamesController extends ApiController
         $data['updated_at'] = now();
         DB::table('games')->where('id', $id)->update($data);
 
-        return $this->show($id);
+        return $this->showResponse($request, $id);
     }
 
     public function noShow(Request $request, string $id, string $uid): JsonResponse
@@ -359,7 +380,7 @@ class GamesController extends ApiController
             ->where('user_id', $uid)
             ->update(['status' => 'no_show', 'status_changed_at' => now()]);
 
-        return $this->show($id);
+        return $this->showResponse($request, $id);
     }
 
     private function hostOnly(Request $request, string $id): object

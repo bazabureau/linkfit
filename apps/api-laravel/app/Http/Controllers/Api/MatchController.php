@@ -60,9 +60,7 @@ class MatchController extends ApiController
     {
         $user = $this->authUser($request);
         $game = $this->gameRow($id);
-        if ((string) $game->host_user_id !== (string) $user->id) {
-            throw ApiException::forbidden('Only host can start scoring');
-        }
+        $this->requireResultWriteAccess($game, $id, (string) $user->id);
         $data = $this->validateBody($request, [
             'team_a_user_ids' => ['required', 'array', 'min:1', 'max:4'],
             'team_b_user_ids' => ['required', 'array', 'min:1', 'max:4'],
@@ -103,7 +101,8 @@ class MatchController extends ApiController
     public function point(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
-        $this->requireParticipantScoringAccess($id, (string) $user->id);
+        $game = $this->gameRow($id);
+        $this->requireResultWriteAccess($game, $id, (string) $user->id);
         $data = $this->validateBody($request, ['team' => ['required', 'in:a,b']]);
         $row = $this->scoreRow($id);
         if ($row->status !== 'in_progress') {
@@ -124,7 +123,8 @@ class MatchController extends ApiController
     public function undo(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
-        $this->requireParticipantScoringAccess($id, (string) $user->id);
+        $game = $this->gameRow($id);
+        $this->requireResultWriteAccess($game, $id, (string) $user->id);
         $row = $this->scoreRow($id);
         if ($row->status !== 'in_progress') {
             throw ApiException::conflict('Scoring is not in progress');
@@ -143,7 +143,8 @@ class MatchController extends ApiController
     public function complete(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
-        $this->requireParticipantScoringAccess($id, (string) $user->id);
+        $game = $this->gameRow($id);
+        $this->requireResultWriteAccess($game, $id, (string) $user->id);
         $row = $this->scoreRow($id);
         if ($row->status !== 'in_progress') {
             throw ApiException::conflict('Scoring is not in progress');
@@ -157,7 +158,6 @@ class MatchController extends ApiController
         if ($state['current_game_a'] > 0 || $state['current_game_b'] > 0) {
             $sets[] = ['a' => $state['current_game_a'], 'b' => $state['current_game_b']];
         }
-        $game = $this->gameRow($id);
         $winningTeam = $this->winnerFromSets($sets);
         $teamA = $this->pgArray($row->team_a_user_ids);
         $teamB = $this->pgArray($row->team_b_user_ids);
@@ -200,24 +200,17 @@ class MatchController extends ApiController
     /**
      * Record a finished game's result in ONE call — the practical way players
      * log "who won + the score" after a casual game (vs. the point-by-point
-     * scoring flow). Any participant (or the host) submits the two teams and the
-     * final set scores; the winner is derived, ELO + win/loss are applied once,
-     * and the game is marked completed. Idempotent: a second call after the
-     * result is recorded is a no-op that returns the existing score.
+     * scoring flow). Only the host or a host-delegated confirmed participant can
+     * submit the two teams and the final set scores; the winner is derived, ELO
+     * + win/loss are applied once, and the game is marked completed. Idempotent:
+     * a second call after the result is recorded is a no-op that returns the
+     * existing score.
      */
     public function reportResult(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
         $game = $this->gameRow($id);
-
-        // Must be the host or a CONFIRMED participant — a bare membership check
-        // would let someone who left / was no-showed / declined write the
-        // authoritative result and shift ELO for a game they're not in.
-        $isMember = (string) $game->host_user_id === (string) $user->id
-            || $this->isConfirmedParticipant($id, (string) $user->id);
-        if (! $isMember) {
-            throw ApiException::forbidden('Only players in this game can record the result');
-        }
+        $this->requireResultWriteAccess($game, $id, (string) $user->id);
 
         $data = $this->validateBody($request, [
             'team_a_user_ids' => ['required', 'array', 'min:1', 'max:4'],
@@ -275,6 +268,46 @@ class MatchController extends ApiController
         }
 
         return $this->scoring($id);
+    }
+
+    public function setResultAccess(Request $request, string $id, string $uid): JsonResponse
+    {
+        $user = $this->authUser($request);
+        $game = $this->gameRow($id);
+        if ((string) $game->host_user_id !== (string) $user->id) {
+            throw ApiException::forbidden('Only the host can manage result access');
+        }
+
+        $data = $this->validateBody($request, [
+            'can_report_result' => ['required', 'boolean'],
+        ]);
+
+        $participant = DB::table('game_participants')
+            ->where('game_id', $id)
+            ->where('user_id', $uid)
+            ->where('status', 'confirmed')
+            ->first(['user_id']);
+        if ($participant === null) {
+            throw ApiException::notFound('Confirmed game participant not found');
+        }
+
+        DB::table('game_participants')
+            ->where('game_id', $id)
+            ->where('user_id', $uid)
+            ->update([
+                'can_report_result' => (bool) $data['can_report_result'],
+            ]);
+
+        $this->auditWrite($user->id, 'match.result_access_set', 'game_participants', $id, [
+            'participant_user_id' => $uid,
+            'can_report_result' => (bool) $data['can_report_result'],
+        ]);
+
+        return response()->json([
+            'game_id' => $id,
+            'user_id' => $uid,
+            'can_report_result' => (bool) $data['can_report_result'],
+        ]);
     }
 
     /**
@@ -518,12 +551,27 @@ class MatchController extends ApiController
         return $game;
     }
 
-    private function requireParticipantScoringAccess(string $gameId, string $userId): void
+    private function requireResultWriteAccess(object $game, string $gameId, string $userId): void
     {
-        $this->gameRow($gameId);
-        if (! $this->isConfirmedParticipant($gameId, $userId)) {
-            throw ApiException::forbidden('Only confirmed participants can update scoring');
+        if ($this->canWriteResult($game, $gameId, $userId)) {
+            return;
         }
+
+        throw ApiException::forbidden('Only the host or a player with result access can record the result');
+    }
+
+    private function canWriteResult(object $game, string $gameId, string $userId): bool
+    {
+        if ((string) $game->host_user_id === $userId) {
+            return true;
+        }
+
+        return DB::table('game_participants')
+            ->where('game_id', $gameId)
+            ->where('user_id', $userId)
+            ->where('status', 'confirmed')
+            ->where('can_report_result', true)
+            ->exists();
     }
 
     private function isConfirmedParticipant(string $gameId, string $userId): bool

@@ -413,6 +413,7 @@ Route::prefix('api/v1')->group(function () {
         Route::post('games', [GamesController::class, 'store']);
         Route::patch('games/{id}/reschedule', [GamesController::class, 'reschedule']);
         Route::post('games/{id}/participants/{uid}/no-show', [GamesController::class, 'noShow']);
+        Route::patch('games/{id}/participants/{uid}/result-access', [MatchController::class, 'setResultAccess']);
         Route::post('games/{id}/join', [GamesController::class, 'join']);
         Route::post('games/{id}/leave', [GamesController::class, 'leave']);
         Route::post('games/{id}/cancel', [GamesController::class, 'cancel']);
