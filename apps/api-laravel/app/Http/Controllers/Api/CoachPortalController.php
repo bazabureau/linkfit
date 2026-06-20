@@ -27,6 +27,7 @@ class CoachPortalController extends ApiController
 
         return response()->json([
             'coach' => $this->coachPayload($coach),
+            'courts' => $this->courtsFor($coach),
             'stats' => [
                 'upcoming_lessons' => $upcoming->count(),
                 'active_bookings' => $bookedCount,
@@ -110,6 +111,9 @@ class CoachPortalController extends ApiController
 
         $kind = $data['kind'] ?? 'group';
         $capacity = isset($data['capacity']) ? (int) $data['capacity'] : ($kind === 'private' ? 1 : 4);
+        if ($kind === 'private' && $capacity !== 1) {
+            throw ApiException::validation('Private lessons must have capacity 1');
+        }
         $id = (string) Str::uuid();
         DB::table('lessons')->insert([
             'id' => $id,
@@ -154,6 +158,18 @@ class CoachPortalController extends ApiController
         ]);
         if (! empty($data['court_id'])) {
             $this->assertCourt((string) $coach->venue_id, $data['court_id']);
+        }
+        if (isset($data['starts_at']) && strtotime($data['starts_at']) <= time()) {
+            throw ApiException::validation('starts_at must be in the future');
+        }
+        if (($data['kind'] ?? null) === 'private' && isset($data['capacity']) && (int) $data['capacity'] !== 1) {
+            throw ApiException::validation('Private lessons must have capacity 1');
+        }
+        if (isset($data['capacity'])) {
+            $booked = (int) DB::table('lesson_bookings')->where('lesson_id', $id)->where('status', 'booked')->count();
+            if ((int) $data['capacity'] < $booked) {
+                throw ApiException::validation('capacity cannot be lower than current bookings');
+            }
         }
 
         $update = array_intersect_key($data, array_flip([
@@ -256,6 +272,36 @@ class CoachPortalController extends ApiController
         if (! DB::table('lessons')->where('id', $lessonId)->where('coach_id', $coachId)->exists()) {
             throw ApiException::notFound('Lesson not found');
         }
+    }
+
+    private function courtsFor(object $coach)
+    {
+        if (empty($coach->venue_id)) {
+            return collect();
+        }
+
+        return DB::table('courts as c')
+            ->leftJoin('sports as s', 's.id', '=', 'c.sport_id')
+            ->leftJoin('venues as v', 'v.id', '=', 'c.venue_id')
+            ->where('c.venue_id', $coach->venue_id)
+            ->orderBy('c.name')
+            ->get([
+                'c.id',
+                'c.name',
+                'c.venue_id',
+                'v.name as venue_name',
+                'c.status',
+                's.slug as sport_slug',
+            ])
+            ->map(fn ($c) => [
+                'id' => (string) $c->id,
+                'name' => (string) $c->name,
+                'venue_id' => (string) $c->venue_id,
+                'venue_name' => $c->venue_name,
+                'status' => $c->status,
+                'sport_slug' => $c->sport_slug,
+            ])
+            ->values();
     }
 
     private function lessonQuery(string $coachId)

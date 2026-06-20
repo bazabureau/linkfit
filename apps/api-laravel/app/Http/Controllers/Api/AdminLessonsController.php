@@ -93,6 +93,7 @@ class AdminLessonsController extends ApiController
                 'admin_role' => 'coach',
                 'updated_at' => now(),
             ]);
+            $this->syncCoachUserCredentials($linkedUserId, $data, $data['display_name']);
         }
 
         return $this->showCoach($id, 201);
@@ -141,6 +142,10 @@ class AdminLessonsController extends ApiController
                     'updated_at' => now(),
                 ]);
             }
+        }
+        $targetUserId = $update['user_id'] ?? DB::table('coaches')->where('id', $id)->value('user_id');
+        if ($targetUserId !== null && ($update !== [] || ! empty($data['email']) || ! empty($data['password']) || array_key_exists('email_verified', $data))) {
+            $this->syncCoachUserCredentials((string) $targetUserId, $data, (string) ($update['display_name'] ?? DB::table('coaches')->where('id', $id)->value('display_name') ?? 'Coach'));
         }
 
         return $this->showCoach($id);
@@ -469,6 +474,32 @@ class AdminLessonsController extends ApiController
         if (strlen($password) < 12 || ! preg_match('/[A-Za-z]/', $password) || ! preg_match('/\d/', $password)) {
             throw ApiException::validation('Password must be at least 12 characters and contain a letter and a digit');
         }
+    }
+
+    private function syncCoachUserCredentials(string $userId, array $data, string $displayName): void
+    {
+        $updates = [
+            'display_name' => trim($displayName),
+            'admin_role' => 'coach',
+            'updated_at' => now(),
+        ];
+        if (! empty($data['password'])) {
+            $this->assertPasswordPolicy((string) $data['password']);
+            $updates['password_hash'] = app(PasswordService::class)->hash((string) $data['password']);
+        }
+        if (! empty($data['email'])) {
+            $email = mb_strtolower(trim((string) $data['email']));
+            $exists = DB::table('users')->where('email', $email)->where('id', '!=', $userId)->exists();
+            if ($exists) {
+                throw ApiException::conflict('Email is already registered');
+            }
+            $updates['email'] = $email;
+        }
+        if (array_key_exists('email_verified', $data)) {
+            $updates['email_verified_at'] = ! empty($data['email_verified']) ? now() : null;
+        }
+
+        DB::table('users')->where('id', $userId)->update($updates);
     }
 
     private function lessonPayload(object $l): array

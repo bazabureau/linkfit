@@ -15,6 +15,7 @@ class CoachPortalControllerTest extends TestCase
     private const ADMIN_ID = '00000000-0000-4000-8000-000000000001';
     private const PLAYER_ID = '00000000-0000-4000-8000-000000000002';
     private const VENUE_ID = '00000000-0000-4000-8000-000000000010';
+    private const COURT_ID = '00000000-0000-4000-8000-000000000011';
     private const SPORT_ID = '00000000-0000-4000-8000-000000000020';
 
     protected function setUp(): void
@@ -47,7 +48,9 @@ class CoachPortalControllerTest extends TestCase
         Schema::create('courts', function ($table): void {
             $table->string('id')->primary();
             $table->string('venue_id');
+            $table->string('sport_id')->nullable();
             $table->string('name');
+            $table->string('status')->nullable();
         });
         Schema::create('coaches', function ($table): void {
             $table->string('id')->primary();
@@ -100,6 +103,13 @@ class CoachPortalControllerTest extends TestCase
         ]);
         DB::table('sports')->insert(['id' => self::SPORT_ID, 'slug' => 'padel']);
         DB::table('venues')->insert(['id' => self::VENUE_ID, 'name' => 'LinkFit Arena']);
+        DB::table('courts')->insert([
+            'id' => self::COURT_ID,
+            'venue_id' => self::VENUE_ID,
+            'sport_id' => self::SPORT_ID,
+            'name' => 'Court 1',
+            'status' => 'active',
+        ]);
     }
 
     protected function tearDown(): void
@@ -134,7 +144,20 @@ class CoachPortalControllerTest extends TestCase
 
         $this->assertSame(200, $bootstrap->getStatusCode());
         $this->assertSame('Coach Portal', $payload['coach']['display_name']);
+        $this->assertSame('Court 1', $payload['courts'][0]['name']);
         $this->assertSame(0, $payload['stats']['upcoming_lessons']);
+
+        $oldHash = DB::table('users')->where('id', $coachUserId)->value('password_hash');
+        app(AdminLessonsController::class)->updateCoach($this->requestAs(self::ADMIN_ID, [
+            'display_name' => 'Coach Portal Updated',
+            'user_id' => $coachUserId,
+            'email' => 'coach-new@linkfit.az',
+            'password' => 'NewCoachPassword123',
+            'email_verified' => true,
+        ]), (string) $created['id']);
+
+        $this->assertDatabaseHas('users', ['id' => $coachUserId, 'email' => 'coach-new@linkfit.az', 'admin_role' => 'coach']);
+        $this->assertNotSame($oldHash, DB::table('users')->where('id', $coachUserId)->value('password_hash'));
     }
 
     public function test_regular_user_cannot_open_coach_portal(): void
