@@ -21,13 +21,22 @@ class MediaController extends ApiController
         if ($file === null || ! $file->isValid()) {
             throw ApiException::validation("No file uploaded - expected multipart field 'file'");
         }
-        $mime = (string) $file->getMimeType();
-        $audioMimes = ['audio/aac', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/wav', 'audio/webm', 'audio/x-m4a'];
-        $isVideo = in_array($mime, ['video/mp4', 'video/quicktime'], true);
+        $detectedMime = $this->normalizeMime((string) $file->getMimeType());
+        $clientMime = $this->normalizeMime((string) $file->getClientMimeType());
+        $purpose = (string) $request->input('purpose', 'general');
+        $isVoicePurpose = in_array($purpose, ['message_voice', 'voice', 'audio'], true);
+
+        $audioMimes = ['audio/aac', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/wav', 'audio/webm', 'audio/x-m4a', 'application/ogg'];
+        $videoMimes = ['video/mp4', 'video/quicktime', 'video/webm'];
+
+        $isAudio = in_array($detectedMime, $audioMimes, true)
+            || in_array($clientMime, $audioMimes, true)
+            || ($isVoicePurpose && in_array($detectedMime, ['video/webm', 'application/octet-stream'], true));
+        $mime = $isAudio && in_array($clientMime, $audioMimes, true) ? $clientMime : $detectedMime;
+        $isVideo = ! $isAudio && in_array($mime, $videoMimes, true);
         $isImage = in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true);
-        $isAudio = in_array($mime, $audioMimes, true);
         if (! $isVideo && ! $isImage && ! $isAudio) {
-            throw ApiException::validation('Only jpeg, png, webp images, mp4/quicktime videos and audio messages are allowed');
+            throw ApiException::validation('Only jpeg, png, webp images, mp4/quicktime/webm videos and audio messages are allowed');
         }
         // Images stay capped at 8MB; voice notes at 25MB; videos at 50MB.
         $maxBytes = $isVideo ? 52428800 : ($isAudio ? 25 * 1024 * 1024 : 8 * 1024 * 1024);
@@ -36,7 +45,6 @@ class MediaController extends ApiController
         }
 
         $disk = env('MEDIA_DISK', config('filesystems.default') === 's3' ? 's3' : 'public');
-        $purpose = (string) $request->input('purpose', 'general');
 
         if ($isVideo || $isAudio) {
             // Binary media skips image-compression entirely so playback stays
@@ -46,10 +54,11 @@ class MediaController extends ApiController
             $height = null;
             $extension = match ($mime) {
                 'video/quicktime' => 'mov',
+                'video/webm' => 'webm',
                 'audio/aac' => 'aac',
                 'audio/mpeg' => 'mp3',
                 'audio/mp4', 'audio/x-m4a' => 'm4a',
-                'audio/ogg' => 'ogg',
+                'audio/ogg', 'application/ogg' => 'ogg',
                 'audio/wav' => 'wav',
                 'audio/webm' => 'webm',
                 default => 'mp4',
@@ -86,6 +95,11 @@ class MediaController extends ApiController
         ]);
 
         return response()->json(['id' => $id, 'url' => $url, 'type' => $type, 'width' => $width, 'height' => $height, 'mime' => $mime], 201);
+    }
+
+    private function normalizeMime(string $mime): string
+    {
+        return strtolower(trim(explode(';', $mime)[0] ?? ''));
     }
 
     /**
