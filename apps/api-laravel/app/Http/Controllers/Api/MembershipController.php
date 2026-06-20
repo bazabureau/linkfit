@@ -192,6 +192,7 @@ class MembershipController extends ApiController
                 'games_per_month' => null,
                 'bookings_per_month' => null,
             ],
+            'feature_matrix' => $svc->featureMatrix(),
             'message' => 'Full access is active during the launch period. Subscription and payment controls are not available yet.',
             'next_action' => null,
         ];

@@ -63,6 +63,8 @@ class PaymentsController extends ApiController
 
     public function bookingIntent(Request $request, string $id): JsonResponse
     {
+        $this->assertPaymentIntentAvailable();
+
         $user = $this->authUser($request);
         $booking = DB::table('bookings')->where('id', $id)->first();
         if ($booking === null) {
@@ -122,6 +124,8 @@ class PaymentsController extends ApiController
 
     public function tournamentIntent(Request $request, string $tournamentId): JsonResponse
     {
+        $this->assertPaymentIntentAvailable();
+
         $user = $this->authUser($request);
         $data = $this->validateBody($request, [
             'squad_name' => ['required', 'string', 'min:2', 'max:80'],
@@ -248,20 +252,12 @@ class PaymentsController extends ApiController
 
     private function paymentSheet(string $kind, string $ref, int $amount, string $currency, array $metadata): array
     {
-        if (! $this->paymentSurfaceAvailable()) {
-            throw new ApiException(
-                409,
-                'PAYMENTS_DISABLED',
-                'Online checkout is not available yet.',
-                [
-                    'kind' => $kind,
-                    'ref' => $ref,
-                    'amount_minor' => $amount,
-                    'currency' => $currency,
-                    'checkout_available' => false,
-                ]
-            );
-        }
+        $this->assertPaymentIntentAvailable([
+            'kind' => $kind,
+            'ref' => $ref,
+            'amount_minor' => $amount,
+            'currency' => $currency,
+        ]);
 
         $provider = trim((string) config('membership.payment_provider', ''));
         if ($provider === '') {
@@ -303,6 +299,23 @@ class PaymentsController extends ApiController
             404,
             'PAYMENTS_NOT_AVAILABLE',
             'This feature is not available yet.'
+        );
+    }
+
+    private function assertPaymentIntentAvailable(array $details = []): void
+    {
+        if ($this->paymentSurfaceAvailable()) {
+            return;
+        }
+
+        throw new ApiException(
+            409,
+            'PAYMENTS_DISABLED',
+            'Online checkout is not available yet.',
+            [
+                ...$details,
+                'checkout_available' => false,
+            ]
         );
     }
 

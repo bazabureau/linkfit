@@ -22,13 +22,15 @@ class MediaController extends ApiController
             throw ApiException::validation("No file uploaded - expected multipart field 'file'");
         }
         $mime = (string) $file->getMimeType();
+        $audioMimes = ['audio/aac', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/wav', 'audio/webm', 'audio/x-m4a'];
         $isVideo = in_array($mime, ['video/mp4', 'video/quicktime'], true);
         $isImage = in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true);
-        if (! $isVideo && ! $isImage) {
-            throw ApiException::validation('Only jpeg, png, webp images and mp4/quicktime videos are allowed');
+        $isAudio = in_array($mime, $audioMimes, true);
+        if (! $isVideo && ! $isImage && ! $isAudio) {
+            throw ApiException::validation('Only jpeg, png, webp images, mp4/quicktime videos and audio messages are allowed');
         }
-        // Images stay capped at 8MB; videos allow up to 50MB (uncompressed original).
-        $maxBytes = $isVideo ? 52428800 : 8 * 1024 * 1024;
+        // Images stay capped at 8MB; voice notes at 25MB; videos at 50MB.
+        $maxBytes = $isVideo ? 52428800 : ($isAudio ? 25 * 1024 * 1024 : 8 * 1024 * 1024);
         if ($file->getSize() > $maxBytes) {
             throw ApiException::validation('File is too large');
         }
@@ -36,13 +38,22 @@ class MediaController extends ApiController
         $disk = env('MEDIA_DISK', config('filesystems.default') === 's3' ? 's3' : 'public');
         $purpose = (string) $request->input('purpose', 'general');
 
-        if ($isVideo) {
-            // Videos skip the image-compression path entirely — store the
-            // original bytes as-is so video stories play back unmodified.
-            $type = 'video';
+        if ($isVideo || $isAudio) {
+            // Binary media skips image-compression entirely so playback stays
+            // unmodified for videos and voice notes.
+            $type = $isAudio ? 'audio' : 'video';
             $width = null;
             $height = null;
-            $extension = $mime === 'video/quicktime' ? 'mov' : 'mp4';
+            $extension = match ($mime) {
+                'video/quicktime' => 'mov',
+                'audio/aac' => 'aac',
+                'audio/mpeg' => 'mp3',
+                'audio/mp4', 'audio/x-m4a' => 'm4a',
+                'audio/ogg' => 'ogg',
+                'audio/wav' => 'wav',
+                'audio/webm' => 'webm',
+                default => 'mp4',
+            };
             $contents = (string) file_get_contents($file->getRealPath());
         } else {
             $type = 'image';

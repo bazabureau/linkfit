@@ -443,6 +443,7 @@ class SocialController extends ApiController
         return DB::table('users as u')
             ->leftJoinSub($primaryStats, 'primary_stats', 'primary_stats.user_id', '=', 'u.id')
             ->whereNull('u.deleted_at')
+            ->whereNull('u.admin_role')
             ->select([
                 'u.id',
                 'u.username',

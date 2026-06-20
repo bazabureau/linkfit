@@ -5,17 +5,18 @@ namespace Database\Seeders;
 use App\Services\Auth\PasswordService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Ramsey\Uuid\Uuid;
 
 /**
  * Demo content for the launch video — makes the app + site look populated with
- * realistic Azerbaijani players, ratings, games, tournaments, reviews and follows.
+ * a small controlled set of Azerbaijani players, ratings, games, tournaments,
+ * reviews and follows.
  *
  * 100% ADDITIVE + IDEMPOTENT: every row uses a deterministic uuid5 id (or a
  * natural unique key) so re-running updates in place and never duplicates. It
- * never deletes or touches pre-existing real data. Demo accounts use
- * demo.<slug>@linkfit.az so they stay identifiable. Run:
+ * never deletes or touches pre-existing real data. Old demo accounts outside
+ * the allowlist are soft-deleted so production player lists do not stay noisy.
+ * Demo accounts use demo.<slug>@linkfit.az so they stay identifiable. Run:
  *   php artisan db:seed --class=DemoContentSeeder --force
  */
 class DemoContentSeeder extends Seeder
@@ -33,36 +34,18 @@ class DemoContentSeeder extends Seeder
         ['id' => 'f6da9e56-dd4e-4909-bc29-77ba2f2c2573', 'name' => 'Baku Tennis Academy', 'court' => 'bd223982-5b7b-4884-a8df-0affc41ca398', 'lat' => 40.4156, 'lng' => 49.9134],
     ];
 
-    /** [name, gender m/f, elo, vip, verified] — ordered roughly by rating. */
+    /**
+     * Only these seed players should be visible in production demo data.
+     *
+     * Keys are stable handles used in e-mail/referral generation. One player
+     * keeps the UUID currently shared as a public profile link.
+     */
     private const PLAYERS = [
-        ['Elvin Məmmədov', 'm', 1622, true, true],
-        ['Nigar Əliyeva', 'f', 1588, false, true],
-        ['Rəşad Hüseynov', 'm', 1544, true, false],
-        ['Aysel Məmmədova', 'f', 1512, false, true],
-        ['Tural Əliyev', 'm', 1496, true, false],
-        ['Orxan Quliyev', 'm', 1463, false, false],
-        ['Günel Hüseynova', 'f', 1441, false, true],
-        ['Kənan Abbasov', 'm', 1412, false, false],
-        ['Leyla Quliyeva', 'f', 1387, true, false],
-        ['Nicat Vəliyev', 'm', 1361, false, false],
-        ['Sevinc Abbasova', 'f', 1338, false, false],
-        ['Ramil İsmayılov', 'm', 1316, false, false],
-        ['Murad Cəfərov', 'm', 1284, false, false],
-        ['Zərifə Vəliyeva', 'f', 1257, false, false],
-        ['Anar Mahmudov', 'm', 1231, false, false],
-        ['Nərmin İsmayılova', 'f', 1206, false, false],
-        ['Fuad Rəhimov', 'm', 1187, false, false],
-        ['Lalə Cəfərova', 'f', 1166, false, false],
-        ['Emin Sultanov', 'm', 1122, false, false],
-        ['Aytən Rəhimova', 'f', 1097, false, false],
-        ['Vüsal Kərimov', 'm', 1061, false, false],
-        ['Ülviyyə Sultanova', 'f', 1033, false, false],
-        ['Samir Babayev', 'm', 1012, false, false],
-        ['Cavid Hacıyev', 'm', 986, false, false],
-        ['Fidan Kərimova', 'f', 961, false, false],
-        ['Toğrul Nəbiyev', 'm', 942, false, false],
-        ['Türkan Babayeva', 'f', 926, false, false],
-        ['Elçin Yusifov', 'm', 915, false, false],
+        ['handle' => 'hisrosie', 'name' => 'Kamil Ismailov', 'gender' => 'm', 'elo' => 1622, 'vip' => true, 'verified' => true, 'username' => 'hisrosie'],
+        ['handle' => 'coladalicious', 'name' => 'Cola Delicious', 'gender' => 'm', 'elo' => 1512, 'vip' => false, 'verified' => true, 'username' => 'coladalicious'],
+        ['handle' => '019edbc3-a5fb-7123-9e6f-cc5d6d897393', 'id' => '019edbc3-a5fb-7123-9e6f-cc5d6d897393', 'name' => 'LinkFit Player', 'gender' => 'm', 'elo' => 1463, 'vip' => false, 'verified' => false, 'username' => null],
+        ['handle' => 'kamran-namazov', 'name' => 'Kamran Namazov', 'gender' => 'm', 'elo' => 1412, 'vip' => false, 'verified' => true, 'username' => 'kamran-namazov'],
+        ['handle' => 'saleh-salmanov', 'name' => 'Saleh Salmanov', 'gender' => 'm', 'elo' => 1361, 'vip' => false, 'verified' => false, 'username' => 'saleh-salmanov'],
     ];
 
     private const TEAM_NAMES = [
@@ -75,28 +58,50 @@ class DemoContentSeeder extends Seeder
     {
         $hash = app(PasswordService::class)->hash('DemoPadel#2026');
         $now = now();
+        $allowedDemoEmails = array_map(
+            fn (array $player): string => 'demo.'.$player['handle'].'@linkfit.az',
+            self::PLAYERS,
+        );
+
+        $staleDemoUserIds = DB::table('users')
+            ->where('email', 'like', 'demo.%@linkfit.az')
+            ->whereNotIn('email', $allowedDemoEmails)
+            ->pluck('id')
+            ->all();
+
+        if ($staleDemoUserIds !== []) {
+            DB::table('follows')
+                ->whereIn('follower_user_id', $staleDemoUserIds)
+                ->orWhereIn('followed_user_id', $staleDemoUserIds)
+                ->delete();
+
+            DB::table('users')
+                ->whereIn('id', $staleDemoUserIds)
+                ->update(['deleted_at' => $now, 'updated_at' => $now]);
+        }
 
         // ---- 1. Players + ratings -------------------------------------------
         $ids = [];   // index => user id
-        foreach (self::PLAYERS as $i => [$name, $gender, $elo, $vip, $verified]) {
-            $slug = $this->slug($name);
-            $uid = $this->uuid("user-$slug");
+        foreach (self::PLAYERS as $i => $player) {
+            $slug = $player['handle'];
+            $uid = $player['id'] ?? $this->uuid("user-$slug");
             $ids[$i] = $uid;
-            $portrait = $gender === 'm'
+            $portrait = $player['gender'] === 'm'
                 ? 'https://randomuser.me/api/portraits/men/'.(($i % 70) + 5).'.jpg'
                 : 'https://randomuser.me/api/portraits/women/'.(($i % 70) + 5).'.jpg';
 
             DB::table('users')->updateOrInsert(['id' => $uid], [
                 'email' => "demo.$slug@linkfit.az",
                 'password_hash' => $hash,
-                'display_name' => $name,
-                'username' => Str::limit($slug, 38, ''),
+                'display_name' => $player['name'],
+                'username' => $player['username'],
                 'photo_url' => $portrait,
                 'referral_code' => $this->refCode($slug),
-                'is_vip' => $vip,
-                'vip_badge_label' => $vip ? 'VIP' : null,
-                'is_verified' => $verified,
-                'is_ambassador' => in_array($i, [0, 3, 6, 11], true), // a few brand ambassadors
+                'is_vip' => $player['vip'],
+                'vip_badge_label' => $player['vip'] ? 'VIP' : null,
+                'is_verified' => $player['verified'],
+                'is_ambassador' => in_array($i, [0, 3], true),
+                'deleted_at' => null,
 
                 'email_verified_at' => $now,
                 'home_lat' => round(40.3850 + (($i * 37) % 100 - 50) / 1500, 6),
@@ -107,6 +112,7 @@ class DemoContentSeeder extends Seeder
                 'created_at' => $now->copy()->subDays(40 - ($i % 30)),
             ]);
 
+            $elo = $player['elo'];
             $gp = max(6, (int) round(($elo - 840) / 12));
             $won = (int) round($gp * (0.40 + min(0.28, ($elo - 900) / 2200)));
             $rel = max(72, min(100, 100 - ($i % 6) * 4));
@@ -292,7 +298,7 @@ class DemoContentSeeder extends Seeder
             }
         }
 
-        $this->command?->info('Demo content seeded: '.count(self::PLAYERS).' players, 16 games, 5 tournaments, 3 americanos, venue reviews + follows.');
+        $this->command?->info('Demo content seeded: '.count(self::PLAYERS).' visible players, 16 games, 5 tournaments, 3 americanos, venue reviews + follows.');
     }
 
     private function uuid(string $name): string

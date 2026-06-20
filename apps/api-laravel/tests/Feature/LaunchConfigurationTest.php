@@ -20,13 +20,24 @@ class LaunchConfigurationTest extends TestCase
     public function test_env_example_documents_hash_only_app_keys_and_disabled_billing(): void
     {
         $envExample = (string) file_get_contents(base_path('.env.example'));
+        $runbook = (string) file_get_contents(base_path('../../docs/production-launch-security.md'));
 
         $this->assertStringContainsString('FREE_TRIAL_DAYS=50', $envExample);
+        $this->assertStringContainsString('GLOBAL_FULL_ACCESS_UNTIL=2026-08-09T23:59:59Z', $envExample);
+        $this->assertStringContainsString('MEMBERSHIP_PUBLIC_SUBSCRIPTIONS_ENABLED=false', $envExample);
         $this->assertStringContainsString('MEMBERSHIP_PAYMENTS_ENABLED=false', $envExample);
         $this->assertStringContainsString('REQUIRE_API_KEY=false', $envExample);
         $this->assertStringContainsString('APP_PUBLIC_API_KEYS=', $envExample);
         $this->assertStringContainsString('APP_PUBLIC_API_KEY_HASHES=', $envExample);
         $this->assertStringContainsString('INTERNAL_API_KEY_HASHES=', $envExample);
+        $this->assertStringContainsString('CORS_ALLOWED_ORIGINS=https://linkfit.az,https://www.linkfit.az,https://admin.linkfit.az,https://owner.linkfit.az', $envExample);
+
+        $this->assertStringContainsString('X-Linkfit-App-Key', $runbook);
+        $this->assertStringContainsString('REQUIRE_API_KEY=true', $runbook);
+        $this->assertStringContainsString('NEXT_PUBLIC_LINKFIT_APP_KEY', $runbook);
+        $this->assertStringContainsString('CORS_ALLOWED_ORIGINS=https://linkfit.az,https://www.linkfit.az,https://admin.linkfit.az,https://owner.linkfit.az', $runbook);
+        $this->assertStringContainsString('MEMBERSHIP_PUBLIC_SUBSCRIPTIONS_ENABLED=false', $runbook);
+        $this->assertStringContainsString('MEMBERSHIP_PAYMENTS_ENABLED=false', $runbook);
     }
 
     public function test_production_launch_mode_requires_future_global_full_access_window(): void

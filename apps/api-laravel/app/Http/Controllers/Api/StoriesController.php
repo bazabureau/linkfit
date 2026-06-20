@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\ConversationUpdated;
+use App\Events\MessageSent;
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -242,11 +244,20 @@ class StoriesController extends ApiController
                 'conversation_id' => $conversationId,
                 'sender_user_id' => $user->id,
                 'body' => $messageBody,
-                'attachment_url' => $story->media_type === 'image' ? $story->media_url : null,
-                'attachment_type' => $story->media_type === 'image' ? 'image' : null,
+                'attachment_url' => in_array($story->media_type, ['image', 'video'], true) ? $story->media_url : null,
+                'attachment_type' => in_array($story->media_type, ['image', 'video'], true) ? $story->media_type : null,
                 'created_at' => now(),
             ]);
         });
+        $row = DB::table('messages')->where('id', $messageId)->first();
+        if ($row !== null && $this->broadcastingEnabled()) {
+            try {
+                broadcast(new MessageSent((string) $conversationId, $this->messagePayload($row)))->toOthers();
+                broadcast(new ConversationUpdated((string) $conversationId, $this->activeParticipantIds((string) $conversationId), 'story_reply'));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
 
         return response()->json([
             'conversation_id' => $conversationId,
@@ -304,5 +315,39 @@ class StoriesController extends ApiController
         }
 
         return $counts;
+    }
+
+    private function broadcastingEnabled(): bool
+    {
+        return ! in_array((string) config('broadcasting.default'), ['log', 'null', ''], true);
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function activeParticipantIds(string $conversationId): array
+    {
+        return DB::table('conversation_participants')
+            ->where('conversation_id', $conversationId)
+            ->whereNull('left_at')
+            ->pluck('user_id')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function messagePayload(object $m): array
+    {
+        return [
+            'id' => $m->id,
+            'conversation_id' => $m->conversation_id,
+            'sender_user_id' => $m->sender_user_id,
+            'body' => $m->body,
+            'attachment_url' => $m->attachment_url ?? null,
+            'attachment_type' => $m->attachment_type ?? null,
+            'created_at' => $this->iso($m->created_at),
+        ];
     }
 }

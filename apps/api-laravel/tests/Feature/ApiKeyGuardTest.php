@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Http\Middleware\InternalApiKeyGuard;
 use App\Providers\AppServiceProvider;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 use ReflectionMethod;
 use Tests\TestCase;
@@ -234,6 +235,23 @@ class ApiKeyGuardTest extends TestCase
         ])
             ->assertForbidden()
             ->assertJsonPath('error.message', 'Invalid or missing internal API key');
+    }
+
+    public function test_api_key_generator_outputs_plain_key_and_hash(): void
+    {
+        Artisan::call('security:make-api-key');
+        $output = Artisan::output();
+
+        $this->assertMatchesRegularExpression('/key: lf_public_[a-f0-9]{64}/', $output);
+        $this->assertMatchesRegularExpression('/sha256: [a-f0-9]{64}/', $output);
+        $this->assertStringContainsString('APP_PUBLIC_API_KEY_HASHES', $output);
+
+        Artisan::call('security:make-api-key --internal');
+        $internalOutput = Artisan::output();
+
+        $this->assertMatchesRegularExpression('/key: lf_internal_[a-f0-9]{64}/', $internalOutput);
+        $this->assertMatchesRegularExpression('/sha256: [a-f0-9]{64}/', $internalOutput);
+        $this->assertStringContainsString('INTERNAL_API_KEY_HASHES', $internalOutput);
     }
 
     public function test_production_requires_api_key_gate_to_be_enabled(): void

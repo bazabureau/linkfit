@@ -41,6 +41,7 @@ class AppInfoController extends ApiController
         return response()->json([
             'api' => 'laravel',
             'environment' => app()->environment(),
+            'api_key' => $this->apiKeyContract(),
             'features' => [
                 'auth' => true,
                 'catalog' => true,
@@ -361,9 +362,27 @@ class AppInfoController extends ApiController
             'api' => 'laravel',
             'brand' => 'linkfit',
             'supported_sports' => ['padel', 'tennis'],
+            'api_key' => $this->apiKeyContract(),
             'clients' => $clients,
             'endpoints' => $endpoints,
         ]);
+    }
+
+    /**
+     * Public client keys identify official Linkfit builds. They are deliberately
+     * separate from JWT auth and from private server-to-server internal keys.
+     *
+     * @return array<string,mixed>
+     */
+    private function apiKeyContract(): array
+    {
+        return [
+            'required' => (bool) config('app.require_api_key'),
+            'header' => 'X-Linkfit-App-Key',
+            'query_string_supported' => false,
+            'public_client_key' => true,
+            'replaces_user_auth' => false,
+        ];
     }
 
     private function showPaymentSurface(): bool

@@ -26,7 +26,25 @@ class ApiSurfaceTest extends TestCase
     {
         $this->getJson('/api/v1/app/metadata')
             ->assertOk()
-            ->assertJsonPath('api', 'laravel');
+            ->assertJsonPath('api', 'laravel')
+            ->assertJsonPath('api_key.header', 'X-Linkfit-App-Key')
+            ->assertJsonPath('api_key.required', false)
+            ->assertJsonPath('api_key.query_string_supported', false)
+            ->assertJsonPath('api_key.public_client_key', true)
+            ->assertJsonPath('api_key.replaces_user_auth', false);
+    }
+
+    public function test_app_metadata_reports_api_key_requirement_when_gate_is_enabled(): void
+    {
+        config()->set('app.require_api_key', true);
+        config()->set('app.api_keys', ['test-public-client-key-1234567890abcdef']);
+
+        $this->getJson('/api/v1/app/metadata', [
+            'X-Linkfit-App-Key' => 'test-public-client-key-1234567890abcdef',
+        ])
+            ->assertOk()
+            ->assertJsonPath('api_key.required', true)
+            ->assertJsonPath('api_key.header', 'X-Linkfit-App-Key');
     }
 
     public function test_realtime_health_returns_polling_status(): void
@@ -59,6 +77,9 @@ class ApiSurfaceTest extends TestCase
         $this->getJson('/api/v1/mobile/config')
             ->assertOk()
             ->assertJsonPath('api.requires_app_key', false)
+            ->assertJsonPath('api.app_key_header', 'X-Linkfit-App-Key')
+            ->assertJsonPath('api.app_key_query_string_supported', false)
+            ->assertJsonPath('api.app_key_replaces_user_auth', false)
             ->assertJsonPath('access.mode', 'free_launch')
             ->assertJsonPath('features.payments', false)
             ->assertJsonPath('features.membership', false)
@@ -102,6 +123,8 @@ class ApiSurfaceTest extends TestCase
 
         $this->getJson('/api/v1/app/capabilities')
             ->assertOk()
+            ->assertJsonPath('api_key.header', 'X-Linkfit-App-Key')
+            ->assertJsonPath('api_key.query_string_supported', false)
             ->assertJsonMissingPath('clients.ios.membership')
             ->assertJsonMissingPath('clients.web.membership')
             ->assertJsonMissingPath('endpoints.membership_plans')
@@ -165,6 +188,8 @@ class ApiSurfaceTest extends TestCase
             ->assertJsonPath('features.payments', false)
             ->assertJsonPath('features.membership', false)
             ->assertJsonPath('features.premium', false)
+            ->assertJsonPath('feature_matrix.free.name', 'Free')
+            ->assertJsonPath('feature_matrix.premium.name', 'Premium')
             ->assertJsonMissingPath('plans')
             ->assertJsonMissingPath('payments');
 

@@ -637,6 +637,7 @@ class DiscoveryController extends ApiController
             ->leftJoinSub($primary, 'ps', 'ps.user_id', '=', 'u.id')
             ->where('u.id', '!=', $user->id)
             ->whereNull('u.deleted_at')
+            ->whereNull('u.admin_role')
             ->whereNotExists(function ($q) use ($user) {
                 $q->selectRaw('1')->from('follows as f')
                     ->whereColumn('f.followed_user_id', 'u.id')

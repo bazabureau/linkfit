@@ -413,6 +413,8 @@ class MembershipAccessTest extends TestCase
         $this->assertTrue($payload['features']['free_launch_access']);
         $this->assertFalse($payload['features']['payments']);
         $this->assertFalse($payload['features']['membership']);
+        $this->assertSame('Free', $payload['feature_matrix']['free']['name']);
+        $this->assertSame('Premium', $payload['feature_matrix']['premium']['name']);
         $this->assertArrayNotHasKey('plans', $payload);
         $this->assertArrayNotHasKey('payments', $payload);
     }
@@ -519,6 +521,8 @@ class MembershipAccessTest extends TestCase
         $this->assertSame(1, $payload['usage']['games_this_month']);
         $this->assertSame(1, $payload['usage']['bookings_this_month']);
         $this->assertNull($payload['usage']['games_limit']);
+        $this->assertSame('Free', $payload['feature_matrix']['free']['name']);
+        $this->assertSame('Premium', $payload['feature_matrix']['premium']['name']);
         $this->assertFalse($payload['features']['payments']);
         $this->assertFalse($payload['features']['membership']);
         $this->assertFalse($payload['features']['premium']);

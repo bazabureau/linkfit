@@ -31,6 +31,12 @@ trait BlocksPendingGameResults
                 $q->whereNull('ms.game_id')
                     ->orWhere('ms.status', '!=', 'completed');
             })
+            // Only block on a game that can actually be scored: reportResult /
+            // assertValidTeams need at least two confirmed players to form the
+            // two teams. A game that never filled (e.g. just the host) can never
+            // be scored, so it must NOT trap the user into an unrecordable
+            // result before they can join/create anything else.
+            ->whereRaw("(select count(*) from game_participants gp2 where gp2.game_id = g.id and gp2.status = 'confirmed') >= 2")
             ->orderBy('g.starts_at')
             ->first([
                 'g.id',

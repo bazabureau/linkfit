@@ -125,6 +125,9 @@ class MobileController extends ApiController
                 'base_url' => rtrim((string) config('app.url'), '/'),
                 'media_base_url' => rtrim((string) config('app.url'), '/').'/storage',
                 'requires_app_key' => (bool) config('app.require_api_key'),
+                'app_key_header' => 'X-Linkfit-App-Key',
+                'app_key_query_string_supported' => false,
+                'app_key_replaces_user_auth' => false,
             ],
             'ios' => [
                 'latest_build' => (int) config('services.linkfit.ios_latest_build', 13),
@@ -191,6 +194,7 @@ class MobileController extends ApiController
             'trial_ends_at' => config('membership.global_full_access_until') ?: null,
             'global_full_access' => config('membership.global_full_access_until') !== null,
             'features' => $membership->publicFeaturesForTier('premium'),
+            'feature_matrix' => $membership->featureMatrix(),
         ];
     }
 
@@ -205,6 +209,7 @@ class MobileController extends ApiController
             'trial_ends_at' => $state->trial_ends_at,
             'global_full_access' => $state->global_full_access,
             'features' => $membership->publicFeaturesForUser($userId),
+            'feature_matrix' => $membership->featureMatrix(),
         ];
     }
 
