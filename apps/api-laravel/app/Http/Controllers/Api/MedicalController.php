@@ -75,6 +75,12 @@ class MedicalController extends ApiController
     public function signWaiver(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        // Guard before touching tournament_waivers: an unknown tournament id
+        // would hit the tournament_id FK (or a uuid-cast error for a non-uuid)
+        // and surface as a 500 instead of a clean 404.
+        if (! DB::table('tournaments')->where('id', $id)->exists()) {
+            throw ApiException::notFound('Tournament not found');
+        }
         $already = DB::table('tournament_waivers')->where('tournament_id', $id)->where('user_id', $user->id)->exists();
         DB::table('tournament_waivers')->updateOrInsert(
             ['tournament_id' => $id, 'user_id' => $user->id],

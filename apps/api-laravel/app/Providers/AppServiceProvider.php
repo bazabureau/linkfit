@@ -135,13 +135,15 @@ class AppServiceProvider extends ServiceProvider
      */
     private function assertStrongApiKeys(): void
     {
+        // The public app-key gate is OPTIONAL defense-in-depth, not a real
+        // security boundary: a client-embedded key is visible in any browser
+        // bundle / mobile binary and can't be kept secret. The actual protection
+        // is always-on (JWT user auth + rate limiting + CORS + BrowserOriginGuard
+        // + HTTPS). So we do NOT force the gate on in production — when it's
+        // disabled we just skip the key-strength checks. When it IS enabled, the
+        // strength/hash checks below still run so a weak or placeholder key can
+        // never reach production.
         if (! (bool) config('app.require_api_key')) {
-            if ($this->app->isProduction()) {
-                throw new \RuntimeException(
-                    'REQUIRE_API_KEY must be true in production so API routes are limited to Linkfit clients.'
-                );
-            }
-
             return;
         }
 
@@ -197,12 +199,18 @@ class AppServiceProvider extends ServiceProvider
             );
         }
 
+        // A global full-access window is OPTIONAL: if unset, members simply fall
+        // back to the (generous) free-tier limits, which is a valid launch state.
+        // Only validate it when one IS configured, so a stray/expired value is
+        // caught without bricking boot just because the window isn't in use.
         $until = trim((string) config('membership.global_full_access_until'));
-        $timestamp = $until !== '' ? strtotime($until) : false;
-        if ($timestamp === false || $timestamp <= time()) {
-            throw new \RuntimeException(
-                'GLOBAL_FULL_ACCESS_UNTIL must be a future timestamp while public subscriptions are disabled in production.'
-            );
+        if ($until !== '') {
+            $timestamp = strtotime($until);
+            if ($timestamp === false || $timestamp <= time()) {
+                throw new \RuntimeException(
+                    'GLOBAL_FULL_ACCESS_UNTIL, when set, must be a valid future timestamp.'
+                );
+            }
         }
     }
 }

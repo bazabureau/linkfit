@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,12 @@ class DataRightsController extends ApiController
     public function cancelDeletion(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
+        // Guard: a user who never scheduled a deletion has no row, so update()
+        // touches 0 rows and ->first() returns null. Passing null into the
+        // non-nullable deletionPayload() would 500. Return a clean 404 instead.
+        if (! DB::table('account_deletion_requests')->where('user_id', $user->id)->exists()) {
+            throw ApiException::notFound('No account deletion request to cancel');
+        }
         DB::table('account_deletion_requests')->where('user_id', $user->id)->update([
             'status' => 'cancelled',
             'cancelled_at' => now(),

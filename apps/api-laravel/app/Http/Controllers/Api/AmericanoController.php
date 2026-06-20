@@ -14,14 +14,23 @@ class AmericanoController extends ApiController
     public function store(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
+        // Validate before insert: name/format/court_count/scoring_system are all
+        // NOT NULL columns, so a missing field would be a 500 NOT-NULL violation
+        // instead of a clean 422.
+        $data = $this->validateBody($request, [
+            'name' => ['required', 'string', 'max:100'],
+            'format' => ['sometimes', 'in:solo,team'],
+            'court_count' => ['sometimes', 'integer', 'min:1', 'max:50'],
+            'scoring_system' => ['sometimes', 'string', 'max:30'],
+        ]);
         $id = (string) Str::uuid();
         DB::table('americano_tournaments')->insert([
             'id' => $id,
-            'name' => $request->input('name'),
-            'format' => $request->input('format', 'solo'),
+            'name' => $data['name'],
+            'format' => $data['format'] ?? 'solo',
             'host_id' => $user->id,
-            'court_count' => $request->input('court_count', 1),
-            'scoring_system' => $request->input('scoring_system', 'points'),
+            'court_count' => $data['court_count'] ?? 1,
+            'scoring_system' => $data['scoring_system'] ?? 'points',
             'status' => 'open',
             'created_at' => now(),
         ]);

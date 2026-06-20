@@ -102,6 +102,11 @@ class SquadsController extends ApiController
             'description' => ['sometimes', 'nullable', 'string', 'max:500'],
             'photo_url' => ['sometimes', 'nullable', 'url', 'max:2000'],
         ]);
+        // A body with no recognized field yields []; Postgres rejects an empty
+        // SET clause ("update ... set  where ...") with a syntax error. No-op.
+        if ($data === []) {
+            return $this->show($id);
+        }
         DB::table('squads')->where('id', $id)->update($data);
 
         return $this->show($id);

@@ -190,7 +190,7 @@ class MessagingController extends ApiController
                 ->orderBy('conversation_id')
                 ->orderByDesc('created_at')
                 ->distinct('conversation_id')
-                ->get(['conversation_id', 'body', 'created_at'])
+                ->get(['conversation_id', 'body', 'attachment_url', 'attachment_type', 'created_at'])
                 ->keyBy('conversation_id');
 
         return response()->json([
@@ -206,6 +206,8 @@ class MessagingController extends ApiController
                     'other_last_seen_at' => $this->iso($r->other_last_seen_at),
                     'other_is_online' => $this->isOnline($r->other_last_seen_at),
                     'last_message_body' => $last->body ?? null,
+                    'last_message_attachment_url' => $last->attachment_url ?? null,
+                    'last_message_attachment_type' => $last->attachment_type ?? null,
                     'last_message_at' => $this->iso($r->last_message_at),
                     'unread' => $last !== null && ($r->last_read_at === null || $last->created_at > $r->last_read_at),
                 ];

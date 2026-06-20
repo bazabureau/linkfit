@@ -17,22 +17,39 @@ class SeriesController extends ApiController
     {
         $user = $this->authUser($request);
         $this->ensureNoPendingGameResult((string) $user->id);
+        // Validate before insert: every game_series column below is NOT NULL with
+        // CHECK/FK constraints, so raw unvalidated input was a 500 (NOT-NULL / FK /
+        // CHECK / uuid-cast violation) instead of a clean 422.
+        $data = $this->validateBody($request, [
+            'sport_id' => ['required', 'uuid', 'exists:sports,id'],
+            'court_id' => ['sometimes', 'nullable', 'uuid', 'exists:courts,id'],
+            'lat' => ['required', 'numeric', 'between:-90,90'],
+            'lng' => ['required', 'numeric', 'between:-180,180'],
+            'day_of_week' => ['required', 'integer', 'between:0,6'],
+            'time_of_day' => ['required', 'date_format:H:i,H:i:s'],
+            'duration_minutes' => ['required', 'integer', 'between:15,480'],
+            'capacity' => ['required', 'integer', 'min:1', 'max:64'],
+            'occurrences' => ['sometimes', 'integer', 'between:1,52'],
+            'starts_on' => ['required', 'date_format:Y-m-d'],
+            'ends_on' => ['required', 'date_format:Y-m-d', 'after_or_equal:starts_on'],
+            'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
+        ]);
         $id = (string) Str::uuid();
         DB::table('game_series')->insert([
             'id' => $id,
             'host_user_id' => $user->id,
-            'sport_id' => $request->input('sport_id'),
-            'court_id' => $request->input('court_id'),
-            'lat' => $request->input('lat'),
-            'lng' => $request->input('lng'),
-            'day_of_week' => $request->input('day_of_week'),
-            'time_of_day' => $request->input('time_of_day'),
-            'duration_minutes' => $request->input('duration_minutes'),
-            'capacity' => $request->input('capacity'),
-            'occurrences' => $request->input('occurrences', 1),
-            'starts_on' => $request->input('starts_on'),
-            'ends_on' => $request->input('ends_on'),
-            'notes' => $request->input('notes'),
+            'sport_id' => $data['sport_id'],
+            'court_id' => $data['court_id'] ?? null,
+            'lat' => $data['lat'],
+            'lng' => $data['lng'],
+            'day_of_week' => $data['day_of_week'],
+            'time_of_day' => $data['time_of_day'],
+            'duration_minutes' => $data['duration_minutes'],
+            'capacity' => $data['capacity'],
+            'occurrences' => $data['occurrences'] ?? 1,
+            'starts_on' => $data['starts_on'],
+            'ends_on' => $data['ends_on'],
+            'notes' => $data['notes'] ?? null,
             'created_at' => now(),
         ]);
 
