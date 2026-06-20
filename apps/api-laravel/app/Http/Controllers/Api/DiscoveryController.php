@@ -278,7 +278,7 @@ class DiscoveryController extends ApiController
         $totalGames = count($windowMatches);
         $winRate = $totalGames > 0 ? round($wins / $totalGames, 4) : null;
 
-        return response()->json([
+        $payload = [
             'sport_slug' => $slug,
             'days' => $days,
             'total_games' => $totalGames,
@@ -294,10 +294,12 @@ class DiscoveryController extends ApiController
             'games_per_week' => $hasAdvancedInsights ? $gamesPerWeek : [],
             'opponents' => $hasAdvancedInsights ? $opponents : [],
             'reliability_series' => [],
-            'is_premium' => $membership->isPremium($user->id),
-            'premium_locked' => ! $hasAdvancedInsights,
-            'locked_features' => $hasAdvancedInsights ? [] : ['advanced_insights'],
-        ]);
+        ];
+
+        return response()->json(array_merge(
+            $payload,
+            $this->featureAccessPayload($membership, (string) $user->id, 'advanced_insights', $hasAdvancedInsights)
+        ));
     }
 
     /** Parse a Postgres `uuid[]` literal (`{a,b}`) or array into a string[]. */
@@ -612,12 +614,9 @@ class DiscoveryController extends ApiController
         $membership = app(MembershipService::class);
         $hasPriorityMatchmaking = $membership->canUseFeature($user->id, 'priority_matchmaking');
 
-        return response()->json([
+        return response()->json(array_merge([
             'items' => $rows,
-            'is_premium' => $membership->isPremium($user->id),
-            'premium_locked' => ! $hasPriorityMatchmaking,
-            'locked_features' => $hasPriorityMatchmaking ? [] : ['priority_matchmaking'],
-        ]);
+        ], $this->featureAccessPayload($membership, (string) $user->id, 'priority_matchmaking', $hasPriorityMatchmaking)));
     }
 
     public function matchmakingPlayers(Request $request): JsonResponse
@@ -668,7 +667,7 @@ class DiscoveryController extends ApiController
         $membership = app(MembershipService::class);
         $hasPriorityMatchmaking = $membership->canUseFeature($user->id, 'priority_matchmaking');
 
-        return response()->json([
+        return response()->json(array_merge([
             'items' => $rows->map(function ($u) use ($mutualCounts) {
                 $mutual = (int) ($mutualCounts[$u->id] ?? 0);
                 $elo = $u->elo_rating !== null ? (int) $u->elo_rating : null;
@@ -703,10 +702,30 @@ class DiscoveryController extends ApiController
                     'reason_codes' => null,
                 ];
             }),
-            'is_premium' => $membership->isPremium($user->id),
-            'premium_locked' => ! $hasPriorityMatchmaking,
-            'locked_features' => $hasPriorityMatchmaking ? [] : ['priority_matchmaking'],
-        ]);
+        ], $this->featureAccessPayload($membership, (string) $user->id, 'priority_matchmaking', $hasPriorityMatchmaking)));
+    }
+
+    protected function featureAccessPayload(MembershipService $membership, string $userId, string $feature, bool $allowed): array
+    {
+        $state = $membership->resolve($userId);
+        $payload = [
+            'access' => [
+                'full_access' => $state->is_premium,
+                'features' => $membership->featuresForUser($userId),
+            ],
+            'feature_locks' => $allowed ? [] : [[
+                'feature' => $feature,
+                'locked' => true,
+            ]],
+        ];
+
+        if ((bool) config('membership.public_subscriptions_enabled', false)) {
+            $payload['is_premium'] = $state->is_premium;
+            $payload['premium_locked'] = ! $allowed;
+            $payload['locked_features'] = $allowed ? [] : [$feature];
+        }
+
+        return $payload;
     }
 
     public function challenges(Request $request): JsonResponse
