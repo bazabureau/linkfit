@@ -25,6 +25,26 @@ class ApiKeyGuardTest extends TestCase
             ->assertJsonPath('api', 'laravel');
     }
 
+    public function test_sampled_api_surface_requires_public_api_key_when_gate_is_enabled(): void
+    {
+        config()->set('app.require_api_key', true);
+        config()->set('app.api_keys', ['test-public-client-key-1234567890abcdef']);
+
+        foreach ([
+            '/health',
+            '/api/v1/app/capabilities',
+            '/api/v1/mobile/config',
+            '/api/v1/membership/plans',
+            '/api/v1/realtime/health',
+        ] as $path) {
+            $this->getJson($path)->assertForbidden();
+
+            $this->getJson($path, [
+                'X-Linkfit-App-Key' => 'test-public-client-key-1234567890abcdef',
+            ])->assertOk();
+        }
+    }
+
     public function test_api_key_is_not_accepted_in_query_string(): void
     {
         config()->set('app.require_api_key', true);
