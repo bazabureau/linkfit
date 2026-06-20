@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AdminAnalyticsController;
 use App\Http\Controllers\Api\AdminLessonsController;
 use App\Http\Controllers\Api\AdminOpsController;
+use App\Http\Controllers\Api\CoachPortalController;
 use App\Http\Controllers\Api\AmericanoController;
 use App\Http\Controllers\Api\AppInfoController;
 use App\Http\Controllers\Api\AuthExtrasController;
@@ -67,6 +68,7 @@ Route::prefix('api/v1')->group(function () {
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('auth/admin/login', [AuthController::class, 'adminLogin'])->middleware('throttle:5,1');
     Route::post('auth/owner/login', [AuthController::class, 'ownerLogin'])->middleware('throttle:5,1');
+    Route::post('auth/coach/login', [AuthController::class, 'coachLogin'])->middleware('throttle:5,1');
     Route::post('auth/refresh', [AuthController::class, 'refresh'])->middleware('throttle:20,1');
     Route::post('auth/logout', [AuthController::class, 'logout'])->middleware('throttle:20,1');
     Route::post('auth/verify-email', [AuthExtrasController::class, 'verifyEmail'])->middleware('throttle:10,1');
@@ -282,6 +284,13 @@ Route::prefix('api/v1')->group(function () {
         Route::post('partner/staff', [PartnerOpsController::class, 'createStaff']);
         Route::patch('partner/staff/{id}', [PartnerOpsController::class, 'updateStaff']);
         Route::delete('partner/staff/{id}', [PartnerOpsController::class, 'deleteStaff']);
+        Route::get('coach/bootstrap', [CoachPortalController::class, 'bootstrap']);
+        Route::patch('coach/profile', [CoachPortalController::class, 'updateProfile']);
+        Route::get('coach/lessons', [CoachPortalController::class, 'lessons']);
+        Route::post('coach/lessons', [CoachPortalController::class, 'createLesson']);
+        Route::patch('coach/lessons/{id}', [CoachPortalController::class, 'updateLesson']);
+        Route::post('coach/lessons/{id}/cancel', [CoachPortalController::class, 'cancelLesson']);
+        Route::get('coach/lessons/{id}/bookings', [CoachPortalController::class, 'roster']);
         Route::get('admin/bootstrap', [AdminOpsController::class, 'bootstrap']);
         Route::get('admin/lookups', [AdminOpsController::class, 'lookups']);
         Route::get('admin/stats', [AdminOpsController::class, 'stats']);

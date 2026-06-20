@@ -153,6 +153,11 @@ class AuthController extends Controller
         return $this->roleLogin($request, ['partner'], 'Owner access required');
     }
 
+    public function coachLogin(Request $request): JsonResponse
+    {
+        return $this->roleLogin($request, ['coach'], 'Coach access required');
+    }
+
     /** POST /api/v1/auth/refresh → 200 AuthSession */
     public function refresh(Request $request): JsonResponse
     {
@@ -209,6 +214,15 @@ class AuthController extends Controller
         }
         if ((string) $user->admin_role === 'partner' && $user->venue_id === null) {
             throw ApiException::forbidden('Owner account is not linked to a venue');
+        }
+        if ((string) $user->admin_role === 'coach') {
+            $hasCoachProfile = DB::table('coaches')
+                ->where('user_id', $user->id)
+                ->where('is_active', true)
+                ->exists();
+            if (! $hasCoachProfile) {
+                throw ApiException::forbidden('Coach account is not linked to an active coach profile');
+            }
         }
 
         return response()->json($this->tokens->issueSession($user, $request->userAgent()), 200);

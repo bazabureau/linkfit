@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Services\Auth\PasswordService;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,6 +22,7 @@ class AdminLessonsController extends ApiController
     {
         $this->staff($request);
         $query = DB::table('coaches as co')
+            ->leftJoin('users as u', 'u.id', '=', 'co.user_id')
             ->leftJoin('sports as s', 's.id', '=', 'co.sport_id')
             ->leftJoin('venues as v', 'v.id', '=', 'co.venue_id');
 
@@ -40,7 +42,7 @@ class AdminLessonsController extends ApiController
         $rows = $query->orderByDesc('co.is_active')->orderBy('co.display_name')->limit(500)->get([
             'co.id', 'co.display_name', 'co.photo_url', 'co.bio', 'co.rating',
             'co.years_experience', 'co.hourly_rate_minor', 'co.currency', 'co.is_active',
-            'co.sport_id', 's.slug as sport_slug', 'co.venue_id', 'v.name as venue_name',
+            'co.user_id', 'u.email as user_email', 'co.sport_id', 's.slug as sport_slug', 'co.venue_id', 'v.name as venue_name',
         ]);
 
         return response()->json(['items' => $rows->map(fn ($c) => $this->coachPayload($c))->values()]);
@@ -59,13 +61,19 @@ class AdminLessonsController extends ApiController
             'currency' => ['sometimes', 'nullable', 'string', 'size:3'],
             'years_experience' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:80'],
             'rating' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:5'],
+            'user_id' => ['sometimes', 'nullable', 'uuid'],
+            'email' => ['sometimes', 'nullable', 'email', 'max:254'],
+            'password' => ['sometimes', 'nullable', 'string', 'min:12', 'max:200'],
+            'email_verified' => ['sometimes', 'boolean'],
         ]);
         $this->assertVenue($data['venue_id']);
         $this->assertSport($data['sport_id'] ?? null);
+        $linkedUserId = $this->resolveCoachUserId($data, $data['display_name']);
 
         $id = (string) Str::uuid();
         DB::table('coaches')->insert([
             'id' => $id,
+            'user_id' => $linkedUserId,
             'venue_id' => $data['venue_id'],
             'sport_id' => $data['sport_id'] ?? null,
             'display_name' => $data['display_name'],
@@ -80,6 +88,12 @@ class AdminLessonsController extends ApiController
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        if ($linkedUserId !== null) {
+            DB::table('users')->where('id', $linkedUserId)->update([
+                'admin_role' => 'coach',
+                'updated_at' => now(),
+            ]);
+        }
 
         return $this->showCoach($id, 201);
     }
@@ -99,6 +113,10 @@ class AdminLessonsController extends ApiController
             'years_experience' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:80'],
             'rating' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:5'],
             'is_active' => ['sometimes', 'boolean'],
+            'user_id' => ['sometimes', 'nullable', 'uuid'],
+            'email' => ['sometimes', 'nullable', 'email', 'max:254'],
+            'password' => ['sometimes', 'nullable', 'string', 'min:12', 'max:200'],
+            'email_verified' => ['sometimes', 'boolean'],
         ]);
         if (isset($data['venue_id'])) {
             $this->assertVenue($data['venue_id']);
@@ -106,13 +124,23 @@ class AdminLessonsController extends ApiController
         if (array_key_exists('sport_id', $data)) {
             $this->assertSport($data['sport_id']);
         }
+        if (array_key_exists('user_id', $data) || ! empty($data['email'])) {
+            $displayName = (string) ($data['display_name'] ?? DB::table('coaches')->where('id', $id)->value('display_name') ?? 'Coach');
+            $data['user_id'] = $this->resolveCoachUserId($data, $displayName, $id);
+        }
         $update = array_intersect_key($data, array_flip([
             'venue_id', 'display_name', 'sport_id', 'photo_url', 'bio', 'hourly_rate_minor',
-            'currency', 'years_experience', 'rating', 'is_active',
+            'currency', 'years_experience', 'rating', 'is_active', 'user_id',
         ]));
         if ($update !== []) {
             $update['updated_at'] = now();
             DB::table('coaches')->where('id', $id)->update($update);
+            if (isset($update['user_id'])) {
+                DB::table('users')->where('id', $update['user_id'])->update([
+                    'admin_role' => 'coach',
+                    'updated_at' => now(),
+                ]);
+            }
         }
 
         return $this->showCoach($id);
@@ -331,13 +359,14 @@ class AdminLessonsController extends ApiController
     private function showCoach(string $id, int $status = 200): JsonResponse
     {
         $c = DB::table('coaches as co')
+            ->leftJoin('users as u', 'u.id', '=', 'co.user_id')
             ->leftJoin('sports as s', 's.id', '=', 'co.sport_id')
             ->leftJoin('venues as v', 'v.id', '=', 'co.venue_id')
             ->where('co.id', $id)
             ->first([
                 'co.id', 'co.display_name', 'co.photo_url', 'co.bio', 'co.rating',
                 'co.years_experience', 'co.hourly_rate_minor', 'co.currency', 'co.is_active',
-                'co.sport_id', 's.slug as sport_slug', 'co.venue_id', 'v.name as venue_name',
+                'co.user_id', 'u.email as user_email', 'co.sport_id', 's.slug as sport_slug', 'co.venue_id', 'v.name as venue_name',
             ]);
 
         return response()->json($this->coachPayload($c), $status);
@@ -373,6 +402,8 @@ class AdminLessonsController extends ApiController
     {
         return [
             'id' => $c->id,
+            'user_id' => $c->user_id ?? null,
+            'user_email' => $c->user_email ?? null,
             'display_name' => $c->display_name,
             'photo_url' => $c->photo_url,
             'bio' => $c->bio,
@@ -386,6 +417,58 @@ class AdminLessonsController extends ApiController
             'venue_name' => $c->venue_name ?? null,
             'is_active' => (bool) $c->is_active,
         ];
+    }
+
+    private function resolveCoachUserId(array $data, string $displayName, ?string $ignoreCoachId = null): ?string
+    {
+        if (! empty($data['user_id'])) {
+            $user = DB::table('users')->where('id', $data['user_id'])->whereNull('deleted_at')->first(['id', 'admin_role']);
+            if ($user === null) {
+                throw ApiException::validation('Unknown user_id');
+            }
+            $alreadyLinked = DB::table('coaches')
+                ->where('user_id', $user->id)
+                ->when($ignoreCoachId !== null, fn ($q) => $q->where('id', '!=', $ignoreCoachId))
+                ->exists();
+            if ($alreadyLinked) {
+                throw ApiException::conflict('User is already linked to a coach profile');
+            }
+
+            return (string) $user->id;
+        }
+
+        if (empty($data['email'])) {
+            return null;
+        }
+        if (empty($data['password'])) {
+            throw ApiException::validation('Password is required when creating a coach login account');
+        }
+        $this->assertPasswordPolicy((string) $data['password']);
+        $email = mb_strtolower(trim((string) $data['email']));
+        if (DB::table('users')->where('email', $email)->exists()) {
+            throw ApiException::conflict('Email is already registered');
+        }
+
+        $userId = (string) Str::uuid();
+        DB::table('users')->insert([
+            'id' => $userId,
+            'email' => $email,
+            'password_hash' => app(PasswordService::class)->hash((string) $data['password']),
+            'display_name' => trim($displayName),
+            'admin_role' => 'coach',
+            'email_verified_at' => ! empty($data['email_verified']) ? now() : null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $userId;
+    }
+
+    private function assertPasswordPolicy(string $password): void
+    {
+        if (strlen($password) < 12 || ! preg_match('/[A-Za-z]/', $password) || ! preg_match('/\d/', $password)) {
+            throw ApiException::validation('Password must be at least 12 characters and contain a letter and a digit');
+        }
     }
 
     private function lessonPayload(object $l): array

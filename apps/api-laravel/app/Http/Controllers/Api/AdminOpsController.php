@@ -57,7 +57,7 @@ class AdminOpsController extends ApiController
             'payment_methods' => ['onsite', 'cash', 'bank_transfer', 'manual'],
             'venue_statuses' => ['draft', 'pending', 'published', 'suspended'],
             'court_statuses' => ['active', 'inactive', 'maintenance'],
-            'admin_roles' => ['admin', 'moderator'],
+            'admin_roles' => ['admin', 'moderator', 'partner', 'coach'],
         ]);
     }
 
@@ -127,6 +127,7 @@ class AdminOpsController extends ApiController
                 ->whereNotIn('status', ['completed', 'cancelled'])
                 ->count(),
             'partner_accounts_total' => DB::table('users')->whereNull('deleted_at')->where('admin_role', 'partner')->count(),
+            'coach_accounts_total' => DB::table('users')->whereNull('deleted_at')->where('admin_role', 'coach')->count(),
             'admin_accounts_total' => DB::table('users')->whereNull('deleted_at')->whereIn('admin_role', ['admin', 'moderator'])->count(),
             'reports_total' => DB::table('reports')->count(),
             'top_venues' => $topVenues,
@@ -316,6 +317,7 @@ class AdminOpsController extends ApiController
                 'admin' => (clone $summaryBase)->whereNull('deleted_at')->where('admin_role', 'admin')->count(),
                 'moderator' => (clone $summaryBase)->whereNull('deleted_at')->where('admin_role', 'moderator')->count(),
                 'partner' => (clone $summaryBase)->whereNull('deleted_at')->where('admin_role', 'partner')->count(),
+                'coach' => (clone $summaryBase)->whereNull('deleted_at')->where('admin_role', 'coach')->count(),
                 'staff' => (clone $summaryBase)->whereNull('deleted_at')->whereIn('admin_role', ['admin', 'moderator'])->count(),
             ],
         ]);
