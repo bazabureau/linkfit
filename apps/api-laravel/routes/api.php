@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\FeedController;
 use App\Http\Controllers\Api\GamesController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\InvitationsController;
+use App\Http\Controllers\Api\InternalController;
 use App\Http\Controllers\Api\LessonsController;
 use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\MeController;
@@ -57,6 +58,10 @@ Route::get('/.well-known/apple-app-site-association', [AppInfoController::class,
 Route::get('/og/{path?}', [OgController::class, 'image'])->where('path', '.*');
 
 Route::prefix('api/v1')->group(function () {
+    Route::prefix('internal')->middleware('internal.key')->group(function () {
+        Route::get('capabilities', [InternalController::class, 'capabilities']);
+    });
+
     Route::post('auth/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('auth/admin/login', [AuthController::class, 'adminLogin'])->middleware('throttle:5,1');

@@ -170,6 +170,35 @@ class ApiKeyGuardTest extends TestCase
             ->assertJson(['ok' => true]);
     }
 
+    public function test_real_internal_route_accepts_internal_key_without_public_app_key(): void
+    {
+        config()->set('app.require_api_key', true);
+        config()->set('app.api_keys', ['test-public-client-key-1234567890abcdef']);
+        config()->set('app.internal_api_keys', ['test-internal-server-key-1234567890abcdef']);
+
+        $this->getJson('/api/v1/internal/capabilities', [
+            'X-Linkfit-Internal-Key' => 'test-internal-server-key-1234567890abcdef',
+        ])
+            ->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('mode', 'internal')
+            ->assertJsonPath('api_key_type', 'internal')
+            ->assertJsonPath('features.server_to_server', true);
+    }
+
+    public function test_real_internal_route_rejects_public_app_key_without_internal_key(): void
+    {
+        config()->set('app.require_api_key', true);
+        config()->set('app.api_keys', ['test-public-client-key-1234567890abcdef']);
+        config()->set('app.internal_api_keys', ['test-internal-server-key-1234567890abcdef']);
+
+        $this->getJson('/api/v1/internal/capabilities', [
+            'X-Linkfit-App-Key' => 'test-public-client-key-1234567890abcdef',
+        ])
+            ->assertForbidden()
+            ->assertJsonPath('error.message', 'Invalid or missing internal API key');
+    }
+
     public function test_production_requires_api_key_gate_to_be_enabled(): void
     {
         $this->app->detectEnvironment(fn () => 'production');
