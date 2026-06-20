@@ -26,7 +26,7 @@ class ApiKeyGuard
             return $next($request);
         }
 
-        $provided = (string) ($request->header('X-Linkfit-App-Key') ?? $request->header('X-API-Key', ''));
+        $provided = (string) $request->header('X-Linkfit-App-Key', '');
 
         if (! ApiKeyRing::matches(
             $provided,
