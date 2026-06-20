@@ -70,6 +70,39 @@ class ApiKeyGuardTest extends TestCase
             ->assertJsonPath('api', 'laravel');
     }
 
+    public function test_browser_origin_must_be_allowed_even_with_valid_public_api_key(): void
+    {
+        config()->set('app.require_api_key', true);
+        config()->set('app.api_keys', ['test-public-client-key-1234567890abcdef']);
+        config()->set('cors.allowed_origins', ['https://linkfit.az']);
+
+        $this->getJson('/api/v1/app/metadata', [
+            'Origin' => 'https://evil.example',
+            'X-Linkfit-App-Key' => 'test-public-client-key-1234567890abcdef',
+        ])
+            ->assertForbidden();
+
+        $this->getJson('/api/v1/app/metadata', [
+            'Origin' => 'https://linkfit.az',
+            'X-Linkfit-App-Key' => 'test-public-client-key-1234567890abcdef',
+        ])
+            ->assertOk()
+            ->assertJsonPath('api', 'laravel');
+    }
+
+    public function test_native_requests_without_origin_still_use_public_api_key_only(): void
+    {
+        config()->set('app.require_api_key', true);
+        config()->set('app.api_keys', ['test-public-client-key-1234567890abcdef']);
+        config()->set('cors.allowed_origins', ['https://linkfit.az']);
+
+        $this->getJson('/api/v1/app/metadata', [
+            'X-Linkfit-App-Key' => 'test-public-client-key-1234567890abcdef',
+        ])
+            ->assertOk()
+            ->assertJsonPath('api', 'laravel');
+    }
+
     public function test_internal_api_key_uses_separate_header_and_keyring(): void
     {
         Route::middleware([InternalApiKeyGuard::class])->get('/_test/internal-key', fn () => response()->json(['ok' => true]));

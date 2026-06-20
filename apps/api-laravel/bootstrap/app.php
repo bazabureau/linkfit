@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\ApiKeyGuard;
+use App\Http\Middleware\BrowserOriginGuard;
 use App\Http\Middleware\InternalApiKeyGuard;
 use App\Http\Middleware\JwtAuthenticate;
 use App\Http\Middleware\RequestId;
@@ -31,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ['middleware' => [
             RequestId::class,
             'throttle:api',
+            BrowserOriginGuard::class,
             ApiKeyGuard::class,
             'jwt',
             SecurityHeaders::class,
@@ -74,6 +76,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // baseline security headers on every API response.
         $middleware->api(append: [
             'throttle:api',
+            BrowserOriginGuard::class,
             ApiKeyGuard::class,
             SecurityHeaders::class,
         ]);
