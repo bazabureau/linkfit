@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
+use App\Http\Controllers\Api\Concerns\FiltersPublicPlayerDirectory;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,7 @@ use Illuminate\Support\Str;
 class EngagementController extends ApiController
 {
     use AuthorizesAdminPermissions;
+    use FiltersPublicPlayerDirectory;
 
     public function achievements(string $id): JsonResponse
     {
@@ -110,7 +112,8 @@ class EngagementController extends ApiController
         $base = DB::table('player_sport_stats as p')
             ->join('users as u', 'u.id', '=', 'p.user_id')
             ->join('sports as s', 's.id', '=', 'p.sport_id')
-            ->whereNull('u.deleted_at');
+            ->whereNull('u.deleted_at')
+            ->when(true, fn ($q) => $this->wherePublicPlayerDirectoryAllowed($q, 'u'));
         if ($sport) {
             $base->where('s.slug', $sport);
         }

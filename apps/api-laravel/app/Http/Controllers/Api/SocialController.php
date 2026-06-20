@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
+use App\Http\Controllers\Api\Concerns\FiltersPublicPlayerDirectory;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 class SocialController extends ApiController
 {
     use FiltersBlockedUsers;
+    use FiltersPublicPlayerDirectory;
 
     public function players(Request $request): JsonResponse
     {
@@ -444,6 +446,7 @@ class SocialController extends ApiController
             ->leftJoinSub($primaryStats, 'primary_stats', 'primary_stats.user_id', '=', 'u.id')
             ->whereNull('u.deleted_at')
             ->whereNull('u.admin_role')
+            ->when(true, fn ($q) => $this->wherePublicPlayerDirectoryAllowed($q, 'u'))
             ->select([
                 'u.id',
                 'u.username',

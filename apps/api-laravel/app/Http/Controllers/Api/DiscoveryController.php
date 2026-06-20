@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
+use App\Http\Controllers\Api\Concerns\FiltersPublicPlayerDirectory;
 use App\Services\Membership\MembershipService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 class DiscoveryController extends ApiController
 {
     use FiltersBlockedUsers;
+    use FiltersPublicPlayerDirectory;
 
     public function agenda(Request $request): JsonResponse
     {
@@ -490,6 +492,7 @@ class DiscoveryController extends ApiController
         $rows = DB::table('users as u')
             ->where('u.id', '!=', $userId)
             ->whereNull('u.deleted_at')
+            ->when(true, fn ($q) => $this->wherePublicPlayerDirectoryAllowed($q, 'u'))
             ->whereNotExists(function ($q) use ($userId) {
                 $q->selectRaw('1')->from('follows as f')
                     ->whereColumn('f.followed_user_id', 'u.id')
@@ -553,6 +556,7 @@ class DiscoveryController extends ApiController
         $rows = DB::table('users as u')
             ->where('u.id', '!=', $user->id)
             ->whereNull('u.deleted_at')
+            ->when(true, fn ($q) => $this->wherePublicPlayerDirectoryAllowed($q, 'u'))
             ->whereNotExists(function ($q) use ($user) {
                 $q->selectRaw('1')->from('follows as f')->whereColumn('f.followed_user_id', 'u.id')->where('f.follower_user_id', $user->id);
             })
@@ -638,6 +642,7 @@ class DiscoveryController extends ApiController
             ->where('u.id', '!=', $user->id)
             ->whereNull('u.deleted_at')
             ->whereNull('u.admin_role')
+            ->when(true, fn ($q) => $this->wherePublicPlayerDirectoryAllowed($q, 'u'))
             ->whereNotExists(function ($q) use ($user) {
                 $q->selectRaw('1')->from('follows as f')
                     ->whereColumn('f.followed_user_id', 'u.id')
