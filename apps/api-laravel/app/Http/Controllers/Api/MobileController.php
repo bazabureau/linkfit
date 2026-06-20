@@ -111,6 +111,8 @@ class MobileController extends ApiController
     private function mobileConfig(): array
     {
         $membership = app(MembershipService::class);
+        $subscriptionsEnabled = $membership->publicSubscriptionsEnabled();
+        $payments = $membership->paymentState();
 
         return [
             'app' => [
@@ -135,10 +137,7 @@ class MobileController extends ApiController
                 'email' => config('services.linkfit.support_email', 'support@linkfit.az'),
                 'web_url' => config('services.linkfit.web_url'),
             ],
-            'access' => [
-                'full_access' => true,
-                'features' => $membership->publicFeaturesForTier('premium'),
-            ],
+            'access' => $this->configAccessPayload($membership, $subscriptionsEnabled),
             'features' => [
                 'apple_login' => filled(config('services.apple.client_id')),
                 'google_login' => filled(config('services.google.client_ids')),
@@ -146,10 +145,10 @@ class MobileController extends ApiController
                 'push_notifications' => true,
                 'stories' => true,
                 'bookings' => true,
-                'payments' => false,
-                'membership' => false,
-                'premium' => false,
-                'free_launch_access' => true,
+                'payments' => $subscriptionsEnabled && (bool) $payments['enabled'],
+                'membership' => $subscriptionsEnabled,
+                'premium' => $subscriptionsEnabled,
+                'free_launch_access' => ! $subscriptionsEnabled,
                 'deep_links' => true,
                 'user_reporting' => true,
                 'content_reporting' => true,
@@ -163,12 +162,39 @@ class MobileController extends ApiController
         ];
     }
 
+    private function configAccessPayload(MembershipService $membership, bool $subscriptionsEnabled): array
+    {
+        if ($subscriptionsEnabled) {
+            return [
+                'mode' => 'standard',
+                'full_access' => false,
+                'on_trial' => false,
+                'trial_ends_at' => null,
+                'global_full_access' => false,
+                'features' => $membership->publicFeaturesForTier('free'),
+            ];
+        }
+
+        return [
+            'mode' => 'free_launch',
+            'full_access' => true,
+            'on_trial' => true,
+            'trial_ends_at' => config('membership.global_full_access_until') ?: null,
+            'global_full_access' => config('membership.global_full_access_until') !== null,
+            'features' => $membership->publicFeaturesForTier('premium'),
+        ];
+    }
+
     private function accessPayload(string $userId, MembershipService $membership): array
     {
         $state = $membership->resolve($userId);
 
         return [
+            'mode' => $membership->publicSubscriptionsEnabled() ? 'standard' : 'free_launch',
             'full_access' => $state->is_premium,
+            'on_trial' => $state->on_trial,
+            'trial_ends_at' => $state->trial_ends_at,
+            'global_full_access' => $state->global_full_access,
             'features' => $membership->publicFeaturesForUser($userId),
         ];
     }

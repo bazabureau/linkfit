@@ -50,15 +50,36 @@ class ApiSurfaceTest extends TestCase
         $this->getJson('/api/v1/mobile/config')
             ->assertOk()
             ->assertJsonPath('api.requires_app_key', false)
+            ->assertJsonPath('access.mode', 'free_launch')
             ->assertJsonPath('features.payments', false)
             ->assertJsonPath('features.membership', false)
             ->assertJsonPath('features.premium', false)
             ->assertJsonPath('features.free_launch_access', true)
             ->assertJsonPath('access.full_access', true)
+            ->assertJsonPath('access.on_trial', true)
+            ->assertJsonPath('access.trial_ends_at', '2026-08-09T23:59:59Z')
+            ->assertJsonPath('access.global_full_access', true)
             ->assertJsonMissingPath('payments')
             ->assertJsonMissingPath('membership.plans');
 
         $this->assertNotContains('premium_badge', $this->getJson('/api/v1/mobile/config')->json('access.features'));
+    }
+
+    public function test_mobile_config_can_expose_membership_flags_after_public_subscriptions_are_enabled(): void
+    {
+        config()->set('membership.public_subscriptions_enabled', true);
+        config()->set('membership.payments_enabled', true);
+        config()->set('membership.global_full_access_until', null);
+
+        $this->getJson('/api/v1/mobile/config')
+            ->assertOk()
+            ->assertJsonPath('access.mode', 'standard')
+            ->assertJsonPath('access.full_access', false)
+            ->assertJsonPath('access.on_trial', false)
+            ->assertJsonPath('features.payments', true)
+            ->assertJsonPath('features.membership', true)
+            ->assertJsonPath('features.premium', true)
+            ->assertJsonPath('features.free_launch_access', false);
     }
 
     public function test_app_capabilities_hide_payment_surface_during_free_access_period(): void
