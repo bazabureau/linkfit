@@ -12,6 +12,10 @@ use Tests\TestCase;
 
 class GameResultAccessTest extends TestCase
 {
+    private const HOST = '00000000-0000-4000-8000-000000000001';
+    private const PLAYER_ONE = '00000000-0000-4000-8000-000000000002';
+    private const PLAYER_TWO = '00000000-0000-4000-8000-000000000003';
+
     private MatchController $controller;
 
     protected function setUp(): void
@@ -66,6 +70,16 @@ class GameResultAccessTest extends TestCase
             $table->text('elo_delta_by_user')->nullable();
         });
 
+        Schema::create('player_sport_stats', function ($table): void {
+            $table->string('user_id');
+            $table->string('sport_id');
+            $table->integer('elo_rating')->default(1200);
+            $table->integer('games_played')->default(0);
+            $table->integer('games_won')->default(0);
+            $table->timestamp('updated_at')->nullable();
+            $table->primary(['user_id', 'sport_id']);
+        });
+
         Schema::create('audit_log', function ($table): void {
             $table->string('id')->primary();
             $table->string('actor_user_id')->nullable();
@@ -77,25 +91,25 @@ class GameResultAccessTest extends TestCase
         });
 
         DB::table('users')->insert([
-            ['id' => 'host-user'],
-            ['id' => 'player-one'],
-            ['id' => 'player-two'],
+            ['id' => self::HOST],
+            ['id' => self::PLAYER_ONE],
+            ['id' => self::PLAYER_TWO],
         ]);
         DB::table('games')->insert([
             'id' => 'game-one',
             'sport_id' => 'sport-padel',
-            'host_user_id' => 'host-user',
+            'host_user_id' => self::HOST,
             'status' => 'open',
         ]);
         DB::table('game_participants')->insert([
-            ['game_id' => 'game-one', 'user_id' => 'host-user', 'status' => 'confirmed', 'joined_at' => now(), 'status_changed_at' => now()],
-            ['game_id' => 'game-one', 'user_id' => 'player-one', 'status' => 'confirmed', 'joined_at' => now(), 'status_changed_at' => now()],
-            ['game_id' => 'game-one', 'user_id' => 'player-two', 'status' => 'confirmed', 'joined_at' => now(), 'status_changed_at' => now()],
+            ['game_id' => 'game-one', 'user_id' => self::HOST, 'status' => 'confirmed', 'joined_at' => now(), 'status_changed_at' => now()],
+            ['game_id' => 'game-one', 'user_id' => self::PLAYER_ONE, 'status' => 'confirmed', 'joined_at' => now(), 'status_changed_at' => now()],
+            ['game_id' => 'game-one', 'user_id' => self::PLAYER_TWO, 'status' => 'confirmed', 'joined_at' => now(), 'status_changed_at' => now()],
         ]);
         DB::table('match_scores')->insert([
             'game_id' => 'game-one',
-            'team_a_user_ids' => '{host-user,player-one}',
-            'team_b_user_ids' => '{player-two}',
+            'team_a_user_ids' => '{'.self::HOST.','.self::PLAYER_ONE.'}',
+            'team_b_user_ids' => '{'.self::PLAYER_TWO.'}',
             'sets' => '[]',
             'points' => '[]',
             'status' => 'in_progress',
@@ -109,6 +123,7 @@ class GameResultAccessTest extends TestCase
     protected function tearDown(): void
     {
         Schema::dropIfExists('audit_log');
+        Schema::dropIfExists('player_sport_stats');
         Schema::dropIfExists('match_scores');
         Schema::dropIfExists('game_participants');
         Schema::dropIfExists('games');
@@ -122,28 +137,28 @@ class GameResultAccessTest extends TestCase
         $this->expectException(ApiException::class);
         $this->expectExceptionMessage('Only the host or a player with result access can record the result');
 
-        $this->controller->reportResult($this->requestFor('player-one'), 'game-one');
+        $this->controller->reportResult($this->requestFor(self::PLAYER_ONE), 'game-one');
     }
 
     public function test_host_can_grant_and_revoke_result_access_to_confirmed_player(): void
     {
         $granted = $this->controller->setResultAccess(
-            $this->requestFor('host-user', ['can_report_result' => true]),
+            $this->requestFor(self::HOST, ['can_report_result' => true]),
             'game-one',
-            'player-one',
+            self::PLAYER_ONE,
         );
 
         $this->assertSame(200, $granted->getStatusCode());
-        $this->assertTrue((bool) DB::table('game_participants')->where('user_id', 'player-one')->value('can_report_result'));
+        $this->assertTrue((bool) DB::table('game_participants')->where('user_id', self::PLAYER_ONE)->value('can_report_result'));
 
         $revoked = $this->controller->setResultAccess(
-            $this->requestFor('host-user', ['can_report_result' => false]),
+            $this->requestFor(self::HOST, ['can_report_result' => false]),
             'game-one',
-            'player-one',
+            self::PLAYER_ONE,
         );
 
         $this->assertSame(200, $revoked->getStatusCode());
-        $this->assertFalse((bool) DB::table('game_participants')->where('user_id', 'player-one')->value('can_report_result'));
+        $this->assertFalse((bool) DB::table('game_participants')->where('user_id', self::PLAYER_ONE)->value('can_report_result'));
     }
 
     public function test_non_host_cannot_manage_result_access(): void
@@ -152,16 +167,16 @@ class GameResultAccessTest extends TestCase
         $this->expectExceptionMessage('Only the host can manage result access');
 
         $this->controller->setResultAccess(
-            $this->requestFor('player-one', ['can_report_result' => true]),
+            $this->requestFor(self::PLAYER_ONE, ['can_report_result' => true]),
             'game-one',
-            'player-two',
+            self::PLAYER_TWO,
         );
     }
 
     public function test_delegated_player_can_update_live_scoring_but_other_players_cannot(): void
     {
         try {
-            $this->controller->point($this->requestFor('player-two', ['team' => 'a']), 'game-one');
+            $this->controller->point($this->requestFor(self::PLAYER_TWO, ['team' => 'a']), 'game-one');
             $this->fail('Expected non-delegated player to be forbidden.');
         } catch (ApiException $exception) {
             $this->assertSame(403, $exception->getStatusCode());
@@ -169,13 +184,59 @@ class GameResultAccessTest extends TestCase
 
         DB::table('game_participants')
             ->where('game_id', 'game-one')
-            ->where('user_id', 'player-one')
+            ->where('user_id', self::PLAYER_ONE)
             ->update(['can_report_result' => true]);
 
-        $response = $this->controller->point($this->requestFor('player-one', ['team' => 'a']), 'game-one');
+        $response = $this->controller->point($this->requestFor(self::PLAYER_ONE, ['team' => 'a']), 'game-one');
 
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame(['a'], json_decode((string) DB::table('match_scores')->where('game_id', 'game-one')->value('points'), true));
+    }
+
+    public function test_delegated_player_can_report_final_result(): void
+    {
+        DB::table('game_participants')
+            ->where('game_id', 'game-one')
+            ->where('user_id', self::PLAYER_ONE)
+            ->update(['can_report_result' => true]);
+
+        DB::table('match_scores')->where('game_id', 'game-one')->delete();
+
+        $response = $this->controller->reportResult($this->requestFor(self::PLAYER_ONE, $this->resultPayload()), 'game-one');
+        $payload = $response->getData(true);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('completed', $payload['status']);
+        $this->assertSame('a', $payload['winning_team']);
+        $this->assertSame('completed', DB::table('games')->where('id', 'game-one')->value('status'));
+        $this->assertSame(1, (int) DB::table('player_sport_stats')->where('user_id', self::PLAYER_ONE)->value('games_won'));
+    }
+
+    public function test_revoked_player_cannot_report_final_result(): void
+    {
+        DB::table('game_participants')
+            ->where('game_id', 'game-one')
+            ->where('user_id', self::PLAYER_ONE)
+            ->update(['can_report_result' => false]);
+
+        DB::table('match_scores')->where('game_id', 'game-one')->delete();
+
+        $this->expectException(ApiException::class);
+        $this->expectExceptionMessage('Only the host or a player with result access can record the result');
+
+        $this->controller->reportResult($this->requestFor(self::PLAYER_ONE, $this->resultPayload()), 'game-one');
+    }
+
+    private function resultPayload(): array
+    {
+        return [
+            'team_a_user_ids' => [self::HOST, self::PLAYER_ONE],
+            'team_b_user_ids' => [self::PLAYER_TWO],
+            'sets' => [
+                ['a' => 6, 'b' => 3],
+                ['a' => 6, 'b' => 4],
+            ],
+        ];
     }
 
     private function requestFor(string $userId, array $body = []): Request

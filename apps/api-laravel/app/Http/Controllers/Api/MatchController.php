@@ -352,7 +352,7 @@ class MatchController extends ApiController
                     ->update([
                         'games_played' => DB::raw('games_played + 1'),
                         'games_won' => DB::raw($won ? 'games_won + 1' : 'games_won'),
-                        'elo_rating' => DB::raw('GREATEST(100, elo_rating + ('.$delta.'))'),
+                        'elo_rating' => $this->minEloExpression($delta),
                         'updated_at' => now(),
                     ]);
                 $deltas[$uid] = $delta;
@@ -636,11 +636,24 @@ class MatchController extends ApiController
         ];
     }
 
-    private function uuidArray(array $ids): Expression
+    private function minEloExpression(int $delta): Expression
+    {
+        $driver = DB::connection()->getDriverName();
+        $fn = $driver === 'sqlite' ? 'MAX' : 'GREATEST';
+
+        return DB::raw($fn.'(100, elo_rating + ('.$delta.'))');
+    }
+
+    private function uuidArray(array $ids): Expression|string
     {
         $items = array_map(fn ($id) => '"'.str_replace('"', '\"', (string) $id).'"', $ids);
+        $value = '{'.implode(',', $items).'}';
 
-        return DB::raw("'".'{'.implode(',', $items).'}'."'::uuid[]");
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            return $value;
+        }
+
+        return DB::raw("'".$value."'::uuid[]");
     }
 
     private function pgArray(mixed $value): array
