@@ -191,6 +191,12 @@ class AppServiceProvider extends ServiceProvider
             );
         }
 
+        if ((int) config('membership.free_trial_days') < 50) {
+            throw new \RuntimeException(
+                'FREE_TRIAL_DAYS must be at least 50 while public subscriptions are disabled in production.'
+            );
+        }
+
         $until = trim((string) config('membership.global_full_access_until'));
         $timestamp = $until !== '' ? strtotime($until) : false;
         if ($timestamp === false || $timestamp <= time()) {

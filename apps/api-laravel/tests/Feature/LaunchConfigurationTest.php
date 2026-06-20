@@ -47,10 +47,25 @@ class LaunchConfigurationTest extends TestCase
         $this->app->detectEnvironment(fn () => 'production');
         config()->set('membership.public_subscriptions_enabled', false);
         config()->set('membership.payments_enabled', true);
+        config()->set('membership.free_trial_days', 50);
         config()->set('membership.global_full_access_until', now()->addDays(50)->toIso8601String());
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('MEMBERSHIP_PAYMENTS_ENABLED must be false');
+
+        $this->invokeLaunchMembershipGuard();
+    }
+
+    public function test_production_launch_mode_requires_50_day_user_trial(): void
+    {
+        $this->app->detectEnvironment(fn () => 'production');
+        config()->set('membership.public_subscriptions_enabled', false);
+        config()->set('membership.payments_enabled', false);
+        config()->set('membership.free_trial_days', 49);
+        config()->set('membership.global_full_access_until', now()->addDays(50)->toIso8601String());
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('FREE_TRIAL_DAYS must be at least 50');
 
         $this->invokeLaunchMembershipGuard();
     }
@@ -60,6 +75,7 @@ class LaunchConfigurationTest extends TestCase
         $this->app->detectEnvironment(fn () => 'production');
         config()->set('membership.public_subscriptions_enabled', false);
         config()->set('membership.payments_enabled', false);
+        config()->set('membership.free_trial_days', 50);
         config()->set('membership.global_full_access_until', now()->addDays(50)->toIso8601String());
 
         $this->invokeLaunchMembershipGuard();
@@ -72,6 +88,7 @@ class LaunchConfigurationTest extends TestCase
         $this->app->detectEnvironment(fn () => 'production');
         config()->set('membership.public_subscriptions_enabled', true);
         config()->set('membership.payments_enabled', true);
+        config()->set('membership.free_trial_days', 0);
         config()->set('membership.global_full_access_until', null);
 
         $this->invokeLaunchMembershipGuard();
