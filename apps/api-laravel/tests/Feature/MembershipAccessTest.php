@@ -398,6 +398,51 @@ class MembershipAccessTest extends TestCase
         }
     }
 
+    public function test_membership_plans_hide_subscription_details_during_private_launch(): void
+    {
+        config()->set('membership.public_subscriptions_enabled', false);
+        config()->set('membership.payments_enabled', true);
+        config()->set('membership.payment_provider', 'hidden-provider');
+        config()->set('membership.global_full_access_until', now()->addDays(50)->toIso8601String());
+
+        $response = app(MembershipController::class)->plans();
+        $payload = $response->getData(true);
+
+        $this->assertSame('free_launch', $payload['mode']);
+        $this->assertTrue($payload['access']['full_access']);
+        $this->assertTrue($payload['features']['free_launch_access']);
+        $this->assertFalse($payload['features']['payments']);
+        $this->assertFalse($payload['features']['membership']);
+        $this->assertArrayNotHasKey('plans', $payload);
+        $this->assertArrayNotHasKey('payments', $payload);
+    }
+
+    public function test_subscribe_returns_free_launch_when_public_subscriptions_are_ready_but_payments_are_disabled(): void
+    {
+        config()->set('membership.public_subscriptions_enabled', true);
+        config()->set('membership.payments_enabled', false);
+        config()->set('membership.payment_provider', null);
+
+        DB::table('users')->insert([
+            'id' => 'user-public-no-payments',
+            'created_at' => now()->subYear(),
+        ]);
+
+        $response = app(MembershipController::class)->subscribe($this->requestForUser(
+            'user-public-no-payments',
+            '/api/v1/membership/subscribe',
+            ['tier' => 'premium']
+        ));
+        $payload = $response->getData(true);
+
+        $this->assertSame(202, $response->getStatusCode());
+        $this->assertSame('free_launch', $payload['mode']);
+        $this->assertNull($payload['checkout_url']);
+        $this->assertSame('premium', $payload['tier']);
+        $this->assertFalse($payload['payments']['enabled']);
+        $this->assertFalse($payload['payments']['checkout_available']);
+    }
+
     public function test_subscribe_is_hidden_before_body_validation_when_subscriptions_are_disabled(): void
     {
         config()->set('membership.public_subscriptions_enabled', false);

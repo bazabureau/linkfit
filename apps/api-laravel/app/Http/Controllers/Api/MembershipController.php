@@ -280,12 +280,6 @@ class MembershipController extends ApiController
                 ['key' => 'unlimited_bookings', 'label' => 'Unlimited bookings'],
                 ['key' => 'ad_free', 'label' => 'Ad-free experience'],
                 ['key' => 'early_tournament_access', 'label' => 'Early tournament access'],
-            ];
-        }
-
-        if ($tier === 'premium') {
-            $benefits = [
-                ...$benefits,
                 ['key' => 'coach_on_demand', 'label' => 'Coach on demand'],
                 ['key' => 'custom_badge', 'label' => 'Custom badge'],
             ];
