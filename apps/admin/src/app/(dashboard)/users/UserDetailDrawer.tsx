@@ -173,7 +173,7 @@ export function UserDetailDrawer({
                 {current.is_premium ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-accent/12 px-2 py-0.5 text-[11px] font-bold text-accent">
                     <Crown className="h-3 w-3" />
-                    {current.membership_tier === "premium" ? "Premium" : "Plus"}
+                    Premium
                   </span>
                 ) : null}
                 {current.is_ambassador ? (

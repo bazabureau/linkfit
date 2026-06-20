@@ -434,7 +434,7 @@ export function useUpdateUserAmbassador(
 }
 
 export function useUpdateUserMembership(
-  options?: UseMutationOptions<UserDetail, Error, { id: string; tier: "free" | "plus" | "premium"; months?: number }>,
+  options?: UseMutationOptions<UserDetail, Error, { id: string; tier: "free" | "premium"; months?: number }>,
 ) {
   const qc = useQueryClient();
   return useMutation({

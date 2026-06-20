@@ -53,7 +53,7 @@ export default function UsersPage(): React.JSX.Element {
   const [vipLabel, setVipLabel] = React.useState("VIP");
   const [vipExpiresAt, setVipExpiresAt] = React.useState("");
   const [membershipFor, setMembershipFor] = React.useState<User | null>(null);
-  const [membershipTier, setMembershipTier] = React.useState<"free" | "plus" | "premium">("premium");
+  const [membershipTier, setMembershipTier] = React.useState<"free" | "premium">("premium");
   const [membershipMonths, setMembershipMonths] = React.useState("1");
   const [createOpen, setCreateOpen] = React.useState(false);
 
@@ -169,7 +169,7 @@ export default function UsersPage(): React.JSX.Element {
       onDisableVip: (user: User) => updateVip.mutate({ id: user.id, is_vip: false }),
       onOpenMembership: (user: User) => {
         setMembershipFor(user);
-        setMembershipTier(user.membership_tier === "plus" || user.membership_tier === "premium" ? user.membership_tier : "premium");
+        setMembershipTier(user.membership_tier === "premium" ? "premium" : "free");
         setMembershipMonths("1");
       },
       onOpenSuspend: (user: User) => {

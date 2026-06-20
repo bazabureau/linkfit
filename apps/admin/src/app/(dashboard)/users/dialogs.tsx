@@ -195,9 +195,9 @@ export function MembershipDialog({
   onConfirm,
 }: {
   user: User | null;
-  tier: "free" | "plus" | "premium";
+  tier: "free" | "premium";
   months: string;
-  onTierChange: (value: "free" | "plus" | "premium") => void;
+  onTierChange: (value: "free" | "premium") => void;
   onMonthsChange: (value: string) => void;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
@@ -221,11 +221,10 @@ export function MembershipDialog({
           <Field label={t("Səviyyə")}>
             <select
               value={tier}
-              onChange={(event) => onTierChange(event.target.value as "free" | "plus" | "premium")}
+              onChange={(event) => onTierChange(event.target.value as "free" | "premium")}
               className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:border-accent focus:outline-none"
             >
               <option value="free">{t("Free")}</option>
-              <option value="plus">Plus</option>
               <option value="premium">Premium</option>
             </select>
           </Field>

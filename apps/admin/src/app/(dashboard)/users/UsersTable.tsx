@@ -372,7 +372,7 @@ export function UsersTable({
                           {user.is_premium ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-accent/12 px-2 py-0.5 text-[10px] font-bold text-accent">
                               <Crown className="h-2.5 w-2.5" />
-                              {user.membership_tier === "premium" ? "Premium" : "Plus"}
+                              Premium
                             </span>
                           ) : null}
                           {user.is_ambassador ? (
