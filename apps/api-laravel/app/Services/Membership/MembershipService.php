@@ -129,8 +129,8 @@ class MembershipService
         throw new ApiException(
             403,
             'PREMIUM_REQUIRED',
-            'This feature requires Premium.',
-            ['feature' => $feature, 'upgrade' => true]
+            $this->premiumGateMessage('This feature requires Premium.'),
+            ['feature' => $feature, 'upgrade' => $this->publicSubscriptionsEnabled()]
         );
     }
 
@@ -177,8 +177,8 @@ class MembershipService
         $used = $this->monthlyGames($userId, now()->startOfMonth());
         if ($used >= $limit) {
             throw new ApiException(403, 'PREMIUM_REQUIRED',
-                "Free plan allows {$limit} hosted games per month. Upgrade to Premium for unlimited.",
-                ['feature' => 'host_game', 'limit' => $limit, 'used' => $used, 'upgrade' => true]);
+                $this->premiumGateMessage("Free plan allows {$limit} hosted games per month. Upgrade to Premium for unlimited."),
+                ['feature' => 'host_game', 'limit' => $limit, 'used' => $used, 'upgrade' => $this->publicSubscriptionsEnabled()]);
         }
     }
 
@@ -192,9 +192,18 @@ class MembershipService
         $used = $this->monthlyBookings($userId, now()->startOfMonth());
         if ($used >= $limit) {
             throw new ApiException(403, 'PREMIUM_REQUIRED',
-                "Free plan allows {$limit} bookings per month. Upgrade to Premium for unlimited.",
-                ['feature' => 'booking', 'limit' => $limit, 'used' => $used, 'upgrade' => true]);
+                $this->premiumGateMessage("Free plan allows {$limit} bookings per month. Upgrade to Premium for unlimited."),
+                ['feature' => 'booking', 'limit' => $limit, 'used' => $used, 'upgrade' => $this->publicSubscriptionsEnabled()]);
         }
+    }
+
+    private function premiumGateMessage(string $publicSubscriptionMessage): string
+    {
+        if ($this->publicSubscriptionsEnabled()) {
+            return $publicSubscriptionMessage;
+        }
+
+        return 'This feature is not available on your current access.';
     }
 
     private function monthlyGames(string $userId, \DateTimeInterface $since): int

@@ -126,6 +126,8 @@ class MembershipAccessTest extends TestCase
         } catch (ApiException $exception) {
             $this->assertSame('PREMIUM_REQUIRED', $exception->wireCode());
             $this->assertSame(403, $exception->getStatusCode());
+            $this->assertSame('This feature is not available on your current access.', $exception->getMessage());
+            $this->assertFalse($exception->getDetails()['upgrade'] ?? true);
         }
     }
 
@@ -199,7 +201,30 @@ class MembershipAccessTest extends TestCase
         } catch (ApiException $exception) {
             $this->assertSame('PREMIUM_REQUIRED', $exception->wireCode());
             $this->assertSame(403, $exception->getStatusCode());
+            $this->assertSame('This feature is not available on your current access.', $exception->getMessage());
             $this->assertSame('advanced_insights', $exception->getDetails()['feature'] ?? null);
+            $this->assertFalse($exception->getDetails()['upgrade'] ?? true);
+        }
+    }
+
+    public function test_premium_required_message_mentions_upgrade_only_when_subscriptions_are_public(): void
+    {
+        config()->set('membership.public_subscriptions_enabled', true);
+        config()->set('membership.global_full_access_until', null);
+        config()->set('membership.free_trial_days', 0);
+
+        DB::table('users')->insert([
+            'id' => 'user-feature-public-subscriptions',
+            'created_at' => now()->subYear(),
+        ]);
+
+        try {
+            app(MembershipService::class)->ensureFeature('user-feature-public-subscriptions', 'advanced_insights');
+            $this->fail('Expected premium feature gate to be enforced.');
+        } catch (ApiException $exception) {
+            $this->assertSame('PREMIUM_REQUIRED', $exception->wireCode());
+            $this->assertSame('This feature requires Premium.', $exception->getMessage());
+            $this->assertTrue($exception->getDetails()['upgrade'] ?? false);
         }
     }
 
