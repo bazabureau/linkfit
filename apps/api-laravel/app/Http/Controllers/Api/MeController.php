@@ -181,6 +181,18 @@ class MeController extends ApiController
             'updated_at' => now(),
         ]);
 
+        // Email is a credential/identity change and a classic account-takeover
+        // lever, so — exactly like changePassword — revoke every OTHER refresh
+        // family while keeping the caller's current session alive.
+        $familyId = $request->attributes->get('auth_family_id');
+        $tokens = DB::table('refresh_tokens')
+            ->where('user_id', $user->id)
+            ->whereNull('revoked_at');
+        if ($familyId !== null) {
+            $tokens->where('family_id', '!=', $familyId);
+        }
+        $tokens->update(['revoked_at' => now()]);
+
         // Changing the email resets verification, so issue a fresh 6-digit code
         // to the NEW address — otherwise the account is left unverified with no
         // way to confirm it short of a separate /auth/send-verification call.
