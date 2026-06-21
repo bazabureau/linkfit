@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Support\ApiException;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,16 +28,27 @@ class ReferralsController extends ApiController
             throw ApiException::conflict('Referral already redeemed');
         }
 
-        DB::transaction(function () use ($user, $referrer, $code) {
-            DB::table('referrals')->insert([
-                'referee_user_id' => $user->id,
-                'referrer_user_id' => $referrer->id,
-                'code_used' => $code,
-                'created_at' => now(),
-            ]);
-            DB::table('users')->where('id', $user->id)->update(['referred_by_user_id' => $referrer->id, 'updated_at' => now()]);
-            DB::table('users')->where('id', $referrer->id)->increment('referral_count');
-        });
+        // The pre-check above is a fast path only — two concurrent redeems for
+        // the same referee can both pass exists(). The PK on referee_user_id is
+        // the real guard: the loser's insert throws a unique/PK violation, which
+        // we translate into the intended 409 instead of leaking a raw 500.
+        try {
+            DB::transaction(function () use ($user, $referrer, $code) {
+                DB::table('referrals')->insert([
+                    'referee_user_id' => $user->id,
+                    'referrer_user_id' => $referrer->id,
+                    'code_used' => $code,
+                    'created_at' => now(),
+                ]);
+                DB::table('users')->where('id', $user->id)->update(['referred_by_user_id' => $referrer->id, 'updated_at' => now()]);
+                DB::table('users')->where('id', $referrer->id)->increment('referral_count');
+            });
+        } catch (QueryException $e) {
+            if ($this->isUniqueViolation($e)) {
+                throw ApiException::conflict('Referral already redeemed');
+            }
+            throw $e;
+        }
 
         return response()->json([
             'referrer_user_id' => $referrer->id,
@@ -96,6 +108,17 @@ class ReferralsController extends ApiController
             'share_text_az' => $texts['az'],
             'share_text_ru' => $texts['ru'],
         ]);
+    }
+
+    /**
+     * Detect a unique/primary-key constraint violation across drivers.
+     * Postgres reports SQLSTATE 23505; SQLite/MySQL report the generic 23000.
+     */
+    private function isUniqueViolation(QueryException $e): bool
+    {
+        $sqlState = (string) ($e->errorInfo[0] ?? $e->getCode());
+
+        return in_array($sqlState, ['23505', '23000'], true);
     }
 
     private function ensureCode($user)
