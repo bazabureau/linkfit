@@ -298,10 +298,15 @@ class MessagingController extends ApiController
         // Allowed: the game host / a game participant, or a tournament captain /
         // listed player on a non-withdrawn entry.
         if ($data['kind'] === 'game') {
+            // Exclude users who LEFT the game: leave() sets game_participants.status
+            // to 'cancelled' without deleting the row (GamesController), so a stale
+            // row must not re-grant group-chat access. Mirrors the tournament
+            // branch's '<> withdrawn'.
             $isMember = (string) $target->host_user_id === (string) $user->id
                 || DB::table('game_participants')
                     ->where('game_id', $data['target_id'])
                     ->where('user_id', $user->id)
+                    ->where('status', '<>', 'cancelled')
                     ->exists();
         } else {
             $isMember = DB::table('tournament_entries')

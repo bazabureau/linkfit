@@ -526,8 +526,12 @@ class MembershipAccessTest extends TestCase
         $this->assertFalse($payload['features']['payments']);
         $this->assertFalse($payload['features']['membership']);
         $this->assertFalse($payload['features']['premium']);
-        $this->assertArrayNotHasKey('tier', $payload);
-        $this->assertArrayNotHasKey('is_premium', $payload);
+        // tier / is_premium / on_trial are now additively surfaced at the root for
+        // the mobile Membership.fromJson (it reads them at the root, not access.*).
+        // Billing & subscription details stay hidden while public subscriptions are off.
+        $this->assertArrayHasKey('tier', $payload);
+        $this->assertArrayHasKey('is_premium', $payload);
+        $this->assertArrayHasKey('on_trial', $payload);
         $this->assertArrayNotHasKey('billing', $payload);
         $this->assertArrayNotHasKey('plans', $payload);
         $this->assertArrayNotHasKey('payments', $payload);
