@@ -321,16 +321,32 @@ class BookingsController extends ApiController
                 }
             });
         } catch (QueryException $e) {
-            // 23P01 = GiST slot-overlap EXCLUDE (race), 23505 = idempotency_key unique.
+            // 23P01 = GiST slot-overlap EXCLUDE (race). 23505 = a unique-index
+            // violation, but TWO different bookings indexes raise it and they
+            // mean opposite things, so we must disambiguate by constraint name:
+            //   - bookings_idempotency_key_key        → idempotency-key replay
+            //   - bookings_active_court_start_unique   → slot already booked
+            //     (added by migration 2026_06_22_000001; same meaning as 23P01).
             $sqlState = (string) ($e->errorInfo[0] ?? '');
             if ($sqlState === '23P01') {
                 throw ApiException::conflict('Court is already booked for this time');
             }
             if ($sqlState === '23505') {
-                // Idempotent replay — return the booking already created for this key
-                // BY THIS USER. Scoping to user_id prevents a cross-user PII leak: the
-                // idempotency_key column is globally unique, so without this filter a
-                // client reusing another user's key would receive that user's booking.
+                // The violated constraint name is not exposed as a discrete PDO
+                // field, so inspect the full server message (errorInfo[2] /
+                // getMessage()) for the slot-unique index. If it's that index the
+                // collision is a slot race → conflict (consistent with 23P01).
+                $detail = ((string) ($e->errorInfo[2] ?? '')).' '.$e->getMessage();
+                if (str_contains($detail, 'bookings_active_court_start_unique')) {
+                    throw ApiException::conflict('Court is already booked for this time');
+                }
+                // Otherwise treat as an idempotency-key replay — return the booking
+                // already created for this key BY THIS USER. Scoping to user_id
+                // prevents a cross-user PII leak: the idempotency_key column is
+                // globally unique, so without this filter a client reusing another
+                // user's key would receive that user's booking. The defensive
+                // fallback (constraint name undeterminable) also lands here,
+                // preserving the original behavior.
                 $prior = DB::table('bookings')
                     ->where('idempotency_key', $data['idempotency_key'])
                     ->where('user_id', $user->id)
@@ -761,21 +777,34 @@ class BookingsController extends ApiController
         if (! $this->canManageBooking($user, $booking)) {
             throw ApiException::forbidden('Only admins or partners can mark bookings paid');
         }
-
-        DB::table('bookings')->where('id', $id)->update([
-            'status' => 'paid',
-            'paid_at' => now(),
-            'payment_method' => $request->input('payment_method', $booking->payment_method ?? 'manual'),
-            'payment_note' => $request->input('payment_note', $booking->payment_note ?? null),
-            'updated_at' => now(),
-        ]);
-        // Notify the booker their payment was recorded — mirrors
-        // notifyBookingCreated's fan-out (in-app notification + push). Skipped
-        // when the booking was already paid so re-marking a paid booking does
-        // not spam a duplicate "payment confirmed" notification.
-        if ($booking->status !== 'paid') {
-            $this->notifyBookingPaid($booking);
+        // Already paid → idempotent no-op success. Returning here (before the
+        // update + notification) keeps the side-effects single-fire so
+        // re-marking a paid booking neither rewrites paid_at nor spams a
+        // duplicate "payment confirmed" notification.
+        if ($booking->status === 'paid') {
+            return $this->show($request, $id);
         }
+        // Status-transition guard: a booking may only be marked paid while it is
+        // still awaiting payment. Terminal/invalid states (cancelled, refunded,
+        // failed) must NOT be resurrectable to paid — reject with a conflict.
+        if (! in_array($booking->status, ['pending_payment', 'partially_paid'], true)) {
+            throw ApiException::conflict('Booking cannot be marked paid from its current status');
+        }
+
+        DB::transaction(function () use ($id, $request, $booking): void {
+            DB::table('bookings')->where('id', $id)->update([
+                'status' => 'paid',
+                'paid_at' => now(),
+                'payment_method' => $request->input('payment_method', $booking->payment_method ?? 'manual'),
+                'payment_note' => $request->input('payment_note', $booking->payment_note ?? null),
+                'updated_at' => now(),
+            ]);
+            // Notify the booker their payment was recorded — mirrors
+            // notifyBookingCreated's fan-out (in-app notification + push). Inside
+            // the transaction so a notification failure rolls the status back
+            // rather than leaving a paid booking with no record sent.
+            $this->notifyBookingPaid($booking);
+        });
 
         return $this->show($request, $id);
     }

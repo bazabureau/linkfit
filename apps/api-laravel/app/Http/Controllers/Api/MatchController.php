@@ -86,6 +86,13 @@ class MatchController extends ApiController
             'team_b_user_ids' => ['required', 'array', 'min:1', 'max:4'],
         ]);
         $this->assertValidTeams($id, $data['team_a_user_ids'], $data['team_b_user_ids']);
+        // A completed match's stats + ELO have already been applied. Resetting it
+        // back to in_progress and re-running complete() would double-apply ELO,
+        // so refuse to (re)start scoring on an already-completed match.
+        $existing = DB::table('match_scores')->where('game_id', $id)->first(['status']);
+        if (($existing->status ?? null) === 'completed') {
+            throw ApiException::conflict('Match is already completed');
+        }
         DB::table('match_scores')->updateOrInsert(
             ['game_id' => $id],
             [
@@ -175,13 +182,25 @@ class MatchController extends ApiController
         $points = json_decode($row->points ?? '[]', true) ?: [];
         $state = $this->replayState($points);
 
+        // The match may only be completed once it has an authoritative winner
+        // (best-of-N decided). Ending early — zero/partial points with no decided
+        // winner — must NOT apply ELO/stats (that would be scored as a draw and
+        // corrupt ratings). The points log is the single source of truth.
+        if ($state['winner'] === null) {
+            throw ApiException::validation('Match is not complete');
+        }
+
         // Commit the in-progress set only if any games were played, so a host
         // ending early still records what actually happened on court.
         $sets = $state['sets'];
         if ($state['current_game_a'] > 0 || $state['current_game_b'] > 0) {
             $sets[] = ['a' => $state['current_game_a'], 'b' => $state['current_game_b']];
         }
-        $winningTeam = $this->winnerFromSets($sets);
+        // Use the canonical match winner from replayState (decided by sets won),
+        // NOT winnerFromSets($sets) — the latter counts the partial in-progress
+        // set appended above and can disagree with the real result, applying ELO
+        // to the wrong team.
+        $winningTeam = $state['winner'];
         $teamA = $this->pgArray($row->team_a_user_ids);
         $teamB = $this->pgArray($row->team_b_user_ids);
 

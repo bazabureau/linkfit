@@ -660,9 +660,15 @@ class MessagingController extends ApiController
 
     public function markConversationRead(Request $request, string $id): JsonResponse
     {
+        $user = $this->authUser($request);
+        if (! DB::table('conversation_participants')->where('conversation_id', $id)->where('user_id', $user->id)->whereNull('left_at')->exists()) {
+            throw ApiException::forbidden('Conversation not available');
+        }
+
         DB::table('conversation_participants')
             ->where('conversation_id', $id)
-            ->where('user_id', $this->authUser($request)->id)
+            ->where('user_id', $user->id)
+            ->whereNull('left_at')
             ->update(['last_read_at' => now()]);
 
         return response()->json(null, 204);
