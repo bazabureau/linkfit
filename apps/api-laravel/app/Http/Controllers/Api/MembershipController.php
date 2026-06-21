@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Services\Membership\MembershipService;
+use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Services\Membership\MembershipService;
-use App\Support\ApiException;
 
 class MembershipController extends ApiController
 {
@@ -204,6 +204,24 @@ class MembershipController extends ApiController
                 'games_limit' => $usage['games_limit'],
                 'bookings_limit' => $usage['bookings_limit'],
             ];
+        }
+
+        // For an authenticated `GET /me/membership` call, additively surface the
+        // root-level fields the mobile `Membership.fromJson` reads (it looks for
+        // `is_premium` / `on_trial` / `trial_ends_at` / `tier` / `benefits` at
+        // the root, not under `access.*`). Without these, a launch user with
+        // full access is rendered as a plain free user on the profile screen.
+        if ($state !== null) {
+            $payload['tier'] = $state->is_premium ? 'premium' : 'free';
+            $payload['is_premium'] = $state->is_premium;
+            $payload['on_trial'] = $state->on_trial;
+            $payload['trial_ends_at'] = $state->trial_ends_at;
+            $payload['global_full_access'] = $state->global_full_access;
+            $payload['current_period_end'] = $this->iso($state->current_period_end ?? null);
+            $payload['cancel_at_period_end'] = (bool) ($state->cancel_at_period_end ?? false);
+            $payload['benefits'] = $this->tierBenefits($state->is_premium ? 'premium' : 'free');
+            $payload['currency'] = (string) config('membership.currency', 'AZN');
+            $payload['price_minor'] = $this->tierPrice($state->is_premium ? 'premium' : 'free');
         }
 
         return $payload;

@@ -120,18 +120,34 @@ class SquadsController extends ApiController
         // squad_members PK only blocks duplicates, not over-fill.
         DB::transaction(function () use ($id, $data) {
             $squad = DB::table('squads')->where('id', $id)->lockForUpdate()->first(['max_size']);
+
+            // Never demote an existing membership. A blind updateOrInsert keyed
+            // on (squad_id, user_id) would rewrite an already-active member —
+            // or the owner — back to role=member/status=pending, kicking them
+            // out of the squad. Re-inviting someone already on the roster
+            // (active or pending) is a harmless no-op.
+            $alreadyOnRoster = DB::table('squad_members')
+                ->where('squad_id', $id)
+                ->where('user_id', $data['user_id'])
+                ->exists();
+            if ($alreadyOnRoster) {
+                return;
+            }
+
             $taken = DB::table('squad_members')
                 ->where('squad_id', $id)
                 ->whereIn('status', ['active', 'pending'])
-                ->where('user_id', '!=', $data['user_id'])
                 ->count();
             if ($squad !== null && $taken >= (int) $squad->max_size) {
                 throw ApiException::conflict('Squad is full');
             }
-            DB::table('squad_members')->updateOrInsert(
-                ['squad_id' => $id, 'user_id' => $data['user_id']],
-                ['role' => 'member', 'status' => 'pending', 'joined_at' => now()],
-            );
+            DB::table('squad_members')->insert([
+                'squad_id' => $id,
+                'user_id' => $data['user_id'],
+                'role' => 'member',
+                'status' => 'pending',
+                'joined_at' => now(),
+            ]);
         });
 
         return $this->show($id);

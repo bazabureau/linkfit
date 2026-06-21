@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Services\Auth\EmailTokenService;
 use App\Services\Auth\PasswordService;
+use App\Services\Mail\TransactionalMailService;
 use App\Services\Notifications\PushDispatcher;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -14,7 +16,11 @@ use Illuminate\Support\Str;
 
 class MeController extends ApiController
 {
-    public function __construct(private readonly PasswordService $passwords) {}
+    public function __construct(
+        private readonly PasswordService $passwords,
+        private readonly EmailTokenService $emailTokens,
+        private readonly TransactionalMailService $mail,
+    ) {}
 
     public function show(Request $request): JsonResponse
     {
@@ -175,6 +181,17 @@ class MeController extends ApiController
             'updated_at' => now(),
         ]);
 
+        // Changing the email resets verification, so issue a fresh 6-digit code
+        // to the NEW address — otherwise the account is left unverified with no
+        // way to confirm it short of a separate /auth/send-verification call.
+        // Best-effort: a mail hiccup must not fail the (already-committed) change.
+        try {
+            $code = $this->emailTokens->createCode($user->id, 'verify', 10);
+            $this->mail->emailVerification($email, $user->display_name ?: 'Linkfit user', $code);
+        } catch (\Throwable) {
+            // Swallow — the user can re-request via POST /auth/send-verification.
+        }
+
         return response()->json($user->fresh()->toPublicUser());
     }
 
@@ -243,6 +260,10 @@ class MeController extends ApiController
                 'platform' => $device->platform,
                 'token_preview' => $this->tokenPreview((string) $device->token),
                 'last_seen' => $this->iso($device->last_seen),
+                // `last_seen_at` mirrors `last_seen` under the key the mobile
+                // devices screen reads first — without it the app falls through
+                // to `created_at` and shows the registration time as "last active".
+                'last_seen_at' => $this->iso($device->last_seen),
                 'revoked_at' => $this->iso($device->revoked_at),
                 'created_at' => $this->iso($device->created_at),
                 'active' => $device->revoked_at === null,

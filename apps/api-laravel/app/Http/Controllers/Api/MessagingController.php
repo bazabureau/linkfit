@@ -62,6 +62,23 @@ class MessagingController extends ApiController
             ->where('me.user_id', $user->id)
             ->whereNull('me.left_at')
             ->whereNotNull('c.last_message_at')
+            // Mirror the inbox (conversations()): a 1:1 thread with a blocked
+            // counterpart (either direction) is hidden, so it must NOT inflate
+            // the badge — otherwise "messages: 1" points at a thread the user
+            // can't see. Group threads are shared context and always count.
+            ->where(function ($q) use ($user) {
+                $q->where('c.kind', 'group')
+                    ->orWhereNotExists(function ($sq) use ($user) {
+                        $sq->selectRaw('1')
+                            ->from('conversation_participants as other_cp')
+                            ->join('user_blocks as ub', function ($join) use ($user) {
+                                $join->where(fn ($w) => $w->where('ub.blocker_user_id', $user->id)->whereColumn('ub.blocked_user_id', 'other_cp.user_id'))
+                                    ->orWhere(fn ($w) => $w->where('ub.blocked_user_id', $user->id)->whereColumn('ub.blocker_user_id', 'other_cp.user_id'));
+                            })
+                            ->whereColumn('other_cp.conversation_id', 'c.id')
+                            ->whereColumn('other_cp.user_id', '!=', 'me.user_id');
+                    });
+            })
             ->where(function ($q) {
                 $q->whereNull('me.last_read_at')
                     ->orWhereColumn('c.last_message_at', '>', 'me.last_read_at');
@@ -274,6 +291,32 @@ class MessagingController extends ApiController
             throw ApiException::notFound('Group target not found');
         }
 
+        // Authorize membership BEFORE joining. Opening a group conversation inserts
+        // the caller as a participant, granting read of full history + post + live
+        // broadcast fan-out. Without this guard any authenticated user could
+        // enumerate public game/tournament ids and self-join any group thread.
+        // Allowed: the game host / a game participant, or a tournament captain /
+        // listed player on a non-withdrawn entry.
+        if ($data['kind'] === 'game') {
+            $isMember = (string) $target->host_user_id === (string) $user->id
+                || DB::table('game_participants')
+                    ->where('game_id', $data['target_id'])
+                    ->where('user_id', $user->id)
+                    ->exists();
+        } else {
+            $isMember = DB::table('tournament_entries')
+                ->where('tournament_id', $data['target_id'])
+                ->where('status', '<>', 'withdrawn')
+                ->where(function ($q) use ($user) {
+                    $q->where('captain_user_id', $user->id)
+                        ->orWhereRaw('?::uuid = ANY(player_ids)', [$user->id]);
+                })
+                ->exists();
+        }
+        if (! $isMember) {
+            throw ApiException::forbidden('You are not a member of this group');
+        }
+
         $existing = DB::table('conversations')->where('kind', 'group')->where($targetColumn, $data['target_id'])->first();
         $created = false;
         if ($existing === null) {
@@ -321,11 +364,19 @@ class MessagingController extends ApiController
             throw ApiException::notFound('Conversation not found');
         }
 
+        // Keep the most RECENT 500 messages, not the oldest. The client renders
+        // ascending by created_at, so we take the newest window (DESC + limit)
+        // then re-sort ascending — otherwise a thread past 500 messages would
+        // pin to its oldest 500 and hide every recent message. Tie-break on id
+        // so same-timestamp rows window deterministically.
         $messages = DB::table('messages')
             ->where('conversation_id', $id)
-            ->orderBy('created_at')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->limit(500)
             ->get()
+            ->sortBy('created_at')
+            ->values()
             ->map(fn ($m) => $this->messagePayload($m));
 
         // Group threads have no single "other" participant — a brand-new game

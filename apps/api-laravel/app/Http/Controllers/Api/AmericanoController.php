@@ -35,7 +35,12 @@ class AmericanoController extends ApiController
             'created_at' => now(),
         ]);
 
-        return response()->json(DB::table('americano_tournaments')->where('id', $id)->first(), 201);
+        // Return the SAME enriched shape the list route emits (title /
+        // teams_count / capacity / format=americano). The raw row only carries
+        // `court_count`, but the client's Tournament decoder reads capacity from
+        // `capacity`/`max_squads` — so a bare row renders the just-created
+        // event's detail with a null capacity until the next refetch.
+        return response()->json($this->listPayload(DB::table('americano_tournaments')->where('id', $id)->first()), 201);
     }
 
     public function index(Request $request): JsonResponse
@@ -151,19 +156,74 @@ class AmericanoController extends ApiController
         $match = DB::table('americano_matches as m')
             ->join('americano_tournaments as t', 't.id', '=', 'm.tournament_id')
             ->where('m.id', $id)
-            ->first(['m.id', 't.host_id']);
+            ->first(['m.id', 'm.tournament_id', 'm.team_a_id', 'm.team_b_id', 't.host_id', 't.scoring_system']);
         if ($match === null) {
             throw ApiException::notFound('Match not found');
         }
         if ((string) $match->host_id !== (string) $user->id) {
             throw ApiException::forbidden('Only the tournament host can submit scores');
         }
-        DB::table('americano_matches')->where('id', $id)->update([
-            'score_a' => $data['score_a'],
-            'score_b' => $data['score_b'],
-            'status' => 'completed',
-        ]);
+
+        // Recording the score AND recomputing both teams' standings is one
+        // atomic step: the leaderboard (americano_teams.wins/draws/losses/score)
+        // is what the client renders, and it was never being updated — so
+        // completed matches left the standings frozen at zero. Recompute from
+        // ALL of each team's completed matches so re-scoring a match is
+        // idempotent (no double-counting) rather than incrementally applied.
+        DB::transaction(function () use ($id, $data, $match) {
+            DB::table('americano_matches')->where('id', $id)->update([
+                'score_a' => $data['score_a'],
+                'score_b' => $data['score_b'],
+                'status' => 'completed',
+            ]);
+            $this->recomputeTeamStanding((string) $match->team_a_id, (string) $match->tournament_id, (string) $match->scoring_system);
+            $this->recomputeTeamStanding((string) $match->team_b_id, (string) $match->tournament_id, (string) $match->scoring_system);
+        });
 
         return response()->json(DB::table('americano_matches')->where('id', $id)->first());
+    }
+
+    /**
+     * Rebuild one team's aggregate row from its completed matches. Derived (not
+     * incremented) so it stays correct after an edit/re-score. `score` follows
+     * the tournament's scoring_system: `points` sums the actual points the team
+     * scored across its matches; otherwise it's a match-result tally
+     * (win = 3, draw = 1) — the conventional Americano standing.
+     */
+    private function recomputeTeamStanding(string $teamId, string $tournamentId, string $scoringSystem): void
+    {
+        $matches = DB::table('americano_matches')
+            ->where('tournament_id', $tournamentId)
+            ->where('status', 'completed')
+            ->where(function ($q) use ($teamId) {
+                $q->where('team_a_id', $teamId)->orWhere('team_b_id', $teamId);
+            })
+            ->get(['team_a_id', 'team_b_id', 'score_a', 'score_b']);
+
+        $wins = 0;
+        $draws = 0;
+        $losses = 0;
+        $pointsFor = 0;
+        foreach ($matches as $m) {
+            $isA = (string) $m->team_a_id === $teamId;
+            $own = (int) ($isA ? $m->score_a : $m->score_b);
+            $opp = (int) ($isA ? $m->score_b : $m->score_a);
+            $pointsFor += $own;
+            if ($own > $opp) {
+                $wins++;
+            } elseif ($own < $opp) {
+                $losses++;
+            } else {
+                $draws++;
+            }
+        }
+
+        $score = $scoringSystem === 'points' ? $pointsFor : ($wins * 3 + $draws);
+        DB::table('americano_teams')->where('id', $teamId)->update([
+            'wins' => $wins,
+            'draws' => $draws,
+            'losses' => $losses,
+            'score' => $score,
+        ]);
     }
 }

@@ -119,9 +119,15 @@ class BookingsController extends ApiController
 
     public function suggestedSlots(Request $request, string $id): JsonResponse
     {
+        // `starts_at` + `duration_minutes` is the explicit (web) contract. The
+        // mobile client instead asks for a whole Baku calendar `date` and lets
+        // the venue policy pick the duration, so both shapes are accepted: when
+        // a field is omitted it is derived below (date → start-of-day,
+        // duration → policy minimum). Either spelling yields the same item list.
         $query = $this->validateQuery($request, [
-            'starts_at' => ['required', 'date'],
-            'duration_minutes' => ['required', 'integer', 'min:15', 'max:480'],
+            'starts_at' => ['sometimes', 'nullable', 'date'],
+            'date' => ['sometimes', 'nullable', 'regex:/^\d{4}-\d{2}-\d{2}$/'],
+            'duration_minutes' => ['sometimes', 'nullable', 'integer', 'min:15', 'max:480'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
             'days_ahead' => ['nullable', 'integer', 'min:1', 'max:30'],
         ]);
@@ -131,13 +137,42 @@ class BookingsController extends ApiController
             throw ApiException::notFound('Court not found');
         }
 
-        $requested = CarbonImmutable::parse($query['starts_at']);
-        $duration = (int) $query['duration_minutes'];
-        $this->assertBookingRules($court, $requested, $duration);
+        $policy = $this->bookingPolicy($court);
+        // Anchor: explicit `starts_at` wins; else the start of the requested
+        // Baku `date` (clamped to now for today); else now.
+        if (! empty($query['starts_at'])) {
+            $requested = CarbonImmutable::parse($query['starts_at']);
+        } elseif (! empty($query['date'])) {
+            $dayStart = CarbonImmutable::parse($query['date'].' 00:00:00', 'Asia/Baku');
+            $now = now('Asia/Baku');
+            $requested = $dayStart->isToday() && $now->greaterThan($dayStart) ? $now->utc() : $dayStart->utc();
+        } else {
+            $requested = now()->utc();
+        }
+        // Duration: explicit value, else the shortest policy-valid booking
+        // (min, snapped up to a whole slot, capped at max) so the suggested
+        // slots are themselves bookable.
+        $explicitStart = ! empty($query['starts_at']);
+        $duration = ! empty($query['duration_minutes'])
+            ? (int) $query['duration_minutes']
+            : $this->defaultBookingMinutes($policy);
+        if ($explicitStart) {
+            // Web contract: the caller's exact start must satisfy venue rules.
+            $this->assertBookingRules($court, $requested, $duration);
+        } else {
+            // Derived anchor (date/now): the moment itself may legitimately fall
+            // outside opening hours (e.g. browsing at night), so only the
+            // duration is validated here — the per-slot loop below still emits
+            // only in-hours, in-future, available slots.
+            $this->assertBookingDuration($policy, $duration);
+        }
 
         $limit = (int) ($query['limit'] ?? 12);
-        $daysAhead = (int) ($query['days_ahead'] ?? 7);
-        $policy = $this->bookingPolicy($court);
+        // A date-scoped request only suggests slots within that single day; the
+        // open-ended (starts_at) request keeps scanning forward up to days_ahead.
+        $daysAhead = ! empty($query['date']) && empty($query['starts_at'])
+            ? 1
+            : (int) ($query['days_ahead'] ?? 7);
         $items = [];
         $cursorDate = $requested->setTimezone('Asia/Baku')->format('Y-m-d');
 
@@ -272,8 +307,14 @@ class BookingsController extends ApiController
                 throw ApiException::conflict('Court is already booked for this time');
             }
             if ($sqlState === '23505') {
-                // Idempotent replay — return the booking already created for this key.
-                $prior = DB::table('bookings')->where('idempotency_key', $data['idempotency_key'])->first();
+                // Idempotent replay — return the booking already created for this key
+                // BY THIS USER. Scoping to user_id prevents a cross-user PII leak: the
+                // idempotency_key column is globally unique, so without this filter a
+                // client reusing another user's key would receive that user's booking.
+                $prior = DB::table('bookings')
+                    ->where('idempotency_key', $data['idempotency_key'])
+                    ->where('user_id', $user->id)
+                    ->first();
                 if ($prior !== null) {
                     return response()->json($this->bookingPayload($prior), 200);
                 }
@@ -954,6 +995,21 @@ class BookingsController extends ApiController
         ];
     }
 
+    /**
+     * The shortest policy-valid booking duration: at least `min_minutes`,
+     * rounded up to a whole `slot_minutes`, and never beyond `max_minutes`.
+     * Mirrors the mobile client's BookingPolicy.defaultBookingMinutes so a
+     * date-only suggested-slots request and the booking it leads to agree.
+     */
+    private function defaultBookingMinutes(array $policy): int
+    {
+        $slot = max(1, (int) $policy['slot_minutes']);
+        $target = max((int) $policy['min_minutes'], $slot);
+        $snapped = (int) (ceil($target / $slot) * $slot);
+
+        return min($snapped, (int) $policy['max_minutes']);
+    }
+
     private function openingWindowForDate(array $policy, string $date): ?array
     {
         $day = (string) CarbonImmutable::parse($date, 'Asia/Baku')->dayOfWeekIso;
@@ -970,9 +1026,14 @@ class BookingsController extends ApiController
         ];
     }
 
-    private function assertBookingRules(object $court, CarbonImmutable $starts, int $duration): void
+    /**
+     * Validate a booking duration against the venue policy (range + slot
+     * multiple) without checking opening hours — used both by
+     * {@see assertBookingRules} and by the date/now-anchored suggested-slots
+     * path where the anchor moment may legitimately be outside opening hours.
+     */
+    private function assertBookingDuration(array $policy, int $duration): void
     {
-        $policy = $this->bookingPolicy($court);
         if ($duration < $policy['min_minutes'] || $duration > $policy['max_minutes']) {
             throw ApiException::validation('Booking duration is outside venue rules', [
                 'min_booking_minutes' => $policy['min_minutes'],
@@ -984,6 +1045,12 @@ class BookingsController extends ApiController
                 'slot_minutes' => $policy['slot_minutes'],
             ]);
         }
+    }
+
+    private function assertBookingRules(object $court, CarbonImmutable $starts, int $duration): void
+    {
+        $policy = $this->bookingPolicy($court);
+        $this->assertBookingDuration($policy, $duration);
         $window = $this->openingWindowForDate($policy, $starts->setTimezone('Asia/Baku')->format('Y-m-d'));
         if ($window === null) {
             throw ApiException::conflict('Venue is closed on this day');
