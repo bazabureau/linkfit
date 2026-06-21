@@ -95,8 +95,8 @@ Route::prefix('api/v1')->group(function () {
     Route::get('courts/{id}', [CatalogController::class, 'court']);
     Route::get('courts/{id}/availability', [BookingsController::class, 'availability']);
     Route::get('courts/{id}/suggested-slots', [BookingsController::class, 'suggestedSlots']);
-    Route::post('bookings/quote', [BookingsController::class, 'quote']);
-    Route::post('promo-codes/validate', [PromoCodesController::class, 'validateCode']);
+    Route::post('bookings/quote', [BookingsController::class, 'quote'])->middleware('throttle:write-action');
+    Route::post('promo-codes/validate', [PromoCodesController::class, 'validateCode'])->middleware('throttle:write-action');
     Route::get('games', [GamesController::class, 'index'])->middleware('throttle:public-discovery');
     Route::get('games/{id}', [GamesController::class, 'show'])->middleware('throttle:public-discovery');
     Route::get('players', [SocialController::class, 'players'])->middleware('throttle:public-discovery');
@@ -107,7 +107,7 @@ Route::prefix('api/v1')->group(function () {
     Route::get('rankings', [EngagementController::class, 'leaderboards'])->middleware('throttle:public-discovery');
     Route::get('realtime/health', [MiscController::class, 'realtimeHealth']);
     Route::get('realtime/sse', [MiscController::class, 'realtimeSse']);
-    Route::post('analytics/events', [MiscController::class, 'analytics']);
+    Route::post('analytics/events', [MiscController::class, 'analytics'])->middleware('throttle:120,1');
     Route::get('tournaments', [TournamentsController::class, 'index']);
     Route::get('tournaments/{id}', [TournamentsController::class, 'show']);
     Route::get('users/{id}/profile', [SocialController::class, 'profile'])->middleware('throttle:public-discovery');

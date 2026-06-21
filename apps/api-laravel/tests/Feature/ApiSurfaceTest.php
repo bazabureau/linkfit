@@ -2,10 +2,99 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 class ApiSurfaceTest extends TestCase
 {
+    public function test_all_mutating_api_v1_routes_are_authenticated_unless_explicitly_public(): void
+    {
+        $publicMutatingRoutes = [
+            'api/v1/analytics/events',
+            'api/v1/auth/admin/login',
+            'api/v1/auth/apple',
+            'api/v1/auth/coach/login',
+            'api/v1/auth/google',
+            'api/v1/auth/login',
+            'api/v1/auth/logout',
+            'api/v1/auth/owner/login',
+            'api/v1/auth/refresh',
+            'api/v1/auth/register',
+            'api/v1/auth/request-password-reset',
+            'api/v1/auth/reset-password',
+            'api/v1/auth/verify-email',
+            'api/v1/auth/verify-password-reset-code',
+            'api/v1/bookings/quote',
+            'api/v1/launch-waitlist',
+            'api/v1/promo-codes/validate',
+            'api/v1/support/contact',
+        ];
+
+        $violations = [];
+        foreach (Route::getRoutes() as $route) {
+            $uri = $route->uri();
+            $methods = array_diff($route->methods(), ['HEAD', 'OPTIONS']);
+
+            if (! str_starts_with($uri, 'api/v1/') || (count($methods) === 1 && in_array('GET', $methods, true))) {
+                continue;
+            }
+
+            if (in_array($uri, $publicMutatingRoutes, true)) {
+                continue;
+            }
+
+            $middleware = $route->gatherMiddleware();
+            if (! in_array('jwt', $middleware, true) && ! in_array('internal.key', $middleware, true)) {
+                $violations[] = implode('|', $methods).' '.$uri;
+            }
+        }
+
+        $this->assertSame([], $violations);
+    }
+
+    public function test_public_mutating_api_v1_routes_are_explicitly_rate_limited(): void
+    {
+        $publicMutatingRoutes = [
+            'api/v1/analytics/events',
+            'api/v1/auth/admin/login',
+            'api/v1/auth/apple',
+            'api/v1/auth/coach/login',
+            'api/v1/auth/google',
+            'api/v1/auth/login',
+            'api/v1/auth/logout',
+            'api/v1/auth/owner/login',
+            'api/v1/auth/refresh',
+            'api/v1/auth/register',
+            'api/v1/auth/request-password-reset',
+            'api/v1/auth/reset-password',
+            'api/v1/auth/verify-email',
+            'api/v1/auth/verify-password-reset-code',
+            'api/v1/bookings/quote',
+            'api/v1/launch-waitlist',
+            'api/v1/promo-codes/validate',
+            'api/v1/support/contact',
+        ];
+
+        $missingThrottle = [];
+        foreach (Route::getRoutes() as $route) {
+            $uri = $route->uri();
+            if (! in_array($uri, $publicMutatingRoutes, true)) {
+                continue;
+            }
+
+            $middleware = $route->gatherMiddleware();
+            $hasThrottle = collect($middleware)->contains(
+                fn ($name) => is_string($name) && str_starts_with($name, 'throttle:')
+            );
+
+            if (! $hasThrottle) {
+                $missingThrottle[] = $uri;
+            }
+        }
+
+        $this->assertSame([], $missingThrottle);
+    }
+
     public function test_health_returns_ok(): void
     {
         $this->getJson('/health')
