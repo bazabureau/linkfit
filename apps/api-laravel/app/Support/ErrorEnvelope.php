@@ -46,7 +46,7 @@ final class ErrorEnvelope
         }
 
         if ($e instanceof ValidationException) {
-            return self::make(400, 'VALIDATION_ERROR', 'Request validation failed', $request, [
+            return self::make(422, 'VALIDATION_ERROR', 'Request validation failed', $request, [
                 'issues' => $e->errors(),
             ]);
         }

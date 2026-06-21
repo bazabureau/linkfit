@@ -7,6 +7,7 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 Artisan::command('inspire', function () {
@@ -38,6 +39,16 @@ Artisan::command('ops:send-reminders {--window=120} {--lookahead=150}', function
         $this->line($key.': '.$value);
     }
 })->purpose('Create game and booking reminder notifications');
+
+Artisan::command('ops:release-expired-booking-holds', function () {
+    if (! Schema::hasTable('booking_holds')) {
+        $this->line('deleted: 0');
+
+        return;
+    }
+    $deleted = DB::table('booking_holds')->where('expires_at', '<=', now())->delete();
+    $this->line('deleted: '.$deleted);
+})->purpose('Release expired booking holds');
 
 Artisan::command('ops:cleanup-media {--days=7} {--limit=500} {--dry-run}', function () {
     $cutoff = now()->subDays((int) $this->option('days'));
@@ -82,6 +93,10 @@ Schedule::command('push:process --limit=100')
 Schedule::command('ops:send-reminders --window=120 --lookahead=150')
     ->everyFiveMinutes()
     ->withoutOverlapping(10);
+
+Schedule::command('ops:release-expired-booking-holds')
+    ->everyMinute()
+    ->withoutOverlapping(5);
 
 Schedule::command('ops:cleanup-media --days=7 --limit=500')
     ->dailyAt('03:20')

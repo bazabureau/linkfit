@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
+use App\Http\Controllers\Api\Concerns\HandlesIdempotentRequests;
+use App\Services\Launch\LaunchConfig;
 use App\Services\Mail\TransactionalMailService;
 use App\Services\Membership\MembershipService;
 use App\Support\ApiException;
@@ -18,6 +20,7 @@ use Illuminate\Support\Str;
 class BookingsController extends ApiController
 {
     use AuthorizesAdminPermissions;
+    use HandlesIdempotentRequests;
 
     public function availability(Request $request, string $id): JsonResponse
     {
@@ -236,7 +239,15 @@ class BookingsController extends ApiController
         ]);
         // Accept the idempotency key from the Idempotency-Key header too — the
         // mobile client sends it as a header, not a body field.
-        $data['idempotency_key'] = $this->resolveIdempotencyKey($request, $data['idempotency_key'] ?? null);
+        $data['idempotency_key'] = $this->requireRequestIdempotencyKey($request, $data['idempotency_key'] ?? null);
+
+        return $this->replayOrStoreIdempotentResponse($request, $data['idempotency_key'], function () use ($request, $user, $data): JsonResponse {
+            return $this->createBooking($request, $user, $data);
+        });
+    }
+
+    private function createBooking(Request $request, object $user, array $data): JsonResponse
+    {
 
         $court = $this->bookableCourtById((string) $data['court_id']);
         if ($court === null) {
@@ -258,16 +269,23 @@ class BookingsController extends ApiController
         if ($holdId !== null) {
             $this->assertHoldMatches((string) $holdId, (string) $user->id, (string) $data['court_id'], $starts, (int) $data['duration_minutes']);
         }
-        $this->assertCourtAvailable((string) $data['court_id'], $starts, $ends, null, $holdId);
-        $subtotal = $this->bookingTotalMinor($court, (int) $data['duration_minutes']);
-        $promo = $this->promoDiscount($data['promo_code'] ?? null, (string) $user->id, $subtotal, (string) $court->currency);
-
         $id = (string) Str::uuid();
+        $subtotal = 0;
+        $promo = ['promo_id' => null, 'discount_minor' => 0, 'promo' => null];
         try {
             // Booking insert + hold release + promo redemption commit atomically:
             // a crash mid-way must not leave a booking with its promo redemption
             // un-recorded (which would under-count per_user_limit / max_redemptions).
-            DB::transaction(function () use ($id, $data, $user, $court, $starts, $subtotal, $promo, $holdId) {
+            DB::transaction(function () use ($id, $data, $user, $court, $starts, $ends, &$subtotal, &$promo, $holdId) {
+                $this->lockCourtSlot((string) $data['court_id']);
+                if ($holdId !== null) {
+                    $this->assertHoldMatches((string) $holdId, (string) $user->id, (string) $data['court_id'], $starts, (int) $data['duration_minutes']);
+                }
+                $this->assertCourtAvailable((string) $data['court_id'], $starts, $ends, null, $holdId);
+                $subtotal = $this->bookingTotalMinor($court, (int) $data['duration_minutes']);
+                $promo = $this->promoDiscount($data['promo_code'] ?? null, (string) $user->id, $subtotal, (string) $court->currency);
+                $serviceFee = app(LaunchConfig::class)->bookingServiceFeeMinor();
+
                 DB::table('bookings')->insert([
                     'id' => $id,
                     'game_id' => $data['game_id'] ?? null,
@@ -278,7 +296,7 @@ class BookingsController extends ApiController
                     'subtotal_minor' => $subtotal,
                     'discount_minor' => $promo['discount_minor'],
                     'promo_code_id' => $promo['promo_id'],
-                    'total_minor' => max(0, $subtotal - $promo['discount_minor']),
+                    'total_minor' => max(0, $subtotal - $promo['discount_minor']) + $serviceFee,
                     'currency' => $court->currency,
                     'status' => 'pending_payment',
                     'source' => $data['source'] ?? 'app',
@@ -369,7 +387,15 @@ class BookingsController extends ApiController
         ]);
         // Header fallback (mobile sends Idempotency-Key as a header); generate one
         // if absent so a hold request never 400s on a missing key.
-        $data['idempotency_key'] = $this->resolveIdempotencyKey($request, $data['idempotency_key'] ?? null, true);
+        $data['idempotency_key'] = $this->resolveRequestIdempotencyKey($request, $data['idempotency_key'] ?? null, true);
+
+        return $this->replayOrStoreIdempotentResponse($request, $data['idempotency_key'], function () use ($request, $user, $data): JsonResponse {
+            return $this->createBookingHold($request, $user, $data);
+        });
+    }
+
+    private function createBookingHold(Request $request, object $user, array $data): JsonResponse
+    {
         $this->cleanupExpiredHolds();
 
         $existing = DB::table('booking_holds')
@@ -388,23 +414,26 @@ class BookingsController extends ApiController
         $starts = CarbonImmutable::parse($data['starts_at']);
         $ends = $starts->addMinutes((int) $data['duration_minutes']);
         $this->assertBookingRules($court, $starts, (int) $data['duration_minutes']);
-        $this->assertCourtAvailable((string) $data['court_id'], $starts, $ends);
-
         $id = (string) Str::uuid();
         $expiresAt = now()->addSeconds((int) ($data['ttl_seconds'] ?? 300));
-        DB::table('booking_holds')->updateOrInsert(
-            ['user_id' => $user->id, 'idempotency_key' => $data['idempotency_key']],
-            [
-                'id' => $id,
-                'court_id' => $data['court_id'],
-                'starts_at' => $starts,
-                'duration_minutes' => (int) $data['duration_minutes'],
-                'expires_at' => $expiresAt,
-                'source' => $data['source'] ?? 'app',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]
-        );
+        DB::transaction(function () use ($id, $data, $user, $starts, $ends, $expiresAt) {
+            $this->lockCourtSlot((string) $data['court_id']);
+            $this->cleanupExpiredHolds();
+            $this->assertCourtAvailable((string) $data['court_id'], $starts, $ends);
+            DB::table('booking_holds')->updateOrInsert(
+                ['user_id' => $user->id, 'idempotency_key' => $data['idempotency_key']],
+                [
+                    'id' => $id,
+                    'court_id' => $data['court_id'],
+                    'starts_at' => $starts,
+                    'duration_minutes' => (int) $data['duration_minutes'],
+                    'expires_at' => $expiresAt,
+                    'source' => $data['source'] ?? 'app',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+        });
 
         $hold = DB::table('booking_holds as h')
             ->join('courts as c', 'c.id', '=', 'h.court_id')
@@ -469,6 +498,7 @@ class BookingsController extends ApiController
         $subtotal = $this->bookingTotalMinor($court, (int) $data['duration_minutes']);
         $promo = $this->promoDiscount($data['promo_code'] ?? null, null, $subtotal, (string) $court->currency);
         $total = max(0, $subtotal - $promo['discount_minor']);
+        $serviceFee = app(LaunchConfig::class)->bookingServiceFeeMinor();
 
         return response()->json([
             'court_id' => $data['court_id'],
@@ -480,7 +510,9 @@ class BookingsController extends ApiController
             'hourly_price_minor' => (int) $court->hourly_price_minor,
             'subtotal_minor' => $subtotal,
             'discount_minor' => $promo['discount_minor'],
-            'total_minor' => $total,
+            'service_fee_minor' => $serviceFee,
+            'booking_fee_enabled' => app(LaunchConfig::class)->bookingFeeEnabled(),
+            'total_minor' => $total + $serviceFee,
             'currency' => $court->currency,
             'available' => true,
             'payment_methods' => ['onsite', 'cash', 'bank_transfer'],
@@ -702,7 +734,7 @@ class BookingsController extends ApiController
         }
         $court = DB::table('courts as c')->join('venues as v', 'v.id', '=', 'c.venue_id')->where('c.id', $booking->court_id)->first(['v.cancellation_window_minutes']);
         $window = max(0, (int) ($court->cancellation_window_minutes ?? 120));
-        if (CarbonImmutable::parse($booking->starts_at)->subMinutes($window)->isPast()) {
+        if (! app(LaunchConfig::class)->freeCancellationEnabled() && CarbonImmutable::parse($booking->starts_at)->subMinutes($window)->isPast()) {
             throw ApiException::conflict('Cancellation window has passed');
         }
 
@@ -773,30 +805,35 @@ class BookingsController extends ApiController
         $starts = array_key_exists('starts_at', $data) ? CarbonImmutable::parse($data['starts_at']) : CarbonImmutable::parse($booking->starts_at);
         $duration = (int) ($data['duration_minutes'] ?? $booking->duration_minutes);
         $updates = [];
+        if (array_key_exists('payment_method', $data)) {
+            $updates['payment_method'] = $data['payment_method'];
+        }
         if (array_key_exists('starts_at', $data) || array_key_exists('duration_minutes', $data)) {
             $court = $this->bookableCourtById((string) $booking->court_id);
             if ($court === null) {
                 throw ApiException::conflict('Court is not available for rescheduling');
             }
             $window = max(0, (int) ($court->cancellation_window_minutes ?? 120));
-            if (CarbonImmutable::parse($booking->starts_at)->subMinutes($window)->isPast()) {
+            if (! app(LaunchConfig::class)->freeCancellationEnabled() && CarbonImmutable::parse($booking->starts_at)->subMinutes($window)->isPast()) {
                 throw ApiException::conflict('Reschedule window has passed');
             }
             $this->assertBookingRules($court, $starts, $duration);
-            $this->assertCourtAvailable((string) $booking->court_id, $starts, $starts->addMinutes($duration), $id);
-            $updates['starts_at'] = $starts;
-            $updates['duration_minutes'] = $duration;
-            $subtotal = $this->bookingTotalMinor($court, $duration);
-            $discount = min((int) ($booking->discount_minor ?? 0), $subtotal);
-            $updates['subtotal_minor'] = $subtotal;
-            $updates['discount_minor'] = $discount;
-            $updates['total_minor'] = max(0, $subtotal - $discount);
-            $updates['rescheduled_at'] = now();
+            DB::transaction(function () use ($booking, $starts, $duration, $id, &$updates, $court) {
+                $this->lockCourtSlot((string) $booking->court_id);
+                $this->assertCourtAvailable((string) $booking->court_id, $starts, $starts->addMinutes($duration), $id);
+                $subtotal = $this->bookingTotalMinor($court, $duration);
+                $discount = min((int) ($booking->discount_minor ?? 0), $subtotal);
+                $updates['subtotal_minor'] = $subtotal;
+                $updates['discount_minor'] = $discount;
+                $updates['total_minor'] = max(0, $subtotal - $discount) + app(LaunchConfig::class)->bookingServiceFeeMinor();
+                $updates['starts_at'] = $starts;
+                $updates['duration_minutes'] = $duration;
+                $updates['rescheduled_at'] = now();
+                DB::table('bookings')->where('id', $id)->update([...$updates, 'updated_at' => now()]);
+            });
+        } else {
+            DB::table('bookings')->where('id', $id)->update([...$updates, 'updated_at' => now()]);
         }
-        if (array_key_exists('payment_method', $data)) {
-            $updates['payment_method'] = $data['payment_method'];
-        }
-        DB::table('bookings')->where('id', $id)->update([...$updates, 'updated_at' => now()]);
         $this->enqueueNotification($user->id, 'system', 'Booking updated', 'Your booking was updated.', ['booking_id' => $id]);
 
         return $this->show($request, $id);
@@ -1096,13 +1133,14 @@ class BookingsController extends ApiController
 
     private function assertCourtAvailable(string $courtId, CarbonImmutable $starts, CarbonImmutable $ends, ?string $ignoreBookingId = null, ?string $ignoreHoldId = null): void
     {
-        $overlap = DB::table('bookings')
+        $bookingQuery = DB::table('bookings')
             ->where('court_id', $courtId)
             ->when($ignoreBookingId, fn ($q) => $q->where('id', '!=', $ignoreBookingId))
             ->whereIn('status', ['pending_payment', 'partially_paid', 'paid'])
-            ->where('starts_at', '<', $ends)
-            ->whereRaw("(starts_at + (duration_minutes || ' minutes')::interval) > ?", [$starts])
-            ->exists();
+            ->where('starts_at', '<', $ends);
+        $overlap = DB::connection()->getDriverName() === 'pgsql'
+            ? (clone $bookingQuery)->whereRaw("(starts_at + (duration_minutes || ' minutes')::interval) > ?", [$starts])->exists()
+            : $this->rowsOverlapWindow((clone $bookingQuery)->get(['starts_at', 'duration_minutes']), $starts, $ends);
         if ($overlap) {
             throw ApiException::conflict('Court is already booked for this time');
         }
@@ -1114,21 +1152,38 @@ class BookingsController extends ApiController
         if ($blocked) {
             throw ApiException::conflict('Court is unavailable for this time');
         }
-        $held = $this->activeHoldsQuery()
+        $holdQuery = $this->activeHoldsQuery()
             ->where('court_id', $courtId)
             ->when($ignoreHoldId, fn ($q) => $q->where('id', '!=', $ignoreHoldId))
-            ->where('starts_at', '<', $ends)
-            ->whereRaw("(starts_at + (duration_minutes || ' minutes')::interval) > ?", [$starts])
-            ->exists();
+            ->where('starts_at', '<', $ends);
+        $held = DB::connection()->getDriverName() === 'pgsql'
+            ? (clone $holdQuery)->whereRaw("(starts_at + (duration_minutes || ' minutes')::interval) > ?", [$starts])->exists()
+            : $this->rowsOverlapWindow((clone $holdQuery)->get(['starts_at', 'duration_minutes']), $starts, $ends);
         if ($held) {
             throw ApiException::conflict('Court is temporarily held for this time');
         }
+    }
+
+    private function rowsOverlapWindow(iterable $rows, CarbonImmutable $starts, CarbonImmutable $ends): bool
+    {
+        foreach ($rows as $row) {
+            $rowStart = CarbonImmutable::parse($row->starts_at);
+            $rowEnd = $rowStart->addMinutes((int) $row->duration_minutes);
+            if ($rowStart < $ends && $rowEnd > $starts) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function promoDiscount(?string $code, ?string $userId, int $subtotalMinor, string $currency): array
     {
         if ($code === null || trim($code) === '') {
             return ['promo_id' => null, 'discount_minor' => 0, 'promo' => null];
+        }
+        if (! app(LaunchConfig::class)->promoEnabled()) {
+            throw ApiException::validation('Promo codes are not available');
         }
         if (! Schema::hasTable('promo_codes')) {
             throw ApiException::validation('Promo code is not available');
@@ -1216,17 +1271,12 @@ class BookingsController extends ApiController
      * never fails purely because the client didn't supply a key — duplicate
      * slots are still blocked by the bookings EXCLUDE constraint regardless.
      */
-    private function resolveIdempotencyKey(Request $request, ?string $bodyKey, bool $generateIfMissing = true): string
+    private function lockCourtSlot(string $courtId): void
     {
-        $key = $bodyKey ?: (string) ($request->header('Idempotency-Key') ?? '');
-        $key = trim($key);
-        if (strlen($key) >= 8) {
-            return mb_substr($key, 0, 200);
+        $locked = DB::table('courts')->where('id', $courtId)->lockForUpdate()->first(['id']);
+        if ($locked === null) {
+            throw ApiException::validation('Unknown court_id');
         }
-        if ($generateIfMissing) {
-            return (string) Str::uuid();
-        }
-        throw ApiException::validation('idempotency_key is required (request body or Idempotency-Key header)');
     }
 
     private function bookingTotalMinor(object $court, int $durationMinutes): int

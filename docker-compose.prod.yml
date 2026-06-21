@@ -1,10 +1,10 @@
-# Production docker-compose skeleton for Linkfit API.
+# Production docker-compose skeleton for the Linkfit Laravel API.
 #
 # Usage:
 #   1. Copy .env.production.example → .env.production and fill in secrets.
 #   2. docker compose -f docker-compose.prod.yml --env-file .env.production up -d
-#   3. Run migrations on first boot:
-#        docker compose -f docker-compose.prod.yml exec api npm run migrate:up:prod
+#   3. Run Laravel migrations on first boot:
+#        docker compose -f docker-compose.prod.yml exec api php artisan migrate --force
 #
 # This file is a starting point — production operators will likely want
 # to swap the bundled nginx for their existing edge (Cloudflare, Caddy,
@@ -33,7 +33,7 @@ services:
 
   api:
     build:
-      context: ./apps/api
+      context: ./apps/api-laravel
       dockerfile: Dockerfile
     container_name: linkfit-api
     restart: unless-stopped
@@ -41,52 +41,60 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      NODE_ENV: production
-      HOST: 0.0.0.0
-      PORT: 3000
-      DATABASE_URL: postgres://${POSTGRES_USER:-linkfit}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-linkfit}
+      APP_NAME: ${APP_NAME:-Linkfit}
+      APP_ENV: production
+      APP_DEBUG: ${APP_DEBUG:-false}
+      APP_KEY: ${APP_KEY:?APP_KEY must be set}
+      APP_URL: ${APP_URL:?APP_URL must be set}
+      APP_WEB_URL: ${APP_WEB_URL:-https://linkfit.az}
+      LOG_CHANNEL: ${LOG_CHANNEL:-stack}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS must list at least one origin}
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set (>= 32 chars)}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET must be set (>= 32 chars)}
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${POSTGRES_DB:-linkfit}
+      DB_USERNAME: ${POSTGRES_USER:-linkfit}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      SESSION_DRIVER: ${SESSION_DRIVER:-database}
+      CACHE_STORE: ${CACHE_STORE:-database}
+      QUEUE_CONNECTION: ${QUEUE_CONNECTION:-database}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS must list at least one origin}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET must be set}
       JWT_ACCESS_TTL_SECONDS: ${JWT_ACCESS_TTL_SECONDS:-900}
       JWT_REFRESH_TTL_DAYS: ${JWT_REFRESH_TTL_DAYS:-30}
-      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-300}
-      RATE_LIMIT_WINDOW_SECONDS: ${RATE_LIMIT_WINDOW_SECONDS:-60}
-      AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX:-10}
-      AUTH_RATE_LIMIT_WINDOW_SECONDS: ${AUTH_RATE_LIMIT_WINDOW_SECONDS:-60}
-      FEATURE_BOOKINGS: ${FEATURE_BOOKINGS:-true}
-      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?PUBLIC_BASE_URL must be set}
-      PUBLIC_APP_URL: ${PUBLIC_APP_URL:?PUBLIC_APP_URL must be set}
-      UPLOAD_DIR: /app/uploads
-      METRICS_USER: ${METRICS_USER:-metrics}
-      METRICS_PASSWORD: ${METRICS_PASSWORD:?METRICS_PASSWORD must be set}
-      # Stripe — required in production.
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:?STRIPE_SECRET_KEY must be a live key}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?STRIPE_WEBHOOK_SECRET must be set}
-      STRIPE_MEMBERSHIP_PLUS_PRICE_ID: ${STRIPE_MEMBERSHIP_PLUS_PRICE_ID:?STRIPE_MEMBERSHIP_PLUS_PRICE_ID must be set}
-      STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID: ${STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID:?STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID must be set}
-      # APNs — required in production; set all four.
-      APNS_KEY_ID: ${APNS_KEY_ID:?APNS_KEY_ID must be set}
-      APNS_TEAM_ID: ${APNS_TEAM_ID:?APNS_TEAM_ID must be set}
-      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:?APNS_BUNDLE_ID must be set}
-      APNS_AUTH_KEY: ${APNS_AUTH_KEY:?APNS_AUTH_KEY must be set}
-      APNS_USE_SANDBOX: ${APNS_USE_SANDBOX:-false}
-      # SMTP — required in production for verification/password-reset email.
-      SMTP_HOST: ${SMTP_HOST:?SMTP_HOST must be set}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:?SMTP_USER must be set}
-      SMTP_PASS: ${SMTP_PASS:?SMTP_PASS must be set}
-      MAIL_FROM: ${MAIL_FROM:-no-reply@linkfit.app}
-      # OAuth (optional)
-      OAUTH_APPLE_CLIENT_IDS: ${OAUTH_APPLE_CLIENT_IDS:-az.linkfit.app}
-      OAUTH_GOOGLE_CLIENT_IDS: ${OAUTH_GOOGLE_CLIENT_IDS:-}
-      # Medical encryption — required in production.
-      MEDICAL_ENCRYPTION_KEY: ${MEDICAL_ENCRYPTION_KEY:?MEDICAL_ENCRYPTION_KEY must be set}
+      REQUIRE_API_KEY: ${REQUIRE_API_KEY:-false}
+      APP_PUBLIC_API_KEYS: ${APP_PUBLIC_API_KEYS:-}
+      APP_PUBLIC_API_KEY_HASHES: ${APP_PUBLIC_API_KEY_HASHES:-}
+      INTERNAL_API_KEYS: ${INTERNAL_API_KEYS:-}
+      INTERNAL_API_KEY_HASHES: ${INTERNAL_API_KEY_HASHES:-}
+      LINKFIT_WEB_URL: ${LINKFIT_WEB_URL:-https://linkfit.az}
+      LINKFIT_ADMIN_URL: ${LINKFIT_ADMIN_URL:-https://admin.linkfit.az}
+      LINKFIT_OWNER_URL: ${LINKFIT_OWNER_URL:-https://owner.linkfit.az}
+      LINKFIT_SUPPORT_EMAIL: ${LINKFIT_SUPPORT_EMAIL:-support@linkfit.az}
+      MAIL_MAILER: ${MAIL_MAILER:-smtp}
+      MAIL_HOST: ${MAIL_HOST:?MAIL_HOST must be set}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:?MAIL_USERNAME must be set}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:?MAIL_PASSWORD must be set}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@linkfit.az}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Linkfit}
+      APNS_KEY_ID: ${APNS_KEY_ID:-}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-az.linkfit.app}
+      APNS_PRIVATE_KEY_PATH: ${APNS_PRIVATE_KEY_PATH:-}
+      APNS_PRODUCTION: ${APNS_PRODUCTION:-true}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS:-}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-az.linkfit.app}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
+      APPLE_PAY_MERCHANT_ID: ${APPLE_PAY_MERCHANT_ID:-}
+      SENTRY_LARAVEL_DSN: ${SENTRY_LARAVEL_DSN:-}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
     volumes:
-      - uploads:/app/uploads
+      - uploads:/app/storage/app/public
     expose:
-      - "3000"
+      - "8000"
     # Only reachable via the nginx reverse proxy; not published to host.
 
   nginx:

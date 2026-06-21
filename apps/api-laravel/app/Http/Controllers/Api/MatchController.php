@@ -261,6 +261,7 @@ class MatchController extends ApiController
         $lastSet = end($sets) ?: ['a' => 0, 'b' => 0];
 
         $deltas = DB::transaction(function () use ($id, $sets, $lastSet, $game, $teamA, $teamB, $winningTeam) {
+            DB::table('games')->where('id', $id)->lockForUpdate()->first(['id']);
             $locked = DB::table('match_scores')->where('game_id', $id)->lockForUpdate()->first(['status']);
             if ($locked !== null && $locked->status === 'completed') {
                 return null; // already recorded — idempotent no-op

@@ -2,6 +2,7 @@
 
 namespace App\Services\Membership;
 
+use App\Services\Launch\LaunchConfig;
 use App\Support\ApiException;
 use Illuminate\Support\Facades\DB;
 
@@ -38,7 +39,10 @@ class MembershipService
         $trialEndsAt = null;
         $globalFullAccess = false;
         if (! $paidActive) {
-            $globalUntil = $this->parseFutureTimestamp(config('membership.global_full_access_until'));
+            $launch = app(LaunchConfig::class);
+            $globalUntil = $launch->premiumUnlockedForAll()
+                ? $this->parseFutureTimestamp($launch->endIso())
+                : $this->parseFutureTimestamp(config('membership.global_full_access_until'));
             if ($globalUntil !== null) {
                 $globalFullAccess = true;
                 $onTrial = true;
@@ -232,6 +236,7 @@ class MembershipService
     {
         $limits = $this->freeLimits();
         $plans = (array) config('membership.plans', []);
+        $launch = app(LaunchConfig::class);
 
         return [
             'free' => [
@@ -244,7 +249,7 @@ class MembershipService
             ],
             'premium' => [
                 'name' => (string) data_get($plans, 'premium.name', 'Premium'),
-                'price_minor' => (int) config('membership.premium_price_minor', 0),
+                'price_minor' => $launch->monetizationEnabled() ? (int) config('membership.premium_price_minor', 0) : 0,
                 'currency' => (string) config('membership.currency', 'AZN'),
                 'games_per_month' => null,
                 'bookings_per_month' => null,
@@ -261,7 +266,7 @@ class MembershipService
     /** @param array<int,string> $features @return array<int,string> */
     private function publicFeatureList(array $features): array
     {
-        if ($this->publicSubscriptionsEnabled()) {
+        if ($this->publicSubscriptionsEnabled() || app(LaunchConfig::class)->premiumUnlockedForAll()) {
             return array_values($features);
         }
 
@@ -274,7 +279,10 @@ class MembershipService
     public function paymentState(): array
     {
         $subscriptionsEnabled = $this->publicSubscriptionsEnabled();
-        $enabled = $subscriptionsEnabled && (bool) config('membership.payments_enabled');
+        $launch = app(LaunchConfig::class);
+        $enabled = $subscriptionsEnabled
+            && $launch->onlinePaymentEnabled()
+            && (bool) config('membership.payments_enabled');
         $provider = trim((string) config('membership.payment_provider', ''));
         $providerConfigured = $enabled && $provider !== '';
 
@@ -284,8 +292,11 @@ class MembershipService
             'provider_configured' => $providerConfigured,
             'checkout_available' => false,
             'status' => ! $enabled ? 'free_launch' : ($providerConfigured ? 'adapter_pending' : 'provider_missing'),
-            'launch_free_access_until' => config('membership.global_full_access_until') ?: null,
+            'launch_free_access_until' => $launch->endIso() ?: (config('membership.global_full_access_until') ?: null),
             'free_trial_days' => (int) config('membership.free_trial_days', 50),
+            'monetization_enabled' => $launch->monetizationEnabled(),
+            'online_payment_enabled' => $launch->onlinePaymentEnabled(),
+            'premium_unlocked_for_all' => $launch->premiumUnlockedForAll(),
         ];
     }
 

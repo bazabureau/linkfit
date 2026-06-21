@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
+use App\Services\Launch\LaunchConfig;
 use App\Support\ApiException;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -21,6 +22,9 @@ class PromoCodesController extends ApiController
             'amount_minor' => ['required', 'integer', 'min:0', 'max:100000000'],
             'currency' => ['sometimes', 'nullable', 'string', 'max:8'],
         ]);
+        if (! app(LaunchConfig::class)->promoEnabled()) {
+            throw ApiException::notFound('Promo codes are not available');
+        }
 
         $promo = $this->activePromo($data['code']);
         if ($promo === null) {

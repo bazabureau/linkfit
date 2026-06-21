@@ -7,6 +7,7 @@ use App\Events\ConversationUpdated;
 use App\Events\MessageSent;
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
+use App\Http\Controllers\Api\Concerns\HandlesIdempotentRequests;
 use App\Support\ApiException;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +20,7 @@ class MessagingController extends ApiController
 {
     use AuthorizesAdminPermissions;
     use FiltersBlockedUsers;
+    use HandlesIdempotentRequests;
 
     public function notifications(Request $request): JsonResponse
     {
@@ -568,7 +570,15 @@ class MessagingController extends ApiController
         // (or, legacy, a body field). When present and the column exists, a prior
         // message from THIS sender with the same key replays verbatim — scoped to
         // sender_user_id so one client's key can never surface another's message.
-        $idempotencyKey = $this->resolveMessageIdempotencyKey($request, $data['idempotency_key'] ?? null);
+        $idempotencyKey = $this->resolveRequestIdempotencyKey($request, $data['idempotency_key'] ?? null, false);
+
+        return $this->replayOrStoreIdempotentResponse($request, $idempotencyKey, function () use ($id, $user, $body, $data, $idempotencyKey): JsonResponse {
+            return $this->createMessage($id, $user, $body, $data, $idempotencyKey);
+        });
+    }
+
+    private function createMessage(string $id, object $user, string $body, array $data, ?string $idempotencyKey): JsonResponse
+    {
         $supportsIdempotency = $idempotencyKey !== null && Schema::hasColumn('messages', 'idempotency_key');
         if ($supportsIdempotency) {
             $prior = DB::table('messages')

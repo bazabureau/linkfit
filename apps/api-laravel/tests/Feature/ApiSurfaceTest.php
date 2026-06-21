@@ -198,6 +198,13 @@ class ApiSurfaceTest extends TestCase
             ->assertJsonPath('features.membership', false)
             ->assertJsonPath('features.premium', false)
             ->assertJsonPath('features.free_launch_access', true)
+            ->assertJsonPath('launch.monetization_enabled', false)
+            ->assertJsonPath('launch.premium_unlocked_for_all', true)
+            ->assertJsonPath('launch.booking_fee_enabled', false)
+            ->assertJsonPath('launch.service_fee_minor', 0)
+            ->assertJsonPath('launch.online_payment_enabled', false)
+            ->assertJsonPath('launch.referral_enabled', true)
+            ->assertJsonPath('launch.promo_enabled', true)
             ->assertJsonMissingPath('endpoints.membership')
             ->assertJsonPath('access.full_access', true)
             ->assertJsonPath('access.on_trial', true)
@@ -206,7 +213,7 @@ class ApiSurfaceTest extends TestCase
             ->assertJsonMissingPath('payments')
             ->assertJsonMissingPath('membership.plans');
 
-        $this->assertNotContains('premium_badge', $this->getJson('/api/v1/mobile/config')->json('access.features'));
+        $this->assertContains('premium_badge', $this->getJson('/api/v1/mobile/config')->json('access.features'));
     }
 
     public function test_mobile_config_can_expose_membership_flags_after_public_subscriptions_are_enabled(): void
@@ -215,6 +222,8 @@ class ApiSurfaceTest extends TestCase
         config()->set('membership.payments_enabled', true);
         config()->set('membership.payment_provider', 'azerbaijan-provider');
         config()->set('membership.global_full_access_until', null);
+        config()->set('launch.monetization_enabled', true);
+        config()->set('launch.online_payment_enabled', true);
 
         $this->getJson('/api/v1/mobile/config')
             ->assertOk()
@@ -234,11 +243,20 @@ class ApiSurfaceTest extends TestCase
     {
         config()->set('membership.payments_enabled', false);
         config()->set('membership.public_subscriptions_enabled', false);
+        config()->set('membership.global_full_access_until', '2026-08-09T23:59:59Z');
 
         $this->getJson('/api/v1/app/capabilities')
             ->assertOk()
             ->assertJsonPath('api_key.header', 'X-Linkfit-App-Key')
             ->assertJsonPath('api_key.query_string_supported', false)
+            ->assertJsonPath('features.monetization_enabled', false)
+            ->assertJsonPath('features.premium_unlocked_for_all', true)
+            ->assertJsonPath('features.booking_fee_enabled', false)
+            ->assertJsonPath('features.service_fee_minor', 0)
+            ->assertJsonPath('features.online_payment_enabled', false)
+            ->assertJsonPath('features.referral_enabled', true)
+            ->assertJsonPath('features.promo_enabled', true)
+            ->assertJsonPath('launch.window_days', 50)
             ->assertJsonMissingPath('clients.ios.membership')
             ->assertJsonMissingPath('clients.web.membership')
             ->assertJsonMissingPath('endpoints.membership_plans')
@@ -295,6 +313,7 @@ class ApiSurfaceTest extends TestCase
     public function test_membership_plans_hide_subscription_details_during_free_access_period(): void
     {
         config()->set('membership.public_subscriptions_enabled', false);
+        config()->set('membership.global_full_access_until', '2026-08-09T23:59:59Z');
 
         $this->getJson('/api/v1/membership/plans')
             ->assertOk()
@@ -304,10 +323,12 @@ class ApiSurfaceTest extends TestCase
             ->assertJsonPath('features.premium', false)
             ->assertJsonPath('feature_matrix.free.name', 'Free')
             ->assertJsonPath('feature_matrix.premium.name', 'Premium')
+            ->assertJsonPath('launch.monetization_enabled', false)
+            ->assertJsonPath('launch.premium_unlocked_for_all', true)
             ->assertJsonMissingPath('plans')
             ->assertJsonMissingPath('payments');
 
-        $this->assertNotContains('premium_badge', $this->getJson('/api/v1/membership/plans')->json('access.features'));
+        $this->assertContains('premium_badge', $this->getJson('/api/v1/membership/plans')->json('access.features'));
     }
 
     public function test_membership_plans_can_be_exposed_when_public_subscriptions_are_enabled(): void

@@ -16,7 +16,9 @@ use Tests\TestCase;
 class MessagingRealtimeTest extends TestCase
 {
     private const USER_ONE = '00000000-0000-4000-8000-000000000101';
+
     private const USER_TWO = '00000000-0000-4000-8000-000000000102';
+
     private const CONVERSATION = '00000000-0000-4000-8000-000000000201';
 
     private MessagingController $controller;
@@ -64,7 +66,22 @@ class MessagingRealtimeTest extends TestCase
             $table->text('body')->nullable();
             $table->string('attachment_url')->nullable();
             $table->string('attachment_type')->nullable();
+            $table->string('idempotency_key')->nullable();
             $table->timestamp('created_at')->nullable();
+        });
+
+        Schema::create('api_idempotency_keys', function ($table): void {
+            $table->string('id')->primary();
+            $table->string('user_id');
+            $table->string('route_key');
+            $table->string('idempotency_key');
+            $table->string('request_hash');
+            $table->string('status')->default('processing');
+            $table->unsignedSmallInteger('response_status')->nullable();
+            $table->text('response_body')->nullable();
+            $table->timestamp('completed_at')->nullable();
+            $table->timestamps();
+            $table->unique(['user_id', 'route_key', 'idempotency_key']);
         });
 
         Schema::create('notifications', function ($table): void {
@@ -104,6 +121,7 @@ class MessagingRealtimeTest extends TestCase
     {
         Schema::dropIfExists('user_blocks');
         Schema::dropIfExists('notifications');
+        Schema::dropIfExists('api_idempotency_keys');
         Schema::dropIfExists('messages');
         Schema::dropIfExists('conversation_participants');
         Schema::dropIfExists('conversations');
@@ -141,6 +159,24 @@ class MessagingRealtimeTest extends TestCase
         $this->assertSame('voice', DB::table('messages')->where('id', $payload['id'])->value('attachment_type'));
     }
 
+    public function test_idempotency_key_replays_message_response_without_duplicate_insert(): void
+    {
+        Event::fake();
+
+        $first = $this->requestFor(self::USER_ONE, ['body' => 'Retry-safe']);
+        $first->headers->set('Idempotency-Key', 'message-key-123');
+        $second = $this->requestFor(self::USER_ONE, ['body' => 'Retry-safe']);
+        $second->headers->set('Idempotency-Key', 'message-key-123');
+
+        $firstResponse = $this->controller->sendMessage($first, self::CONVERSATION);
+        $secondResponse = $this->controller->sendMessage($second, self::CONVERSATION);
+
+        $this->assertSame(201, $firstResponse->getStatusCode());
+        $this->assertSame(201, $secondResponse->getStatusCode());
+        $this->assertSame($firstResponse->getData(true)['id'], $secondResponse->getData(true)['id']);
+        $this->assertSame(1, DB::table('messages')->where('body', 'Retry-safe')->count());
+    }
+
     public function test_typing_broadcasts_to_conversation_channel(): void
     {
         Event::fake();
@@ -155,8 +191,8 @@ class MessagingRealtimeTest extends TestCase
 
     private function requestFor(string $userId, array $body = []): Request
     {
-        $request = Request::create('/api/v1/test', 'POST', $body);
-        $user = new User();
+        $request = Request::create('/api/v1/conversations/'.self::CONVERSATION.'/messages', 'POST', $body);
+        $user = new User;
         $user->forceFill(['id' => $userId]);
         $request->attributes->set('auth_user', $user);
 

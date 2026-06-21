@@ -14,7 +14,8 @@ export const API_BASE_URL =
  * Cloudflare/Laravel ApiKeyGuard rejects requests lacking a valid key with 403
  * when REQUIRE_API_KEY=true (prod). Inlined at build via NEXT_PUBLIC_*.
  */
-const APP_KEY = process.env.NEXT_PUBLIC_LINKFIT_APP_KEY;
+const APP_KEY =
+  process.env.NEXT_PUBLIC_LINKFIT_APP_KEY ?? process.env.NEXT_PUBLIC_API_KEY;
 const APP_KEY_HEADER = "X-Linkfit-App-Key";
 
 const ACCESS_TTL_FALLBACK_SECONDS = 60 * 60; // 1h — overwritten by API response.

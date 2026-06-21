@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Services\Launch\LaunchConfig;
 use App\Services\Membership\MembershipService;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -178,8 +179,8 @@ class MembershipController extends ApiController
             'access' => [
                 'full_access' => $fullAccess,
                 'on_trial' => $state?->on_trial ?? true,
-                'trial_ends_at' => $state?->trial_ends_at ?? (config('membership.global_full_access_until') ?: null),
-                'global_full_access' => $state?->global_full_access ?? (config('membership.global_full_access_until') !== null),
+                'trial_ends_at' => $state?->trial_ends_at ?? app(LaunchConfig::class)->endIso(),
+                'global_full_access' => $state?->global_full_access ?? app(LaunchConfig::class)->premiumUnlockedForAll(),
                 'features' => $features,
             ],
             'features' => [
@@ -193,6 +194,7 @@ class MembershipController extends ApiController
                 'bookings_per_month' => null,
             ],
             'feature_matrix' => $svc->featureMatrix(),
+            'launch' => app(LaunchConfig::class)->publicPayload(),
             'message' => 'Full access is active during the launch period. Subscription and payment controls are not available yet.',
             'next_action' => null,
         ];
@@ -309,6 +311,10 @@ class MembershipController extends ApiController
 
     private function tierPrice(string $tier): int
     {
+        if (! app(LaunchConfig::class)->monetizationEnabled()) {
+            return 0;
+        }
+
         return match ($tier) {
             'premium' => (int) config('membership.premium_price_minor', 0),
             default => 0,

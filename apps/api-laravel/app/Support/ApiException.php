@@ -67,7 +67,7 @@ final class ApiException extends RuntimeException
 
     public static function validation(string $message = 'Request validation failed', ?array $details = null): self
     {
-        return new self(400, 'VALIDATION_ERROR', $message, $details);
+        return new self(422, 'VALIDATION_ERROR', $message, $details);
     }
 
     public static function rateLimited(string $message = 'Too many requests'): self

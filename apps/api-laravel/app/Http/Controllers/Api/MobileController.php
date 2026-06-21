@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\User;
+use App\Services\Launch\LaunchConfig;
 use App\Services\Membership\MembershipService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -111,6 +112,7 @@ class MobileController extends ApiController
     private function mobileConfig(): array
     {
         $membership = app(MembershipService::class);
+        $launch = app(LaunchConfig::class);
         $subscriptionsEnabled = $membership->publicSubscriptionsEnabled();
         $payments = $membership->paymentState();
         $paymentsEnabled = $subscriptionsEnabled && (bool) $payments['enabled'];
@@ -142,6 +144,7 @@ class MobileController extends ApiController
                 'web_url' => config('services.linkfit.web_url'),
             ],
             'access' => $this->configAccessPayload($membership, $subscriptionsEnabled),
+            'launch' => $launch->publicPayload(),
             'features' => [
                 'apple_login' => filled(config('services.apple.client_id')),
                 'google_login' => filled(config('services.google.client_ids')),
@@ -174,7 +177,8 @@ class MobileController extends ApiController
                 'lessons' => true,
                 'tournaments' => true,
                 'squads' => true,
-                'referrals' => true,
+                'referrals' => $launch->referralEnabled(),
+                'promo_codes' => $launch->promoEnabled(),
                 'saved_places' => true,
                 'support_tickets' => true,
                 'owner_applications' => true,
@@ -475,8 +479,8 @@ class MobileController extends ApiController
             'mode' => 'free_launch',
             'full_access' => true,
             'on_trial' => true,
-            'trial_ends_at' => config('membership.global_full_access_until') ?: null,
-            'global_full_access' => config('membership.global_full_access_until') !== null,
+            'trial_ends_at' => app(LaunchConfig::class)->endIso(),
+            'global_full_access' => app(LaunchConfig::class)->premiumUnlockedForAll(),
             'features' => $membership->publicFeaturesForTier('premium'),
             'feature_matrix' => $membership->featureMatrix(),
         ];

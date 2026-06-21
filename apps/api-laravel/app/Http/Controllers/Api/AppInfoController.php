@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Services\Launch\LaunchConfig;
 use Illuminate\Http\JsonResponse;
 
 class AppInfoController extends ApiController
@@ -53,6 +54,7 @@ class AppInfoController extends ApiController
 
     public function capabilities(): JsonResponse
     {
+        $launch = app(LaunchConfig::class);
         $showSubscriptionSurface = $this->showSubscriptionSurface();
         $showPaymentSurface = $this->showPaymentSurface();
         $clients = [
@@ -363,6 +365,16 @@ class AppInfoController extends ApiController
             'brand' => 'linkfit',
             'supported_sports' => ['padel', 'tennis'],
             'api_key' => $this->apiKeyContract(),
+            'launch' => $launch->publicPayload(),
+            'features' => [
+                'monetization_enabled' => $launch->monetizationEnabled(),
+                'premium_unlocked_for_all' => $launch->premiumUnlockedForAll(),
+                'booking_fee_enabled' => $launch->bookingFeeEnabled(),
+                'service_fee_minor' => $launch->bookingServiceFeeMinor(),
+                'online_payment_enabled' => $launch->onlinePaymentEnabled(),
+                'referral_enabled' => $launch->referralEnabled(),
+                'promo_enabled' => $launch->promoEnabled(),
+            ],
             'clients' => $clients,
             'endpoints' => $endpoints,
         ]);

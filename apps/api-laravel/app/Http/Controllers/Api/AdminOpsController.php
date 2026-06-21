@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Services\Auth\PasswordService;
+use App\Services\Launch\LaunchConfig;
 use App\Services\Mail\TransactionalMailService;
+use App\Services\Membership\MembershipService;
 use App\Support\ApiException;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -18,7 +20,7 @@ class AdminOpsController extends ApiController
 {
     public function bootstrap(Request $request): JsonResponse
     {
-        $admin = $this->staff($request, "dashboard");
+        $admin = $this->staff($request, 'dashboard');
 
         return response()->json([
             'stats' => $this->stats($request)->getData(true),
@@ -47,7 +49,7 @@ class AdminOpsController extends ApiController
 
     public function lookups(Request $request): JsonResponse
     {
-        $this->staff($request, "dashboard");
+        $this->staff($request, 'dashboard');
 
         return response()->json([
             'sports' => DB::table('sports')->whereIn('slug', ['padel', 'tennis'])->orderByRaw("case when slug = 'padel' then 0 else 1 end")->get(['id', 'slug', 'name', 'min_players', 'max_players']),
@@ -63,7 +65,7 @@ class AdminOpsController extends ApiController
 
     public function stats(Request $request): JsonResponse
     {
-        $this->staff($request, "dashboard");
+        $this->staff($request, 'dashboard');
 
         $now = now();
         $sevenDaysAgo = now()->subDays(7);
@@ -144,7 +146,7 @@ class AdminOpsController extends ApiController
 
     public function metrics(Request $request): JsonResponse
     {
-        $this->staff($request, "revenue");
+        $this->staff($request, 'revenue');
         $days = min(max((int) $request->query('days', 30), 1), 365);
         $from = now()->subDays($days - 1)->startOfDay();
         $to = now()->endOfDay();
@@ -191,6 +193,7 @@ class AdminOpsController extends ApiController
             'from' => $this->iso($from),
             'to' => $this->iso($to),
             'daily' => $daily,
+            'launch_metrics' => $this->launchMetrics($from, $to),
             'top_venues' => DB::table('bookings as b')
                 ->join('courts as c', 'c.id', '=', 'b.court_id')
                 ->join('venues as v', 'v.id', '=', 'c.venue_id')
@@ -209,9 +212,56 @@ class AdminOpsController extends ApiController
         ]);
     }
 
+    private function launchMetrics(\DateTimeInterface $from, \DateTimeInterface $to): array
+    {
+        $launch = app(LaunchConfig::class);
+        $signups = DB::table('users')->whereNull('deleted_at')->whereBetween('created_at', [$from, $to])->count();
+        $activated = DB::table('users as u')
+            ->whereNull('u.deleted_at')
+            ->whereBetween('u.created_at', [$from, $to])
+            ->where(function ($q) {
+                $q->whereExists(fn ($x) => $x->select(DB::raw(1))->from('follows as f')->whereColumn('f.follower_user_id', 'u.id'))
+                    ->orWhereExists(fn ($x) => $x->select(DB::raw(1))->from('bookings as b')->whereColumn('b.user_id', 'u.id'))
+                    ->orWhereExists(fn ($x) => $x->select(DB::raw(1))->from('game_participants as gp')->whereColumn('gp.user_id', 'u.id'));
+            })
+            ->count();
+
+        $bookingsCreated = DB::table('bookings')->whereBetween('created_at', [$from, $to])->count();
+        $bookingsCompleted = DB::table('bookings')
+            ->whereBetween('starts_at', [$from, $to])
+            ->whereIn('status', ['paid', 'partially_paid', 'pending_payment'])
+            ->count();
+        $noShows = Schema::hasColumn('bookings', 'attendance_status')
+            ? DB::table('bookings')->whereBetween('starts_at', [$from, $to])->where('attendance_status', 'no_show')->count()
+            : DB::table('bookings')->whereBetween('starts_at', [$from, $to])->where('status', 'no_show')->count();
+        $gamesPlayed = DB::table('games')->whereNull('deleted_at')->whereBetween('starts_at', [$from, $to])->where('status', 'completed')->count();
+        $tournaments = DB::table('tournaments')->whereBetween('starts_at', [$from, $to])->count();
+        $referrals = DB::table('referrals')->whereBetween('created_at', [$from, $to])->count();
+        $dau = Schema::hasTable('launch_analytics_events')
+            ? DB::table('launch_analytics_events')->whereBetween('occurred_at', [$from, $to])->distinct('distinct_id')->count('distinct_id')
+            : 0;
+
+        return [
+            'launch' => $launch->publicPayload(),
+            'signup_count' => (int) $signups,
+            'activation_count' => (int) $activated,
+            'activation_rate' => $signups > 0 ? round($activated / $signups, 4) : 0.0,
+            'dau_distinct' => (int) $dau,
+            'bookings_created' => (int) $bookingsCreated,
+            'bookings_completed' => (int) $bookingsCompleted,
+            'games_played' => (int) $gamesPlayed,
+            'tournaments_created' => (int) $tournaments,
+            'referrals_redeemed' => (int) $referrals,
+            'referral_k_factor' => $signups > 0 ? round($referrals / $signups, 4) : 0.0,
+            'no_show_count' => (int) $noShows,
+            'no_show_rate' => $bookingsCompleted > 0 ? round($noShows / $bookingsCompleted, 4) : 0.0,
+            'targets' => (array) config('launch.targets', []),
+        ];
+    }
+
     public function users(Request $request): JsonResponse
     {
-        $this->staff($request, "users");
+        $this->staff($request, 'users');
 
         $limit = min(max((int) $request->query('limit', 20), 1), 100);
         $offset = max((int) $request->query('offset', 0), 0);
@@ -325,7 +375,7 @@ class AdminOpsController extends ApiController
 
     public function customers(Request $request): JsonResponse
     {
-        $this->staff($request, "users");
+        $this->staff($request, 'users');
         $term = trim((string) $request->query('q', ''));
         $limit = min(max((int) $request->query('limit', 50), 1), 100);
         $offset = max((int) $request->query('offset', 0), 0);
@@ -372,7 +422,7 @@ class AdminOpsController extends ApiController
 
     public function staffAccounts(Request $request): JsonResponse
     {
-        $this->staff($request, "staff");
+        $this->staff($request, 'staff');
 
         return response()->json([
             'items' => DB::table('users')
@@ -498,7 +548,7 @@ class AdminOpsController extends ApiController
 
     public function search(Request $request): JsonResponse
     {
-        $this->staff($request, "dashboard");
+        $this->staff($request, 'dashboard');
         $term = trim((string) $request->query('q', ''));
         if ($term === '') {
             return response()->json(['query' => '', 'users' => [], 'venues' => [], 'courts' => [], 'bookings' => []]);
@@ -563,7 +613,7 @@ class AdminOpsController extends ApiController
 
     public function user(Request $request, string $id): JsonResponse
     {
-        $this->staff($request, "users");
+        $this->staff($request, 'users');
         $user = DB::table('users')->where('id', $id)->first();
         if ($user === null) {
             throw ApiException::notFound('User not found');
@@ -586,7 +636,7 @@ class AdminOpsController extends ApiController
     public function suspendUser(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "users");
+        $this->staff($request, 'users');
         $data = $this->validateBody($request, [
             'reason' => ['required', 'string', 'min:2', 'max:2000'],
         ]);
@@ -604,7 +654,7 @@ class AdminOpsController extends ApiController
     public function unsuspendUser(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "users");
+        $this->staff($request, 'users');
         DB::table('users')->where('id', $id)->update([
             'suspended_at' => null,
             'suspension_reason' => null,
@@ -619,7 +669,7 @@ class AdminOpsController extends ApiController
     public function setEmailVerification(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "users");
+        $this->staff($request, 'users');
         $data = $this->validateBody($request, [
             'verified' => ['required', 'boolean'],
         ]);
@@ -639,7 +689,7 @@ class AdminOpsController extends ApiController
     public function setVip(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "users");
+        $this->staff($request, 'users');
         $data = $this->validateBody($request, [
             'is_vip' => ['required', 'boolean'],
             'vip_badge_label' => ['sometimes', 'nullable', 'string', 'max:40'],
@@ -672,7 +722,7 @@ class AdminOpsController extends ApiController
     public function setVerifiedBadge(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "users");
+        $this->staff($request, 'users');
         $data = $this->validateBody($request, [
             'is_verified' => ['required', 'boolean'],
         ]);
@@ -696,7 +746,7 @@ class AdminOpsController extends ApiController
     public function setAmbassador(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "users");
+        $this->staff($request, 'users');
         $data = $this->validateBody($request, [
             'is_ambassador' => ['required', 'boolean'],
         ]);
@@ -720,7 +770,7 @@ class AdminOpsController extends ApiController
     public function setMembership(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "users");
+        $this->staff($request, 'users');
         $data = $this->validateBody($request, [
             'tier' => ['required', 'in:free,premium'],
             'months' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:36'],
@@ -759,7 +809,7 @@ class AdminOpsController extends ApiController
     public function softDelete(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "users");
+        $this->staff($request, 'users');
         DB::table('users')->where('id', $id)->update(['deleted_at' => now(), 'updated_at' => now()]);
         $this->auditWrite($admin->id, 'user.soft_delete', 'users', $id);
 
@@ -769,7 +819,7 @@ class AdminOpsController extends ApiController
     public function restore(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "users");
+        $this->staff($request, 'users');
         DB::table('users')->where('id', $id)->update(['deleted_at' => null, 'updated_at' => now()]);
         $this->auditWrite($admin->id, 'user.restore', 'users', $id);
 
@@ -778,7 +828,7 @@ class AdminOpsController extends ApiController
 
     public function table(Request $request, string $table): JsonResponse
     {
-        $this->staff($request, "operations");
+        $this->staff($request, 'operations');
         $allowed = ['games', 'venues', 'tournaments', 'bookings', 'audit_log'];
         if (! in_array($table, $allowed, true)) {
             throw ApiException::notFound('Admin resource not found');
@@ -789,7 +839,7 @@ class AdminOpsController extends ApiController
 
     public function venues(Request $request): JsonResponse
     {
-        $this->staff($request, "venues");
+        $this->staff($request, 'venues');
 
         $limit = min(max((int) $request->query('limit', 20), 1), 100);
         $offset = max((int) $request->query('offset', 0), 0);
@@ -831,7 +881,7 @@ class AdminOpsController extends ApiController
 
     public function activity(Request $request): JsonResponse
     {
-        $this->staff($request, "dashboard");
+        $this->staff($request, 'dashboard');
         $limit = min(max((int) $request->query('limit', 50), 1), 100);
         $audit = DB::table('audit_log as a')
             ->leftJoin('users as u', 'u.id', '=', 'a.actor_user_id')
@@ -893,7 +943,7 @@ class AdminOpsController extends ApiController
 
     public function games(Request $request): JsonResponse
     {
-        $this->staff($request, "games");
+        $this->staff($request, 'games');
 
         $limit = min(max((int) $request->query('limit', 20), 1), 100);
         $offset = max((int) $request->query('offset', 0), 0);
@@ -942,7 +992,7 @@ class AdminOpsController extends ApiController
 
     public function tournaments(Request $request): JsonResponse
     {
-        $this->staff($request, "tournaments");
+        $this->staff($request, 'tournaments');
         if ($request->query('sport') && ! in_array((string) $request->query('sport'), ['padel', 'tennis'], true)) {
             throw ApiException::validation('Unsupported sport');
         }
@@ -983,7 +1033,7 @@ class AdminOpsController extends ApiController
             }
             $partnerVenueId = (string) $user->venue_id;
         } else {
-            $this->staff($request, "bookings");
+            $this->staff($request, 'bookings');
         }
 
         $limit = min(max((int) $request->query('limit', 20), 1), 100);
@@ -1068,7 +1118,7 @@ class AdminOpsController extends ApiController
 
     public function exportBookings(Request $request)
     {
-        $this->staff($request, "bookings");
+        $this->staff($request, 'bookings');
         $from = $request->query('from');
         $to = $request->query('to');
         $venueId = $request->query('venue_id');
@@ -1105,7 +1155,7 @@ class AdminOpsController extends ApiController
 
     public function calendar(Request $request): JsonResponse
     {
-        $this->staff($request, "bookings");
+        $this->staff($request, 'bookings');
         $from = CarbonImmutable::parse($request->query('from', now()->startOfWeek()->toIso8601String()));
         $to = CarbonImmutable::parse($request->query('to', now()->endOfWeek()->toIso8601String()));
         $venueId = $request->query('venue_id');
@@ -1141,7 +1191,7 @@ class AdminOpsController extends ApiController
 
     public function revenue(Request $request)
     {
-        $this->staff($request, "revenue");
+        $this->staff($request, 'revenue');
         $from = $request->query('from');
         $to = $request->query('to');
         $venueId = $request->query('venue_id');
@@ -1190,7 +1240,7 @@ class AdminOpsController extends ApiController
 
     public function booking(Request $request, string $id): JsonResponse
     {
-        $this->staff($request, "bookings");
+        $this->staff($request, 'bookings');
 
         return response()->json($this->bookingPayload($this->bookingRow($id)));
     }
@@ -1198,7 +1248,7 @@ class AdminOpsController extends ApiController
     public function bulkUpdateBookings(Request $request): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "bookings");
+        $this->staff($request, 'bookings');
         $data = $this->validateBody($request, [
             'ids' => ['required', 'array', 'min:1', 'max:100'],
             'ids.*' => ['uuid'],
@@ -1247,7 +1297,7 @@ class AdminOpsController extends ApiController
     public function createBooking(Request $request): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "bookings");
+        $this->staff($request, 'bookings');
         $data = $this->validateBody($request, [
             'court_id' => ['required', 'uuid'],
             'user_id' => ['sometimes', 'nullable', 'uuid'],
@@ -1305,7 +1355,7 @@ class AdminOpsController extends ApiController
 
     public function quoteBooking(Request $request): JsonResponse
     {
-        $this->staff($request, "bookings");
+        $this->staff($request, 'bookings');
         $data = $this->validateBody($request, [
             'court_id' => ['required', 'uuid'],
             'starts_at' => ['required', 'date'],
@@ -1340,7 +1390,7 @@ class AdminOpsController extends ApiController
     public function updateBooking(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "bookings");
+        $this->staff($request, 'bookings');
         $booking = DB::table('bookings')->where('id', $id)->first();
         if ($booking === null) {
             throw ApiException::notFound('Booking not found');
@@ -1400,7 +1450,7 @@ class AdminOpsController extends ApiController
     public function markBookingNoShow(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "bookings");
+        $this->staff($request, 'bookings');
         DB::table('bookings')->where('id', $id)->update([
             'no_show_at' => now(),
             'no_show_marked_by_user_id' => $admin->id,
@@ -1420,7 +1470,7 @@ class AdminOpsController extends ApiController
     public function clearBookingNoShow(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "bookings");
+        $this->staff($request, 'bookings');
         DB::table('bookings')->where('id', $id)->update([
             'no_show_at' => null,
             'no_show_marked_by_user_id' => null,
@@ -1463,7 +1513,7 @@ class AdminOpsController extends ApiController
 
     public function audit(Request $request): JsonResponse
     {
-        $this->staff($request, "operations");
+        $this->staff($request, 'operations');
 
         $limit = min(max((int) $request->query('limit', 50), 1), 100);
         $offset = max((int) $request->query('offset', 0), 0);
@@ -1491,7 +1541,7 @@ class AdminOpsController extends ApiController
 
     public function exportAudit(Request $request)
     {
-        $this->staff($request, "operations");
+        $this->staff($request, 'operations');
         $rows = $this->auditQuery($request)
             ->orderByDesc('a.created_at')
             ->limit(5000)
@@ -1530,7 +1580,7 @@ class AdminOpsController extends ApiController
     public function createAlert(Request $request): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "operations");
+        $this->staff($request, 'operations');
         $data = $this->validateBody($request, [
             'title' => ['required', 'string', 'min:2', 'max:120'],
             'body' => ['required', 'string', 'min:2', 'max:1000'],
@@ -1604,7 +1654,7 @@ class AdminOpsController extends ApiController
 
     public function notifications(Request $request): JsonResponse
     {
-        $this->staff($request, "operations");
+        $this->staff($request, 'operations');
         $query = $this->validateQuery($request, [
             'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
             'offset' => ['nullable', 'integer', 'min:0'],
@@ -1675,7 +1725,7 @@ class AdminOpsController extends ApiController
 
     public function notification(Request $request, string $id): JsonResponse
     {
-        $this->staff($request, "operations");
+        $this->staff($request, 'operations');
 
         return response()->json($this->adminNotificationPayload($this->notificationRow($id)));
     }
@@ -1683,7 +1733,7 @@ class AdminOpsController extends ApiController
     public function sendNotification(Request $request): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "operations");
+        $this->staff($request, 'operations');
         $data = $this->validateBody($request, [
             'title' => ['required', 'string', 'min:2', 'max:120'],
             'body' => ['required', 'string', 'min:2', 'max:1000'],
@@ -1756,7 +1806,7 @@ class AdminOpsController extends ApiController
     public function markNotificationRead(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "operations");
+        $this->staff($request, 'operations');
         $this->notificationRow($id);
 
         DB::table('notifications')->where('id', $id)->update(['read_at' => now()]);
@@ -1768,7 +1818,7 @@ class AdminOpsController extends ApiController
     public function markNotificationUnread(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "operations");
+        $this->staff($request, 'operations');
         $this->notificationRow($id);
 
         DB::table('notifications')->where('id', $id)->update(['read_at' => null]);
@@ -1780,7 +1830,7 @@ class AdminOpsController extends ApiController
     public function deleteNotification(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "operations");
+        $this->staff($request, 'operations');
         $this->notificationRow($id);
 
         DB::table('notifications')->where('id', $id)->delete();
@@ -1791,7 +1841,7 @@ class AdminOpsController extends ApiController
 
     public function game(Request $request, string $id): JsonResponse
     {
-        $this->staff($request, "games");
+        $this->staff($request, 'games');
         $game = $this->adminGameById($id);
 
         return response()->json($this->adminGameDetailPayload($game));
@@ -1799,7 +1849,7 @@ class AdminOpsController extends ApiController
 
     public function cancelGame(Request $request, string $id): JsonResponse
     {
-        $admin = $this->staff($request, "games");
+        $admin = $this->staff($request, 'games');
         $this->adminGameById($id);
         DB::table('games')->where('id', $id)->update(['status' => 'cancelled', 'updated_at' => now()]);
         $this->auditWrite($admin->id, 'admin.game.cancel', 'games', $id);
@@ -1809,7 +1859,7 @@ class AdminOpsController extends ApiController
 
     public function updateGame(Request $request, string $id): JsonResponse
     {
-        $admin = $this->staff($request, "games");
+        $admin = $this->staff($request, 'games');
         $game = $this->adminGameById($id);
         $data = $this->validateBody($request, [
             'starts_at' => ['sometimes', 'date'],
@@ -1841,7 +1891,7 @@ class AdminOpsController extends ApiController
 
     public function createTournament(Request $request): JsonResponse
     {
-        $this->staff($request, "tournaments");
+        $this->staff($request, 'tournaments');
         $data = $this->validateBody($request, [
             'name' => ['required', 'string', 'min:2', 'max:160'],
             'description' => ['sometimes', 'nullable', 'string', 'max:4000'],
@@ -1892,7 +1942,7 @@ class AdminOpsController extends ApiController
 
     public function tournament(Request $request, string $id): JsonResponse
     {
-        $this->staff($request, "tournaments");
+        $this->staff($request, 'tournaments');
 
         return response()->json([
             ...$this->tournamentById($id),
@@ -1902,7 +1952,7 @@ class AdminOpsController extends ApiController
 
     public function updateTournament(Request $request, string $id): JsonResponse
     {
-        $this->staff($request, "tournaments");
+        $this->staff($request, 'tournaments');
         $existing = $this->adminTournamentRowById($id);
         $data = $this->validateBody($request, [
             'name' => ['sometimes', 'string', 'min:2', 'max:160'],
@@ -1944,7 +1994,7 @@ class AdminOpsController extends ApiController
 
     public function deleteTournament(Request $request, string $id): JsonResponse
     {
-        $admin = $this->staff($request, "tournaments");
+        $admin = $this->staff($request, 'tournaments');
         $this->adminTournamentRowById($id);
         $updated = DB::table('tournaments')->where('id', $id)->update(['status' => 'cancelled', 'updated_at' => now()]);
         if ($updated === 0) {
@@ -1957,7 +2007,7 @@ class AdminOpsController extends ApiController
 
     public function tournamentEntries(Request $request, string $id): JsonResponse
     {
-        $this->staff($request, "tournaments");
+        $this->staff($request, 'tournaments');
 
         return response()->json([
             'items' => $this->tournamentEntriesPayload($id),
@@ -1966,7 +2016,7 @@ class AdminOpsController extends ApiController
 
     public function updateTournamentEntry(Request $request, string $id, string $entryId): JsonResponse
     {
-        $this->staff($request, "tournaments");
+        $this->staff($request, 'tournaments');
         $this->tournamentById($id);
         $data = $this->validateBody($request, [
             'status' => ['required', 'in:pending,confirmed,withdrawn,disqualified'],
@@ -1994,7 +2044,7 @@ class AdminOpsController extends ApiController
 
     public function removeTournamentEntry(Request $request, string $id, string $entryId): JsonResponse
     {
-        $this->staff($request, "tournaments");
+        $this->staff($request, 'tournaments');
         $updated = DB::table('tournament_entries')
             ->where('tournament_id', $id)
             ->where('id', $entryId)
@@ -2011,7 +2061,7 @@ class AdminOpsController extends ApiController
 
     public function deleteGame(Request $request, string $id): JsonResponse
     {
-        $admin = $this->staff($request, "games");
+        $admin = $this->staff($request, 'games');
         $this->adminGameById($id);
         DB::table('games')->where('id', $id)->update(['deleted_at' => now(), 'updated_at' => now()]);
         $this->auditWrite($admin->id, 'admin.game.delete', 'games', $id);
@@ -2022,7 +2072,7 @@ class AdminOpsController extends ApiController
     public function createVenue(Request $request): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "venues");
+        $this->staff($request, 'venues');
         $data = $this->validateBody($request, [
             'name' => ['required', 'string', 'min:1', 'max:160'],
             'address' => ['required', 'string', 'min:1', 'max:500'],
@@ -2078,7 +2128,7 @@ class AdminOpsController extends ApiController
 
     public function globalCourts(Request $request): JsonResponse
     {
-        $this->staff($request, "courts");
+        $this->staff($request, 'courts');
         $limit = min(max((int) $request->query('limit', 50), 1), 200);
         $term = trim((string) $request->query('q', ''));
         $venueId = $request->query('venue_id');
@@ -2110,7 +2160,7 @@ class AdminOpsController extends ApiController
 
     public function court(Request $request, string $courtId): JsonResponse
     {
-        $this->staff($request, "courts");
+        $this->staff($request, 'courts');
         $court = DB::table('courts as c')
             ->join('sports as s', 's.id', '=', 'c.sport_id')
             ->join('venues as v', 'v.id', '=', 'c.venue_id')
@@ -2140,7 +2190,7 @@ class AdminOpsController extends ApiController
     public function updateVenue(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "venues");
+        $this->staff($request, 'venues');
         $updates = $this->validateBody($request, [
             'name' => ['sometimes', 'string', 'min:1', 'max:160'],
             'address' => ['sometimes', 'string', 'min:1', 'max:500'],
@@ -2186,7 +2236,7 @@ class AdminOpsController extends ApiController
     public function updateVenueStatus(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "venues");
+        $this->staff($request, 'venues');
         $data = $this->validateBody($request, [
             'status' => ['required', 'in:draft,pending,published,suspended'],
         ]);
@@ -2207,7 +2257,7 @@ class AdminOpsController extends ApiController
     public function deleteVenue(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "venues");
+        $this->staff($request, 'venues');
         if (! DB::table('venues')->where('id', $id)->exists()) {
             throw ApiException::notFound('Venue not found');
         }
@@ -2336,7 +2386,7 @@ class AdminOpsController extends ApiController
 
     public function courtBlocks(Request $request, string $courtId): JsonResponse
     {
-        $this->staff($request, "courts");
+        $this->staff($request, 'courts');
 
         return response()->json(['items' => DB::table('court_blocks')->where('court_id', $courtId)->orderByDesc('starts_at')->get()]);
     }
@@ -2344,7 +2394,7 @@ class AdminOpsController extends ApiController
     public function createCourtBlock(Request $request, string $courtId): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "courts");
+        $this->staff($request, 'courts');
         if (! DB::table('courts')->where('id', $courtId)->exists()) {
             throw ApiException::notFound('Court not found');
         }
@@ -2380,7 +2430,7 @@ class AdminOpsController extends ApiController
     public function deleteCourtBlock(Request $request, string $courtId, string $blockId): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "courts");
+        $this->staff($request, 'courts');
         DB::table('court_blocks')->where('court_id', $courtId)->where('id', $blockId)->delete();
         $this->auditWrite($admin->id, 'court.block.delete', 'court_blocks', $blockId, ['court_id' => $courtId]);
 
@@ -2390,7 +2440,7 @@ class AdminOpsController extends ApiController
     public function updateCourtBlock(Request $request, string $courtId, string $blockId): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "courts");
+        $this->staff($request, 'courts');
         $block = DB::table('court_blocks')->where('court_id', $courtId)->where('id', $blockId)->first();
         if ($block === null) {
             throw ApiException::notFound('Block not found');
@@ -2440,7 +2490,7 @@ class AdminOpsController extends ApiController
 
     public function moderationReports(Request $request): JsonResponse
     {
-        $this->staff($request, "reports");
+        $this->staff($request, 'reports');
 
         return response()->json(['reports' => DB::table('reports')->orderByDesc('created_at')->limit(200)->get(), 'total' => DB::table('reports')->count(), 'next_cursor' => null]);
     }
@@ -2448,7 +2498,7 @@ class AdminOpsController extends ApiController
     public function reviewModerationReport(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "reports");
+        $this->staff($request, 'reports');
         $data = $this->validateBody($request, [
             'action' => ['sometimes', 'in:dismiss,review'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
@@ -2470,7 +2520,7 @@ class AdminOpsController extends ApiController
 
     public function moderationUser(Request $request, string $id): JsonResponse
     {
-        $this->staff($request, "reports");
+        $this->staff($request, 'reports');
         $user = DB::table('users')->where('id', $id)->first();
         if ($user === null) {
             throw ApiException::notFound('User not found');
@@ -2490,7 +2540,7 @@ class AdminOpsController extends ApiController
     public function deactivateUser(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "reports");
+        $this->staff($request, 'reports');
         if (! DB::table('users')->where('id', $id)->exists()) {
             throw ApiException::notFound('User not found');
         }
@@ -2502,14 +2552,14 @@ class AdminOpsController extends ApiController
 
     public function deletions(Request $request): JsonResponse
     {
-        $this->staff($request, "operations");
+        $this->staff($request, 'operations');
 
         return response()->json(['items' => DB::table('account_deletion_requests')->where('status', 'scheduled')->orderBy('hard_delete_at')->limit(200)->get()]);
     }
 
     public function cancelDeletion(Request $request, string $userId): JsonResponse
     {
-        $admin = $this->staff($request, "operations");
+        $admin = $this->staff($request, 'operations');
         $updated = DB::table('account_deletion_requests')
             ->where('user_id', $userId)
             ->where('status', 'scheduled')
@@ -2524,14 +2574,14 @@ class AdminOpsController extends ApiController
 
     public function exports(Request $request): JsonResponse
     {
-        $this->staff($request, "operations");
+        $this->staff($request, 'operations');
 
         return response()->json(['items' => DB::table('data_export_requests')->orderByDesc('created_at')->limit(200)->get()]);
     }
 
     public function operations(Request $request): JsonResponse
     {
-        $this->staff($request, "operations");
+        $this->staff($request, 'operations');
         $now = now();
         $apnsKeyPath = (string) config('services.apns.private_key_path');
 
@@ -2600,7 +2650,7 @@ class AdminOpsController extends ApiController
 
     public function pushJobs(Request $request): JsonResponse
     {
-        $this->staff($request, "push_jobs");
+        $this->staff($request, 'push_jobs');
         $limit = min(max((int) $request->query('limit', 50), 1), 200);
         $status = $request->query('status');
         $userId = $request->query('user_id');
@@ -2634,7 +2684,7 @@ class AdminOpsController extends ApiController
     public function retryPushJob(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "push_jobs");
+        $this->staff($request, 'push_jobs');
         DB::table('push_notification_jobs')->where('id', $id)->update([
             'status' => 'pending',
             'available_at' => now(),
@@ -2650,7 +2700,7 @@ class AdminOpsController extends ApiController
     public function cancelPushJob(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "push_jobs");
+        $this->staff($request, 'push_jobs');
         DB::table('push_notification_jobs')->where('id', $id)->whereIn('status', ['pending', 'retry', 'processing'])->update([
             'status' => 'cancelled',
             'error' => 'Cancelled by admin',
@@ -2663,7 +2713,7 @@ class AdminOpsController extends ApiController
 
     public function media(Request $request): JsonResponse
     {
-        $this->staff($request, "media");
+        $this->staff($request, 'media');
         $limit = min(max((int) $request->query('limit', 50), 1), 100);
 
         return response()->json([
@@ -2674,7 +2724,7 @@ class AdminOpsController extends ApiController
     public function deleteMedia(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "media");
+        $this->staff($request, 'media');
         $asset = DB::table('media_assets')->where('id', $id)->first();
         if ($asset === null) {
             throw ApiException::notFound('Media asset not found');
@@ -2689,7 +2739,7 @@ class AdminOpsController extends ApiController
     public function cleanupMedia(Request $request): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "media");
+        $this->staff($request, 'media');
         $data = $this->validateBody($request, [
             'older_than_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:500'],
@@ -2808,7 +2858,7 @@ class AdminOpsController extends ApiController
 
     public function partnerAccounts(Request $request, string $id): JsonResponse
     {
-        $this->staff($request, "venues");
+        $this->staff($request, 'venues');
         $this->ensureVenueExists($id);
 
         return response()->json([
@@ -2825,7 +2875,7 @@ class AdminOpsController extends ApiController
     public function createUser(Request $request): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "users");
+        $this->staff($request, 'users');
         $data = $this->validateBody($request, [
             'email' => ['required', 'string', 'email', 'max:254'],
             'display_name' => ['required', 'string', 'min:1', 'max:80'],
@@ -2874,7 +2924,7 @@ class AdminOpsController extends ApiController
     public function createPartnerAccount(Request $request, string $id): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "venues");
+        $this->staff($request, 'venues');
         $this->ensureVenueExists($id);
         $data = $this->validateBody($request, [
             'email' => ['required', 'string', 'email', 'max:254'],
@@ -2916,7 +2966,7 @@ class AdminOpsController extends ApiController
     public function updatePartnerAccount(Request $request, string $id, string $userId): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "venues");
+        $this->staff($request, 'venues');
         $this->ensureVenueExists($id);
         $data = $this->validateBody($request, [
             'email' => ['sometimes', 'string', 'email', 'max:254'],
@@ -2975,7 +3025,7 @@ class AdminOpsController extends ApiController
     public function deletePartnerAccount(Request $request, string $id, string $userId): JsonResponse
     {
         $admin = $this->authUser($request);
-        $this->staff($request, "venues");
+        $this->staff($request, 'venues');
         $updated = DB::table('users')
             ->where('id', $userId)
             ->where('admin_role', 'partner')
@@ -3014,7 +3064,7 @@ class AdminOpsController extends ApiController
             'vip_expires_at' => $this->iso($u->vip_expires_at ?? null),
             'is_verified' => (bool) ($u->is_verified ?? false),
             'is_ambassador' => (bool) ($u->is_ambassador ?? false),
-            'membership_tier' => ($m = app(\App\Services\Membership\MembershipService::class)->resolve((string) $u->id, isset($u->created_at) ? (string) $u->created_at : null))->tier,
+            'membership_tier' => ($m = app(MembershipService::class)->resolve((string) $u->id, isset($u->created_at) ? (string) $u->created_at : null))->tier,
             'is_premium' => $m->is_premium,
             'on_trial' => $m->on_trial,
             'membership_period_end' => $this->iso($m->current_period_end),
@@ -3448,6 +3498,7 @@ class AdminOpsController extends ApiController
         }
         if (is_string($metadata) && $metadata !== '') {
             $decoded = json_decode($metadata, true);
+
             return is_array($decoded) ? $decoded : [];
         }
 

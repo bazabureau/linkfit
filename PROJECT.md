@@ -7,15 +7,16 @@
 ## Architecture
 Linkfit is a modern, modular sports community platform comprised of:
 - **Swift iOS Application (`apps/ios`)**: A premium-quality mobile app built with Swift 6 and SwiftUI, featuring MVVM clean architecture, Dynamic Island match tracking (`LinkfitLiveActivity`), lock/home screen widgets (`LinkfitWidgets`), and native feature flows (Feed, Matches discovery, Tournaments detail pages, Squad management, Referrals, and Chat).
-- **TypeScript Node API Backend (`apps/api`)**: An enterprise Fastify REST server built with PostgreSQL (accessed via type-safe Kysely query builder), Kysely Kysely-based SQL migrations, Zod for schema validation, Pino for structured logging, and Vitest for testing.
+- **Laravel API Backend (`apps/api-laravel`)**: The live REST backend built on Laravel and PostgreSQL. It keeps the `/api/v1/...` wire contract, JWT auth, rotating refresh tokens, bookings, games, social, admin, partner, coach, membership, and payments surfaces.
 - **Production Infrastructure**: Envisioned with an Nginx TLS/rate-limiting reverse proxy, prometheus metrics export, containerization via Docker, and production-env validation strictness.
 
 ## Code Layout
 - `apps/ios/Linkfit/`: Source code of the host iOS application.
 - `apps/ios/LinkfitWidgets/`: Widget extension source code.
 - `apps/ios/LinkfitLiveActivity/`: Dynamic Island widget extension source code.
-- `apps/api/src/modules/`: Domain modules containing routes, services, schemas, and unit tests.
-- `apps/api/src/shared/`: Shared infrastructure modules (auth, config, db, errors, logging).
+- `apps/api-laravel/routes/api.php`: Full API route surface.
+- `apps/api-laravel/app/Http/Controllers/Api/`: Domain controllers for app, admin, partner, and coach APIs.
+- `apps/api-laravel/database/migrations/`: Laravel schema changes plus imported legacy schema baseline.
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |

@@ -129,7 +129,7 @@ The amateur sports market is ripe for disruption. What makes LinkFit uniquely po
 While competitors focus purely on B2B court booking software or basic community forums, LinkFit has built a fully integrated **dual-sided marketplace**. We have solved the hard problems of high-performance real-time engineering:
 *   **Swift 6/SwiftUI Native Client:** Exquisite, fast interface featuring zero lag, native iOS Keychain security, and instant localized ASO content.
 *   **Dynamic Island Live Tracking (`LinkfitLiveActivity`):** Bringing physical games to life right on the lock screen with real-time score streaming.
-*   **High-Concurrency Backend:** Built with Fastify, PostgreSQL, and Kysely. Features atomic-capacity joining, robust database integrity (FKs, CHECK constraints), and rigorous environment secret validation.
+*   **High-Concurrency Backend:** Built with Laravel and PostgreSQL. Features capacity-safe joining, robust database integrity (FKs, CHECK constraints), and rigorous environment secret validation.
 *   **Social Trust Mechanics:** Pure ELO computation and a reliability score that penalize bad behavior, guaranteeing an unparalleled user experience.
 
 ### The Value Proposition

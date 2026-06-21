@@ -46,7 +46,7 @@ class JwtAuthenticate
         $request->attributes->set('auth_family_id', $claims->sid ?? null);
         $this->touchLastSeen((string) $user->id, $user->last_seen_at);
 
-        return $next($request);
+        return app(PortalRoleGuard::class)->handle($request, $next);
     }
 
     private function touchLastSeen(string $userId, mixed $lastSeenAt): void

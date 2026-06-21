@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\BlocksPendingGameResults;
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
+use App\Http\Controllers\Api\Concerns\HandlesIdempotentRequests;
+use App\Services\Launch\LaunchConfig;
 use App\Services\Membership\MembershipService;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +18,7 @@ class GamesController extends ApiController
 {
     use BlocksPendingGameResults;
     use FiltersBlockedUsers;
+    use HandlesIdempotentRequests;
 
     public function index(Request $request): JsonResponse
     {
@@ -107,9 +110,17 @@ class GamesController extends ApiController
             'visibility' => ['sometimes', 'in:public,invite'],
             'match_type' => ['sometimes', 'in:casual,competitive'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:500'],
-            'idempotency_key' => ['sometimes', 'uuid'],
+            'idempotency_key' => ['sometimes', 'nullable', 'string', 'min:8', 'max:200'],
         ]);
+        $data['idempotency_key'] = $this->resolveRequestIdempotencyKey($request, $data['idempotency_key'] ?? null, false);
 
+        return $this->replayOrStoreIdempotentResponse($request, $data['idempotency_key'], function () use ($request, $user, $data): JsonResponse {
+            return $this->createGame($request, $user, $data);
+        });
+    }
+
+    private function createGame(Request $request, object $user, array $data): JsonResponse
+    {
         $sport = DB::table('sports')->where('id', $data['sport_id'])->whereIn('slug', ['padel', 'tennis'])->first();
         if ($sport === null) {
             throw ApiException::validation('Unknown sport_id');
@@ -292,6 +303,18 @@ class GamesController extends ApiController
     public function join(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        $data = $this->validateBody($request, [
+            'idempotency_key' => ['sometimes', 'nullable', 'string', 'min:8', 'max:200'],
+        ]);
+        $idempotencyKey = $this->resolveRequestIdempotencyKey($request, $data['idempotency_key'] ?? null, false);
+
+        return $this->replayOrStoreIdempotentResponse($request, $idempotencyKey, function () use ($request, $id, $user): JsonResponse {
+            return $this->joinGame($request, $id, $user);
+        });
+    }
+
+    private function joinGame(Request $request, string $id, object $user): JsonResponse
+    {
         $this->ensureNoPendingGameResult((string) $user->id);
         $game = DB::table('games')->where('id', $id)->whereNull('deleted_at')->first();
         if ($game === null) {
@@ -560,6 +583,9 @@ class GamesController extends ApiController
 
     private function totalPriceMinor(object $r): ?int
     {
+        if (! app(LaunchConfig::class)->monetizationEnabled()) {
+            return 0;
+        }
         if ($r->hourly_price_minor === null) {
             return null;
         }

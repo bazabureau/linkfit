@@ -390,7 +390,7 @@ Our launch campaign is strategically designed around **hyper-localization**, tap
 - **Goals:** Ensure client-server integration is flawlessly stable; seed the platform with initial local content.
 - **Tactics:**
   1.  Deploy a TestFlight build of the host iOS app to 100 hand-picked local influencers, marathoners, and gym trainers in Baku.
-  2.  Pre-load the database via Kysely migrations with 20 premium venues in Baku (complete with geo-coordinates, phone numbers, and pricing details).
+  2.  Pre-load the Laravel/PostgreSQL database with 20 premium venues in Baku (complete with geo-coordinates, phone numbers, and pricing details).
   3.  Create a landing page (`linkfit.az`) collecting emails for early access with the hook: _"Bakının ən böyük idman tətbiqi gəlir. İndidən qeydiyyatdan keç və pulsuz premium qazan."_
 
 #### Phase 2: Soft Launch & Referral Activation (Weeks 1 to 4)

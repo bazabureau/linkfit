@@ -7,7 +7,10 @@ use App\Services\Auth\TokenService;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
@@ -29,8 +32,38 @@ class MiscController extends ApiController
         ]);
 
         Log::info('analytics.events', ['count' => count($data['events'])]);
+        if (Schema::hasTable('launch_analytics_events')) {
+            $rows = [];
+            foreach ($data['events'] as $event) {
+                $rows[] = [
+                    'id' => (string) Str::uuid(),
+                    'event' => (string) $event['event'],
+                    'distinct_id' => $event['distinct_id'] ?? null,
+                    'user_id' => null,
+                    'properties' => json_encode($event['properties'] ?? []),
+                    'source' => (string) ($event['properties']['source'] ?? 'web'),
+                    'ip_hash' => $request->ip() ? hash('sha256', $request->ip().(string) config('app.key')) : null,
+                    'occurred_at' => $this->parseAnalyticsTime($event['ts'] ?? null),
+                    'created_at' => now(),
+                ];
+            }
+            DB::table('launch_analytics_events')->insert($rows);
+        }
 
         return response()->json(['accepted' => count($data['events'])], 202);
+    }
+
+    private function parseAnalyticsTime(mixed $value): \DateTimeInterface
+    {
+        if ($value === null || $value === '') {
+            return now();
+        }
+
+        try {
+            return is_numeric($value) ? now()->setTimestamp((int) $value) : new \DateTimeImmutable((string) $value);
+        } catch (Throwable) {
+            return now();
+        }
     }
 
     public function realtimeSse(Request $request, TokenService $tokens): StreamedResponse|JsonResponse

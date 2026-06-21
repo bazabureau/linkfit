@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Services\Launch\LaunchConfig;
 use App\Support\ApiException;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -435,7 +436,7 @@ class TournamentsController extends ApiController
             'registration_deadline' => $this->iso($r->registration_deadline),
             'max_squads' => (int) $r->max_squads,
             'squad_size' => (int) $r->squad_size,
-            'entry_fee_minor' => (int) $r->entry_fee_minor,
+            'entry_fee_minor' => app(LaunchConfig::class)->monetizationEnabled() ? (int) $r->entry_fee_minor : 0,
             'currency' => $r->currency,
             'status' => $r->status,
             'entries_count' => isset($r->entries_count)

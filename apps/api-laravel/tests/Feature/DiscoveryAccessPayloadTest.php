@@ -45,7 +45,7 @@ class DiscoveryAccessPayloadTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_discovery_feature_payload_hides_premium_terminology_while_subscriptions_are_private(): void
+    public function test_discovery_feature_payload_unlocks_premium_perks_while_subscriptions_are_private(): void
     {
         config()->set('membership.public_subscriptions_enabled', false);
         config()->set('membership.global_full_access_until', now()->addDays(50)->toIso8601String());
@@ -55,7 +55,7 @@ class DiscoveryAccessPayloadTest extends TestCase
 
         $this->assertArrayHasKey('access', $payload);
         $this->assertTrue($payload['access']['full_access']);
-        $this->assertNotContains('premium_badge', $payload['access']['features']);
+        $this->assertContains('premium_badge', $payload['access']['features']);
         $this->assertSame([], $payload['feature_locks']);
         $this->assertArrayNotHasKey('is_premium', $payload);
         $this->assertArrayNotHasKey('premium_locked', $payload);
@@ -79,7 +79,8 @@ class DiscoveryAccessPayloadTest extends TestCase
 
     private function payload(string $userId, string $feature, bool $allowed): array
     {
-        $controller = new class extends DiscoveryController {
+        $controller = new class extends DiscoveryController
+        {
             public function expose(MembershipService $membership, string $userId, string $feature, bool $allowed): array
             {
                 return $this->featureAccessPayload($membership, $userId, $feature, $allowed);

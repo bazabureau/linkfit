@@ -146,7 +146,7 @@ class MembershipAccessTest extends TestCase
         $this->assertTrue($service->canUseFeature('user-feature-launch', 'advanced_insights'));
         $this->assertTrue($service->canUseFeature('user-feature-launch', 'priority_matchmaking'));
         $this->assertContains('premium_badge', $service->featuresForUser('user-feature-launch'));
-        $this->assertNotContains('premium_badge', $service->publicFeaturesForUser('user-feature-launch'));
+        $this->assertContains('premium_badge', $service->publicFeaturesForUser('user-feature-launch'));
     }
 
     public function test_public_user_payload_hides_subscription_state(): void
@@ -165,7 +165,7 @@ class MembershipAccessTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $user = new User();
+        $user = new User;
         $user->forceFill([
             'id' => 'user-public-shape',
             'email' => 'player@example.test',
@@ -372,6 +372,8 @@ class MembershipAccessTest extends TestCase
         $this->assertFalse($freeLaunch['provider_configured']);
 
         config()->set('membership.payments_enabled', true);
+        config()->set('launch.monetization_enabled', true);
+        config()->set('launch.online_payment_enabled', true);
 
         $providerMissing = app(MembershipService::class)->paymentState();
         $this->assertSame('provider_missing', $providerMissing['status']);
@@ -541,10 +543,9 @@ class MembershipAccessTest extends TestCase
         string $userId,
         string $path = '/api/v1/membership/cancel',
         array $payload = []
-    ): Request
-    {
+    ): Request {
         $request = Request::create($path, 'POST', $payload);
-        $user = new User();
+        $user = new User;
         $user->forceFill(['id' => $userId]);
         $request->attributes->set('auth_user', $user);
 
