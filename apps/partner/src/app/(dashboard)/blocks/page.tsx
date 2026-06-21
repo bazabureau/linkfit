@@ -8,6 +8,8 @@ import {
   Trash2,
   CalendarClock,
   AlertTriangle,
+  AlertCircle,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -71,7 +73,8 @@ export default function BlocksPage(): React.JSX.Element {
 
   const { data: courtsData } = usePartnerCourts();
   const courts = useMemo(() => courtsData ?? [], [courtsData]);
-  const { data: blocksData, isLoading } = usePartnerBlocks();
+  const { data: blocksData, isLoading, isError, refetch, isFetching } =
+    usePartnerBlocks();
   const blocks = useMemo(() => blocksData ?? [], [blocksData]);
 
   const createMut = useCreatePartnerBlock();
@@ -173,7 +176,7 @@ export default function BlocksPage(): React.JSX.Element {
     }
   };
 
-  const showEmpty = !isLoading && blocks.length === 0;
+  const showEmpty = !isLoading && !isError && blocks.length === 0;
   const saving = createMut.isPending || updateMut.isPending;
   const noCourts = courts.length === 0;
 
@@ -231,7 +234,30 @@ export default function BlocksPage(): React.JSX.Element {
             </div>
           </div>
 
-          {showEmpty ? (
+          {isError ? (
+            <div className="flex flex-col items-center justify-center gap-4 px-6 py-20 text-center">
+              <div className="grid h-16 w-16 place-items-center rounded-2xl bg-danger/10 ring-1 ring-danger/15">
+                <AlertCircle className="h-7 w-7 text-danger" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-display text-base font-bold text-foreground">
+                  Bloklar yüklənmədi
+                </h3>
+                <p className="mx-auto max-w-sm text-sm text-foregroundMuted">
+                  Blok siyahısını almaq mümkün olmadı. Yenidən cəhd edin.
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={() => refetch()}
+                disabled={isFetching}
+                className="gap-2"
+              >
+                <RotateCcw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+                Yenidən cəhd et
+              </Button>
+            </div>
+          ) : showEmpty ? (
             <div className="flex flex-col items-center justify-center gap-4 px-6 py-20 text-center">
               <div className="grid h-16 w-16 place-items-center rounded-2xl bg-accent/10 ring-1 ring-accent/15">
                 <Wrench className="h-7 w-7 text-accent" />

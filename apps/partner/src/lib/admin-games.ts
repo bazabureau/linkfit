@@ -4,7 +4,7 @@
  * Admin Games — typed React Query hooks + zod schemas.
  *
  * This module wraps the `/api/v1/admin/games*` surface exposed by the API
- * (see `apps/api/src/modules/admin/admin.{routes,schema,service}.ts`).
+ * (see `apps/api-laravel/routes/api.php` and `AdminOpsController`).
  *
  * Conventions match the rest of the admin app:
  *   - Hooks live next to schemas so a page consuming a hook also gets the

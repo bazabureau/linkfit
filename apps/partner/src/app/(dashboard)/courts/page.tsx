@@ -14,6 +14,8 @@ import {
   MessageSquare,
   Hourglass,
   ArrowUpRight,
+  AlertCircle,
+  RotateCcw,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,6 +38,7 @@ import {
   useUpdatePartnerCourt,
   useDeletePartnerCourt,
   useSportsOptions,
+  deriveVenueAggregates,
   type Court,
 } from "@/lib/partner-queries";
 import { formatDate } from "@/lib/date-format";
@@ -133,7 +136,8 @@ export default function CourtsPage(): React.JSX.Element {
   const [hourlyPrice, setHourlyPrice] = useState("");
 
   // Queries & Mutations
-  const { data: courtsData, isLoading } = usePartnerCourts();
+  const { data: courtsData, isLoading, isError, refetch, isFetching } =
+    usePartnerCourts();
   const courts = useMemo(() => courtsData ?? [], [courtsData]);
   const { data: allSports = [] } = useSportsOptions();
   // The partner courts endpoint only returns/accepts padel & tennis courts,
@@ -155,10 +159,14 @@ export default function CourtsPage(): React.JSX.Element {
       total > 0
         ? courts.reduce((sum, c) => sum + c.hourly_price_minor, 0) / total
         : 0;
+    // Venue aggregates that mirror the catalog `from_price_minor` field.
+    const agg = deriveVenueAggregates(courts);
     return {
       total,
       sportsCount: sportsSet.size,
       avgPrice: moneyFromMinor(avgPriceMinor),
+      fromPrice:
+        agg.from_price_minor != null ? moneyFromMinor(agg.from_price_minor) : "—",
     };
   }, [courts]);
 
@@ -231,7 +239,7 @@ export default function CourtsPage(): React.JSX.Element {
     }
   };
 
-  const showEmpty = !isLoading && courts.length === 0;
+  const showEmpty = !isLoading && !isError && courts.length === 0;
   const saving = createMut.isPending || updateMut.isPending;
 
   return (
@@ -277,13 +285,20 @@ export default function CourtsPage(): React.JSX.Element {
       </div>
 
       {/* ── KPI strip ── */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi label="Cəmi Kortlar" value={stats.total} icon={LayoutGrid} tone="accent" />
         <Kpi
           label="İdman Növləri"
           value={stats.sportsCount}
           icon={Building2}
           tone="info"
+        />
+        <Kpi
+          label="Başlanğıc Qiymət"
+          value={stats.fromPrice}
+          unit="AZN / saat"
+          icon={Coins}
+          tone="accent"
         />
         <Kpi
           label="Ortalama Qiymət"
@@ -307,7 +322,30 @@ export default function CourtsPage(): React.JSX.Element {
           </div>
         </div>
 
-        {showEmpty ? (
+        {isError ? (
+          <div className="flex flex-col items-center justify-center gap-4 px-6 py-20 text-center">
+            <div className="grid h-16 w-16 place-items-center rounded-2xl bg-danger/10 ring-1 ring-danger/15">
+              <AlertCircle className="h-7 w-7 text-danger" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-display text-base font-bold text-foreground">
+                Kortlar yüklənmədi
+              </h3>
+              <p className="mx-auto max-w-sm text-sm text-foregroundMuted">
+                Kort siyahısını almaq mümkün olmadı. Yenidən cəhd edin.
+              </p>
+            </div>
+            <Button
+              variant="secondary"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="gap-2"
+            >
+              <RotateCcw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+              Yenidən cəhd et
+            </Button>
+          </div>
+        ) : showEmpty ? (
           <div className="flex flex-col items-center justify-center gap-4 px-6 py-20 text-center">
             <div className="grid h-16 w-16 place-items-center rounded-2xl bg-accent/10 ring-1 ring-accent/15">
               <Building2 className="h-7 w-7 text-accent" />

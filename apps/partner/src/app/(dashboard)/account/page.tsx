@@ -9,6 +9,8 @@ import {
   Save,
   Loader2,
   BadgeCheck,
+  AlertCircle,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -22,7 +24,8 @@ import {
 
 export default function AccountPage(): React.JSX.Element {
   const toast = useToast();
-  const { data: account, isLoading } = usePartnerAccount();
+  const { data: account, isLoading, isError, refetch, isFetching } =
+    usePartnerAccount();
   const updateMut = useUpdatePartnerAccount();
 
   const [displayName, setDisplayName] = useState("");
@@ -86,6 +89,35 @@ export default function AccountPage(): React.JSX.Element {
         <div className="h-8 w-52 animate-pulse rounded-lg bg-surfaceElevated" />
         <div className="h-64 animate-pulse rounded-2xl bg-surface" />
         <div className="h-72 animate-pulse rounded-2xl bg-surface" />
+      </div>
+    );
+  }
+
+  if (isError || !account) {
+    return (
+      <div className="max-w-2xl">
+        <Card className="flex flex-col items-center justify-center gap-4 py-20 text-center shadow-card">
+          <div className="grid h-16 w-16 place-items-center rounded-2xl bg-danger/10 ring-1 ring-danger/15">
+            <AlertCircle className="h-7 w-7 text-danger" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="font-display text-base font-bold text-foreground">
+              Hesab məlumatı yüklənmədi
+            </h3>
+            <p className="max-w-sm text-sm text-foregroundMuted">
+              Hesab məlumatınızı almaq mümkün olmadı. Yenidən cəhd edin.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="gap-2"
+          >
+            <RotateCcw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+            Yenidən cəhd et
+          </Button>
+        </Card>
       </div>
     );
   }

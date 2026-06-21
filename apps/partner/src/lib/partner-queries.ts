@@ -573,6 +573,59 @@ export function useSportsOptions(): UseQueryResult<SportOption[]> {
   });
 }
 
+// ─── Venue aggregates (courts_count / from_price_minor) ──────────────────────
+// The public catalog + admin venue endpoints expose `courts_count` and
+// `from_price_minor` aggregates, but the partner `/venue` payload does not.
+// The partner panel already loads its own courts list, which is the source of
+// truth for this venue, so we derive the same aggregates client-side. This
+// keeps the owner-facing "starting price" / "active courts" figures identical
+// to what players see in the consumer app without an extra round-trip.
+
+export interface VenueAggregates {
+  /** Number of bookable (active) courts at the venue. */
+  courts_count: number;
+  /** Total number of courts including inactive / maintenance. */
+  courts_total: number;
+  /** Cheapest active court hourly price, in minor units (null when no courts). */
+  from_price_minor: number | null;
+  /** Currency of the from-price court (defaults to AZN). */
+  currency: string;
+}
+
+/** Treat a court as bookable unless explicitly inactive/maintenance. */
+function isCourtActive(c: Court): boolean {
+  return c.status == null || c.status === "active";
+}
+
+/** Derive venue-level aggregates from a partner courts list. */
+export function deriveVenueAggregates(courts: Court[]): VenueAggregates {
+  const active = courts.filter(isCourtActive);
+  const priced = active.length > 0 ? active : courts;
+  const fromPrice =
+    priced.length > 0
+      ? priced.reduce(
+          (min, c) => (c.hourly_price_minor < min ? c.hourly_price_minor : min),
+          priced[0]!.hourly_price_minor,
+        )
+      : null;
+  return {
+    courts_count: active.length,
+    courts_total: courts.length,
+    from_price_minor: fromPrice,
+    currency: courts[0]?.currency ?? "AZN",
+  };
+}
+
+/**
+ * Venue aggregates derived from the cached partner courts list. Surfaces the
+ * new `courts_count` + `from_price_minor` venue fields in the owner panel.
+ */
+export function useVenueAggregates(): VenueAggregates & { isLoading: boolean } {
+  const { data, isLoading } = usePartnerCourts();
+  const courts = data ?? [];
+  return { ...deriveVenueAggregates(courts), isLoading };
+}
+
 // ─── Staff Management ────────────────────────────────────────────────────────
 
 export function usePartnerStaff(): UseQueryResult<StaffListResponse> {

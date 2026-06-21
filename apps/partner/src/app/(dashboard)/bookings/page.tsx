@@ -42,6 +42,7 @@ import {
   useRefundPartnerBooking,
   usePartnerCourts,
   usePartnerVenue,
+  deriveVenueAggregates,
   partnerKeys,
   type Booking,
   type BookingStatus,
@@ -224,6 +225,9 @@ export default function ReservationsPage(): React.JSX.Element {
   const { data: courtsData } = usePartnerCourts();
   const courts = useMemo(() => courtsData ?? [], [courtsData]);
   const { data: venue } = usePartnerVenue();
+  // Venue aggregates (active courts + starting price) derived from the courts
+  // list — mirrors the catalog `courts_count` / `from_price_minor` fields.
+  const venueAgg = useMemo(() => deriveVenueAggregates(courts), [courts]);
 
   const durationMinutes = useMemo(() => {
     return durationMode === "standard" ? standardDuration : customMinutes;
@@ -252,7 +256,7 @@ export default function ReservationsPage(): React.JSX.Element {
     }
   }, [viewTab, status, selectedCourtId, q, from, to, schedulerDate]);
 
-  const { data: bookingsData, isLoading, isFetching, refetch } =
+  const { data: bookingsData, isLoading, isFetching, isError, refetch } =
     usePartnerBookings(bookingsParams);
   const bookingsRaw = useMemo(() => bookingsData?.results ?? [], [bookingsData]);
 
@@ -552,7 +556,7 @@ export default function ReservationsPage(): React.JSX.Element {
     setSchedulerDate(`${y}-${m}-${d}`);
   };
 
-  const showEmpty = !isLoading && bookings.length === 0;
+  const showEmpty = !isLoading && !isError && bookings.length === 0;
 
   // Live Price Calculation in dialog
   const calculatedPrice = useMemo(() => {
@@ -584,6 +588,20 @@ export default function ReservationsPage(): React.JSX.Element {
                 <MapPin className="h-3 w-3 text-accent" />
                 {venue.name}
               </span>
+            ) : null}
+            {courts.length > 0 ? (
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surfaceElevated px-2.5 py-1 text-[10px] font-bold text-foregroundMuted">
+                  <MapPin className="h-3 w-3 text-info" />
+                  {venueAgg.courts_count} aktiv kort
+                </span>
+                {venueAgg.from_price_minor != null ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-bold text-accent">
+                    <Wallet className="h-3 w-3" />
+                    {money(venueAgg.from_price_minor, venueAgg.currency)}-dən
+                  </span>
+                ) : null}
+              </>
             ) : null}
           </div>
           <p className="max-w-xl text-sm leading-relaxed text-foregroundMuted">
@@ -709,6 +727,37 @@ export default function ReservationsPage(): React.JSX.Element {
           ))}
         </div>
       </div>
+
+      {/* ─── Load error banner (shared across both tabs) ─────────────────── */}
+      {isError ? (
+        <div className="flex flex-col items-center justify-between gap-4 rounded-2xl border border-danger/30 bg-danger/[0.07] p-5 sm:flex-row">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-danger/15 text-danger">
+              <XCircle className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">
+                Rezervasiyalar yüklənmədi
+              </p>
+              <p className="text-sm text-foregroundMuted">
+                Şəbəkə bağlantınızı yoxlayıb yenidən cəhd edin.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="gap-1.5 self-start sm:self-auto"
+          >
+            <RotateCw
+              className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`}
+            />
+            Yenidən cəhd et
+          </Button>
+        </div>
+      ) : null}
 
       {/* ───────────────────────── TAB 1: CALENDAR VIEW ───────────────────── */}
       {viewTab === "calendar" && (
