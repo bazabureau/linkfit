@@ -187,22 +187,20 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
+        // Real consistency guard (kept): you cannot charge for memberships while
+        // the public subscription path is disabled.
         if ((bool) config('membership.payments_enabled')) {
             throw new \RuntimeException(
                 'MEMBERSHIP_PAYMENTS_ENABLED must be false while public subscriptions are disabled in production.'
             );
         }
 
-        if ((int) config('membership.free_trial_days') < 50) {
-            throw new \RuntimeException(
-                'FREE_TRIAL_DAYS must be at least 50 while public subscriptions are disabled in production.'
-            );
-        }
-
-        // A global full-access window is OPTIONAL: if unset, members simply fall
-        // back to the (generous) free-tier limits, which is a valid launch state.
-        // Only validate it when one IS configured, so a stray/expired value is
-        // caught without bricking boot just because the window isn't in use.
+        // FREE_TRIAL_DAYS and GLOBAL_FULL_ACCESS_UNTIL are business-tuning knobs,
+        // not safety invariants — their exact values must NEVER brick boot (doing
+        // so previously took the API down on a deploy). A global full-access
+        // window is OPTIONAL: if unset, members fall back to the (generous)
+        // free-tier limits, a valid launch state. Only reject a window value that
+        // IS set but is stray/expired.
         $until = trim((string) config('membership.global_full_access_until'));
         if ($until !== '') {
             $timestamp = strtotime($until);
