@@ -42,7 +42,14 @@ class TournamentsController extends ApiController
             ->join('tournaments as t', 't.id', '=', 'e.tournament_id')
             ->join('sports as s', 's.id', '=', 't.sport_id')
             ->leftJoin('venues as v', 'v.id', '=', 't.venue_id')
-            ->where('e.captain_user_id', $user->id)
+            // Match tournaments the user captains OR is a squad member of, so the
+            // "Registered" state is correct for non-captain partners too.
+            // player_ids is a native Postgres array → use = ANY(...), cast to
+            // text[] to stay agnostic to uuid[] vs text[].
+            ->where(function ($q) use ($user) {
+                $q->where('e.captain_user_id', $user->id)
+                    ->orWhereRaw('(?)::text = ANY(e.player_ids::text[])', [(string) $user->id]);
+            })
             ->where('e.status', '!=', 'withdrawn')
             ->whereIn('s.slug', ['padel', 'tennis'])
             ->orderBy('t.starts_at')
