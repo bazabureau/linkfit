@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
-use App\Support\ApiException;
 use App\Services\Mail\TransactionalMailService;
+use App\Services\Membership\MembershipService;
+use App\Support\ApiException;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -220,7 +222,7 @@ class BookingsController extends ApiController
     {
         $user = $this->authUser($request);
         // Freemium gate: free users have a monthly booking cap (premium = unlimited).
-        app(\App\Services\Membership\MembershipService::class)->ensureCanBook($user->id);
+        app(MembershipService::class)->ensureCanBook($user->id);
         $data = $this->validateBody($request, [
             'court_id' => ['required', 'uuid'],
             'starts_at' => ['required', 'date'],
@@ -300,7 +302,7 @@ class BookingsController extends ApiController
                     ]);
                 }
             });
-        } catch (\Illuminate\Database\QueryException $e) {
+        } catch (QueryException $e) {
             // 23P01 = GiST slot-overlap EXCLUDE (race), 23505 = idempotency_key unique.
             $sqlState = (string) ($e->errorInfo[0] ?? '');
             if ($sqlState === '23P01') {
@@ -735,6 +737,13 @@ class BookingsController extends ApiController
             'payment_note' => $request->input('payment_note', $booking->payment_note ?? null),
             'updated_at' => now(),
         ]);
+        // Notify the booker their payment was recorded — mirrors
+        // notifyBookingCreated's fan-out (in-app notification + push). Skipped
+        // when the booking was already paid so re-marking a paid booking does
+        // not spam a duplicate "payment confirmed" notification.
+        if ($booking->status !== 'paid') {
+            $this->notifyBookingPaid($booking);
+        }
 
         return $this->show($request, $id);
     }
@@ -1317,6 +1326,24 @@ class BookingsController extends ApiController
     {
         $this->enqueueNotification((string) $booking->user_id, 'system', 'Booking cancelled', 'Your booking was cancelled.', ['booking_id' => $booking->id]);
         app(TransactionalMailService::class)->bookingCancelled((string) $booking->id, $booking->cancellation_reason ?? null);
+    }
+
+    /**
+     * Notify the booker that a manual/onsite payment was recorded against their
+     * booking. Mirrors {@see notifyBookingCreated}: persisted in-app
+     * notification (which also fans out to the push queue via
+     * {@see enqueueNotification}). The payload mirrors the other booking
+     * notifications so the mobile client can deep-link straight to the booking.
+     */
+    private function notifyBookingPaid(object $booking): void
+    {
+        $this->enqueueNotification(
+            (string) $booking->user_id,
+            'system',
+            'Payment confirmed',
+            'Your court booking payment was confirmed.',
+            ['booking_id' => $booking->id],
+        );
     }
 
     private function enqueueNotification(string $userId, string $type, string $title, string $body, array $payload = []): void

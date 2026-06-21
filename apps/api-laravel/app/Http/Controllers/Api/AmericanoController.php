@@ -43,13 +43,212 @@ class AmericanoController extends ApiController
         return response()->json($this->listPayload(DB::table('americano_tournaments')->where('id', $id)->first()), 201);
     }
 
+    /**
+     * P0#10 — register a team in the tournament (host only, before the draw).
+     *
+     * `format=team` expects an explicit `display_name`. `format=solo` registers
+     * the calling player as a one-person entry: the host is auto-added as their
+     * own team (display_name defaults to the host's name) so a solo organiser
+     * never has to also manually add themselves before starting. `user_id` is
+     * persisted when the column exists so `mine()` can resolve joined events.
+     */
+    public function teams(Request $request, string $id): JsonResponse
+    {
+        $user = $this->authUser($request);
+        $tournament = DB::table('americano_tournaments')->where('id', $id)->first();
+        if ($tournament === null) {
+            throw ApiException::notFound('Americano tournament not found');
+        }
+        if ((string) $tournament->host_id !== (string) $user->id) {
+            throw ApiException::forbidden('Only the tournament host can manage teams');
+        }
+        if ($tournament->status !== 'open') {
+            // Teams are locked once the bracket is drawn — adding an entry after
+            // the fixtures exist would leave that team without any matches.
+            throw ApiException::conflict('Teams can only be added while the tournament is open');
+        }
+
+        $data = $this->validateBody($request, [
+            'display_name' => ['sometimes', 'string', 'max:100'],
+        ]);
+
+        $isSolo = ($tournament->format ?? 'solo') === 'solo';
+        $displayName = trim((string) ($data['display_name'] ?? ''));
+        if ($displayName === '') {
+            if ($isSolo) {
+                // Auto host team: fall back to the host's display name.
+                $displayName = trim((string) ($user->display_name ?? '')) ?: 'Player';
+            } else {
+                throw ApiException::validation('A display_name is required for team entries', [
+                    'issues' => ['display_name' => ['The display name field is required.']],
+                ]);
+            }
+        }
+
+        $hasUserId = Schema::hasColumn('americano_teams', 'user_id');
+
+        // A solo player can only hold ONE entry in a tournament — guard against
+        // a host double-registering themselves (which would skew the draw).
+        if ($isSolo && $hasUserId) {
+            $already = DB::table('americano_teams')
+                ->where('tournament_id', $id)
+                ->where('user_id', $user->id)
+                ->exists();
+            if ($already) {
+                throw ApiException::conflict('You already have an entry in this tournament');
+            }
+        }
+
+        $teamId = (string) Str::uuid();
+        $row = [
+            'id' => $teamId,
+            'tournament_id' => $id,
+            'display_name' => $displayName,
+            'wins' => 0,
+            'draws' => 0,
+            'losses' => 0,
+            'score' => 0,
+        ];
+        if ($hasUserId) {
+            // For solo entries the team belongs to the registering player; team
+            // entries are not owned by a single user, so user_id stays null.
+            $row['user_id'] = $isSolo ? $user->id : null;
+        }
+        DB::table('americano_teams')->insert($row);
+
+        return response()->json(DB::table('americano_teams')->where('id', $teamId)->first(), 201);
+    }
+
+    /**
+     * P0#10 / P1#33 — draw the fixtures and move the tournament into play.
+     *
+     * Host only. Requires at least two teams. Generates a single round-robin so
+     * every team plays every other exactly once, spreading matches across the
+     * configured courts and numbering rounds with the circle method (so no team
+     * plays twice in the same round). Transitions status open -> playing; a draw
+     * is idempotent-safe in that re-running on a non-open tournament is rejected
+     * rather than producing a duplicate bracket.
+     */
+    public function start(Request $request, string $id): JsonResponse
+    {
+        $user = $this->authUser($request);
+        $tournament = DB::table('americano_tournaments')->where('id', $id)->first();
+        if ($tournament === null) {
+            throw ApiException::notFound('Americano tournament not found');
+        }
+        if ((string) $tournament->host_id !== (string) $user->id) {
+            throw ApiException::forbidden('Only the tournament host can start the tournament');
+        }
+        if ($tournament->status !== 'open') {
+            throw ApiException::conflict('Tournament has already been started');
+        }
+
+        $teams = DB::table('americano_teams')
+            ->where('tournament_id', $id)
+            ->orderBy('id')
+            ->get(['id']);
+        if ($teams->count() < 2) {
+            throw ApiException::conflict('At least two teams are required to start');
+        }
+
+        $fixtures = $this->roundRobinFixtures($teams->pluck('id')->all());
+        $courtCount = max(1, (int) ($tournament->court_count ?? 1));
+
+        DB::transaction(function () use ($id, $fixtures, $courtCount): void {
+            $now = now();
+            $insertRows = [];
+            foreach ($fixtures as $roundIndex => $round) {
+                foreach (array_values($round) as $matchIndex => $pair) {
+                    $insertRows[] = [
+                        'id' => (string) Str::uuid(),
+                        'tournament_id' => $id,
+                        'court_name' => 'Court '.(($matchIndex % $courtCount) + 1),
+                        'round_number' => $roundIndex + 1,
+                        'team_a_id' => $pair[0],
+                        'team_b_id' => $pair[1],
+                        'score_a' => null,
+                        'score_b' => null,
+                        'status' => 'pending',
+                        'created_at' => $now,
+                    ];
+                }
+            }
+            // Chunked insert keeps a large bracket within Postgres' bind-param
+            // limit; americano_matches has no created_at in the legacy schema,
+            // so strip it when the column is absent.
+            $hasCreatedAt = Schema::hasColumn('americano_matches', 'created_at');
+            foreach (array_chunk($insertRows, 200) as $chunk) {
+                if (! $hasCreatedAt) {
+                    $chunk = array_map(function ($r) {
+                        unset($r['created_at']);
+
+                        return $r;
+                    }, $chunk);
+                }
+                DB::table('americano_matches')->insert($chunk);
+            }
+
+            DB::table('americano_tournaments')->where('id', $id)->update(['status' => 'playing']);
+        });
+
+        return response()->json($this->showPayload($id));
+    }
+
+    /**
+     * Single round-robin schedule via the circle method. Returns an array of
+     * rounds, each round a list of [teamA, teamB] id pairs. With an odd team
+     * count a BYE is introduced and dropped, so a team simply sits out a round.
+     *
+     * @param  list<string>  $teamIds
+     * @return list<list<array{0:string,1:string}>>
+     */
+    private function roundRobinFixtures(array $teamIds): array
+    {
+        $ids = array_values($teamIds);
+        $bye = null;
+        if (count($ids) % 2 === 1) {
+            $bye = '__bye__';
+            $ids[] = $bye;
+        }
+
+        $n = count($ids);
+        $rounds = [];
+        $fixed = $ids[0];
+        $rotating = array_slice($ids, 1);
+
+        for ($round = 0; $round < $n - 1; $round++) {
+            $arrangement = array_merge([$fixed], $rotating);
+            $pairs = [];
+            for ($i = 0; $i < $n / 2; $i++) {
+                $a = $arrangement[$i];
+                $b = $arrangement[$n - 1 - $i];
+                if ($a !== $bye && $b !== $bye) {
+                    $pairs[] = [$a, $b];
+                }
+            }
+            if ($pairs !== []) {
+                $rounds[] = $pairs;
+            }
+            // Rotate all but the fixed element clockwise.
+            array_unshift($rotating, array_pop($rotating));
+        }
+
+        return $rounds;
+    }
+
     public function index(Request $request): JsonResponse
     {
         $this->authUser($request);
         $limit = min(max((int) $request->query('limit', 30), 1), 100);
 
+        // P1#33 — the discovery list surfaces tournaments that are still
+        // joinable or in progress. The status vocabulary is open|playing|
+        // completed (see start()/score()); the old filter referenced a stale
+        // 'in_progress' value that never existed in this table, so anything
+        // past the draw silently dropped off the list. `completed` events are
+        // intentionally excluded — they live under "my tournaments" / history.
         $rows = DB::table('americano_tournaments')
-            ->whereIn('status', ['open', 'in_progress'])
+            ->whereIn('status', ['open', 'playing'])
             ->orderByDesc('created_at')
             ->limit($limit)
             ->get();
@@ -109,11 +308,23 @@ class AmericanoController extends ApiController
     public function show(Request $request, string $id): JsonResponse
     {
         $this->authUser($request);
-        $row = DB::table('americano_tournaments')->where('id', $id)->first();
-        if ($row === null) {
+        if (! DB::table('americano_tournaments')->where('id', $id)->exists()) {
             throw ApiException::notFound('Americano tournament not found');
         }
 
+        return response()->json($this->showPayload($id));
+    }
+
+    /**
+     * Build the AmericanoDetailsResponse the iOS/Flutter clients decode:
+     * { tournament, teams, matches, leaderboard }. Shared by show() and start()
+     * so a freshly-drawn bracket returns the exact same shape as a refetch.
+     *
+     * @return array<string,mixed>
+     */
+    private function showPayload(string $id): array
+    {
+        $row = DB::table('americano_tournaments')->where('id', $id)->first();
         $teams = DB::table('americano_teams')->where('tournament_id', $id)->get();
 
         // iOS AmericanoDetailsResponse requires a non-optional `leaderboard`
@@ -137,12 +348,12 @@ class AmericanoController extends ApiController
             ])
             ->all();
 
-        return response()->json([
+        return [
             'tournament' => $row,
             'teams' => $teams,
             'matches' => DB::table('americano_matches')->where('tournament_id', $id)->get(),
             'leaderboard' => $leaderboard,
-        ]);
+        ];
     }
 
     public function score(Request $request, string $id): JsonResponse
@@ -156,7 +367,7 @@ class AmericanoController extends ApiController
         $match = DB::table('americano_matches as m')
             ->join('americano_tournaments as t', 't.id', '=', 'm.tournament_id')
             ->where('m.id', $id)
-            ->first(['m.id', 'm.tournament_id', 'm.team_a_id', 'm.team_b_id', 't.host_id', 't.scoring_system']);
+            ->first(['m.id', 'm.tournament_id', 'm.team_a_id', 'm.team_b_id', 't.host_id', 't.scoring_system', 't.status as tournament_status']);
         if ($match === null) {
             throw ApiException::notFound('Match not found');
         }
@@ -178,6 +389,23 @@ class AmericanoController extends ApiController
             ]);
             $this->recomputeTeamStanding((string) $match->team_a_id, (string) $match->tournament_id, (string) $match->scoring_system);
             $this->recomputeTeamStanding((string) $match->team_b_id, (string) $match->tournament_id, (string) $match->scoring_system);
+
+            // P1#33 — once every match in the bracket has a score, the
+            // tournament is finished. Flip playing -> completed so it drops out
+            // of the discovery list and the client shows final standings. Only
+            // advance from `playing` so re-scoring a match in an already
+            // completed event never bounces the status backwards.
+            if ($match->tournament_status === 'playing') {
+                $remaining = DB::table('americano_matches')
+                    ->where('tournament_id', $match->tournament_id)
+                    ->where('status', '!=', 'completed')
+                    ->exists();
+                if (! $remaining) {
+                    DB::table('americano_tournaments')
+                        ->where('id', $match->tournament_id)
+                        ->update(['status' => 'completed']);
+                }
+            }
         });
 
         return response()->json(DB::table('americano_matches')->where('id', $id)->first());

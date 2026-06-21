@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
+use App\Services\Feed\FeedService;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,8 @@ class FeedController extends ApiController
 {
     use AuthorizesAdminPermissions;
     use FiltersBlockedUsers;
+
+    public function __construct(private readonly FeedService $feed) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -106,9 +109,17 @@ class FeedController extends ApiController
 
     public function unlike(Request $request, string $id): JsonResponse
     {
+        $user = $this->authUser($request);
+        // Align with like(): validate the event exists before mutating, so a
+        // bogus id returns a consistent validation error instead of silently
+        // reporting a zero count for an event that never existed. Removing a
+        // like that isn't there stays an idempotent no-op.
+        if (! DB::table('feed_events')->where('id', $id)->exists()) {
+            throw ApiException::validation('Unknown feed event');
+        }
         DB::table('feed_event_reactions')
             ->where('feed_event_id', $id)
-            ->where('user_id', $this->authUser($request)->id)
+            ->where('user_id', $user->id)
             ->delete();
 
         return response()->json(['likes_count' => $this->likesCount($id)]);
@@ -215,6 +226,12 @@ class FeedController extends ApiController
         $likeCount = (int) ($r->like_count ?? 0);
         $commentCount = (int) ($r->comment_count ?? 0);
 
+        // Server-rendered copy (P2#61): every client renders identical wording
+        // for a given event without re-implementing the template. `title` is
+        // the bold lead-in, `summary` the one-line card text, `body` the longer
+        // detail variant. Templates can change here without an app release.
+        $copy = $this->feed->summarize((string) $r->type, $data, (string) $r->display_name);
+
         return [
             'id' => $r->id,
             'type' => $r->type,
@@ -228,6 +245,10 @@ class FeedController extends ApiController
                 'display_name' => $r->display_name,
                 'photo_url' => $r->photo_url,
             ],
+            // Server-rendered copy — additive fields, existing fields unchanged.
+            'title' => $copy['title'],
+            'summary' => $copy['summary'],
+            'body' => $copy['body'],
             // Web reads `data`; `payload` retained for backwards compatibility.
             'data' => $data,
             'payload' => $data,

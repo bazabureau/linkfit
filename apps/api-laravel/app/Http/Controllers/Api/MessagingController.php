@@ -8,6 +8,7 @@ use App\Events\MessageSent;
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Support\ApiException;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -92,6 +93,11 @@ class MessagingController extends ApiController
 
         $invites = DB::table('game_invitations')
             ->where('invitee_user_id', $user->id)
+            ->where('status', 'pending')
+            ->count();
+
+        $invites += DB::table('squad_members')
+            ->where('user_id', $user->id)
             ->where('status', 'pending')
             ->count();
 
@@ -394,6 +400,11 @@ class MessagingController extends ApiController
         if (($conversation->kind ?? 'direct') === 'group') {
             return response()->json([
                 'conversation_id' => $id,
+                // Explicit kind + title so the client can render a group header
+                // (name + roster) instead of treating the placeholder other_*
+                // fields as a 1:1 counterpart.
+                'kind' => 'group',
+                'title' => $conversation->title ?? 'Group chat',
                 'other_user_id' => $id,
                 'other_display_name' => $conversation->title ?? 'Group chat',
                 'other_last_seen_at' => null,
@@ -415,6 +426,10 @@ class MessagingController extends ApiController
 
         return response()->json([
             'conversation_id' => $id,
+            // Mirror the group branch's kind/title so the thread response shape is
+            // uniform; a 1:1 thread has no title.
+            'kind' => 'direct',
+            'title' => null,
             'other_user_id' => $other->id,
             'other_display_name' => $other->display_name,
             'other_photo_url' => $other->photo_url,
@@ -538,6 +553,7 @@ class MessagingController extends ApiController
             'body' => ['sometimes', 'nullable', 'string', 'max:4000'],
             'attachment_url' => ['sometimes', 'nullable', 'string', 'max:2048'],
             'attachment_type' => ['sometimes', 'nullable', 'in:image,voice,video,audio'],
+            'idempotency_key' => ['sometimes', 'nullable', 'string', 'min:8', 'max:200'],
         ]);
         if (($data['attachment_type'] ?? null) === 'audio') {
             $data['attachment_type'] = 'voice';
@@ -546,8 +562,26 @@ class MessagingController extends ApiController
         if ($body === '' && empty($data['attachment_url'])) {
             throw ApiException::validation('Message must have a body or an attachment');
         }
+
+        // Idempotency: a retried send (mobile resends on flaky networks) must not
+        // duplicate the message. The key arrives in the Idempotency-Key header
+        // (or, legacy, a body field). When present and the column exists, a prior
+        // message from THIS sender with the same key replays verbatim — scoped to
+        // sender_user_id so one client's key can never surface another's message.
+        $idempotencyKey = $this->resolveMessageIdempotencyKey($request, $data['idempotency_key'] ?? null);
+        $supportsIdempotency = $idempotencyKey !== null && Schema::hasColumn('messages', 'idempotency_key');
+        if ($supportsIdempotency) {
+            $prior = DB::table('messages')
+                ->where('sender_user_id', $user->id)
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
+            if ($prior !== null) {
+                return response()->json($this->messagePayload($prior), 200);
+            }
+        }
+
         $messageId = (string) Str::uuid();
-        DB::table('messages')->insert([
+        $insert = [
             'id' => $messageId,
             'conversation_id' => $id,
             'sender_user_id' => $user->id,
@@ -555,7 +589,26 @@ class MessagingController extends ApiController
             'attachment_url' => $data['attachment_url'] ?? null,
             'attachment_type' => $data['attachment_type'] ?? null,
             'created_at' => now(),
-        ]);
+        ];
+        if ($supportsIdempotency) {
+            $insert['idempotency_key'] = $idempotencyKey;
+        }
+        try {
+            DB::table('messages')->insert($insert);
+        } catch (QueryException $e) {
+            // 23505 = the (sender_user_id, idempotency_key) unique index — a
+            // concurrent retry won the race. Replay the message it created.
+            if ($supportsIdempotency && (string) ($e->errorInfo[0] ?? '') === '23505') {
+                $prior = DB::table('messages')
+                    ->where('sender_user_id', $user->id)
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->first();
+                if ($prior !== null) {
+                    return response()->json($this->messagePayload($prior), 200);
+                }
+            }
+            throw $e;
+        }
         $row = DB::table('messages')->where('id', $messageId)->first();
         $payload = $this->messagePayload($row);
 
@@ -694,6 +747,19 @@ class MessagingController extends ApiController
             'read_at' => $this->iso($n->read_at),
             'created_at' => $this->iso($n->created_at),
         ];
+    }
+
+    /**
+     * Resolve a message idempotency key from the request body, then the
+     * Idempotency-Key header (where the mobile client sends it). Returns null
+     * when absent or too short — message sends are idempotent only when a key is
+     * supplied; a keyless send is a normal (non-deduplicated) insert.
+     */
+    private function resolveMessageIdempotencyKey(Request $request, ?string $bodyKey): ?string
+    {
+        $key = trim($bodyKey ?: (string) ($request->header('Idempotency-Key') ?? ''));
+
+        return strlen($key) >= 8 ? mb_substr($key, 0, 200) : null;
     }
 
     private function messagePayload(object $m): array

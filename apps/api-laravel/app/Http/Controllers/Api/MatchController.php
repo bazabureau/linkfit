@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\BlocksPendingGameResults;
 use App\Support\ApiException;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Http\JsonResponse;
@@ -11,6 +12,25 @@ use Illuminate\Support\Str;
 
 class MatchController extends ApiController
 {
+    use BlocksPendingGameResults;
+
+    /**
+     * GET /me/pending-results — every finished game the authenticated user still
+     * owes a recorded result for (host, or a host-delegated confirmed player).
+     * Mirrors the set that the write-guard blocks on, so the app can surface the
+     * whole "record your results" to-do list. (P3#84)
+     */
+    public function pendingResults(Request $request): JsonResponse
+    {
+        $user = $this->authUser($request);
+        $items = $this->pendingGameResults((string) $user->id);
+
+        return response()->json([
+            'items' => $items,
+            'count' => count($items),
+        ]);
+    }
+
     public function submitRatings(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
@@ -94,8 +114,11 @@ class MatchController extends ApiController
     // ── Padel scoring rules (best-of-3). The schema (match-scores.sql) has no
     //    rule columns, so the ruleset lives here. ─────────────────────────────
     private const GAMES_TO_WIN_SET = 6;   // win-by-2, tiebreak at 6-6
+
     private const SETS_TO_WIN_MATCH = 2;  // best-of-3 (current_set caps at 2)
+
     private const TIEBREAK_TARGET = 7;    // first to 7, win-by-2
+
     private const GOLDEN_POINT = true;    // sudden death at 40-40 (padel default)
 
     public function point(Request $request, string $id): JsonResponse
@@ -224,6 +247,14 @@ class MatchController extends ApiController
         $this->assertValidTeams($id, $data['team_a_user_ids'], $data['team_b_user_ids']);
 
         $sets = array_map(fn ($s) => ['a' => (int) $s['a'], 'b' => (int) $s['b']], $data['sets']);
+        // Each set must have a winner: scores stay within 0..99 (enforced by the
+        // body rules) but a == b is a tie, which is not a valid recorded set.
+        // Relaxed from the old per-set shape rules to a single a != b check. (P3#87)
+        foreach ($sets as $i => $s) {
+            if ($s['a'] === $s['b']) {
+                throw ApiException::validation('Set '.($i + 1)." cannot be a tie ({$s['a']}-{$s['b']}); each set must have a winner");
+            }
+        }
         $winningTeam = $this->winnerFromSets($sets);
         $teamA = array_values($data['team_a_user_ids']);
         $teamB = array_values($data['team_b_user_ids']);

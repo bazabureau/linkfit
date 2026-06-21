@@ -39,8 +39,9 @@ class CatalogController extends ApiController
         $limit = (int) ($query['limit'] ?? 50);
         $offset = (int) ($query['offset'] ?? 0);
         $base = DB::table('venues as v')
+            ->leftJoinSub($this->venueCourtAggregates(), 'agg', 'agg.venue_id', '=', 'v.id')
             ->where(fn ($q) => $q->whereNull('v.status')->orWhere('v.status', 'published'))
-            ->selectRaw('v.id, v.name, v.address, v.lat, v.lng, v.is_partner, v.phone, v.description, v.photo_url, v.photo_urls, v.rating_avg, v.rating_count');
+            ->selectRaw('v.id, v.name, v.address, v.lat, v.lng, v.is_partner, v.phone, v.description, v.photo_url, v.photo_urls, v.rating_avg, v.rating_count, agg.courts_count, agg.from_price_minor');
 
         if (! empty($query['sport'])) {
             $base->whereExists(function ($q) use ($query) {
@@ -552,7 +553,28 @@ class CatalogController extends ApiController
             'rating_avg' => $r->rating_avg !== null ? (float) $r->rating_avg : null,
             'rating_count' => (int) ($r->rating_count ?? 0),
             'distance_km' => isset($r->distance_m) && $r->distance_m !== null ? round(((float) $r->distance_m) / 1000, 2) : null,
+            // Court aggregates — present on the venue list (joined from a grouped
+            // subquery, no N+1). Absent on single-venue / saved-venue payloads,
+            // where they default to null so the shape stays stable.
+            'courts_count' => isset($r->courts_count) && $r->courts_count !== null ? (int) $r->courts_count : null,
+            'from_price_minor' => isset($r->from_price_minor) && $r->from_price_minor !== null ? (int) $r->from_price_minor : null,
         ];
+    }
+
+    /**
+     * Grouped subquery: per-venue bookable-court count and cheapest hourly price
+     * (the "from" price). Scoped to padel/tennis active courts so the aggregate
+     * matches what the courts() list and booking flow actually expose. Joined as
+     * a single derived table to keep the venue list free of N+1 per-venue queries.
+     */
+    private function venueCourtAggregates()
+    {
+        return DB::table('courts as c')
+            ->join('sports as s', 's.id', '=', 'c.sport_id')
+            ->whereIn('s.slug', ['padel', 'tennis'])
+            ->where(fn ($q) => $q->whereNull('c.status')->orWhere('c.status', 'active'))
+            ->groupBy('c.venue_id')
+            ->selectRaw('c.venue_id, count(*) as courts_count, min(c.hourly_price_minor) as from_price_minor');
     }
 
     private function courtPayload(object $court): array

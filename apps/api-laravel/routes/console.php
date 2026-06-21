@@ -1,10 +1,11 @@
 <?php
 
+use App\Services\Feed\FeedService;
 use App\Services\Notifications\PushDispatcher;
 use App\Services\Notifications\ReminderDispatcher;
 use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Storage;
 
@@ -85,3 +86,14 @@ Schedule::command('ops:send-reminders --window=120 --lookahead=150')
 Schedule::command('ops:cleanup-media --days=7 --limit=500')
     ->dailyAt('03:20')
     ->withoutOverlapping(60);
+
+Artisan::command('feed:fanout', function () {
+    $stats = app(FeedService::class)->fanOut();
+    foreach ($stats as $k => $v) {
+        $this->line($k.': '.$v);
+    }
+})->purpose('Fan out activity-feed events from source tables');
+
+Schedule::command('feed:fanout')
+    ->everyMinute()
+    ->withoutOverlapping(5);

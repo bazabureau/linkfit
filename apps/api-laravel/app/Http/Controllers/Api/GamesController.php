@@ -236,6 +236,12 @@ class GamesController extends ApiController
             ->filter(fn ($p) => (bool) $p['can_report_result'] === true)
             ->pluck('user_id')
             ->values();
+        // Embed the recorded result on a completed game so the detail screen can
+        // render the scoreline, winning team and ELO movement without a second
+        // round-trip to GET /games/{id}/scoring. (P0#5)
+        $payload['match_scores'] = $row->status === 'completed'
+            ? $this->completedMatchEmbed($id)
+            : null;
 
         return response()->json($payload, $status);
     }
@@ -297,6 +303,12 @@ class GamesController extends ApiController
         if ($this->isBlockedBy((string) $user->id, (string) $game->host_user_id)) {
             throw ApiException::forbidden('You cannot join this game');
         }
+        // Invite-only games are not openly joinable: only the host or a user the
+        // host invited (pending or already accepted) may join. Public games stay
+        // open to anyone. (P1#17)
+        if ($game->visibility === 'invite' && ! $this->mayJoinInviteOnlyGame($id, $game, (string) $user->id)) {
+            throw ApiException::forbidden('This game is invite-only');
+        }
 
         DB::transaction(function () use ($id, $user, $game) {
             // Serialise concurrent joins by locking the games row. PostgreSQL
@@ -330,6 +342,13 @@ class GamesController extends ApiController
         }
         if ($game->host_user_id === $user->id) {
             throw ApiException::validation('Host cannot leave their own game');
+        }
+        // Once the match has started (or finished) scoring, the roster is locked
+        // in to the recorded teams — pulling out would corrupt the result. The
+        // live state lives in match_scores.status (in_progress/completed); the
+        // game itself is also marked completed once a result is recorded. (P2#44)
+        if ($this->matchIsLockedForLeave($id, $game)) {
+            throw ApiException::conflict('Cannot leave a game whose match is in progress or completed');
         }
 
         DB::table('game_participants')
@@ -381,6 +400,50 @@ class GamesController extends ApiController
             ->update(['status' => 'no_show', 'status_changed_at' => now()]);
 
         return $this->showResponse($request, $id);
+    }
+
+    /**
+     * Invite-only join gate (P1#17): the host always passes; any other user must
+     * hold an invitation for this game that hasn't been declined/expired (a
+     * pending invite, or one they already accepted). An accepted invite leaves
+     * its history row, so a re-join after leaving still resolves correctly.
+     */
+    private function mayJoinInviteOnlyGame(string $gameId, object $game, string $userId): bool
+    {
+        if ((string) $game->host_user_id === $userId) {
+            return true;
+        }
+
+        if (! Schema::hasTable('game_invitations')) {
+            return false;
+        }
+
+        return DB::table('game_invitations')
+            ->where('game_id', $gameId)
+            ->where('invitee_user_id', $userId)
+            ->whereIn('status', ['pending', 'accepted'])
+            ->exists();
+    }
+
+    /**
+     * True once a game's match is in progress or completed and the roster must
+     * not change. Considers both the game's own status (completed) and the
+     * live scoring row (in_progress/completed). (P2#44)
+     */
+    private function matchIsLockedForLeave(string $gameId, object $game): bool
+    {
+        if ($game->status === 'completed') {
+            return true;
+        }
+
+        if (! Schema::hasTable('match_scores')) {
+            return false;
+        }
+
+        return DB::table('match_scores')
+            ->where('game_id', $gameId)
+            ->whereIn('status', ['in_progress', 'completed'])
+            ->exists();
     }
 
     private function hostOnly(Request $request, string $id): object
@@ -513,6 +576,65 @@ class GamesController extends ApiController
         }
 
         return (int) ceil($total / $capacity);
+    }
+
+    /**
+     * Read-only projection of the recorded result for a completed game: the set
+     * scores, derived winning team, the per-user ELO movement and the two
+     * rosters. Returns null when no scoring row exists (e.g. a game marked
+     * completed without a recorded result). (P0#5)
+     */
+    private function completedMatchEmbed(string $gameId): ?array
+    {
+        if (! Schema::hasTable('match_scores')) {
+            return null;
+        }
+        $ms = DB::table('match_scores')->where('game_id', $gameId)->first();
+        if ($ms === null) {
+            return null;
+        }
+        $sets = json_decode($ms->sets ?? '[]', true) ?: [];
+
+        return [
+            'game_id' => $ms->game_id,
+            'team_a_user_ids' => $this->pgArray($ms->team_a_user_ids),
+            'team_b_user_ids' => $this->pgArray($ms->team_b_user_ids),
+            'sets' => $sets,
+            'winning_team' => $this->winnerFromSets($sets),
+            'status' => $ms->status,
+            'completed_at' => $this->iso($ms->completed_at ?? null),
+            'elo_delta_by_user' => json_decode($ms->elo_delta_by_user ?? '{}', true) ?: [],
+        ];
+    }
+
+    /** Winner by sets won; null on a genuine tie. Mirrors MatchController. */
+    private function winnerFromSets(array $sets): ?string
+    {
+        $a = 0;
+        $b = 0;
+        foreach ($sets as $s) {
+            if ((int) ($s['a'] ?? 0) > (int) ($s['b'] ?? 0)) {
+                $a++;
+            } elseif ((int) ($s['b'] ?? 0) > (int) ($s['a'] ?? 0)) {
+                $b++;
+            }
+        }
+
+        return $a === $b ? null : ($a > $b ? 'a' : 'b');
+    }
+
+    /** Normalise a Postgres uuid[] (or already-decoded array) into a PHP array. */
+    private function pgArray(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+        $raw = trim((string) $value, '{}');
+        if ($raw === '') {
+            return [];
+        }
+
+        return array_map(fn ($v) => trim($v, '"'), explode(',', $raw));
     }
 
     private function enqueueNotification(string $userId, string $type, string $title, string $body, array $payload = []): void

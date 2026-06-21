@@ -127,16 +127,45 @@ class LessonsController extends ApiController
         });
     }
 
-    /** DELETE /lessons/{id}/book — cancel the authenticated user's enrollment. */
+    /**
+     * DELETE /lessons/{id}/book — cancel the authenticated user's enrollment.
+     *
+     * Locks the lesson row (mirroring book()) so a concurrent book/cancel can't
+     * race a stale capacity read, 404s on an unknown lesson, 409s when the user
+     * has no active (booked) enrollment to cancel, and refuses once the lesson's
+     * cancellation window has passed (default: the lesson start time).
+     */
     public function cancel(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
-        DB::table('lesson_bookings')
-            ->where('lesson_id', $id)
-            ->where('user_id', $user->id)
-            ->update(['status' => 'cancelled', 'updated_at' => now()]);
 
-        return response()->json(null, 204);
+        return DB::transaction(function () use ($user, $id) {
+            $lesson = DB::table('lessons')->where('id', $id)->lockForUpdate()->first();
+            if ($lesson === null) {
+                throw ApiException::notFound('Lesson not found');
+            }
+
+            $booking = DB::table('lesson_bookings')
+                ->where('lesson_id', $id)
+                ->where('user_id', $user->id)
+                ->where('status', 'booked')
+                ->first();
+            if ($booking === null) {
+                throw ApiException::conflict('You are not booked on this lesson');
+            }
+
+            // Time-window guard: a started lesson can no longer be cancelled by
+            // the player (mirrors book()'s "already started" guard).
+            if (strtotime((string) $lesson->starts_at) <= time()) {
+                throw ApiException::conflict('Lesson has already started');
+            }
+
+            DB::table('lesson_bookings')
+                ->where('id', $booking->id)
+                ->update(['status' => 'cancelled', 'updated_at' => now()]);
+
+            return response()->json(null, 204);
+        });
     }
 
     /** GET /me/lessons — the authenticated user's booked lessons (upcoming first). */
@@ -160,9 +189,14 @@ class LessonsController extends ApiController
         ]);
     }
 
-    /** GET /coaches — list active coaches (filters: sport, venue_id). */
+    /** GET /coaches — list active coaches (filters: sport, venue_id; paged via limit + cursor/offset). */
     public function coaches(Request $request): JsonResponse
     {
+        $limit = min(max((int) $request->query('limit', 50), 1), 100);
+        // Accept either `offset` or an opaque numeric `cursor` — mirrors index():
+        // clients page by echoing back the `next_cursor` we return below.
+        $offset = max((int) ($request->query('cursor') ?? $request->query('offset', 0)), 0);
+
         $query = DB::table('coaches as co')
             ->leftJoin('sports as s', 's.id', '=', 'co.sport_id')
             ->leftJoin('venues as v', 'v.id', '=', 'co.venue_id')
@@ -175,16 +209,28 @@ class LessonsController extends ApiController
             $query->where('co.venue_id', $venueId);
         }
 
-        $rows = $query->orderByDesc('co.rating')->orderBy('co.display_name')
+        // Tie-break on co.id so same-(rating, name) coaches page deterministically.
+        $rows = $query->orderByDesc('co.rating')->orderBy('co.display_name')->orderBy('co.id')
             ->select([
                 'co.id', 'co.display_name', 'co.photo_url', 'co.bio', 'co.rating',
                 'co.years_experience', 'co.hourly_rate_minor', 'co.currency',
                 's.slug as sport_slug', 'co.venue_id', 'v.name as venue_name',
             ])
             ->selectSub($this->ratingCountSub(), 'rating_count')
+            ->offset($offset)
+            ->limit($limit + 1)
             ->get();
 
-        return response()->json(['items' => $rows->map(fn ($c) => $this->coachPayload($c))->values()]);
+        $hasMore = $rows->count() > $limit;
+        $items = $rows->take($limit);
+        $nextOffset = $hasMore ? $offset + $limit : null;
+
+        return response()->json([
+            'items' => $items->map(fn ($c) => $this->coachPayload($c))->values(),
+            'next_offset' => $nextOffset,
+            // Alias as a string cursor for clients that page via `next_cursor`.
+            'next_cursor' => $nextOffset !== null ? (string) $nextOffset : null,
+        ]);
     }
 
     /** GET /coaches/{id} — coach profile + their upcoming lessons. */
