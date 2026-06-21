@@ -458,13 +458,32 @@ class DiscoveryController extends ApiController
             ->whereIn('s.slug', ['padel', 'tennis'])
             ->orderBy('g.starts_at')
             ->limit(50)
-            ->get(['g.id', 'g.starts_at', 'g.status', 's.slug as sport_slug']);
+            ->get(['g.id', 'g.starts_at', 'g.status', 's.slug as sport_slug'])
+            // Emit timestamps as ISO8601 Zulu (like the standalone agenda) so the
+            // client doesn't discard zoneless values.
+            ->map(fn ($g) => [
+                'id' => $g->id,
+                'starts_at' => $this->iso($g->starts_at),
+                'status' => $g->status,
+                'sport_slug' => $g->sport_slug,
+            ])
+            ->all();
         $bookings = DB::table('bookings')
             ->where('user_id', $userId)
             ->where('starts_at', '>=', now()->subDay())
             ->orderBy('starts_at')
             ->limit(50)
-            ->get();
+            ->get()
+            ->map(function ($b) {
+                foreach (['starts_at', 'ends_at', 'created_at', 'cancelled_at', 'paid_at'] as $f) {
+                    if (isset($b->{$f})) {
+                        $b->{$f} = $this->iso($b->{$f});
+                    }
+                }
+
+                return $b;
+            })
+            ->all();
 
         return ['games' => $games, 'bookings' => $bookings];
     }
@@ -474,6 +493,9 @@ class DiscoveryController extends ApiController
     {
         return DB::table('games as g')
             ->join('sports as s', 's.id', '=', 'g.sport_id')
+            ->leftJoin('courts as c', 'c.id', '=', 'g.court_id')
+            ->leftJoin('venues as v', 'v.id', '=', 'c.venue_id')
+            ->leftJoin('users as h', 'h.id', '=', 'g.host_user_id')
             ->where('g.host_user_id', '!=', $userId)
             ->where('g.status', 'open')
             ->where('g.visibility', 'public')
@@ -482,7 +504,38 @@ class DiscoveryController extends ApiController
             ->when(true, fn ($q) => $this->whereNotBlocked($q, $userId, 'g.host_user_id'))
             ->orderBy('g.starts_at')
             ->limit(50)
-            ->get(['g.id', 'g.sport_id', 's.slug as sport_slug', 'g.starts_at', 'g.capacity', 'g.lat', 'g.lng'])
+            ->select([
+                'g.id', 'g.sport_id', 's.slug as sport_slug', 'g.starts_at', 'g.status', 'g.visibility',
+                'g.capacity', 'g.lat', 'g.lng', 'g.court_id', 'c.name as court_name',
+                'v.id as venue_id', 'v.name as venue_name', 'g.host_user_id',
+                'h.display_name as host_display_name', 'h.photo_url as host_photo_url',
+            ])
+            // participants_count inline (no N+1) — the client treats a game with
+            // no status as ended and filters it out, so status + a full payload
+            // make the home aggregate's nearby_games actually usable.
+            ->selectRaw("(select count(*) from game_participants gp where gp.game_id = g.id and gp.status = 'confirmed')::int as participants_count")
+            ->get()
+            ->map(fn ($g) => [
+                'id' => $g->id,
+                'sport_id' => $g->sport_id,
+                'sport_slug' => $g->sport_slug,
+                'starts_at' => $this->iso($g->starts_at),
+                'status' => $g->status,
+                'visibility' => $g->visibility,
+                'capacity' => (int) $g->capacity,
+                'participants_count' => (int) $g->participants_count,
+                'lat' => $g->lat,
+                'lng' => $g->lng,
+                'court_id' => $g->court_id,
+                'court_name' => $g->court_name,
+                'venue_id' => $g->venue_id,
+                'venue_name' => $g->venue_name,
+                'host' => $g->host_user_id ? [
+                    'id' => $g->host_user_id,
+                    'display_name' => $g->host_display_name,
+                    'photo_url' => $g->host_photo_url,
+                ] : null,
+            ])
             ->all();
     }
 
