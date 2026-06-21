@@ -17,7 +17,7 @@ test.describe("admin login", () => {
     // 0. Clean up any existing stale user and rate limits
     try {
       execSync(`psql "${dbUrl}" -c "TRUNCATE TABLE signup_attempts; DELETE FROM users WHERE email = '${ADMIN_EMAIL}';"`);
-    } catch (e) {
+    } catch {
       // Ignored
     }
 
@@ -30,7 +30,7 @@ test.describe("admin login", () => {
           display_name: "Admin Baku Padel",
         },
       });
-    } catch (e) {
+    } catch {
       // Ignored if already registered
     }
 

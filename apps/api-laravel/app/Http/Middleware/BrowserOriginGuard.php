@@ -8,15 +8,16 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Defense-in-depth for browser clients: the public app key is observable in web
- * bundles, so browser requests must also come from a Linkfit-owned origin.
- * Native/mobile clients normally send no Origin header and pass through.
+ * Defense-in-depth for browser clients. Origin is not authentication, but
+ * requests that declare a browser Origin should come from a Linkfit-owned
+ * frontend. Native/mobile/server clients normally send no Origin header and
+ * pass through.
  */
 class BrowserOriginGuard
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if ($request->isMethod('OPTIONS') || ! config('app.require_api_key')) {
+        if ($request->isMethod('OPTIONS')) {
             return $next($request);
         }
 

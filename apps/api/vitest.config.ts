@@ -8,10 +8,8 @@ export default defineConfig({
     globalSetup: ["./tests/setup/globalSetup.ts"],
     setupFiles: ["./tests/setup/perSuite.ts"],
     pool: "forks",
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
+    forks: {
+      singleFork: true,
     },
     testTimeout: 30_000,
     hookTimeout: 60_000,

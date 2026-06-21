@@ -3,6 +3,10 @@ import {
   isPlaceholderStripeSecretKey,
   isPlaceholderStripeWebhookSecret,
 } from "./stripePlaceholders.js";
+import {
+  isSha256Hex,
+  isWeakPlainApiKey,
+} from "../security/api-key-ring.js";
 
 const NodeEnv = z.enum(["development", "test", "production"]);
 
@@ -31,6 +35,15 @@ const csvListWithDefault = (fallback: string) =>
     .refine((values) => values.length > 0, {
       message: "must contain at least one value",
     });
+
+const OptionalCsvList = z
+  .preprocess(emptyStringToUndefined, z.string().optional())
+  .transform((s) =>
+    (s ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter((value, index, values) => value.length > 0 && values.indexOf(value) === index),
+  );
 
 function isHttpsUrl(value: string | undefined): boolean {
   if (value === undefined) return false;
@@ -71,6 +84,13 @@ const EnvSchema = z.object({
 
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
   RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
+
+  REQUIRE_API_KEY: z
+    .union([z.literal("true"), z.literal("false")])
+    .default("false")
+    .transform((v) => v === "true"),
+  APP_PUBLIC_API_KEYS: OptionalCsvList,
+  APP_PUBLIC_API_KEY_HASHES: OptionalCsvList,
 
   /** Stricter limits on register/login since each Argon2 hash is expensive
    *  and these endpoints are the most attractive enumeration targets. */
@@ -344,6 +364,18 @@ function enforceProductionInvariants(env: Env): void {
     "default /metrics password");
   guard("CORS_ORIGINS", env.CORS_ORIGINS.length === 0,
     "empty CORS allowlist (would deny all browser clients)");
+  guard("APP_PUBLIC_API_KEYS", env.APP_PUBLIC_API_KEYS.length > 0,
+    "plaintext public app API keys; use APP_PUBLIC_API_KEY_HASHES");
+  guard("APP_PUBLIC_API_KEY_HASHES", !env.REQUIRE_API_KEY && env.APP_PUBLIC_API_KEY_HASHES.length > 0,
+    "public app API key hashes while public app API key gate is disabled");
+  guard("APP_PUBLIC_API_KEY_HASHES", env.REQUIRE_API_KEY && env.APP_PUBLIC_API_KEY_HASHES.length === 0,
+    "missing public app API key hashes");
+  guard("APP_PUBLIC_API_KEY_HASHES",
+    env.APP_PUBLIC_API_KEY_HASHES.some((value) => !isSha256Hex(value)),
+    "malformed public app API key hash");
+  guard("APP_PUBLIC_API_KEYS",
+    env.APP_PUBLIC_API_KEYS.some((value) => isWeakPlainApiKey(value)),
+    "weak public app API key");
   guard("SMTP_HOST", env.SMTP_HOST === undefined,
     "missing SMTP credentials");
   guard("PUBLIC_BASE_URL", env.PUBLIC_BASE_URL === undefined,

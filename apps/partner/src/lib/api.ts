@@ -8,8 +8,6 @@ import {
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8788";
-const LINKFIT_APP_KEY =
-  process.env.NEXT_PUBLIC_LINKFIT_APP_KEY ?? process.env.NEXT_PUBLIC_API_KEY;
 
 // The app is served under a basePath (default `/owner`). Raw browser
 // navigations (window.location) are NOT basePath-prefixed by Next.js, so we
@@ -106,9 +104,6 @@ function buildHeaders(
   if (!init.skipAuth && accessToken && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
-  if (LINKFIT_APP_KEY && !headers.has("X-Linkfit-App-Key")) {
-    headers.set("X-Linkfit-App-Key", LINKFIT_APP_KEY);
-  }
   if (!headers.has("Accept")) headers.set("Accept", "application/json");
   return headers;
 }
@@ -120,9 +115,6 @@ export function apiHeaders(
   const next = new Headers(headers ?? {});
   if (accessToken && !next.has("Authorization")) {
     next.set("Authorization", `Bearer ${accessToken}`);
-  }
-  if (LINKFIT_APP_KEY && !next.has("X-Linkfit-App-Key")) {
-    next.set("X-Linkfit-App-Key", LINKFIT_APP_KEY);
   }
   if (!next.has("Accept")) next.set("Accept", "application/json");
   return next;

@@ -97,24 +97,24 @@ Route::prefix('api/v1')->group(function () {
     Route::get('courts/{id}/suggested-slots', [BookingsController::class, 'suggestedSlots']);
     Route::post('bookings/quote', [BookingsController::class, 'quote']);
     Route::post('promo-codes/validate', [PromoCodesController::class, 'validateCode']);
-    Route::get('games', [GamesController::class, 'index']);
-    Route::get('games/{id}', [GamesController::class, 'show']);
-    Route::get('players', [SocialController::class, 'players']);
-    Route::get('search', [SocialController::class, 'search']);
-    Route::get('feed', [FeedController::class, 'index']);
-    Route::get('feed/{eventId}/comments', [FeedController::class, 'comments']);
-    Route::get('leaderboards/elo', [EngagementController::class, 'leaderboards']);
-    Route::get('rankings', [EngagementController::class, 'leaderboards']);
+    Route::get('games', [GamesController::class, 'index'])->middleware('throttle:public-discovery');
+    Route::get('games/{id}', [GamesController::class, 'show'])->middleware('throttle:public-discovery');
+    Route::get('players', [SocialController::class, 'players'])->middleware('throttle:public-discovery');
+    Route::get('search', [SocialController::class, 'search'])->middleware('throttle:public-discovery');
+    Route::get('feed', [FeedController::class, 'index'])->middleware('throttle:public-discovery');
+    Route::get('feed/{eventId}/comments', [FeedController::class, 'comments'])->middleware('throttle:public-discovery');
+    Route::get('leaderboards/elo', [EngagementController::class, 'leaderboards'])->middleware('throttle:public-discovery');
+    Route::get('rankings', [EngagementController::class, 'leaderboards'])->middleware('throttle:public-discovery');
     Route::get('realtime/health', [MiscController::class, 'realtimeHealth']);
     Route::get('realtime/sse', [MiscController::class, 'realtimeSse']);
     Route::post('analytics/events', [MiscController::class, 'analytics']);
     Route::get('tournaments', [TournamentsController::class, 'index']);
     Route::get('tournaments/{id}', [TournamentsController::class, 'show']);
-    Route::get('users/{id}/profile', [SocialController::class, 'profile']);
-    Route::get('users/{id}/followers', [SocialController::class, 'followers']);
-    Route::get('users/{id}/following', [SocialController::class, 'following']);
-    Route::get('users/{id}/achievements', [EngagementController::class, 'achievements']);
-    Route::get('users/{id}/streaks', [EngagementController::class, 'streaks']);
+    Route::get('users/{id}/profile', [SocialController::class, 'profile'])->middleware('throttle:public-discovery');
+    Route::get('users/{id}/followers', [SocialController::class, 'followers'])->middleware('throttle:public-discovery');
+    Route::get('users/{id}/following', [SocialController::class, 'following'])->middleware('throttle:public-discovery');
+    Route::get('users/{id}/achievements', [EngagementController::class, 'achievements'])->middleware('throttle:public-discovery');
+    Route::get('users/{id}/streaks', [EngagementController::class, 'streaks'])->middleware('throttle:public-discovery');
     Route::get('venues/{id}/reviews', [VenueReviewsController::class, 'index']);
     Route::get('venues/{id}/rating-summary', [VenueReviewsController::class, 'summary']);
     // "Learn" — public browse of lessons (classes) + coaches (optional Bearer token).
@@ -168,7 +168,7 @@ Route::prefix('api/v1')->group(function () {
         Route::post('courts/{id}/waitlist', [WaitlistController::class, 'create']);
         Route::delete('waitlist/{id}', [WaitlistController::class, 'cancel']);
         Route::get('booking-holds', [BookingsController::class, 'holds']);
-        Route::post('booking-holds', [BookingsController::class, 'createHold']);
+        Route::post('booking-holds', [BookingsController::class, 'createHold'])->middleware('throttle:write-action');
         Route::delete('booking-holds/{id}', [BookingsController::class, 'releaseHold']);
         Route::get('admin/announcements', [EngagementController::class, 'adminAnnouncements']);
         Route::post('admin/announcements', [EngagementController::class, 'createAnnouncement']);
@@ -197,9 +197,9 @@ Route::prefix('api/v1')->group(function () {
         Route::get('me/referrals/share', [ReferralsController::class, 'share']);
         Route::post('auth/redeem-referral', [ReferralsController::class, 'redeem'])->middleware('throttle:10,1');
         Route::get('me/membership', [MembershipController::class, 'show']);
-        Route::post('membership/subscribe', [MembershipController::class, 'subscribe']);
-        Route::post('me/membership/portal', [MembershipController::class, 'portal']);
-        Route::post('membership/cancel', [MembershipController::class, 'cancel']);
+        Route::post('membership/subscribe', [MembershipController::class, 'subscribe'])->middleware('throttle:write-action');
+        Route::post('me/membership/portal', [MembershipController::class, 'portal'])->middleware('throttle:write-action');
+        Route::post('membership/cancel', [MembershipController::class, 'cancel'])->middleware('throttle:write-action');
         Route::get('payments/history', [PaymentsController::class, 'history']);
         Route::get('payments/summary', [PaymentsController::class, 'summary']);
         Route::post('payments/booking/{id}/intent', [PaymentsController::class, 'bookingIntent']);
@@ -427,11 +427,11 @@ Route::prefix('api/v1')->group(function () {
         Route::post('admin/media/cleanup', [AdminOpsController::class, 'cleanupMedia']);
         Route::delete('admin/media/{id}', [AdminOpsController::class, 'deleteMedia']);
 
-        Route::post('games', [GamesController::class, 'store']);
+        Route::post('games', [GamesController::class, 'store'])->middleware('throttle:write-action');
         Route::patch('games/{id}/reschedule', [GamesController::class, 'reschedule']);
         Route::post('games/{id}/participants/{uid}/no-show', [GamesController::class, 'noShow']);
         Route::patch('games/{id}/participants/{uid}/result-access', [MatchController::class, 'setResultAccess']);
-        Route::post('games/{id}/join', [GamesController::class, 'join']);
+        Route::post('games/{id}/join', [GamesController::class, 'join'])->middleware('throttle:write-action');
         Route::post('games/{id}/leave', [GamesController::class, 'leave']);
         Route::post('games/{id}/cancel', [GamesController::class, 'cancel']);
         Route::post('games/{id}/invitations', [InvitationsController::class, 'batch']);
@@ -455,7 +455,7 @@ Route::prefix('api/v1')->group(function () {
         Route::get('bookings/{id}/receipt', [BookingsController::class, 'receipt']);
         Route::get('bookings/{id}', [BookingsController::class, 'show']);
         Route::patch('bookings/{id}', [BookingsController::class, 'update']);
-        Route::post('bookings', [BookingsController::class, 'store']);
+        Route::post('bookings', [BookingsController::class, 'store'])->middleware('throttle:write-action');
 
         Route::post('feed/{id}/like', [FeedController::class, 'like']);
         Route::delete('feed/{id}/like', [FeedController::class, 'unlike']);
@@ -475,7 +475,7 @@ Route::prefix('api/v1')->group(function () {
         Route::get('conversations/{id}/participants', [MessagingController::class, 'participants']);
         Route::post('conversations/{id}/participants', [MessagingController::class, 'addParticipant']);
         Route::delete('conversations/{id}/participants/{userId}', [MessagingController::class, 'removeParticipant']);
-        Route::post('conversations/{id}/messages', [MessagingController::class, 'sendMessage']);
+        Route::post('conversations/{id}/messages', [MessagingController::class, 'sendMessage'])->middleware('throttle:write-action');
         Route::post('conversations/{id}/read', [MessagingController::class, 'markConversationRead']);
         Route::post('conversations/{id}/typing', [MessagingController::class, 'typing']);
         Route::post('media', [MediaController::class, 'upload'])->middleware('throttle:30,1');
@@ -493,7 +493,7 @@ Route::prefix('api/v1')->group(function () {
         Route::delete('tournaments/{id}/entries/{entryId}', [TournamentsController::class, 'withdraw']);
         Route::delete('tournaments/{id}/entries', [TournamentsController::class, 'withdrawMine']);
 
-        Route::post('users/{id}/follow', [SocialController::class, 'follow']);
+        Route::post('users/{id}/follow', [SocialController::class, 'follow'])->middleware('throttle:write-action');
         Route::delete('users/{id}/follow', [SocialController::class, 'unfollow']);
         Route::delete('users/{id}/followers/{followerId}', [SocialController::class, 'removeFollower']);
         Route::post('users/{id}/block', [SocialController::class, 'block']);

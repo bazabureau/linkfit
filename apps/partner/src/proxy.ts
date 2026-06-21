@@ -3,8 +3,13 @@ import { NextResponse, type NextRequest } from "next/server";
 const ACCESS_TOKEN_COOKIE = "lf_admin_access";
 const PUBLIC_PATHS = ["/login"];
 
-export function middleware(req: NextRequest): NextResponse {
+export function proxy(req: NextRequest): NextResponse {
   const { pathname } = req.nextUrl;
+
+  // Bypass redirect during static generation/build time
+  if (process.env.IS_BUILD_PHASE === "true") {
+    return NextResponse.next();
+  }
 
   // Allow Next internals + static assets + public auth pages through untouched.
   if (
@@ -31,5 +36,5 @@ export function middleware(req: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ["/", "/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

@@ -32,9 +32,9 @@ class LaunchConfigurationTest extends TestCase
         $this->assertStringContainsString('INTERNAL_API_KEY_HASHES=', $envExample);
         $this->assertStringContainsString('CORS_ALLOWED_ORIGINS=https://linkfit.az,https://www.linkfit.az,https://admin.linkfit.az,https://owner.linkfit.az', $envExample);
 
-        $this->assertStringContainsString('X-Linkfit-App-Key', $runbook);
-        $this->assertStringContainsString('REQUIRE_API_KEY=true', $runbook);
-        $this->assertStringContainsString('NEXT_PUBLIC_LINKFIT_APP_KEY', $runbook);
+        $this->assertStringContainsString('REQUIRE_API_KEY=false', $runbook);
+        $this->assertStringContainsString('X-Linkfit-Internal-Key', $runbook);
+        $this->assertStringContainsString('Public app keys are optional', $runbook);
         $this->assertStringContainsString('CORS_ALLOWED_ORIGINS=https://linkfit.az,https://www.linkfit.az,https://admin.linkfit.az,https://owner.linkfit.az', $runbook);
         $this->assertStringContainsString('MEMBERSHIP_PUBLIC_SUBSCRIPTIONS_ENABLED=false', $runbook);
         $this->assertStringContainsString('MEMBERSHIP_PAYMENTS_ENABLED=false', $runbook);

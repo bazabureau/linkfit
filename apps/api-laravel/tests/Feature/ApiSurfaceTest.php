@@ -99,10 +99,9 @@ class ApiSurfaceTest extends TestCase
 
         $this->getJson('/api/v1/mobile/config')
             ->assertOk()
-            ->assertJsonPath('api.requires_app_key', false)
-            ->assertJsonPath('api.app_key_header', 'X-Linkfit-App-Key')
-            ->assertJsonPath('api.app_key_query_string_supported', false)
-            ->assertJsonPath('api.app_key_replaces_user_auth', false)
+            ->assertJsonPath('api.auth_scheme', 'Bearer')
+            ->assertJsonPath('api.user_auth_required_for_private_actions', true)
+            ->assertJsonMissingPath('api.app_key_header')
             ->assertJsonPath('access.mode', 'free_launch')
             ->assertJsonPath('features.payments', false)
             ->assertJsonPath('features.membership', false)

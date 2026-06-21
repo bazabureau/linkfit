@@ -127,21 +127,18 @@ class ApiKeyGuardTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_browser_origin_must_be_allowed_even_with_valid_public_api_key(): void
+    public function test_browser_origin_must_be_allowed_even_without_public_api_key_gate(): void
     {
-        config()->set('app.require_api_key', true);
-        config()->set('app.api_keys', ['test-public-client-key-1234567890abcdef']);
+        config()->set('app.require_api_key', false);
         config()->set('cors.allowed_origins', ['https://linkfit.az']);
 
         $this->getJson('/api/v1/app/metadata', [
             'Origin' => 'https://evil.example',
-            'X-Linkfit-App-Key' => 'test-public-client-key-1234567890abcdef',
         ])
             ->assertForbidden();
 
         $this->getJson('/api/v1/app/metadata', [
             'Origin' => 'https://linkfit.az',
-            'X-Linkfit-App-Key' => 'test-public-client-key-1234567890abcdef',
         ])
             ->assertOk()
             ->assertJsonPath('api', 'laravel');
@@ -254,15 +251,31 @@ class ApiKeyGuardTest extends TestCase
         $this->assertStringContainsString('INTERNAL_API_KEY_HASHES', $internalOutput);
     }
 
-    public function test_production_requires_api_key_gate_to_be_enabled(): void
+    public function test_production_accepts_disabled_public_app_key_gate(): void
     {
         $this->app->detectEnvironment(fn () => 'production');
         config()->set('app.require_api_key', false);
         config()->set('app.api_keys', []);
         config()->set('app.api_key_hashes', []);
+        config()->set('app.internal_api_keys', []);
+        config()->set('app.internal_api_key_hashes', [hash('sha256', 'test-internal-server-key-1234567890abcdef')]);
+
+        $this->invokeApiKeyBootGuard();
+
+        $this->assertTrue(true);
+    }
+
+    public function test_production_rejects_public_app_key_config_when_gate_is_disabled(): void
+    {
+        $this->app->detectEnvironment(fn () => 'production');
+        config()->set('app.require_api_key', false);
+        config()->set('app.api_keys', []);
+        config()->set('app.api_key_hashes', [hash('sha256', 'test-public-client-key-1234567890abcdef')]);
+        config()->set('app.internal_api_keys', []);
+        config()->set('app.internal_api_key_hashes', [hash('sha256', 'test-internal-server-key-1234567890abcdef')]);
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('REQUIRE_API_KEY must be true in production');
+        $this->expectExceptionMessage('APP_PUBLIC_API_KEYS and APP_PUBLIC_API_KEY_HASHES must be empty when REQUIRE_API_KEY=false in production');
 
         $this->invokeApiKeyBootGuard();
     }
@@ -273,9 +286,26 @@ class ApiKeyGuardTest extends TestCase
         config()->set('app.require_api_key', true);
         config()->set('app.api_keys', ['test-public-client-key-1234567890abcdef']);
         config()->set('app.api_key_hashes', []);
+        config()->set('app.internal_api_keys', []);
+        config()->set('app.internal_api_key_hashes', [hash('sha256', 'test-internal-server-key-1234567890abcdef')]);
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('APP_PUBLIC_API_KEYS must be empty in production');
+
+        $this->invokeApiKeyBootGuard();
+    }
+
+    public function test_production_requires_internal_api_key_hashes(): void
+    {
+        $this->app->detectEnvironment(fn () => 'production');
+        config()->set('app.require_api_key', false);
+        config()->set('app.api_keys', []);
+        config()->set('app.api_key_hashes', []);
+        config()->set('app.internal_api_keys', []);
+        config()->set('app.internal_api_key_hashes', []);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('INTERNAL_API_KEY_HASHES must contain at least one internal server key hash in production');
 
         $this->invokeApiKeyBootGuard();
     }

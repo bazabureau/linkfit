@@ -177,6 +177,7 @@ class SocialController extends ApiController
 
         // Optional viewer (route is public; a Bearer token is read if present).
         $viewerId = $this->optionalViewerId($request);
+        $this->assertProfileVisibleToViewer($user, $viewerId);
         // A blocked relationship (either direction) hides the profile entirely.
         if ($viewerId !== null && (string) $viewerId !== $id && $this->blockExistsBetween((string) $viewerId, $id)) {
             throw ApiException::notFound('User not found');
@@ -263,6 +264,7 @@ class SocialController extends ApiController
         $limit = min(max((int) request()->query('limit', 30), 1), 100);
         $offset = max((int) request()->query('offset', 0), 0);
         $viewerId = $this->optionalViewerId($request);
+        $this->assertSocialGraphVisibleToViewer($id, $viewerId);
         $rows = DB::table('follows as f')
             ->join('users as u', 'u.id', '=', 'f.follower_user_id')
             ->where('f.followed_user_id', $id)
@@ -305,6 +307,7 @@ class SocialController extends ApiController
         $limit = min(max((int) request()->query('limit', 30), 1), 100);
         $offset = max((int) request()->query('offset', 0), 0);
         $viewerId = $this->optionalViewerId($request);
+        $this->assertSocialGraphVisibleToViewer($id, $viewerId);
         $rows = DB::table('follows as f')
             ->join('users as u', 'u.id', '=', 'f.followed_user_id')
             ->where('f.follower_user_id', $id)
@@ -466,6 +469,33 @@ class SocialController extends ApiController
                 DB::table('follows')->selectRaw('count(*)')->whereColumn('followed_user_id', 'u.id'),
                 'followers_count',
             );
+    }
+
+    private function assertProfileVisibleToViewer(object $user, ?string $viewerId): void
+    {
+        if ($viewerId === null && ! $this->isPublicPlayerDirectoryUser($user)) {
+            throw ApiException::notFound('User not found');
+        }
+    }
+
+    private function assertSocialGraphVisibleToViewer(string $profileUserId, ?string $viewerId): void
+    {
+        $user = DB::table('users')
+            ->where('id', $profileUserId)
+            ->whereNull('deleted_at')
+            ->first(['id', 'username']);
+
+        if ($user === null) {
+            throw ApiException::notFound('User not found');
+        }
+
+        if ($viewerId === null && ! $this->isPublicPlayerDirectoryUser($user)) {
+            throw ApiException::notFound('User not found');
+        }
+
+        if ($viewerId !== null && (string) $viewerId !== (string) $profileUserId && $this->blockExistsBetween((string) $viewerId, (string) $profileUserId)) {
+            throw ApiException::notFound('User not found');
+        }
     }
 
     /**

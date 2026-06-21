@@ -15,8 +15,10 @@ class EngagementController extends ApiController
     use AuthorizesAdminPermissions;
     use FiltersPublicPlayerDirectory;
 
-    public function achievements(string $id): JsonResponse
+    public function achievements(Request $request, string $id): JsonResponse
     {
+        $this->assertPublicProfileMetricVisible($request, $id);
+
         $catalog = DB::table('achievements')->orderBy('created_at')->get();
         $unlocked = DB::table('user_achievements')->where('user_id', $id)->pluck('unlocked_at', 'achievement_slug');
 
@@ -40,8 +42,10 @@ class EngagementController extends ApiController
         ]);
     }
 
-    public function streaks(string $id): JsonResponse
+    public function streaks(Request $request, string $id): JsonResponse
     {
+        $this->assertPublicProfileMetricVisible($request, $id);
+
         // iOS `StreaksResponse` expects a 26-week heatmap: exactly 26
         // Monday-anchored buckets, oldest first, ending at the current ISO
         // week, plus the current trailing streak and the longest streak of
@@ -91,6 +95,23 @@ class EngagementController extends ApiController
             'longest_streak_weeks' => $longest,
             'weeks' => $weeks,
         ]);
+    }
+
+    private function assertPublicProfileMetricVisible(Request $request, string $userId): void
+    {
+        if ($this->optionalViewerId($request) !== null) {
+            return;
+        }
+
+        $query = DB::table('users as u')
+            ->where('u.id', $userId)
+            ->whereNull('u.deleted_at');
+
+        $this->wherePublicPlayerDirectoryAllowed($query, 'u');
+
+        if (! $query->exists()) {
+            throw ApiException::notFound('User not found');
+        }
     }
 
     public function leaderboards(Request $request): JsonResponse

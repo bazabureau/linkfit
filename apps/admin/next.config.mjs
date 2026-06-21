@@ -29,6 +29,9 @@ const nextConfig = {
   basePath: "/admin",
   assetPrefix: "/admin",
   reactStrictMode: true,
+  turbopack: {
+    root: process.cwd(),
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

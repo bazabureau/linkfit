@@ -32,6 +32,16 @@ final class ApiKeyRing
         return false;
     }
 
+    public static function fingerprint(string $provided): ?string
+    {
+        $provided = trim($provided);
+        if ($provided === '') {
+            return null;
+        }
+
+        return substr(hash('sha256', $provided), 0, 16);
+    }
+
     /**
      * @param  array<int,string>  $plainKeys
      */

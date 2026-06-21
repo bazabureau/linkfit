@@ -41,6 +41,7 @@ import { SocialService } from "../../modules/social/social.service.js";
 import { registerFollowsRoutes } from "../../modules/social/follows.routes.js";
 import { FollowsService } from "../../modules/social/follows.service.js";
 import { createSpamChecks } from "../security/spam-checks.js";
+import { apiKeyGuard } from "../security/api-key-guard.js";
 import { registerBlocksRoutes } from "../../modules/social/blocks.routes.js";
 import { BlocksService } from "../../modules/social/blocks.service.js";
 import { registerAdminRoutes } from "../../modules/admin/admin.routes.js";
@@ -303,6 +304,14 @@ export async function buildServer(deps: ServerDeps): Promise<LinkfitServer> {
   await app.register(rateLimit, {
     max: deps.env.RATE_LIMIT_MAX,
     timeWindow: deps.env.RATE_LIMIT_WINDOW_SECONDS * 1000,
+  });
+
+  app.addHook("onRequest", async (req, reply) => {
+    await apiKeyGuard(req, reply, {
+      requireApiKey: deps.env.REQUIRE_API_KEY,
+      plainKeys: deps.env.APP_PUBLIC_API_KEYS,
+      keyHashes: deps.env.APP_PUBLIC_API_KEY_HASHES,
+    });
   });
 
   // Serve uploaded message attachments. Files live under `env.UPLOAD_DIR`

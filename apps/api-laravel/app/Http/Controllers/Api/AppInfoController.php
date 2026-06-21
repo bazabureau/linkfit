@@ -369,8 +369,8 @@ class AppInfoController extends ApiController
     }
 
     /**
-     * Public client keys identify official Linkfit builds. They are deliberately
-     * separate from JWT auth and from private server-to-server internal keys.
+     * Public app keys are optional client-identification metadata only. They
+     * are deliberately separate from JWT auth and from private internal keys.
      *
      * @return array<string,mixed>
      */

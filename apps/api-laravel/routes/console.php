@@ -20,7 +20,7 @@ Artisan::command('security:make-api-key {--internal : Generate a server-to-serve
     $this->line('sha256: '.hash('sha256', $key));
     $this->line($this->option('internal')
         ? 'Set INTERNAL_API_KEY_HASHES to the sha256 value. Never ship the key to browser/mobile clients.'
-        : 'Set APP_PUBLIC_API_KEY_HASHES to the sha256 value and NEXT_PUBLIC_LINKFIT_APP_KEY to the key in official clients.');
+        : 'Set APP_PUBLIC_API_KEY_HASHES only if REQUIRE_API_KEY=true. Public client keys are optional and are not secrets.');
 })->purpose('Generate a LinkFit API key and its SHA-256 hash');
 
 Artisan::command('push:process {--limit=100} {--dry-run}', function () {

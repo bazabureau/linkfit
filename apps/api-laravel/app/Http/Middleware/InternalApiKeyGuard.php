@@ -30,6 +30,7 @@ class InternalApiKeyGuard
         }
 
         $request->attributes->set('linkfit_api_key_type', 'internal');
+        $request->attributes->set('linkfit_api_key_fingerprint', ApiKeyRing::fingerprint($provided));
 
         return $next($request);
     }

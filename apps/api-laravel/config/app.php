@@ -60,9 +60,10 @@ return [
     'web_url' => env('APP_WEB_URL', 'https://linkfit.az'),
 
     // Optional public client app keys (see App\Http\Middleware\ApiKeyGuard).
-    // These identify Linkfit-owned web/mobile builds but are not user secrets:
-    // browser/mobile bundles can be inspected. Keep truly private automation
-    // keys in INTERNAL_API_KEYS and never ship them to clients.
+    // These can identify Linkfit-owned web/mobile builds, but they are not
+    // user auth or secrets because browser/mobile bundles can be inspected.
+    // Keep truly private automation keys in INTERNAL_API_KEYS and never ship
+    // them to clients.
     'api_keys' => array_values(array_filter(array_map(
         'trim',
         explode(',', (string) env('APP_PUBLIC_API_KEYS', '')),

@@ -6,6 +6,7 @@ use App\Support\ApiException;
 use App\Support\ApiKeyRing;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -38,16 +39,26 @@ class ApiKeyGuard
         }
 
         $provided = (string) $request->header('X-Linkfit-App-Key', '');
+        $fingerprint = ApiKeyRing::fingerprint($provided);
 
         if (! ApiKeyRing::matches(
             $provided,
             (array) config('app.api_keys', []),
             (array) config('app.api_key_hashes', [])
         )) {
+            Log::warning('Public app API key rejected', [
+                'request_id' => $request->attributes->get('request_id'),
+                'path' => $request->path(),
+                'ip' => $request->ip(),
+                'origin' => $request->headers->get('Origin'),
+                'app_key_fp' => $fingerprint,
+                'reason' => $provided === '' ? 'missing' : 'invalid',
+            ]);
             throw ApiException::forbidden('Invalid or missing API key');
         }
 
         $request->attributes->set('linkfit_api_key_type', 'public_app');
+        $request->attributes->set('linkfit_api_key_fingerprint', $fingerprint);
 
         return $next($request);
     }

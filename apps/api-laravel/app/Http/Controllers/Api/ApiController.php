@@ -48,7 +48,12 @@ abstract class ApiController extends Controller
         try {
             $claims = app(TokenService::class)->verifyAccess(substr($header, 7));
 
-            return isset($claims->sub) ? (string) $claims->sub : null;
+            $userId = isset($claims->sub) ? (string) $claims->sub : '';
+            if ($userId === '') {
+                return null;
+            }
+
+            return User::whereKey($userId)->whereNull('deleted_at')->exists() ? $userId : null;
         } catch (\Throwable) {
             return null;
         }

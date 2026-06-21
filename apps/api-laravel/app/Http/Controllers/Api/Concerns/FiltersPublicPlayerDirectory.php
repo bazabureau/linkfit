@@ -26,4 +26,12 @@ trait FiltersPublicPlayerDirectory
                 ->orWhereIn("{$alias}.id", self::PUBLIC_PLAYER_IDS);
         });
     }
+
+    protected function isPublicPlayerDirectoryUser(object $user): bool
+    {
+        $username = mb_strtolower(trim((string) ($user->username ?? '')));
+
+        return in_array($username, self::PUBLIC_PLAYER_USERNAMES, true)
+            || in_array((string) ($user->id ?? ''), self::PUBLIC_PLAYER_IDS, true);
+    }
 }

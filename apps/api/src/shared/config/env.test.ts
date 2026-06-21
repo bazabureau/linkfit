@@ -28,7 +28,7 @@ describe("env loader", () => {
   });
 
   it("throws EnvValidationError listing every missing required key", () => {
-    expect(() => loadEnv({})).toThrowError(EnvValidationError);
+    expect(() => loadEnv({})).toThrow(EnvValidationError);
     try {
       loadEnv({});
     } catch (err) {
@@ -43,18 +43,18 @@ describe("env loader", () => {
   it("rejects DATABASE_URL that is not postgres://", () => {
     expect(() =>
       loadEnv({ ...valid, DATABASE_URL: "mysql://u:p@localhost:3306/db" }),
-    ).toThrowError(/postgres/);
+    ).toThrow(/postgres/);
   });
 
   it("rejects PORT that is not a positive integer", () => {
-    expect(() => loadEnv({ ...valid, PORT: "abc" })).toThrowError(/PORT/);
-    expect(() => loadEnv({ ...valid, PORT: "-1" })).toThrowError(/PORT/);
+    expect(() => loadEnv({ ...valid, PORT: "abc" })).toThrow(/PORT/);
+    expect(() => loadEnv({ ...valid, PORT: "-1" })).toThrow(/PORT/);
   });
 
   it("rejects too-short JWT secrets", () => {
     expect(() =>
       loadEnv({ ...valid, JWT_ACCESS_SECRET: "tooshort" }),
-    ).toThrowError(/JWT_ACCESS_SECRET/);
+    ).toThrow(/JWT_ACCESS_SECRET/);
   });
 
   it("treats CORS_ORIGINS as a trim-aware, empty-tolerant CSV list", () => {
@@ -82,6 +82,9 @@ describe("env loader", () => {
     expect(env.HOST).toBe("0.0.0.0");
     expect(env.LOG_LEVEL).toBe("info");
     expect(env.RATE_LIMIT_MAX).toBe(300);
+    expect(env.REQUIRE_API_KEY).toBe(false);
+    expect(env.APP_PUBLIC_API_KEYS).toEqual([]);
+    expect(env.APP_PUBLIC_API_KEY_HASHES).toEqual([]);
     expect(env.AUTH_RATE_LIMIT_MAX).toBe(10);
     expect(env.FEATURE_BOOKINGS).toBe(false);
     expect(env.APNS_USE_SANDBOX).toBe(false);
@@ -96,7 +99,7 @@ describe("env loader", () => {
   });
 
   it("rejects PORT above the 65535 ceiling", () => {
-    expect(() => loadEnv({ ...valid, PORT: "70000" })).toThrowError(/PORT/);
+    expect(() => loadEnv({ ...valid, PORT: "70000" })).toThrow(/PORT/);
   });
 
   it("coerces APNS_USE_SANDBOX correctly and rejects invalid values", () => {
@@ -104,7 +107,7 @@ describe("env loader", () => {
     expect(loadEnv({ ...valid, APNS_USE_SANDBOX: "false" }).APNS_USE_SANDBOX).toBe(false);
     expect(() =>
       loadEnv({ ...valid, APNS_USE_SANDBOX: "yes" }),
-    ).toThrowError(EnvValidationError);
+    ).toThrow(EnvValidationError);
   });
 
   it("parses OAuth client ID CSVs with stable de-duplication", () => {
@@ -155,7 +158,7 @@ describe("env loader", () => {
         SMTP_HOST: "smtp.example.com",
         SMTP_USER: "mailer",
       }),
-    ).toThrowError(/SMTP_HOST, SMTP_USER, and SMTP_PASS/);
+    ).toThrow(/SMTP_HOST, SMTP_USER, and SMTP_PASS/);
   });
 
   it("rejects partial APNs configuration", () => {
@@ -165,13 +168,13 @@ describe("env loader", () => {
         APNS_KEY_ID: "ABC123DEFG",
         APNS_TEAM_ID: "TEAM123456",
       }),
-    ).toThrowError(/APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID, and APNS_AUTH_KEY/);
+    ).toThrow(/APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID, and APNS_AUTH_KEY/);
   });
 
   it("rejects OAuth client ID CSVs that resolve to no values", () => {
     expect(() =>
       loadEnv({ ...valid, OAUTH_APPLE_CLIENT_IDS: ", , ," }),
-    ).toThrowError(/OAUTH_APPLE_CLIENT_IDS/);
+    ).toThrow(/OAUTH_APPLE_CLIENT_IDS/);
   });
 
   // ── Production-only invariants ─────────────────────────────────────
@@ -200,6 +203,9 @@ describe("env loader", () => {
     SMTP_HOST: "smtp.linkfit.app",
     SMTP_USER: "mailer",
     SMTP_PASS: "smtp-secret",
+    REQUIRE_API_KEY: "true",
+    APP_PUBLIC_API_KEYS: "",
+    APP_PUBLIC_API_KEY_HASHES: "a".repeat(64),
   };
 
   it("accepts a properly-configured production environment", () => {
@@ -209,55 +215,93 @@ describe("env loader", () => {
   it("rejects placeholder Stripe secret key in production", () => {
     expect(() =>
       loadEnv({ ...prodBase, STRIPE_SECRET_KEY: "sk_test_dummy" }),
-    ).toThrowError(/Stripe secret key/);
+    ).toThrow(/Stripe secret key/);
     expect(() =>
       loadEnv({ ...prodBase, STRIPE_SECRET_KEY: "sk_live_dummy" }),
-    ).toThrowError(/Stripe secret key/);
+    ).toThrow(/Stripe secret key/);
   });
 
   it("rejects non-live Stripe secret keys in production", () => {
     expect(() =>
       loadEnv({ ...prodBase, STRIPE_SECRET_KEY: "sk_test_real_key" }),
-    ).toThrowError(/non-live Stripe secret key/);
+    ).toThrow(/non-live Stripe secret key/);
   });
 
   it("rejects placeholder Stripe webhook secret in production", () => {
     expect(() =>
       loadEnv({ ...prodBase, STRIPE_WEBHOOK_SECRET: "whsec_test_dummy" }),
-    ).toThrowError(/Stripe webhook secret/);
+    ).toThrow(/Stripe webhook secret/);
     expect(() =>
       loadEnv({ ...prodBase, STRIPE_WEBHOOK_SECRET: "whsec_live_dummy" }),
-    ).toThrowError(/Stripe webhook secret/);
+    ).toThrow(/Stripe webhook secret/);
   });
 
   it("rejects missing membership Stripe Price IDs in production with real Stripe keys", () => {
     expect(() =>
       loadEnv({ ...prodBase, STRIPE_MEMBERSHIP_PLUS_PRICE_ID: "" }),
-    ).toThrowError(/Plus membership price id/);
+    ).toThrow(/Plus membership price id/);
     expect(() =>
       loadEnv({ ...prodBase, STRIPE_MEMBERSHIP_PREMIUM_PRICE_ID: "" }),
-    ).toThrowError(/Premium membership price id/);
+    ).toThrow(/Premium membership price id/);
   });
 
   it("rejects dev-prefixed JWT secrets in production", () => {
     expect(() =>
       loadEnv({ ...prodBase, JWT_ACCESS_SECRET: "dev-access-secret-" + "x".repeat(20) }),
-    ).toThrowError(/JWT access secret/);
+    ).toThrow(/JWT access secret/);
     expect(() =>
       loadEnv({ ...prodBase, JWT_REFRESH_SECRET: "dev-refresh-" + "y".repeat(25) }),
-    ).toThrowError(/JWT refresh secret/);
+    ).toThrow(/JWT refresh secret/);
   });
 
   it("rejects default /metrics password in production", () => {
     expect(() =>
       loadEnv({ ...prodBase, METRICS_PASSWORD: "change-me-in-production" }),
-    ).toThrowError(/metrics password/);
+    ).toThrow(/metrics password/);
   });
 
   it("rejects empty CORS allowlist in production", () => {
     expect(() =>
       loadEnv({ ...prodBase, CORS_ORIGINS: "" }),
-    ).toThrowError(/CORS allowlist/);
+    ).toThrow(/CORS allowlist/);
+  });
+
+  it("accepts disabling the public app API key gate in production", () => {
+    expect(() =>
+      loadEnv({
+        ...prodBase,
+        REQUIRE_API_KEY: "false",
+        APP_PUBLIC_API_KEYS: "",
+        APP_PUBLIC_API_KEY_HASHES: "",
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects stale public app API key hashes when the gate is disabled in production", () => {
+    expect(() =>
+      loadEnv({
+        ...prodBase,
+        REQUIRE_API_KEY: "false",
+        APP_PUBLIC_API_KEYS: "",
+        APP_PUBLIC_API_KEY_HASHES: "a".repeat(64),
+      }),
+    ).toThrow(/public app API key hashes/);
+  });
+
+  it("requires hash-only public app API keys when the gate is enabled in production", () => {
+    expect(() =>
+      loadEnv({
+        ...prodBase,
+        APP_PUBLIC_API_KEYS: "test-public-client-key-1234567890abcdef",
+        APP_PUBLIC_API_KEY_HASHES: "",
+      }),
+    ).toThrow(/plaintext public app API keys/);
+    expect(() =>
+      loadEnv({ ...prodBase, APP_PUBLIC_API_KEY_HASHES: "" }),
+    ).toThrow(/public app API key hashes/);
+    expect(() =>
+      loadEnv({ ...prodBase, APP_PUBLIC_API_KEY_HASHES: "not-a-sha256" }),
+    ).toThrow(/public app API key hash/);
   });
 
   it("rejects missing SMTP credentials in production", () => {
@@ -268,16 +312,16 @@ describe("env loader", () => {
         SMTP_USER: undefined,
         SMTP_PASS: undefined,
       }),
-    ).toThrowError(/SMTP credentials/);
+    ).toThrow(/SMTP credentials/);
   });
 
   it("rejects missing public URLs and APNs credentials in production", () => {
     expect(() =>
       loadEnv({ ...prodBase, PUBLIC_BASE_URL: "" }),
-    ).toThrowError(/public API base URL/);
+    ).toThrow(/public API base URL/);
     expect(() =>
       loadEnv({ ...prodBase, PUBLIC_APP_URL: "" }),
-    ).toThrowError(/public app URL/);
+    ).toThrow(/public app URL/);
     expect(() =>
       loadEnv({
         ...prodBase,
@@ -286,25 +330,25 @@ describe("env loader", () => {
         APNS_BUNDLE_ID: undefined,
         APNS_AUTH_KEY: undefined,
       }),
-    ).toThrowError(/APNs credentials/);
+    ).toThrow(/APNs credentials/);
   });
 
   it("rejects non-HTTPS public URLs and APNs sandbox in production", () => {
     expect(() =>
       loadEnv({ ...prodBase, PUBLIC_BASE_URL: "http://api.linkfit.app" }),
-    ).toThrowError(/non-HTTPS public API base URL/);
+    ).toThrow(/non-HTTPS public API base URL/);
     expect(() =>
       loadEnv({ ...prodBase, PUBLIC_APP_URL: "http://linkfit.app" }),
-    ).toThrowError(/non-HTTPS public app URL/);
+    ).toThrow(/non-HTTPS public app URL/);
     expect(() =>
       loadEnv({ ...prodBase, APNS_USE_SANDBOX: "true" }),
-    ).toThrowError(/APNs sandbox/);
+    ).toThrow(/APNs sandbox/);
   });
 
   it("rejects missing medical encryption key in production", () => {
     expect(() =>
       loadEnv({ ...prodBase, MEDICAL_ENCRYPTION_KEY: "" }),
-    ).toThrowError(/medical encryption key/);
+    ).toThrow(/medical encryption key/);
   });
 
   it("allows placeholder secrets in development/test", () => {

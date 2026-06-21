@@ -31,6 +31,9 @@ const buildConfig = (phase) => {
     basePath: "/owner",
     assetPrefix: "/owner",
     reactStrictMode: true,
+    turbopack: {
+      root: process.cwd(),
+    },
     env: {
       IS_BUILD_PHASE: isBuild ? "true" : "false",
     },

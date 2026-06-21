@@ -239,7 +239,7 @@ function scrubEvent(event: SentryEvent): SentryEvent {
     // `Event.Request.cookies` is `{[k:string]: string}` — replace each
     // cookie value with the redacted sentinel rather than the whole map.
     if (event.request.cookies !== undefined) {
-      const cookies = event.request.cookies as Record<string, string>;
+      const cookies = event.request.cookies;
       for (const key of Object.keys(cookies)) {
         cookies[key] = "[REDACTED]";
       }

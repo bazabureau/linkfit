@@ -11,7 +11,7 @@ test.describe("B2B Partner Dashboard E2E", () => {
     // 0. Clean up any existing stale user and rate limits
     try {
       execSync(`psql "${dbUrl}" -c "TRUNCATE TABLE signup_attempts; DELETE FROM users WHERE email = '${ADMIN_EMAIL}';"`);
-    } catch (e) {
+    } catch {
       // Ignored
     }
 
@@ -24,7 +24,7 @@ test.describe("B2B Partner Dashboard E2E", () => {
           display_name: "Admin Baku Padel",
         },
       });
-    } catch (e) {
+    } catch {
       // Ignored if already registered
     }
 

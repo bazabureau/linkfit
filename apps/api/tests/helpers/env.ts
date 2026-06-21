@@ -29,6 +29,9 @@ export function buildTestEnv(): Env {
     JWT_REFRESH_TTL_DAYS: 30,
     RATE_LIMIT_MAX: 10_000,
     RATE_LIMIT_WINDOW_SECONDS: 60,
+    REQUIRE_API_KEY: false,
+    APP_PUBLIC_API_KEYS: [],
+    APP_PUBLIC_API_KEY_HASHES: [],
     AUTH_RATE_LIMIT_MAX: 10_000,
     AUTH_RATE_LIMIT_WINDOW_SECONDS: 60,
     // Trust & safety thresholds — relaxed in the shared test env so the

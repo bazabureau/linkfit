@@ -64,18 +64,38 @@ class AppServiceProvider extends ServiceProvider
             (string) config('services.gmail.refresh_token'),
         ));
 
-        // Global API rate limit. Keyed by JWT session (per-token) when present so
-        // many users behind one carrier/NAT IP don't share a bucket; anonymous
-        // traffic uses the real client IP. `$request->ip()` is now trustworthy
-        // (TrustProxies is configured in bootstrap/app.php) and NOT spoofable —
-        // we no longer trust the raw CF-Connecting-IP header.
+        // Global API rate limit. Bucket by real IP, JWT session, and public app
+        // key fingerprint. The client key is not a secret, but it is useful for
+        // abuse isolation and rotation when a specific surface misbehaves.
         RateLimiter::for('api', function (Request $request) {
-            $token = $request->bearerToken();
-            $key = $token
-                ? 'tok:'.sha1($token)
-                : 'ip:'.$request->ip();
+            return $this->rateLimitBuckets(
+                $request,
+                (int) env('API_RATE_LIMIT_PER_MINUTE', 600),
+                (int) env('API_IP_RATE_LIMIT_PER_MINUTE', 300),
+                (int) env('API_APP_KEY_RATE_LIMIT_PER_MINUTE', 1200),
+            );
+        });
 
-            return Limit::perMinute((int) env('API_RATE_LIMIT_PER_MINUTE', 600))->by($key);
+        // Public discovery/search surfaces are intentionally browseable but
+        // expensive to scrape. Keep them tighter than the general API limit.
+        RateLimiter::for('public-discovery', function (Request $request) {
+            return $this->rateLimitBuckets(
+                $request,
+                (int) env('API_PUBLIC_DISCOVERY_RATE_LIMIT_PER_MINUTE', 120),
+                (int) env('API_PUBLIC_DISCOVERY_IP_RATE_LIMIT_PER_MINUTE', 60),
+                (int) env('API_PUBLIC_DISCOVERY_APP_KEY_RATE_LIMIT_PER_MINUTE', 240),
+            );
+        });
+
+        // Mutating endpoints get a lower per-user/IP ceiling so a stolen public
+        // app key cannot be used for high-volume writes.
+        RateLimiter::for('write-action', function (Request $request) {
+            return $this->rateLimitBuckets(
+                $request,
+                (int) env('API_WRITE_RATE_LIMIT_PER_MINUTE', 60),
+                (int) env('API_WRITE_IP_RATE_LIMIT_PER_MINUTE', 40),
+                (int) env('API_WRITE_APP_KEY_RATE_LIMIT_PER_MINUTE', 180),
+            );
         });
 
         // Login: throttle per-IP AND per-email so neither a single IP nor a
@@ -86,6 +106,7 @@ class AppServiceProvider extends ServiceProvider
             return [
                 Limit::perMinute(6)->by('login-ip:'.$request->ip()),
                 Limit::perMinute(6)->by('login-email:'.($email !== '' ? sha1($email) : 'unknown')),
+                ...$this->appKeyLimit($request, 30, 'login-app'),
             ];
         });
 
@@ -98,6 +119,7 @@ class AppServiceProvider extends ServiceProvider
             return [
                 Limit::perMinute(3)->by('reset-request-ip:'.$request->ip()),
                 Limit::perMinute(3)->by('reset-request-email:'.$emailKey),
+                ...$this->appKeyLimit($request, 20, 'reset-request-app'),
             ];
         });
 
@@ -108,8 +130,37 @@ class AppServiceProvider extends ServiceProvider
             return [
                 Limit::perMinute(10)->by('reset-code-ip:'.$request->ip()),
                 Limit::perMinute(5)->by('reset-code-email:'.$emailKey),
+                ...$this->appKeyLimit($request, 30, 'reset-code-app'),
             ];
         });
+    }
+
+    /**
+     * @return list<Limit>
+     */
+    private function rateLimitBuckets(Request $request, int $actorLimit, int $ipLimit, int $appKeyLimit): array
+    {
+        $token = $request->bearerToken();
+        $actorKey = $token ? 'tok:'.sha1($token) : 'anon-ip:'.$request->ip();
+
+        return [
+            Limit::perMinute($actorLimit)->by($actorKey),
+            Limit::perMinute($ipLimit)->by('ip:'.$request->ip()),
+            ...$this->appKeyLimit($request, $appKeyLimit, 'app'),
+        ];
+    }
+
+    /**
+     * @return list<Limit>
+     */
+    private function appKeyLimit(Request $request, int $limit, string $prefix): array
+    {
+        $fingerprint = ApiKeyRing::fingerprint((string) $request->header('X-Linkfit-App-Key', ''));
+        if ($fingerprint === null) {
+            return [];
+        }
+
+        return [Limit::perMinute($limit)->by($prefix.':'.$fingerprint)];
     }
 
     /**
@@ -129,42 +180,46 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * If the global API-key gate is enabled, refuse to boot with empty, short,
-     * or obvious placeholder keys. Public app keys identify our clients; they
-     * are not a substitute for JWT/user authorization.
+     * Public app keys are optional defense-in-depth for client identification;
+     * they are not a substitute for JWT/user authorization and are not private
+     * once shipped to browser/mobile clients. If enabled, validate the keyring
+     * strictly. Server-to-server internal keys stay mandatory in production.
      */
     private function assertStrongApiKeys(): void
     {
-        // The public app-key gate is OPTIONAL defense-in-depth, not a real
-        // security boundary: a client-embedded key is visible in any browser
-        // bundle / mobile binary and can't be kept secret. The actual protection
-        // is always-on (JWT user auth + rate limiting + CORS + BrowserOriginGuard
-        // + HTTPS). So we do NOT force the gate on in production — when it's
-        // disabled we just skip the key-strength checks. When it IS enabled, the
-        // strength/hash checks below still run so a weak or placeholder key can
-        // never reach production.
-        if (! (bool) config('app.require_api_key')) {
-            return;
-        }
-
         $keys = (array) config('app.api_keys', []);
         $hashes = (array) config('app.api_key_hashes', []);
-        if ($keys === [] && $hashes === []) {
+        $requiresPublicAppKey = (bool) config('app.require_api_key');
+
+        if ($requiresPublicAppKey) {
+            if ($keys === [] && $hashes === []) {
+                throw new \RuntimeException(
+                    'APP_PUBLIC_API_KEYS or APP_PUBLIC_API_KEY_HASHES must contain at least one strong client key when REQUIRE_API_KEY=true.'
+                );
+            }
+
+            if ($this->app->isProduction() && $keys !== []) {
+                throw new \RuntimeException(
+                    'APP_PUBLIC_API_KEYS must be empty in production; use APP_PUBLIC_API_KEY_HASHES instead.'
+                );
+            }
+
+            ApiKeyRing::assertStrongPlainKeys('APP_PUBLIC_API_KEYS', $keys);
+            ApiKeyRing::assertValidHashes('APP_PUBLIC_API_KEY_HASHES', $hashes);
+        } elseif ($this->app->isProduction() && ($keys !== [] || $hashes !== [])) {
             throw new \RuntimeException(
-                'APP_PUBLIC_API_KEYS or APP_PUBLIC_API_KEY_HASHES must contain at least one strong client key when REQUIRE_API_KEY=true.'
+                'APP_PUBLIC_API_KEYS and APP_PUBLIC_API_KEY_HASHES must be empty when REQUIRE_API_KEY=false in production.'
             );
         }
-
-        if ($this->app->isProduction() && $keys !== []) {
-            throw new \RuntimeException(
-                'APP_PUBLIC_API_KEYS must be empty in production; use APP_PUBLIC_API_KEY_HASHES instead.'
-            );
-        }
-
-        ApiKeyRing::assertStrongPlainKeys('APP_PUBLIC_API_KEYS', $keys);
-        ApiKeyRing::assertValidHashes('APP_PUBLIC_API_KEY_HASHES', $hashes);
 
         $internalKeys = (array) config('app.internal_api_keys', []);
+        $internalHashes = (array) config('app.internal_api_key_hashes', []);
+        if ($this->app->isProduction() && $internalKeys === [] && $internalHashes === []) {
+            throw new \RuntimeException(
+                'INTERNAL_API_KEY_HASHES must contain at least one internal server key hash in production.'
+            );
+        }
+
         if ($this->app->isProduction() && $internalKeys !== []) {
             throw new \RuntimeException(
                 'INTERNAL_API_KEYS must be empty in production; use INTERNAL_API_KEY_HASHES instead.'
@@ -172,7 +227,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         ApiKeyRing::assertStrongPlainKeys('INTERNAL_API_KEYS', $internalKeys);
-        ApiKeyRing::assertValidHashes('INTERNAL_API_KEY_HASHES', (array) config('app.internal_api_key_hashes', []));
+        ApiKeyRing::assertValidHashes('INTERNAL_API_KEY_HASHES', $internalHashes);
     }
 
     /**
@@ -195,20 +250,22 @@ class AppServiceProvider extends ServiceProvider
             );
         }
 
-        // FREE_TRIAL_DAYS and GLOBAL_FULL_ACCESS_UNTIL are business-tuning knobs,
-        // not safety invariants — their exact values must NEVER brick boot (doing
-        // so previously took the API down on a deploy). A global full-access
-        // window is OPTIONAL: if unset, members fall back to the (generous)
-        // free-tier limits, a valid launch state. Only reject a window value that
-        // IS set but is stray/expired.
+        if (! $this->app->isProduction()) {
+            return;
+        }
+
+        if ((int) config('membership.free_trial_days', 0) < 50) {
+            throw new \RuntimeException(
+                'FREE_TRIAL_DAYS must be at least 50 while public subscriptions are disabled in production.'
+            );
+        }
+
         $until = trim((string) config('membership.global_full_access_until'));
-        if ($until !== '') {
-            $timestamp = strtotime($until);
-            if ($timestamp === false || $timestamp <= time()) {
-                throw new \RuntimeException(
-                    'GLOBAL_FULL_ACCESS_UNTIL, when set, must be a valid future timestamp.'
-                );
-            }
+        $timestamp = $until !== '' ? strtotime($until) : false;
+        if ($timestamp === false || $timestamp <= time()) {
+            throw new \RuntimeException(
+                'GLOBAL_FULL_ACCESS_UNTIL must be a future timestamp while public subscriptions are disabled in production.'
+            );
         }
     }
 }
