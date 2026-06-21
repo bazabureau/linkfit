@@ -293,25 +293,28 @@ class MeController extends ApiController
             'platform' => ['required', 'in:ios,android'],
         ]);
 
-        // Preserve the original registration date on re-registration (the app
-        // calls this on every launch) — only set created_at on first insert.
-        $exists = DB::table('device_tokens')->where('user_id', $user->id)->where('token', $data['token'])->exists();
-        if ($exists) {
-            DB::table('device_tokens')->where('user_id', $user->id)->where('token', $data['token'])->update([
-                'platform' => $data['platform'],
-                'last_seen' => now(),
-                'revoked_at' => null,
-            ]);
-        } else {
-            DB::table('device_tokens')->insert([
+        // The app calls this on every launch, so two concurrent launches can race
+        // on the same (user, token). A read-then-write (exists()+insert()) lets both
+        // miss and both insert, and the `device_tokens_user_token_uq` unique index
+        // then turns the loser into a 500. An atomic upsert keyed on that index is
+        // race-safe and replay-safe, and compiles to `ON CONFLICT` on both Postgres
+        // (prod) and SQLite (tests).
+        //
+        // `created_at` is intentionally omitted from the conflict-update list so the
+        // original registration date is preserved on re-registration — only the
+        // mutable columns (platform, last_seen, revoked_at) are refreshed.
+        DB::table('device_tokens')->upsert(
+            [[
                 'user_id' => $user->id,
                 'token' => $data['token'],
                 'platform' => $data['platform'],
                 'last_seen' => now(),
                 'revoked_at' => null,
                 'created_at' => now(),
-            ]);
-        }
+            ]],
+            ['user_id', 'token'],
+            ['platform', 'last_seen', 'revoked_at'],
+        );
 
         return response()->json(['ok' => true]);
     }
