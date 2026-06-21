@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api\Concerns;
 
 use App\Support\ApiException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 trait BlocksPendingGameResults
 {
     protected function ensureNoPendingGameResult(string $userId): void
     {
+        $hasResultAccessColumn = Schema::hasColumn('game_participants', 'can_report_result');
+
         $pending = DB::table('games as g')
             ->join('sports as s', 's.id', '=', 'g.sport_id')
             ->leftJoin('courts as c', 'c.id', '=', 'g.court_id')
@@ -17,15 +20,18 @@ trait BlocksPendingGameResults
             ->whereNull('g.deleted_at')
             ->whereNotIn('g.status', ['cancelled', 'completed'])
             ->whereRaw("g.starts_at + (g.duration_minutes * interval '1 minute') <= now()")
-            ->where(function ($q) use ($userId) {
-                $q->where('g.host_user_id', $userId)
-                    ->orWhereExists(function ($sub) use ($userId) {
+            ->where(function ($q) use ($userId, $hasResultAccessColumn) {
+                $q->where('g.host_user_id', $userId);
+                if ($hasResultAccessColumn) {
+                    $q->orWhereExists(function ($sub) use ($userId) {
                         $sub->selectRaw('1')
                             ->from('game_participants as gp')
                             ->whereColumn('gp.game_id', 'g.id')
                             ->where('gp.user_id', $userId)
-                            ->where('gp.status', 'confirmed');
+                            ->where('gp.status', 'confirmed')
+                            ->where('gp.can_report_result', true);
                     });
+                }
             })
             ->where(function ($q) {
                 $q->whereNull('ms.game_id')
