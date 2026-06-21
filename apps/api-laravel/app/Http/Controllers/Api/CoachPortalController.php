@@ -114,6 +114,7 @@ class CoachPortalController extends ApiController
         if ($kind === 'private' && $capacity !== 1) {
             throw ApiException::validation('Private lessons must have capacity 1');
         }
+        $this->assertNoCoachOverlap((string) $coach->id, $data['starts_at'], (int) $data['duration_minutes']);
         $id = (string) Str::uuid();
         DB::table('lessons')->insert([
             'id' => $id,
@@ -188,10 +189,17 @@ class CoachPortalController extends ApiController
     {
         $coach = $this->coachFor($request);
         $this->assertLesson($coach->id, $id);
-        DB::table('lessons')->where('id', $id)->where('coach_id', $coach->id)->update([
-            'status' => 'cancelled',
-            'updated_at' => now(),
-        ]);
+        DB::transaction(function () use ($id, $coach): void {
+            DB::table('lessons')->where('id', $id)->where('coach_id', $coach->id)->update([
+                'status' => 'cancelled',
+                'updated_at' => now(),
+            ]);
+            // Release enrolled players: a cancelled lesson must not leave bookings "booked".
+            DB::table('lesson_bookings')->where('lesson_id', $id)->where('status', 'booked')->update([
+                'status' => 'cancelled',
+                'updated_at' => now(),
+            ]);
+        });
 
         return response()->json($this->lessonPayload($this->lessonQuery($coach->id)->where('l.id', $id)->first()));
     }
@@ -271,6 +279,30 @@ class CoachPortalController extends ApiController
     {
         if (! DB::table('lessons')->where('id', $lessonId)->where('coach_id', $coachId)->exists()) {
             throw ApiException::notFound('Lesson not found');
+        }
+    }
+
+    /**
+     * Reject creating a lesson that overlaps another non-cancelled lesson for the
+     * same coach. Overlap is computed in PHP (start/end as epoch seconds) so the
+     * check is DB-dialect agnostic. Two windows [s1,e1) and [s2,e2) overlap iff
+     * s1 < e2 && s2 < e1.
+     */
+    private function assertNoCoachOverlap(string $coachId, string $startsAt, int $durationMinutes, ?string $ignoreLessonId = null): void
+    {
+        $newStart = strtotime($startsAt);
+        $newEnd = $newStart + $durationMinutes * 60;
+        $existing = DB::table('lessons')
+            ->where('coach_id', $coachId)
+            ->where('status', '!=', 'cancelled')
+            ->when($ignoreLessonId !== null, fn ($q) => $q->where('id', '!=', $ignoreLessonId))
+            ->get(['starts_at', 'duration_minutes']);
+        foreach ($existing as $row) {
+            $s = strtotime((string) $row->starts_at);
+            $e = $s + (int) $row->duration_minutes * 60;
+            if ($newStart < $e && $s < $newEnd) {
+                throw ApiException::conflict('Coach already has a lesson overlapping this time window');
+            }
         }
     }
 
