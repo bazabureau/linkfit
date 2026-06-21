@@ -87,7 +87,13 @@ class MediaController extends ApiController
         }
 
         $path = 'uploads/'.now()->format('Y/m').'/'.Str::uuid().'.'.$extension;
-        Storage::disk($disk)->put($path, $contents, ['visibility' => 'public']);
+        // Fail loudly if the write doesn't land (e.g. storage not writable by the
+        // PHP-FPM user) — otherwise we'd return 201 with a URL that 404s and the
+        // attachment silently never appears.
+        $stored = Storage::disk($disk)->put($path, $contents, ['visibility' => 'public']);
+        if ($stored === false || ! Storage::disk($disk)->exists($path)) {
+            throw ApiException::internal('Failed to store the uploaded file');
+        }
         $url = Storage::disk($disk)->url($path);
         $id = (string) Str::uuid();
         DB::table('media_assets')->insert([
