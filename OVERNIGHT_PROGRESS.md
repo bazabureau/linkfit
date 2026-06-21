@@ -14,6 +14,8 @@ Backend suite: 120 → **138 green**, pint clean.
 - [x] C. change-email revokes other sessions                           `fe7c876d`
 - [x] A. lessons: staff-cancel releases bookings + coach double-book    `5af1a208`
 - [x] A. americano: reject re-score completed + lock start/score        `a9625eb4`
+- [x] C. referral: 409 (not 500) on double-redeem race                  `e1aed857`
+- [x] C. devices: atomic upsert (no 500 on concurrent re-register)      `50cc7d86`
 - [x] E. launch config flag — VERIFIED already implemented (config/launch.php + LaunchConfig)
 - [ ] B. hardening (queue jobs, N+1/indexes, scheduler, notif service dedup) — NOT STARTED
 - [ ] C. deeper security (mass-assignment sweep, upload SSRF/mime, PII at-rest, secrets) — PARTIAL

@@ -7,8 +7,8 @@ Autonomous overnight engineering pass. Backend repo `apps/api-laravel` (Laravel 
 ## 0. TL;DR
 
 - **Full flow-by-flow audit** of all 11 business flows + cross-cutting infra completed (state machines + gaps with `file:line`). See §6.
-- **8 fixes shipped, all green-gated** (`php artisan test` + `pint --test`). Backend suite **111 → 138 passing**, 611 assertions, pint clean.
-- **3 P0 fixes were deployed to production** (main + live) earlier per your "deploy" instruction; **the other 5 are on branch `ideal/overnight-20260622` only**, awaiting your review (not deployed).
+- **10 fixes shipped, all green-gated** (`php artisan test` + `pint --test`). Backend suite **111 → 147 passing**, 648 assertions, pint clean.
+- **3 P0 fixes were deployed to production** (main + live) earlier per your "deploy" instruction; **the other 7 are on branch `ideal/overnight-20260622` only**, awaiting your review (not deployed).
 - **Launch config (50-day free, flag-driven) verified already implemented** — no paywall path active.
 - Confirmation: **web design untouched, all existing functions preserved, API_CONTRACT not broken.** (§5)
 
@@ -33,6 +33,8 @@ Autonomous overnight engineering pass. Backend repo `apps/api-laravel` (Laravel 
 6. **Change-email session revoke (P1 security)** — `MeController.php:184-194`: revokes other refresh-token families on email change (parity with change-password).
 7. **Lessons (P1)** — `CoachPortalController.php:187`, `PartnerLessonsController.php:223`, `AdminLessonsController.php:290`: staff cancel/delete releases `booked` enrollments → `cancelled` in a txn; `createLesson` rejects (409) a coach scheduled for an overlapping lesson (`assertNoCoachOverlap`).
 8. **Americano result-integrity (P1)** — `AmericanoController.php`: `score()` locks the match row + 409 on re-scoring a completed match (no silent rewrite, closes auto-complete race); `start()` locks the tournament row + re-checks `status==open` (no double-bracket).
+9. **Referral error-contract (P1)** — `ReferralsController.php`: `redeem()` wrapped in a txn with a unique-violation catch → 409 "already redeemed" instead of an unhandled 500 on the concurrent-redeem race (self-redeem 422 / unknown 404 preserved).
+10. **Device registration race (P1)** — `MeController.php`: device register now uses an atomic `upsert` (`INSERT ... ON CONFLICT(user_id,token)`) instead of the racy exists-then-insert that 500'd a concurrent re-register; `created_at` preserved.
 
 ### Verified, no change needed
 - **Launch config (Stream E)**: `config/launch.php` + `app/Services/Launch/LaunchConfig.php` already expose `monetization_enabled=false`, `premium_unlocked_for_all=true`, `booking_fee_enabled=false`, `online_payment_enabled=false`, `referral_enabled=true`, `window_days=50`, with correct gating (premium/free-cancel require the active window; fees require monetization). Entitlement resolution is centralized in `MembershipService`.
@@ -42,8 +44,8 @@ Autonomous overnight engineering pass. Backend repo `apps/api-laravel` (Laravel 
 
 ## 2. Tests (green-gate)
 
-- Backend: `php artisan test` → **138 passed / 611 assertions**, 0 failures. `pint --test` → clean.
-- New feature tests added this pass: `GameScoringEloTest`, `BookingMarkPaidGuardTest`, `MessagingReadAuthzTest`, `AccountDeletionTest`, `SocialBlockEnforcementTest`, `ChangeEmailRevokesSessionsTest`, `LessonStaffCancelTest`, `AmericanoScoringTest`.
+- Backend: `php artisan test` → **147 passed / 648 assertions**, 0 failures. `pint --test` → clean.
+- New feature tests added this pass: `GameScoringEloTest`, `BookingMarkPaidGuardTest`, `MessagingReadAuthzTest`, `AccountDeletionTest`, `SocialBlockEnforcementTest`, `ChangeEmailRevokesSessionsTest`, `LessonStaffCancelTest`, `AmericanoScoringTest`, `ReferralRedeemTest`, `DeviceRegistrationTest`.
 - Note: tests run on in-memory **SQLite**; Postgres-only behavior (GiST EXCLUDE / partial-unique races, the 23505 constraint branch) is implemented correctly but **not** coverable on the SQLite harness — see §4.
 
 ---
@@ -52,6 +54,9 @@ Autonomous overnight engineering pass. Backend repo `apps/api-laravel` (Laravel 
 
 Branch `ideal/overnight-20260622` (pushed to origin):
 ```
+50cc7d86 [overnight] devices: atomic upsert for device registration (no 500 on re-register)
+e1aed857 [overnight] referral: 409 (not 500) on double-redeem race
+6d7f5744 [overnight] docs: progress log + morning report
 a9625eb4 [overnight] americano: reject re-scoring completed + lock start/score
 5af1a208 [overnight] lessons: release enrollments on staff-cancel + block coach double-book
 fe7c876d [overnight] auth: revoke other sessions on change-email
@@ -83,7 +88,7 @@ fe7c876d [overnight] auth: revoke other sessions on change-email
 
 ## 6. Remaining roadmap (from the audit — prioritized)
 
-**P0/P1 backend correctness (Stream A):** waitlist promotion on slot-free + review-eligibility (booking); follow/like/comment notifications + report→moderator notify (social); tournament cancel→notify entrants + status-transition guards (PartnerOps/AdminOps); membership expiry/expiring notifications + downgrade job; referral reward (currently counter-only) + 409-not-500 on double-redeem; messaging `in_app_enabled`/quiet-hours honored at enqueue; account-deletion hard-purge + data-export worker (cron).
+**P0/P1 backend correctness (Stream A):** waitlist promotion on slot-free + review-eligibility (booking); follow/like/comment notifications + report→moderator notify (social); tournament cancel→notify entrants + status-transition guards (PartnerOps/AdminOps); membership expiry/expiring notifications + downgrade job; referral reward (currently counter-only — the 409-not-500 redeem race is now fixed); messaging `in_app_enabled`/quiet-hours honored at enqueue; account-deletion hard-purge + data-export worker (cron).
 
 **Hardening (Stream B):** move push/email/image/feed-fanout/ELO to Horizon jobs; add indexes for availability/feed/leaderboards/conversations; scheduler entries for hold-expiry (exists), waitlist-promotion, no-show, ELO season; unify `enqueueNotification`; mass-assignment allowlist sweep.
 
