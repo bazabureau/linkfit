@@ -76,6 +76,11 @@ class SocialController extends ApiController
                 ->leftJoin('courts as c', 'c.id', '=', 'g.court_id')
                 ->leftJoin('venues as v', 'v.id', '=', 'c.venue_id')
                 ->whereIn('s.slug', ['padel', 'tennis'])
+                // A game search row leaks the host's identity (display_name) and
+                // their hosted game, so honour the same bidirectional block rule
+                // applied to the players sub-query above — a blocked-either-way
+                // viewer must not see the host's games.
+                ->when($viewerId !== null, fn ($qq) => $this->whereNotBlocked($qq, $viewerId, 'h.id'))
                 ->where(function ($builder) use ($q) {
                     $builder->where('h.display_name', 'ilike', '%'.$q.'%')
                         ->orWhere('v.name', 'ilike', '%'.$q.'%')

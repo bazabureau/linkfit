@@ -103,6 +103,13 @@ class StoriesController extends ApiController
     public function view(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        // A block (either direction) hides the story from the viewer, mirroring
+        // the feed's bidirectional `whereNotBlocked` discovery rule — so a
+        // blocked viewer can neither read it nor inflate the author's view_count.
+        $story = DB::table('stories')->where('id', $id)->first(['user_id']);
+        if ($story !== null && $this->blockExistsBetween((string) $user->id, (string) $story->user_id)) {
+            throw ApiException::forbidden('Cannot view this story');
+        }
         $inserted = DB::table('story_views')->insertOrIgnore(['story_id' => $id, 'viewer_user_id' => $user->id, 'viewed_at' => now()]);
         if ($inserted) {
             DB::table('stories')->where('id', $id)->increment('view_count');
@@ -161,7 +168,7 @@ class StoriesController extends ApiController
         $user = $this->authUser($request);
         $data = $this->validateBody($request, ['emoji' => ['required', 'in:heart,fire,100,clap,padel']]);
         $story = DB::table('stories')->where('id', $id)->first(['user_id']);
-        if ($story !== null && $this->isBlockedBy((string) $user->id, (string) $story->user_id)) {
+        if ($story !== null && $this->blockExistsBetween((string) $user->id, (string) $story->user_id)) {
             throw ApiException::forbidden('Cannot react to this story');
         }
         DB::table('story_reactions')->updateOrInsert(
