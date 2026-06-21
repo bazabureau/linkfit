@@ -20,6 +20,8 @@ const unbounded = Unbounded({
 export const metadata: Metadata = {
   title: "LinkFit · Idarəetmə",
   description: "LinkFit administration panel",
+  // Internet-facing admin panel — never let crawlers index it.
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({

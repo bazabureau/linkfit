@@ -9,6 +9,14 @@ import {
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8788";
 
+/**
+ * Public Linkfit web key, sent as `X-Linkfit-App-Key` on every request. The
+ * Cloudflare/Laravel ApiKeyGuard rejects requests lacking a valid key with 403
+ * when REQUIRE_API_KEY=true (prod). Inlined at build via NEXT_PUBLIC_*.
+ */
+const APP_KEY = process.env.NEXT_PUBLIC_LINKFIT_APP_KEY;
+const APP_KEY_HEADER = "X-Linkfit-App-Key";
+
 const ACCESS_TTL_FALLBACK_SECONDS = 60 * 60; // 1h — overwritten by API response.
 const REFRESH_TTL_SECONDS = 60 * 60 * 24; // 1d, matches API refresh lifetime.
 
@@ -99,6 +107,9 @@ function buildHeaders(
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
   if (!headers.has("Accept")) headers.set("Accept", "application/json");
+  if (APP_KEY && !headers.has(APP_KEY_HEADER)) {
+    headers.set(APP_KEY_HEADER, APP_KEY);
+  }
   return headers;
 }
 
@@ -111,6 +122,9 @@ export function apiHeaders(
     next.set("Authorization", `Bearer ${accessToken}`);
   }
   if (!next.has("Accept")) next.set("Accept", "application/json");
+  if (APP_KEY && !next.has(APP_KEY_HEADER)) {
+    next.set(APP_KEY_HEADER, APP_KEY);
+  }
   return next;
 }
 

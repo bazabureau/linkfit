@@ -71,7 +71,11 @@ export interface PartnerAccount {
 }
 
 export interface VenuesListResponse {
-  items: Venue[];
+  // The admin endpoint exposes both `items` (envelope) and `results` (legacy).
+  items?: Venue[];
+  results?: Venue[];
+  total?: number;
+  count?: number;
 }
 
 export interface CourtsListResponse {
@@ -139,9 +143,17 @@ export interface UpdateVenuePartnerPayload {
 
 // ---------- Query keys ----------
 
+export interface VenuesListParams {
+  limit?: number;
+  offset?: number;
+  status?: NonNullable<Venue["status"]>;
+  partner?: boolean;
+  q?: string;
+}
+
 export const venuesKeys = {
   all: ["venues"] as const,
-  list: (params: { limit?: number; offset?: number } = {}) =>
+  list: (params: VenuesListParams = {}) =>
     [...venuesKeys.all, "list", params] as const,
   detail: (id: string) => [...venuesKeys.all, "detail", id] as const,
   courts: (venueId: string) => [...venuesKeys.all, "courts", venueId] as const,
@@ -151,15 +163,24 @@ export const venuesKeys = {
 
 // ---------- Hooks ----------
 
-export function useVenues(params: { limit?: number; offset?: number } = {}): UseQueryResult<Venue[]> {
-  const { limit = 100, offset = 0 } = params;
+export function useVenues(params: VenuesListParams = {}): UseQueryResult<Venue[]> {
+  const { limit = 100, offset = 0, status, partner, q } = params;
   return useQuery({
-    queryKey: venuesKeys.list({ limit, offset }),
+    queryKey: venuesKeys.list({ limit, offset, status, partner, q }),
     queryFn: async () => {
+      // Use the admin endpoint (not the public /venues catalog), so the picker
+      // sees every venue regardless of status/slug, and can be filtered by
+      // status/partner/q. The admin envelope exposes `items` (and `results`).
+      const usp = new URLSearchParams();
+      usp.set("limit", String(limit));
+      usp.set("offset", String(offset));
+      if (status) usp.set("status", status);
+      if (partner !== undefined) usp.set("partner", partner ? "1" : "0");
+      if (q) usp.set("q", q);
       const res = await api.get<VenuesListResponse>(
-        `/api/v1/venues?limit=${limit}&offset=${offset}`,
+        `/api/v1/admin/venues?${usp.toString()}`,
       );
-      return res.items ?? [];
+      return res.items ?? res.results ?? [];
     },
   });
 }

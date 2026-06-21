@@ -28,21 +28,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { api } from "@/lib/api";
-import { partnerKeys, type Court } from "@/lib/partner-queries";
+import { usePartnerCourts } from "@/lib/partner-queries";
 import { formatDate, formatTime } from "@/lib/date-format";
-
-// The partner courts list endpoint returns `{ items: [...] }`; fetch + unwrap.
-function usePartnerCourtsList(): Court[] {
-  const query = useQuery({
-    queryKey: partnerKeys.courts,
-    queryFn: async () => {
-      const res = await api.get<{ items: Court[] }>("/api/v1/partner/courts");
-      return res.items ?? [];
-    },
-    staleTime: 30_000,
-  });
-  return query.data ?? [];
-}
 
 type WaitlistStatus = "active" | "notified" | "cancelled" | "expired";
 
@@ -148,7 +135,8 @@ export default function WaitlistPage(): React.JSX.Element {
   const [courtFilter, setCourtFilter] = useState<string>("all");
   const [date, setDate] = useState<string>("");
 
-  const courts = usePartnerCourtsList();
+  const { data: courtsData } = usePartnerCourts();
+  const courts = courtsData ?? [];
 
   const queryString = useMemo(() => {
     const usp = new URLSearchParams();
@@ -250,13 +238,18 @@ export default function WaitlistPage(): React.JSX.Element {
       <div className="rounded-2xl border border-border bg-surface p-3 shadow-card">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           {/* Status segmented control */}
-          <div className="flex flex-wrap items-center gap-1 rounded-xl border border-border bg-surfaceElevated/60 p-1">
+          <div
+            className="flex flex-wrap items-center gap-1 rounded-xl border border-border bg-surfaceElevated/60 p-1"
+            role="group"
+            aria-label="Status filtri"
+          >
             {STATUS_FILTERS.map((f) => {
               const active = statusFilter === f.value;
               return (
                 <button
                   key={f.value}
                   type="button"
+                  aria-pressed={active}
                   onClick={() => setStatusFilter(f.value)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                     active
@@ -277,6 +270,7 @@ export default function WaitlistPage(): React.JSX.Element {
               <select
                 value={courtFilter}
                 onChange={(e) => setCourtFilter(e.target.value)}
+                aria-label="Kort filtri"
                 className="h-10 cursor-pointer rounded-lg border border-border bg-surfaceElevated pl-8 pr-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/60"
               >
                 <option value="all">Bütün kortlar</option>

@@ -6,8 +6,34 @@ import {
   setCookie,
 } from "./cookies";
 
+// In production the API URL must be an explicit https endpoint — fail fast
+// rather than silently shipping cleartext requests to a non-existent host.
+if (
+  process.env.NODE_ENV === "production" &&
+  process.env.IS_BUILD_PHASE !== "true" &&
+  (!process.env.NEXT_PUBLIC_API_URL ||
+    !process.env.NEXT_PUBLIC_API_URL.startsWith("https://"))
+) {
+  throw new Error(
+    "NEXT_PUBLIC_API_URL must be an https:// URL in production (e.g. https://api.linkfit.az)",
+  );
+}
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8788";
+
+// Public Linkfit app key sent as X-Linkfit-App-Key on every request. This
+// identifies Linkfit-owned client builds to the Cloudflare/API gate
+// (ApiKeyGuard); it is NOT a private secret and never replaces user JWT auth.
+const LINKFIT_APP_KEY =
+  process.env.NEXT_PUBLIC_LINKFIT_APP_KEY || process.env.NEXT_PUBLIC_API_KEY;
+
+/** Inject the public app key header if configured and not already present. */
+function applyAppKey(headers: Headers): void {
+  if (LINKFIT_APP_KEY && !headers.has("X-Linkfit-App-Key")) {
+    headers.set("X-Linkfit-App-Key", LINKFIT_APP_KEY);
+  }
+}
 
 // The app is served under a basePath (default `/owner`). Raw browser
 // navigations (window.location) are NOT basePath-prefixed by Next.js, so we
@@ -105,6 +131,7 @@ function buildHeaders(
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
   if (!headers.has("Accept")) headers.set("Accept", "application/json");
+  applyAppKey(headers);
   return headers;
 }
 
@@ -117,6 +144,7 @@ export function apiHeaders(
     next.set("Authorization", `Bearer ${accessToken}`);
   }
   if (!next.has("Accept")) next.set("Accept", "application/json");
+  applyAppKey(next);
   return next;
 }
 
@@ -205,6 +233,56 @@ export async function apiFetch<T>(
   }
 
   return parseResponse<T>(res);
+}
+
+/**
+ * Fetch a binary/blob endpoint (e.g. CSV export) using the same auth flow as
+ * apiFetch: it carries the access token + app key header and transparently
+ * refreshes + retries once on a 401 so an expired access token does not cause a
+ * spurious download failure while the session is still valid.
+ */
+export async function apiBlob(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<Blob> {
+  const url = path.startsWith("http")
+    ? path
+    : `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+
+  const { json, skipAuth, skipRefresh, ...init } = options;
+  const body =
+    json !== undefined ? JSON.stringify(json) : (init.body as BodyInit | null | undefined);
+
+  const accessToken = getCookie(ACCESS_TOKEN_COOKIE);
+  const headers = buildHeaders({ ...options, body }, accessToken);
+
+  const doFetch = (token: string | null): Promise<Response> => {
+    const h = new Headers(headers);
+    if (!skipAuth && token) h.set("Authorization", `Bearer ${token}`);
+    return fetch(url, { ...init, headers: h, body });
+  };
+
+  let res = await doFetch(accessToken);
+
+  if (res.status === 401 && !skipAuth && !skipRefresh) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      res = await doFetch(newToken);
+      if (res.status === 401) {
+        redirectToLogin();
+        throw await toAPIError(res);
+      }
+    } else {
+      redirectToLogin();
+      throw await toAPIError(res);
+    }
+  }
+
+  if (!res.ok) {
+    throw await toAPIError(res);
+  }
+
+  return res.blob();
 }
 
 export const api = {

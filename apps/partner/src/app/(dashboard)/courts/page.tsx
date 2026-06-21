@@ -30,39 +30,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useQuery } from "@tanstack/react-query";
 import {
+  usePartnerCourts,
   useCreatePartnerCourt,
   useUpdatePartnerCourt,
   useDeletePartnerCourt,
   useSportsOptions,
-  partnerKeys,
   type Court,
 } from "@/lib/partner-queries";
-import { api } from "@/lib/api";
 import { formatDate } from "@/lib/date-format";
-
-// The partner courts list endpoint returns `{ items: [...] }`; fetch it here
-// and unwrap so the page always works with a real array.
-function usePartnerCourtsList(): {
-  data: Court[];
-  isLoading: boolean;
-  isError: boolean;
-} {
-  const query = useQuery({
-    queryKey: partnerKeys.courts,
-    queryFn: async () => {
-      const res = await api.get<{ items: Court[] }>("/api/v1/partner/courts");
-      return res.items ?? [];
-    },
-    staleTime: 30_000,
-  });
-  return {
-    data: query.data ?? [],
-    isLoading: query.isLoading,
-    isError: query.isError,
-  };
-}
 
 const SPORT_LABEL: Record<string, string> = {
   padel: "Padel",
@@ -157,7 +133,8 @@ export default function CourtsPage(): React.JSX.Element {
   const [hourlyPrice, setHourlyPrice] = useState("");
 
   // Queries & Mutations
-  const { data: courts, isLoading } = usePartnerCourtsList();
+  const { data: courtsData, isLoading } = usePartnerCourts();
+  const courts = useMemo(() => courtsData ?? [], [courtsData]);
   const { data: allSports = [] } = useSportsOptions();
   // The partner courts endpoint only returns/accepts padel & tennis courts,
   // so restrict the selectable sports to match (otherwise a created court

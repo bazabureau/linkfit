@@ -7,6 +7,14 @@ import { defineConfig, devices } from "@playwright/test";
  * tests at the Linkfit API on :3000. Override via env when running against
  * staging or a deployed server.
  */
+// Default the public Linkfit app key for the *.unit.spec.ts header tests, which
+// import src/lib/api.ts directly (the key is read once at module-eval time).
+// This is a throwaway test value, never a real lk_ secret, and is only applied
+// when the environment hasn't already provided one.
+if (!process.env.NEXT_PUBLIC_LINKFIT_APP_KEY) {
+  process.env.NEXT_PUBLIC_LINKFIT_APP_KEY = "lk_test_partner_key";
+}
+
 const PORT = Number(process.env.PORT ?? 3200);
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}/admin`;
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";

@@ -13,8 +13,13 @@ import {
   Gamepad2,
   GraduationCap,
   LayoutDashboard,
+  LifeBuoy,
+  LineChart,
   LogOut,
+  ShieldAlert,
+  Tag,
   Trophy,
+  UserCog,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -31,13 +36,19 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
+  { href: "/analytics", label: "Analytics", icon: LineChart },
   { href: "/users", label: "Users", icon: Users },
   { href: "/games", label: "Games", icon: Gamepad2 },
   { href: "/venues", label: "Venues", icon: Building2 },
   { href: "/coaches", label: "Coaches", icon: GraduationCap },
   { href: "/tournaments", label: "Tournaments", icon: Trophy },
   { href: "/bookings", label: "Bookings", icon: CalendarCheck2 },
+  { href: "/promos", label: "Promo codes", icon: Tag },
+  { href: "/support", label: "Support", icon: LifeBuoy },
+  { href: "/moderation", label: "Moderation", icon: ShieldAlert },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/staff", label: "Staff", icon: UserCog },
+  { href: "/data-rights", label: "Data rights", icon: ClipboardList },
   { href: "/audit", label: "Audit", icon: ClipboardList },
 ];
 const ADMIN_BASE_PATH = process.env.NEXT_PUBLIC_ADMIN_BASE_PATH || "/admin";

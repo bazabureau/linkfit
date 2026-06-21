@@ -30,16 +30,21 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Label } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   usePartnerBookings,
   useCancelPartnerBooking,
   useMarkPartnerBookingPaid,
+  useCheckInPartnerBooking,
+  useUndoCheckInPartnerBooking,
+  useMarkPartnerBookingNoShow,
+  useClearPartnerBookingNoShow,
+  useRefundPartnerBooking,
+  usePartnerCourts,
   usePartnerVenue,
   partnerKeys,
   type Booking,
   type BookingStatus,
-  type Court,
 } from "@/lib/partner-queries";
 import { api } from "@/lib/api";
 import { formatDateTime } from "@/lib/date-format";
@@ -53,19 +58,6 @@ import {
   money,
 } from "./booking-utils";
 import { BookingDrawer } from "./booking-drawer";
-
-// The partner courts list endpoint returns `{ items: [...] }`; fetch + unwrap.
-function usePartnerCourtsList(): { data: Court[] } {
-  const query = useQuery({
-    queryKey: partnerKeys.courts,
-    queryFn: async () => {
-      const res = await api.get<{ items: Court[] }>("/api/v1/partner/courts");
-      return res.items ?? [];
-    },
-    staleTime: 30_000,
-  });
-  return { data: query.data ?? [] };
-}
 
 const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 const PAGE_SIZE = 12;
@@ -229,7 +221,8 @@ export default function ReservationsPage(): React.JSX.Element {
   const [markPaidOnCreate, setMarkPaidOnCreate] = useState(false);
 
   // Fetch Courts & venue (for header label)
-  const { data: courts } = usePartnerCourtsList();
+  const { data: courtsData } = usePartnerCourts();
+  const courts = useMemo(() => courtsData ?? [], [courtsData]);
   const { data: venue } = usePartnerVenue();
 
   const durationMinutes = useMemo(() => {
@@ -289,7 +282,15 @@ export default function ReservationsPage(): React.JSX.Element {
   const qc = useQueryClient();
   const cancelMut = useCancelPartnerBooking();
   const markPaidMut = useMarkPartnerBookingPaid();
+  const checkInMut = useCheckInPartnerBooking();
+  const undoCheckInMut = useUndoCheckInPartnerBooking();
+  const noShowMut = useMarkPartnerBookingNoShow();
+  const clearNoShowMut = useClearPartnerBookingNoShow();
+  const refundMut = useRefundPartnerBooking();
   const [creating, setCreating] = useState(false);
+
+  // Refund confirmation target.
+  const [confirmRefund, setConfirmRefund] = useState<Booking | null>(null);
 
   // Compute dynamic stats
   const stats = useMemo(() => {
@@ -376,6 +377,79 @@ export default function ReservationsPage(): React.JSX.Element {
         "Əməliyyat uğursuz oldu",
         message || "Rezervasiya ödənildi olaraq qeyd edilə bilmədi",
       );
+    }
+  };
+
+  // ── Venue-ops actions (check-in / no-show / refund) ──
+  // Optimistically reflect the action in the open drawer too.
+  const patchDetail = (id: string, patch: Partial<Booking>): void => {
+    setDetail((d) => (d && d.id === id ? { ...d, ...patch } : d));
+  };
+
+  const nowIso = (): string => new Date().toISOString();
+
+  const handleCheckIn = async (b: Booking): Promise<void> => {
+    try {
+      await checkInMut.mutateAsync({ id: b.id });
+      patchDetail(b.id, { checked_in_at: nowIso(), no_show_at: null });
+      toast.success("Qeydiyyat alındı", `${getBookerName(b)} kortda qeydə alındı.`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error("Əməliyyat uğursuz oldu", message || "Qeydiyyat alınmadı.");
+    }
+  };
+
+  const handleUndoCheckIn = async (b: Booking): Promise<void> => {
+    try {
+      await undoCheckInMut.mutateAsync({ id: b.id });
+      patchDetail(b.id, { checked_in_at: null });
+      toast.success("Qeydiyyat ləğv edildi", `${getBookerName(b)} üçün qeydiyyat geri alındı.`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error("Əməliyyat uğursuz oldu", message || "Geri alınmadı.");
+    }
+  };
+
+  const handleNoShow = async (b: Booking): Promise<void> => {
+    try {
+      await noShowMut.mutateAsync({ id: b.id });
+      patchDetail(b.id, { no_show_at: nowIso(), checked_in_at: null });
+      toast.success("Gəlmədi qeyd edildi", `${getBookerName(b)} gəlmədi olaraq işarələndi.`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error("Əməliyyat uğursuz oldu", message || "Qeyd edilmədi.");
+    }
+  };
+
+  const handleClearNoShow = async (b: Booking): Promise<void> => {
+    try {
+      await clearNoShowMut.mutateAsync({ id: b.id });
+      patchDetail(b.id, { no_show_at: null });
+      toast.success("Təmizləndi", `${getBookerName(b)} üçün "gəlmədi" qeydi silindi.`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error("Əməliyyat uğursuz oldu", message || "Silinmədi.");
+    }
+  };
+
+  const handleRefund = async (): Promise<void> => {
+    if (!confirmRefund) return;
+    const target = confirmRefund;
+    setConfirmRefund(null);
+    try {
+      await refundMut.mutateAsync({ id: target.id, refund_status: "processed" });
+      patchDetail(target.id, {
+        status: "refunded",
+        refund_status: "processed",
+        refunded_at: nowIso(),
+      });
+      toast.success(
+        "Geri qaytarıldı",
+        `${getBookerName(target)} üçün ${money(target.total_minor, target.currency)} geri qaytarıldı.`,
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error("Əməliyyat uğursuz oldu", message || "Geri qaytarılmadı.");
     }
   };
 
@@ -531,9 +605,14 @@ export default function ReservationsPage(): React.JSX.Element {
               Gözləmə Siyahısı
             </Link>
           </Button>
-          <div className="inline-flex items-center gap-1 rounded-xl border border-border bg-surface p-1">
+          <div
+            className="inline-flex items-center gap-1 rounded-xl border border-border bg-surface p-1"
+            role="group"
+            aria-label="Görünüş seçimi"
+          >
             <button
               onClick={() => setViewTab("calendar")}
+              aria-pressed={viewTab === "calendar"}
               className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                 viewTab === "calendar"
                   ? "bg-accent text-accent-ink"
@@ -545,6 +624,7 @@ export default function ReservationsPage(): React.JSX.Element {
             </button>
             <button
               onClick={() => setViewTab("list")}
+              aria-pressed={viewTab === "list"}
               className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                 viewTab === "list"
                   ? "bg-accent text-accent-ink"
@@ -602,7 +682,11 @@ export default function ReservationsPage(): React.JSX.Element {
             Matchmaking Görünüşü
           </span>
         </div>
-        <div className="inline-flex items-center gap-1 rounded-lg border border-border bg-background/60 p-0.5">
+        <div
+          className="inline-flex items-center gap-1 rounded-lg border border-border bg-background/60 p-0.5"
+          role="group"
+          aria-label="Matchmaking görünüşü"
+        >
           {(
             [
               ["all", "Bütün Oyunlar"],
@@ -613,6 +697,7 @@ export default function ReservationsPage(): React.JSX.Element {
             <button
               key={key}
               onClick={() => setMatchmakingFilter(key)}
+              aria-pressed={matchmakingFilter === key}
               className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                 matchmakingFilter === key
                   ? "bg-accent text-accent-ink"
@@ -873,6 +958,7 @@ export default function ReservationsPage(): React.JSX.Element {
                   <select
                     value={selectedCourtId}
                     onChange={(e) => setSelectedCourtId(e.target.value)}
+                    aria-label="Kort filtri"
                     className="h-10 cursor-pointer rounded-lg border border-border bg-surfaceElevated px-3 text-sm text-foreground transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent lg:w-44"
                   >
                     <option value="all">Bütün Kortlar</option>
@@ -889,6 +975,7 @@ export default function ReservationsPage(): React.JSX.Element {
                     onChange={(e) =>
                       setStatus(e.target.value as BookingStatus | "all")
                     }
+                    aria-label="Status filtri"
                     className="h-10 cursor-pointer rounded-lg border border-border bg-surfaceElevated px-3 text-sm text-foreground transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent lg:w-44"
                   >
                     <option value="all">Bütün Statuslar</option>
@@ -1083,6 +1170,16 @@ export default function ReservationsPage(): React.JSX.Element {
                                     Ödənildi
                                   </Button>
                                 )}
+                                {(booking.status === "paid" ||
+                                  booking.status === "partially_paid") && (
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => setConfirmRefund(booking)}
+                                  >
+                                    Geri qaytar
+                                  </Button>
+                                )}
                                 {booking.status !== "cancelled" &&
                                   booking.status !== "refunded" && (
                                     <Button
@@ -1152,6 +1249,18 @@ export default function ReservationsPage(): React.JSX.Element {
         onClose={() => setDetail(null)}
         onMarkPaid={(b) => setConfirmPaid(b)}
         onCancel={(b) => setConfirmCancel(b)}
+        onCheckIn={handleCheckIn}
+        onUndoCheckIn={handleUndoCheckIn}
+        onNoShow={handleNoShow}
+        onClearNoShow={handleClearNoShow}
+        onRefund={(b) => setConfirmRefund(b)}
+        busy={
+          checkInMut.isPending ||
+          undoCheckInMut.isPending ||
+          noShowMut.isPending ||
+          clearNoShowMut.isPending ||
+          refundMut.isPending
+        }
       />
 
       {/* ─── DIALOG 1: NEW WALK-IN RESERVATION ───────────────────────────── */}
@@ -1459,6 +1568,49 @@ export default function ReservationsPage(): React.JSX.Element {
               disabled={markPaidMut.isPending}
             >
               {markPaidMut.isPending ? "Gözləyin…" : "Ödənişi Təsdiqlə"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* ─── DIALOG 4: REFUND CONFIRMATION ───────────────────────────────── */}
+      <Dialog
+        open={confirmRefund !== null}
+        onOpenChange={(open) => (open ? null : setConfirmRefund(null))}
+        title="Geri Qaytarmanın Təsdiqi"
+      >
+        <div className="space-y-4">
+          <p className="text-sm leading-relaxed text-foregroundMuted">
+            <span className="font-semibold text-foreground">
+              {confirmRefund ? getBookerName(confirmRefund) : ""}
+            </span>{" "}
+            tərəfindən kort{" "}
+            <span className="font-semibold text-foreground">
+              &quot;{confirmRefund?.court_name}&quot;
+            </span>{" "}
+            üçün ödənilmiş{" "}
+            <span className="font-semibold text-accent">
+              {confirmRefund
+                ? money(confirmRefund.total_minor, confirmRefund.currency)
+                : ""}
+            </span>{" "}
+            məbləğini geri qaytarmaq istədiyinizə əminsiniz? Rezervasiyanın
+            statusu &quot;Geri qaytarılıb&quot; olaraq dəyişəcək.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => setConfirmRefund(null)}
+              disabled={refundMut.isPending}
+            >
+              İmtina
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleRefund}
+              disabled={refundMut.isPending}
+            >
+              {refundMut.isPending ? "Gözləyin…" : "Bəli, geri qaytar"}
             </Button>
           </div>
         </div>

@@ -14,8 +14,11 @@ import {
   Menu,
   MessageSquare,
   Settings,
+  ShieldCheck,
   Trophy,
+  Users,
   Wallet,
+  Wrench,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -54,8 +57,18 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: "Əməliyyatlar",
+    items: [
+      { href: "/blocks", label: "Kort Bloklamaları", icon: Wrench },
+      { href: "/staff", label: "İşçilər", icon: Users },
+    ],
+  },
+  {
     title: "Konfiqurasiya",
-    items: [{ href: "/settings", label: "Məkan Ayarları", icon: Settings }],
+    items: [
+      { href: "/settings", label: "Məkan Ayarları", icon: Settings },
+      { href: "/account", label: "Hesab Təhlükəsizliyi", icon: ShieldCheck },
+    ],
   },
 ];
 

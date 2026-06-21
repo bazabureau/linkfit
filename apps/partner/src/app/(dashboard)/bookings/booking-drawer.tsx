@@ -13,6 +13,10 @@ import {
   CheckCircle2,
   Ban,
   Gamepad2,
+  LogIn,
+  UserX,
+  Undo2,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Booking } from "@/lib/partner-queries";
@@ -31,6 +35,13 @@ interface BookingDrawerProps {
   onClose: () => void;
   onMarkPaid: (b: Booking) => void;
   onCancel: (b: Booking) => void;
+  onCheckIn: (b: Booking) => void;
+  onUndoCheckIn: (b: Booking) => void;
+  onNoShow: (b: Booking) => void;
+  onClearNoShow: (b: Booking) => void;
+  onRefund: (b: Booking) => void;
+  /** Disable action buttons while a mutation is in flight. */
+  busy?: boolean;
 }
 
 function Field({
@@ -64,6 +75,12 @@ export function BookingDrawer({
   onClose,
   onMarkPaid,
   onCancel,
+  onCheckIn,
+  onUndoCheckIn,
+  onNoShow,
+  onClearNoShow,
+  onRefund,
+  busy = false,
 }: BookingDrawerProps): React.JSX.Element {
   const open = booking !== null;
 
@@ -98,6 +115,12 @@ export function BookingDrawer({
   const canMarkPaid =
     b && (b.status === "pending_payment" || b.status === "partially_paid");
   const canCancel = b && b.status !== "cancelled" && b.status !== "refunded";
+  // Front-desk actions only make sense for live (non-cancelled/refunded) bookings.
+  const isActive =
+    b && b.status !== "cancelled" && b.status !== "refunded" && b.status !== "failed";
+  const checkedIn = Boolean(b?.checked_in_at);
+  const noShow = Boolean(b?.no_show_at);
+  const canRefund = b && (b.status === "paid" || b.status === "partially_paid");
 
   return (
     <div
@@ -251,34 +274,120 @@ export function BookingDrawer({
                     {formatDateTime(b.cancelled_at)}
                   </Field>
                 ) : null}
+
+                {b.checked_in_at ? (
+                  <Field icon={LogIn} label="Qeydiyyat (Check-in)">
+                    <span className="text-accent">
+                      {formatDateTime(b.checked_in_at)}
+                    </span>
+                  </Field>
+                ) : null}
+
+                {b.no_show_at ? (
+                  <Field icon={UserX} label="Gəlmədi (No-show)">
+                    <span className="text-warning">
+                      {formatDateTime(b.no_show_at)}
+                    </span>
+                  </Field>
+                ) : null}
+
+                {b.refunded_at ? (
+                  <Field icon={RotateCcw} label="Geri qaytarılma">
+                    {formatDateTime(b.refunded_at)}
+                  </Field>
+                ) : null}
               </div>
             </div>
 
             {/* Actions */}
-            {(canMarkPaid || canCancel) && (
-              <div className="shrink-0 border-t border-border bg-surface/60 px-6 py-4">
-                <div className="flex gap-2">
-                  {canMarkPaid ? (
-                    <Button
-                      variant="primary"
-                      className="flex-1"
-                      onClick={() => onMarkPaid(b)}
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      Ödənildi
-                    </Button>
-                  ) : null}
-                  {canCancel ? (
-                    <Button
-                      variant={canMarkPaid ? "secondary" : "danger"}
-                      className="flex-1"
-                      onClick={() => onCancel(b)}
-                    >
-                      <Ban className="h-4 w-4" />
-                      Ləğv et
-                    </Button>
-                  ) : null}
-                </div>
+            {(canMarkPaid || canCancel || isActive || canRefund) && (
+              <div className="shrink-0 space-y-2.5 border-t border-border bg-surface/60 px-6 py-4">
+                {/* Front-desk: check-in / no-show */}
+                {isActive ? (
+                  <div className="flex gap-2">
+                    {checkedIn ? (
+                      <Button
+                        variant="secondary"
+                        className="flex-1"
+                        disabled={busy}
+                        onClick={() => onUndoCheckIn(b)}
+                      >
+                        <Undo2 className="h-4 w-4" />
+                        Qeydiyyatı geri al
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        className="flex-1"
+                        disabled={busy}
+                        onClick={() => onCheckIn(b)}
+                      >
+                        <LogIn className="h-4 w-4" />
+                        Check-in
+                      </Button>
+                    )}
+                    {noShow ? (
+                      <Button
+                        variant="secondary"
+                        className="flex-1"
+                        disabled={busy}
+                        onClick={() => onClearNoShow(b)}
+                      >
+                        <Undo2 className="h-4 w-4" />
+                        Gəlmədi qeydini sil
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        className="flex-1"
+                        disabled={busy}
+                        onClick={() => onNoShow(b)}
+                      >
+                        <UserX className="h-4 w-4" />
+                        Gəlmədi
+                      </Button>
+                    )}
+                  </div>
+                ) : null}
+
+                {/* Payment: mark-paid / refund / cancel */}
+                {(canMarkPaid || canCancel || canRefund) && (
+                  <div className="flex gap-2">
+                    {canMarkPaid ? (
+                      <Button
+                        variant="primary"
+                        className="flex-1"
+                        disabled={busy}
+                        onClick={() => onMarkPaid(b)}
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        Ödənildi
+                      </Button>
+                    ) : null}
+                    {canRefund ? (
+                      <Button
+                        variant="secondary"
+                        className="flex-1"
+                        disabled={busy}
+                        onClick={() => onRefund(b)}
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        Geri qaytar
+                      </Button>
+                    ) : null}
+                    {canCancel ? (
+                      <Button
+                        variant={canMarkPaid || canRefund ? "secondary" : "danger"}
+                        className="flex-1"
+                        disabled={busy}
+                        onClick={() => onCancel(b)}
+                      >
+                        <Ban className="h-4 w-4" />
+                        Ləğv et
+                      </Button>
+                    ) : null}
+                  </div>
+                )}
               </div>
             )}
           </>

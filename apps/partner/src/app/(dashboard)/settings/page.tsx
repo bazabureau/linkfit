@@ -30,6 +30,7 @@ import { SectionCard } from "./SectionCard";
 import { Field } from "./Field";
 import { PhotoUploader } from "./PhotoUploader";
 import { AppPreviewCard } from "./AppPreviewCard";
+import { RulesCard } from "./RulesCard";
 
 const QUICK_LINKS: {
   href: string;
@@ -373,6 +374,9 @@ export default function SettingsPage(): React.JSX.Element {
           </Button>
         </div>
       </form>
+
+      {/* Booking rules — separate form (its own save), kept outside the venue form. */}
+      <RulesCard step={5} />
     </div>
   );
 }

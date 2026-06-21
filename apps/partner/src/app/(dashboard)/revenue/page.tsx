@@ -27,8 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { api, API_BASE_URL, apiHeaders } from "@/lib/api";
-import { ACCESS_TOKEN_COOKIE, getCookie } from "@/lib/cookies";
+import { api, apiBlob } from "@/lib/api";
 import { formatDate, formatTime } from "@/lib/date-format";
 import { RevenueChart } from "./RevenueChart";
 
@@ -214,15 +213,11 @@ export default function RevenuePage(): React.JSX.Element {
       if (from) usp.set("from", new Date(from + "T00:00:00").toISOString());
       if (to) usp.set("to", new Date(to + "T23:59:59").toISOString());
       usp.set("format", "csv");
-      const token = getCookie(ACCESS_TOKEN_COOKIE);
-      const res = await fetch(
-        `${API_BASE_URL}/api/v1/partner/revenue?${usp.toString()}`,
-        {
-          headers: apiHeaders(undefined, token),
-        },
+      // Route through apiBlob so the access token + X-Linkfit-App-Key header are
+      // attached and a 401 transparently refreshes + retries before failing.
+      const blob = await apiBlob(
+        `/api/v1/partner/revenue?${usp.toString()}`,
       );
-      if (!res.ok) throw new Error("İxrac alınmadı");
-      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
