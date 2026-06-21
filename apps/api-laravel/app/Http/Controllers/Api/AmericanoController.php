@@ -155,6 +155,17 @@ class AmericanoController extends ApiController
         $courtCount = max(1, (int) ($tournament->court_count ?? 1));
 
         DB::transaction(function () use ($id, $fixtures, $courtCount): void {
+            // Lock the tournament row and re-read its status inside the
+            // transaction. Two concurrent start() calls can both pass the
+            // pre-transaction status==='open' check above; without this locked
+            // re-check the loser would insert a SECOND copy of the bracket and
+            // flip an already-`playing` event again. (Mirrors the locked
+            // re-check in GamesController::join / BookingsController.)
+            $locked = DB::table('americano_tournaments')->where('id', $id)->lockForUpdate()->first(['status']);
+            if ($locked === null || $locked->status !== 'open') {
+                throw ApiException::conflict('Tournament has already been started');
+            }
+
             $now = now();
             $insertRows = [];
             foreach ($fixtures as $roundIndex => $round) {
@@ -382,6 +393,17 @@ class AmericanoController extends ApiController
         // ALL of each team's completed matches so re-scoring a match is
         // idempotent (no double-counting) rather than incrementally applied.
         DB::transaction(function () use ($id, $data, $match) {
+            // Lock the match row and re-read its status inside the transaction
+            // before the read-then-write completion check below, closing the
+            // race where two concurrent score() calls both see the same status.
+            // A match that is ALREADY `completed` must not be silently
+            // overwritten: reject result-tampering with a 409 so a finished
+            // result can never be rewritten. First-time scoring is unaffected.
+            $locked = DB::table('americano_matches')->where('id', $id)->lockForUpdate()->first(['status']);
+            if ($locked !== null && $locked->status === 'completed') {
+                throw ApiException::conflict('This match has already been scored');
+            }
+
             DB::table('americano_matches')->where('id', $id)->update([
                 'score_a' => $data['score_a'],
                 'score_b' => $data['score_b'],
