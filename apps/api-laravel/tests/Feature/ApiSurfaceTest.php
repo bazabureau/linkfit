@@ -9,27 +9,6 @@ class ApiSurfaceTest extends TestCase
 {
     public function test_all_mutating_api_v1_routes_are_authenticated_unless_explicitly_public(): void
     {
-        $publicMutatingRoutes = [
-            'api/v1/analytics/events',
-            'api/v1/auth/admin/login',
-            'api/v1/auth/apple',
-            'api/v1/auth/coach/login',
-            'api/v1/auth/google',
-            'api/v1/auth/login',
-            'api/v1/auth/logout',
-            'api/v1/auth/owner/login',
-            'api/v1/auth/refresh',
-            'api/v1/auth/register',
-            'api/v1/auth/request-password-reset',
-            'api/v1/auth/reset-password',
-            'api/v1/auth/verify-email',
-            'api/v1/auth/verify-password-reset-code',
-            'api/v1/bookings/quote',
-            'api/v1/launch-waitlist',
-            'api/v1/promo-codes/validate',
-            'api/v1/support/contact',
-        ];
-
         $violations = [];
         foreach (Route::getRoutes() as $route) {
             $uri = $route->uri();
@@ -39,7 +18,7 @@ class ApiSurfaceTest extends TestCase
                 continue;
             }
 
-            if (in_array($uri, $publicMutatingRoutes, true)) {
+            if (in_array($uri, $this->publicMutatingRoutes(), true)) {
                 continue;
             }
 
@@ -52,33 +31,34 @@ class ApiSurfaceTest extends TestCase
         $this->assertSame([], $violations);
     }
 
+    public function test_all_public_api_v1_routes_are_intentionally_allowlisted(): void
+    {
+        $unexpectedPublicRoutes = [];
+        foreach (Route::getRoutes() as $route) {
+            $uri = $route->uri();
+            if (! str_starts_with($uri, 'api/v1/')) {
+                continue;
+            }
+
+            $middleware = $route->gatherMiddleware();
+            if (in_array('jwt', $middleware, true) || in_array('internal.key', $middleware, true)) {
+                continue;
+            }
+
+            if (! in_array($uri, $this->publicApiRoutes(), true)) {
+                $unexpectedPublicRoutes[] = $route->methods()[0].' '.$uri;
+            }
+        }
+
+        $this->assertSame([], $unexpectedPublicRoutes);
+    }
+
     public function test_public_mutating_api_v1_routes_are_explicitly_rate_limited(): void
     {
-        $publicMutatingRoutes = [
-            'api/v1/analytics/events',
-            'api/v1/auth/admin/login',
-            'api/v1/auth/apple',
-            'api/v1/auth/coach/login',
-            'api/v1/auth/google',
-            'api/v1/auth/login',
-            'api/v1/auth/logout',
-            'api/v1/auth/owner/login',
-            'api/v1/auth/refresh',
-            'api/v1/auth/register',
-            'api/v1/auth/request-password-reset',
-            'api/v1/auth/reset-password',
-            'api/v1/auth/verify-email',
-            'api/v1/auth/verify-password-reset-code',
-            'api/v1/bookings/quote',
-            'api/v1/launch-waitlist',
-            'api/v1/promo-codes/validate',
-            'api/v1/support/contact',
-        ];
-
         $missingThrottle = [];
         foreach (Route::getRoutes() as $route) {
             $uri = $route->uri();
-            if (! in_array($uri, $publicMutatingRoutes, true)) {
+            if (! in_array($uri, $this->publicMutatingRoutes(), true)) {
                 continue;
             }
 
@@ -93,6 +73,28 @@ class ApiSurfaceTest extends TestCase
         }
 
         $this->assertSame([], $missingThrottle);
+    }
+
+    public function test_public_discovery_routes_use_discovery_rate_limit_bucket(): void
+    {
+        $missingDiscoveryThrottle = [];
+        foreach (Route::getRoutes() as $route) {
+            $uri = $route->uri();
+            if (! in_array($uri, $this->publicDiscoveryRoutes(), true)) {
+                continue;
+            }
+
+            $middleware = $route->gatherMiddleware();
+            if (in_array('jwt', $middleware, true) || in_array('internal.key', $middleware, true)) {
+                continue;
+            }
+
+            if (! in_array('throttle:public-discovery', $middleware, true)) {
+                $missingDiscoveryThrottle[] = $uri;
+            }
+        }
+
+        $this->assertSame([], $missingDiscoveryThrottle);
     }
 
     public function test_health_returns_ok(): void
@@ -317,5 +319,94 @@ class ApiSurfaceTest extends TestCase
             ->assertJsonPath('plans.free.name', 'Free')
             ->assertJsonPath('plans.premium.name', 'Premium')
             ->assertJsonPath('payments.free_trial_days', 50);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function publicApiRoutes(): array
+    {
+        return [
+            ...$this->publicMutatingRoutes(),
+            'api/v1/app/capabilities',
+            'api/v1/app/metadata',
+            'api/v1/app/version',
+            'api/v1/auth/check',
+            'api/v1/mobile/config',
+            'api/v1/membership/plans',
+            'api/v1/og/{path?}',
+            'api/v1/realtime/health',
+            'api/v1/realtime/sse',
+            'api/v1/sports',
+            'api/v1/web/bootstrap',
+            ...$this->publicDiscoveryRoutes(),
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function publicMutatingRoutes(): array
+    {
+        return [
+            'api/v1/analytics/events',
+            'api/v1/auth/admin/login',
+            'api/v1/auth/apple',
+            'api/v1/auth/coach/login',
+            'api/v1/auth/google',
+            'api/v1/auth/login',
+            'api/v1/auth/logout',
+            'api/v1/auth/owner/login',
+            'api/v1/auth/refresh',
+            'api/v1/auth/register',
+            'api/v1/auth/request-password-reset',
+            'api/v1/auth/reset-password',
+            'api/v1/auth/verify-email',
+            'api/v1/auth/verify-password-reset-code',
+            'api/v1/bookings/quote',
+            'api/v1/launch-waitlist',
+            'api/v1/promo-codes/validate',
+            'api/v1/support/contact',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function publicDiscoveryRoutes(): array
+    {
+        return [
+            'api/v1/coaches',
+            'api/v1/coaches/{id}',
+            'api/v1/courts',
+            'api/v1/courts/{id}',
+            'api/v1/courts/{id}/availability',
+            'api/v1/courts/{id}/suggested-slots',
+            'api/v1/feed',
+            'api/v1/feed/{eventId}/comments',
+            'api/v1/games',
+            'api/v1/games/{id}',
+            'api/v1/leaderboards/elo',
+            'api/v1/lessons',
+            'api/v1/lessons/{id}',
+            'api/v1/links/resolve',
+            'api/v1/players',
+            'api/v1/rankings',
+            'api/v1/search',
+            'api/v1/stats',
+            'api/v1/tournaments',
+            'api/v1/tournaments/{id}',
+            'api/v1/users/{id}/achievements',
+            'api/v1/users/{id}/followers',
+            'api/v1/users/{id}/following',
+            'api/v1/users/{id}/profile',
+            'api/v1/users/{id}/streaks',
+            'api/v1/venues',
+            'api/v1/venues/{id}',
+            'api/v1/venues/{id}/availability',
+            'api/v1/venues/{id}/rating-summary',
+            'api/v1/venues/{id}/reviews',
+            'api/v1/web/checkout/courts/{courtId}',
+        ];
     }
 }
