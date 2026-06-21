@@ -45,25 +45,25 @@ production compose, and CI. The old Node backend folder has been removed.
 - `app/Models/User.php` — maps existing `users` table.
 - `routes/api.php` — full `/api/v1/...` paths (apiPrefix disabled).
 
-## Production serving (142.93.100.82)
+## Production serving (142.93.166.170)
 
 - Plain directory deploy at `/opt/linkfit-api-laravel` (no Docker — the
-  Dockerfile is unused in prod). Run by **systemd** `linkfit-api.service`
-  (`php artisan serve --host=127.0.0.1 --port=4000`) behind nginx + Cloudflare.
-  Queue via `linkfit-horizon.service`. Sibling Next.js apps: `linkfit-admin`,
-  `linkfit-owner`, `linkfit-web`.
+  Dockerfile is unused in prod). Public HTTP traffic is handled by nginx +
+  Cloudflare; Laravel requests are served through PHP-FPM
+  (`unix:/run/php/php8.4-fpm.sock`) from `/opt/linkfit-api-laravel/public`.
+  Do not run `php artisan serve` in production. Queue via
+  `linkfit-horizon.service`; websocket via `linkfit-reverb.service`. Sibling
+  Next.js apps: `linkfit-admin`, `linkfit-owner`, `linkfit-web`.
 - **Media storage gotcha (caused story/avatar images to 404):** uploads go to
   the local `public` disk (`storage/app/public/uploads/Y/m/<uuid>.<ext>`) and
   are served at `${APP_URL}/storage/...`. That path only works if the
   `public/storage` symlink exists — but `public/storage` is gitignored and
   `php artisan storage:link` was never part of the non-Docker deploy, so after
   a deploy every media URL fell through to Laravel and returned a JSON 404.
-  Fixed by a systemd drop-in that recreates the link on every start:
-  `/etc/systemd/system/linkfit-api.service.d/storage-link.conf` →
-  `ExecStartPre=-/usr/bin/php /opt/linkfit-api-laravel/artisan storage:link`.
-  Any new deploy mechanism must run `storage:link` (or keep that drop-in).
-- **Recommended hardening:** `php artisan serve` is the single-threaded dev
-  server, and local-disk media doesn't survive a host rebuild or scale to
-  multiple replicas. Move media to object storage (the code already supports
-  it: set `MEDIA_DISK=s3` + `AWS_*`, e.g. Cloudflare R2) and run the API under
-  a real SAPI (php-fpm or Octane) when traffic warrants.
+  Any new deploy mechanism must run
+  `/usr/bin/php /opt/linkfit-api-laravel/artisan storage:link` after syncing
+  code. This used to live in the now-disabled `linkfit-api.service` drop-in, so
+  do not rely on that service for media readiness.
+- **Remaining hardening:** local-disk media doesn't survive a host rebuild or
+  scale to multiple replicas. Move media to object storage (the code already
+  supports it: set `MEDIA_DISK=s3` + `AWS_*`, e.g. Cloudflare R2).
