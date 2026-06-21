@@ -1,0 +1,4 @@
+[submodule "apps/web"]
+	path = apps/web
+	url = https://github.com/bazabureau/linkfit-web.git
+	branch = main

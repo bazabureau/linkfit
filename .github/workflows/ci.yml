@@ -82,33 +82,76 @@ jobs:
             apps/api/coverage/
           if-no-files-found: ignore
 
-  ios:
-    name: ios · build · test
-    runs-on: macos-latest
+  api-laravel:
+    name: api-laravel · test
+    runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: apps/ios
+        working-directory: apps/api-laravel
 
     steps:
       - uses: actions/checkout@v4
 
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: bcmath, ctype, curl, dom, fileinfo, filter, gd, hash, iconv, intl, json, mbstring, openssl, pcre, pdo, pdo_pgsql, pdo_sqlite, phar, session, simplexml, tokenizer, xml, xmlwriter, zip
+          coverage: none
+
+      - name: Validate Composer config
+        run: composer validate --strict
+
+      - name: Install
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare env
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
+
+      - name: Test
+        run: php artisan test
+
+  ios:
+    name: ios · build · test
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check apps/ios exists
+        id: check
+        run: |
+          if [ -f apps/ios/project.yml ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Show Xcode versions
+        if: steps.check.outputs.exists == 'true'
         run: |
           ls /Applications | grep Xcode || true
           xcodebuild -version
 
       - name: Install XcodeGen
+        if: steps.check.outputs.exists == 'true'
         run: brew install xcodegen
 
       - name: Generate Xcode project
+        if: steps.check.outputs.exists == 'true'
+        working-directory: apps/ios
         run: xcodegen generate
 
       - name: List available simulators
+        if: steps.check.outputs.exists == 'true'
         run: xcrun simctl list devices available || true
 
       # iPhone 17 Pro per project brief. If the runner image doesn't yet have
       # that device, fall back to a generic latest-OS iPhone so CI still runs.
       - name: Build & test
+        if: steps.check.outputs.exists == 'true'
+        working-directory: apps/ios
         run: |
           set -o pipefail
           DEST="platform=iOS Simulator,name=iPhone 17 Pro"
@@ -174,10 +217,103 @@ jobs:
         if: steps.check.outputs.exists == 'true'
         run: npm run typecheck
 
+      - name: Lint
+        if: steps.check.outputs.exists == 'true'
+        run: npm run lint
+
       - name: Build
         if: steps.check.outputs.exists == 'true'
         env:
           # Next.js wants a public URL for build-time crawling; in CI we
           # don't have a real one so we point at a local placeholder.
           NEXT_PUBLIC_API_URL: http://localhost:4000
+        run: npm run build
+
+  partner:
+    name: partner · typecheck · lint · build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/partner
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check apps/partner exists
+        id: check
+        run: |
+          if [ -f apps/partner/package.json ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+        working-directory: .
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.exists == 'true'
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/partner/package-lock.json
+
+      - name: Install
+        if: steps.check.outputs.exists == 'true'
+        run: npm ci
+
+      - name: Typecheck
+        if: steps.check.outputs.exists == 'true'
+        run: npm run typecheck
+
+      - name: Lint
+        if: steps.check.outputs.exists == 'true'
+        run: npm run lint
+
+      - name: Build
+        if: steps.check.outputs.exists == 'true'
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000
+        run: npm run build
+
+  web:
+    name: web · lint · build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Check apps/web exists
+        id: check
+        run: |
+          if [ -f apps/web/package.json ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+        working-directory: .
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.exists == 'true'
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install
+        if: steps.check.outputs.exists == 'true'
+        run: npm ci
+
+      - name: Lint
+        if: steps.check.outputs.exists == 'true'
+        run: npm run lint
+
+      - name: Build
+        if: steps.check.outputs.exists == 'true'
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:4000/api/v1
         run: npm run build

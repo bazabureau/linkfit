@@ -7,6 +7,12 @@ dist/
 .next/
 apps/api/dist/
 .postgres-data/
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.log
+test-results/
 .env.production
 
 # iosv2 lives in its own GitHub repo (linkfit-iosv2)
