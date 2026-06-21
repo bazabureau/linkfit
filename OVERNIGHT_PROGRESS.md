@@ -1,21 +1,23 @@
 # LinkFit — Overnight Progress Log
 
-Branch: `ideal/overnight-20260622` · Started 2026-06-22. Green-gated commits only (`php artisan test` + `pint --test` for backend). No `main` pushes. Web design untouched.
+Branch: `ideal/overnight-20260622` · Green-gated commits only (`php artisan test` + `pint --test`). No `main` pushes after setup. Web design untouched.
 
-## Pre-goal (already done earlier this session, on main + LIVE on prod)
-- Full flow-by-flow audit (11 flows + cross-cutting infra) — 8 agent reports.
-- 3 P0 backend fixes, tested (suite 111→120 green), committed `acc603fa`, pushed main, **deployed to prod** (142.93.166.170, fpm reloaded, /health 200):
-  - `MatchController`: canonical ELO winner; reject incomplete complete (422); block re-score of completed match (409).
-  - `BookingsController`: `markPaid` status-transition guard + txn + idempotent; 23505 slot-vs-idempotency disambiguation.
-  - `MessagingController`: `markConversationRead` active-participant authz (403).
+## Pre-goal (earlier this session — on main + LIVE on prod 142.93.166.170)
+- Full flow-by-flow audit (11 flows + infra) — 8 agent reports.
+- 3 P0 fixes, committed `acc603fa`, pushed main, **deployed** (fpm reloaded, /health 200):
+  MatchController (ELO winner/incomplete/re-score), BookingsController (markPaid guard + 23505), MessagingController (markConversationRead authz). Suite 111→120.
 
-## Overnight plan (streams A→F from goal doc)
-- [ ] A. Backend flow correctness (remaining P0/P1 from audit)
-- [ ] B. Hardening / architecture / cleanup
-- [ ] C. Security (OWASP API Top 10)
-- [ ] D. Web functionality (design preserved)
-- [ ] E. Launch config flag (50-day free)
-- [ ] F. Final verification + OVERNIGHT_REPORT.md
+## Overnight branch work (NOT deployed — for review)
+Backend suite: 120 → **138 green**, pint clean.
+- [x] A. account deletion GDPR (soft-delete + token revoke + restore)  `6cdbe0f5`
+- [x] A/C. social block enforcement (search + story view/react)        `09812db4`
+- [x] C. change-email revokes other sessions                           `fe7c876d`
+- [x] A. lessons: staff-cancel releases bookings + coach double-book    `5af1a208`
+- [x] A. americano: reject re-score completed + lock start/score        `a9625eb4`
+- [x] E. launch config flag — VERIFIED already implemented (config/launch.php + LaunchConfig)
+- [ ] B. hardening (queue jobs, N+1/indexes, scheduler, notif service dedup) — NOT STARTED
+- [ ] C. deeper security (mass-assignment sweep, upload SSRF/mime, PII at-rest, secrets) — PARTIAL
+- [ ] D. Web functionality (loading/error/empty, optimistic mutations, 422 field errors) — NOT STARTED (budget)
+- [x] F. backend verification green; web not run this session
 
-## Log
-- Setup: created overnight branch, progress log. Baseline backend suite: 120 green.
+See OVERNIGHT_REPORT.md for full audit + remaining roadmap.
