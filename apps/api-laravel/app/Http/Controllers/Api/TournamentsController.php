@@ -154,6 +154,19 @@ class TournamentsController extends ApiController
 
             $tournament = $this->tournamentRow($id);
             $this->assertRegistrationOpen($tournament, $user->id);
+            // Waiver gate: tournaments flagged requires_waiver may only be entered
+            // by a captain who has already signed the medical waiver for this
+            // tournament (tournament_waivers is keyed by tournament_id + user_id).
+            // Default-false flag → this is a no-op for every existing tournament.
+            if ((bool) ($tournament->requires_waiver ?? false)) {
+                $signed = DB::table('tournament_waivers')
+                    ->where('tournament_id', $id)
+                    ->where('user_id', $user->id)
+                    ->exists();
+                if (! $signed) {
+                    throw ApiException::conflict('Waiver must be signed before entering');
+                }
+            }
             $playerIds = $this->validatedPlayerIds($data['player_ids'] ?? [], $user->id, (int) $tournament->squad_size);
             $existing = DB::table('tournament_entries')
                 ->where('tournament_id', $id)
@@ -358,6 +371,13 @@ class TournamentsController extends ApiController
     private function uuidArray(array $ids)
     {
         $playerArray = '{'.implode(',', array_map(fn ($uid) => '"'.str_replace('"', '\"', $uid).'"', $ids)).'}';
+
+        // Postgres (prod) stores player_ids as a native uuid[]; the `::uuid[]`
+        // cast is invalid SQL on sqlite (test harness), where the column is a
+        // plain text holding the same `{a,b}` literal parseUuidArray() reads back.
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return $playerArray;
+        }
 
         return DB::raw("'".$playerArray."'::uuid[]");
     }
