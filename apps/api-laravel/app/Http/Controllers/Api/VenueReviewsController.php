@@ -24,6 +24,9 @@ class VenueReviewsController extends ApiController
         if (! DB::table('venues')->where('id', $id)->exists()) {
             throw ApiException::notFound('Venue not found');
         }
+        if (! $this->hasQualifyingBooking($id, (string) $user->id)) {
+            throw ApiException::forbidden('You can review a venue only after a booking there');
+        }
 
         $existing = DB::table('venue_reviews')
             ->where('venue_id', $id)
@@ -191,6 +194,31 @@ class VenueReviewsController extends ApiController
         $this->refreshVenueRating($review->venue_id);
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * Review eligibility gate: a user may only review a venue they have actually
+     * used. A booking qualifies when it is the user's own booking against a court
+     * that belongs to this venue (join path: bookings.court_id → courts.venue_id)
+     * AND it is either already paid (`status = paid`) OR a non-cancelled booking
+     * whose slot has already started (`starts_at < now`). Cancelled / refunded /
+     * failed bookings never qualify, so a user who only ever cancelled cannot
+     * review-bomb the venue.
+     */
+    private function hasQualifyingBooking(string $venueId, string $userId): bool
+    {
+        return DB::table('bookings as b')
+            ->join('courts as c', 'c.id', '=', 'b.court_id')
+            ->where('c.venue_id', $venueId)
+            ->where('b.user_id', $userId)
+            ->where(function ($q) {
+                $q->where('b.status', 'paid')
+                    ->orWhere(function ($qq) {
+                        $qq->whereNotIn('b.status', ['cancelled', 'refunded', 'failed'])
+                            ->where('b.starts_at', '<', now());
+                    });
+            })
+            ->exists();
     }
 
     private function latestReview(string $venueId, string $userId): array
@@ -421,14 +449,19 @@ class VenueReviewsController extends ApiController
 
     private function refreshVenueRating(string $venueId): void
     {
-        $summary = DB::table('venue_reviews')
+        // The Postgres `::numeric` cast (used to make round() deterministic) is
+        // not portable; sqlite (used by the test suite) rejects it. Compute the
+        // average in PHP from the raw rows so this works on every driver while
+        // preserving the 2-decimal rounding Postgres produced.
+        $stats = DB::table('venue_reviews')
             ->where('venue_id', $venueId)
             ->whereNull('removed_at')
-            ->selectRaw('round(avg(rating)::numeric, 2) as avg_rating, count(*) as review_count')
+            ->selectRaw('avg(rating) as avg_rating, count(*) as review_count')
             ->first();
+        $count = (int) ($stats->review_count ?? 0);
         DB::table('venues')->where('id', $venueId)->update([
-            'rating_avg' => $summary?->avg_rating,
-            'rating_count' => (int) ($summary->review_count ?? 0),
+            'rating_avg' => $count > 0 && $stats->avg_rating !== null ? round((float) $stats->avg_rating, 2) : null,
+            'rating_count' => $count,
             'updated_at' => now(),
         ]);
     }
