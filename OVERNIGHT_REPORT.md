@@ -70,7 +70,7 @@ fe7c876d [overnight] auth: revoke other sessions on change-email
 
 ## 4. BLOCKERS / deferred (and why)
 
-- **Tournament waiver gate** — DEFERRED. There is no per-tournament "waiver required" signal in the schema (`tournaments` has no `requires_waiver` column). Gating every tournament would lock all users out of all entry. **Unblock:** add `requires_waiver boolean NOT NULL DEFAULT false` to `tournaments` (additive, safe), then gate `enter()` on it. Left as a schema decision for you, not guessed.
+- **Tournament waiver gate** — ✅ DONE + DEPLOYED (2026-06-22, after you confirmed "seed data, do what's needed"). Added additive `requires_waiver boolean DEFAULT false` to `tournaments` (migration `2026_06_22_000003`, ran on prod) and gated `enter()` (409 if a required waiver isn't signed). No-op for existing tournaments until an organiser flips the flag. +`TournamentWaiverGateTest`.
 - **Booking review-eligibility** — DEFERRED. `VenueReviewsController::store` lets anyone review without a completed booking. Restricting it is a product/behavior change that could affect the live web flow; needs your call vs the contract before enforcing.
 - **Stream B (queue/N+1/scheduler/notif-service dedup)** and **Stream D (web)** — NOT started (context budget). The notification logic is copy-pasted in ~9 places (`enqueueNotification`) and should be unified into one `Services/Notifications` service that also honors `in_app_enabled`/quiet-hours at enqueue time. Web needs its own green-gate (`typecheck+lint+build+test`) and Next.js 16 doc-reading per the red lines.
 - Postgres-only concurrency tests (double-book race) can't run on the SQLite harness — recommend a small Postgres CI lane.
