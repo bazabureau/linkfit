@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Services\Mail\TransactionalMailService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -44,6 +45,13 @@ class LaunchWaitlistController extends ApiController
                 'id' => $id,
                 'created_at' => $now,
             ]));
+            // Auto welcome email on first signup only (not on duplicate re-submit).
+            // Best-effort: a mail failure must never break the signup response.
+            try {
+                app(TransactionalMailService::class)->waitlistWelcome($email, $payload['name'], $payload['locale']);
+            } catch (\Throwable $e) {
+                // swallowed — TransactionalMailService also logs send failures
+            }
         } else {
             DB::table('launch_waitlist_entries')->where('id', $id)->update($payload);
         }

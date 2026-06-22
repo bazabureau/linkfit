@@ -33,6 +33,39 @@ class TransactionalMailService
         ));
     }
 
+    public function waitlistWelcome(string $email, string $name, string $locale = 'az'): void
+    {
+        $first = $this->e(trim(explode(' ', trim($name))[0]) ?: ($locale === 'ru' ? 'друг' : ($locale === 'en' ? 'there' : 'dostum')));
+
+        $copy = [
+            'az' => [
+                'subject' => 'LinkFit gözləmə siyahısına xoş gəldin 🎾',
+                'headline' => 'Siyahıdasan, '.$first.'!',
+                'body' => '<p>Salam, '.$first.'! LinkFit <strong>gözləmə siyahısına</strong> qoşulduğun üçün təşəkkür edirik. 🎾</p>'
+                    .'<p>Biz Bakıda <strong>padel və tennisin yeni evini</strong> qururuq — oyunçu tap, kort rezerv et, ELO reytinqini izlə, dostlarınla yazış və turnirlərdə (Americano) yarış. Hamısı bir yerdə.</p>'
+                    .'<p>Platforma hazır olan kimi <strong>ilk xəbər alanlardan</strong> sən olacaqsan. Çox yaxındayıq — formada qal!</p>',
+            ],
+            'en' => [
+                'subject' => 'Welcome to the LinkFit waitlist 🎾',
+                'headline' => "You're on the list, ".$first.'!',
+                'body' => '<p>Hi '.$first.'! Thanks for joining the LinkFit <strong>waitlist</strong>. 🎾</p>'
+                    .'<p>We\'re building <strong>Baku\'s home for padel &amp; tennis</strong> — find players, book courts, track your ELO, chat with friends and compete in tournaments (Americano). All in one place.</p>'
+                    .'<p>You\'ll be among the <strong>first to know</strong> the moment we\'re ready. Almost there — stay in shape!</p>',
+            ],
+            'ru' => [
+                'subject' => 'Добро пожаловать в лист ожидания LinkFit 🎾',
+                'headline' => 'Вы в списке, '.$first.'!',
+                'body' => '<p>Привет, '.$first.'! Спасибо, что записались в <strong>лист ожидания</strong> LinkFit. 🎾</p>'
+                    .'<p>Мы создаём <strong>дом падела и тенниса в Баку</strong> — находите игроков, бронируйте корты, следите за рейтингом ELO, общайтесь с друзьями и участвуйте в турнирах (Americano). Всё в одном месте.</p>'
+                    .'<p>Вы узнаете <strong>одними из первых</strong>, как только мы будем готовы. Уже скоро — будьте в форме!</p>',
+            ],
+        ];
+
+        $c = $copy[$locale] ?? $copy['az'];
+        // No CTA button — pass only headline + body to the layout.
+        $this->send($email, $c['subject'], $this->layout($c['headline'], $c['body']));
+    }
+
     public function bookingConfirmed(string $bookingId): void
     {
         $booking = $this->booking($bookingId);
@@ -160,14 +193,20 @@ class TransactionalMailService
             .'<strong>Amount:</strong> '.$this->e($amount).'</p>';
     }
 
-    private function layout(string $headline, string $bodyHtml, string $buttonLabel, string $url): string
+    private function layout(string $headline, string $bodyHtml, ?string $buttonLabel = null, ?string $url = null): string
     {
+        // Button + fallback link are optional — e.g. the waitlist welcome email
+        // has no CTA button. Render them only when a url is supplied.
+        $button = ($buttonLabel !== null && $url !== null && $url !== '')
+            ? '<p style="margin:24px 0"><a href="'.$this->e($url).'" style="background:#b8ff00;color:#101418;text-decoration:none;padding:12px 16px;border-radius:6px;font-weight:700">'.$this->e($buttonLabel).'</a></p>'
+                .'<p style="font-size:12px;color:#667085">If the button does not work, open this link: '.$this->e($url).'</p>'
+            : '';
+
         return '<div style="font-family:Arial,sans-serif;color:#101418;line-height:1.5;max-width:560px;margin:0 auto;padding:24px">'
             .'<div style="margin:0 0 20px"><img src="'.$this->e($this->logoUrl()).'" alt="Linkfit" width="150" style="display:block;width:150px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none"></div>'
             .'<h2 style="font-size:20px;margin:0 0 16px">'.$this->e($headline).'</h2>'
             .$bodyHtml
-            .'<p style="margin:24px 0"><a href="'.$this->e($url).'" style="background:#b8ff00;color:#101418;text-decoration:none;padding:12px 16px;border-radius:6px;font-weight:700">'.$this->e($buttonLabel).'</a></p>'
-            .'<p style="font-size:12px;color:#667085">If the button does not work, open this link: '.$this->e($url).'</p>'
+            .$button
             .'</div>';
     }
 
