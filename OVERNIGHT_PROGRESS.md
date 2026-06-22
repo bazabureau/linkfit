@@ -17,9 +17,17 @@ Backend suite: 120 → **138 green**, pint clean.
 - [x] C. referral: 409 (not 500) on double-redeem race                  `e1aed857`
 - [x] C. devices: atomic upsert (no 500 on concurrent re-register)      `50cc7d86`
 - [x] E. launch config flag — VERIFIED already implemented (config/launch.php + LaunchConfig)
-- [ ] B. hardening (queue jobs, N+1/indexes, scheduler, notif service dedup) — NOT STARTED
-- [ ] C. deeper security (mass-assignment sweep, upload SSRF/mime, PII at-rest, secrets) — PARTIAL
-- [ ] D. Web functionality (loading/error/empty, optimistic mutations, 422 field errors) — NOT STARTED (budget)
-- [x] F. backend verification green; web not run this session
+- [x] A. tournament waiver gate (requires_waiver + enforce)             `a7f44976` (deployed + migration)
+- [x] A. booking waitlist promotion on cancel                           `d4b4e98e` (deployed)
+- [x] A. venue review eligibility (paid/past booking required)          `1c4dbbcb` (deployed)
+- [x] A. social notifications (follow/like/comment, block-aware)        `631fc99b` (deployed)
+- [x] B. perf indexes (americano hot reads)                             `60648683` (deployed + migration)
+- [x] WEB. court prices shown + no "Free during launch" + AZ/RU copy    (deployed, linkfit.az)
+- [ ] B. remaining: queue jobs (push/email/ELO/feed→Horizon), scheduler (no-show, ELO season), notif-service dedup
+- [ ] C. remaining: mass-assignment sweep, upload SSRF/mime, PII at-rest, secrets audit
+- [ ] D. remaining: web loading/error/empty states, optimistic mutations, 422 field errors
+- [x] F. backend 166 tests green + deployed; web typecheck/build/test green + deployed
+
+TOTAL: 15 backend fixes + 3 web changes, ALL deployed to prod. Backend suite 111→166 green.
 
 See OVERNIGHT_REPORT.md for full audit + remaining roadmap.
