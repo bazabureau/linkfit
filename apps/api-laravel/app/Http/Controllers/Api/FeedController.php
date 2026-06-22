@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Services\Feed\FeedService;
+use App\Services\Notifications\PushDispatcher;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class FeedController extends ApiController
@@ -96,13 +98,33 @@ class FeedController extends ApiController
     public function like(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
-        if (! DB::table('feed_events')->where('id', $id)->exists()) {
+        $event = DB::table('feed_events')->where('id', $id)->first(['id', 'actor_user_id']);
+        if ($event === null) {
             throw ApiException::validation('Unknown feed event');
         }
+
+        // Only a NEW like notifies the author — an idempotent re-like (the
+        // updateOrInsert just refreshing created_at) must not re-spam them.
+        $alreadyLiked = DB::table('feed_event_reactions')
+            ->where('feed_event_id', $id)
+            ->where('user_id', $user->id)
+            ->exists();
+
         DB::table('feed_event_reactions')->updateOrInsert(
             ['feed_event_id' => $id, 'user_id' => $user->id],
             ['created_at' => now()],
         );
+
+        if (! $alreadyLiked) {
+            // Best-effort: a notification failure must never fail the like.
+            $this->notifyFeedAuthor(
+                'like',
+                (string) $event->actor_user_id,
+                (string) $user->id,
+                (string) ($user->display_name ?? ''),
+                (string) $id,
+            );
+        }
 
         return response()->json(['likes_count' => $this->likesCount($id)]);
     }
@@ -169,7 +191,8 @@ class FeedController extends ApiController
         $data = $this->validateBody($request, [
             'body' => ['required', 'string', 'min:1', 'max:500'],
         ]);
-        if (! DB::table('feed_events')->where('id', $eventId)->exists()) {
+        $event = DB::table('feed_events')->where('id', $eventId)->first(['id', 'actor_user_id']);
+        if ($event === null) {
             throw ApiException::notFound('Feed event not found');
         }
 
@@ -181,6 +204,15 @@ class FeedController extends ApiController
             'body' => trim($data['body']),
             'created_at' => now(),
         ]);
+
+        // Best-effort: a notification failure must never fail the comment.
+        $this->notifyFeedAuthor(
+            'comment',
+            (string) $event->actor_user_id,
+            (string) $user->id,
+            (string) ($user->display_name ?? ''),
+            (string) $eventId,
+        );
 
         $row = DB::table('feed_comments as c')
             ->join('users as u', 'u.id', '=', 'c.user_id')
@@ -265,6 +297,94 @@ class FeedController extends ApiController
     private function likesCount(string $eventId): int
     {
         return DB::table('feed_event_reactions')->where('feed_event_id', $eventId)->count();
+    }
+
+    /**
+     * Enqueue a "like"/"comment" notification for the feed event's author.
+     * Best-effort: any failure is swallowed so it can never fail the action.
+     * Skips self-interaction and either-direction blocks. Mirrors the
+     * notifications + push_notification_jobs shape used elsewhere.
+     *
+     * The `notification_type` enum has no `like`/`comment` value, so the closest
+     * existing generic bucket — `system` — is used; the `kind`/`route` payload
+     * lets the client route + badge it distinctly.
+     */
+    private function notifyFeedAuthor(string $kind, string $authorUserId, string $actorUserId, string $actorName, string $eventId): void
+    {
+        try {
+            // Never notify yourself, and never across a block (either direction).
+            if ($authorUserId === '' || $authorUserId === $actorUserId) {
+                return;
+            }
+            if ($this->blockExistsBetween($actorUserId, $authorUserId)) {
+                return;
+            }
+
+            // Resolve the actor's display name from the source of truth — the
+            // auth model may not have it hydrated.
+            $name = trim($actorName) !== ''
+                ? trim($actorName)
+                : (string) (DB::table('users')->where('id', $actorUserId)->value('display_name') ?? 'Someone');
+            $name = $name !== '' ? $name : 'Someone';
+
+            $title = $kind === 'comment' ? 'New comment' : 'New like';
+            $body = $kind === 'comment'
+                ? "{$name} commented on your post."
+                : "{$name} liked your post.";
+            $payload = [
+                'kind' => $kind === 'comment' ? 'feed_comment' : 'feed_like',
+                'route' => "/feed/{$eventId}",
+                'event_id' => $eventId,
+                'actor_user_id' => $actorUserId,
+            ];
+
+            DB::table('notifications')->insert([
+                'id' => (string) Str::uuid(),
+                'user_id' => $authorUserId,
+                'type' => 'system',
+                'title' => $title,
+                'body' => $body,
+                'payload' => json_encode($payload),
+                'created_at' => now(),
+            ]);
+
+            $this->enqueuePush($authorUserId, 'system', $title, $body, $payload);
+        } catch (\Throwable) {
+            // Swallowed by design — a notification must never break the action.
+        }
+    }
+
+    /**
+     * Insert a pending push job mirroring the notification, then nudge the
+     * dispatcher (fire-and-forget). No-ops when the push tables aren't present
+     * (partial test schemas) and never throws into the caller.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    private function enqueuePush(string $userId, string $type, string $title, string $body, array $payload): void
+    {
+        if (! Schema::hasTable('push_notification_jobs')) {
+            return;
+        }
+
+        DB::table('push_notification_jobs')->insert([
+            'id' => (string) Str::uuid(),
+            'user_id' => $userId,
+            'type' => $type,
+            'title' => $title,
+            'body' => $body,
+            'payload' => json_encode($payload),
+            'status' => 'pending',
+            'available_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        try {
+            app(PushDispatcher::class)->process(50);
+        } catch (\Throwable) {
+            // The queued job is the source of truth; the worker retries.
+        }
     }
 
     private function auditWrite(?string $actorUserId, string $action, string $entity, ?string $entityId = null, array $metadata = []): void

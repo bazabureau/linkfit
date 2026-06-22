@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Http\Controllers\Api\Concerns\FiltersPublicPlayerDirectory;
+use App\Services\Notifications\PushDispatcher;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class SocialController extends ApiController
 {
@@ -246,10 +249,23 @@ class SocialController extends ApiController
             throw ApiException::forbidden('You cannot follow this user');
         }
 
+        // Only a genuinely new follow edge should fire a notification — a
+        // re-follow (idempotent updateOrInsert touching created_at) must not
+        // re-spam the target.
+        $alreadyFollowing = DB::table('follows')
+            ->where('follower_user_id', $user->id)
+            ->where('followed_user_id', $id)
+            ->exists();
+
         DB::table('follows')->updateOrInsert([
             'follower_user_id' => $user->id,
             'followed_user_id' => $id,
         ], ['created_at' => now()]);
+
+        if (! $alreadyFollowing) {
+            // Best-effort: a notification failure must never fail the follow.
+            $this->notifyFollow((string) $id, (string) $user->id, (string) ($user->display_name ?? ''));
+        }
 
         return response()->json(['ok' => true]);
     }
@@ -402,6 +418,89 @@ class SocialController extends ApiController
                     'blocked_at' => $this->iso($u->blocked_at),
                 ]),
         ]);
+    }
+
+    /**
+     * Enqueue a "new follower" notification for the followed user. Best-effort:
+     * any failure (missing tables under a partial test schema, push hiccup) is
+     * swallowed so it can never fail the follow action. Mirrors the
+     * notifications + push_notification_jobs shape used by SquadsController.
+     *
+     * There is no dedicated `follow` value in the `notification_type` enum, so
+     * the closest existing generic bucket — `system` — is used; the `kind`/
+     * `route` payload lets the client route + badge it as a follow.
+     */
+    private function notifyFollow(string $followedUserId, string $actorUserId, string $actorName = ''): void
+    {
+        try {
+            // A block either way short-circuits the notification. follow() already
+            // rejects blocked pairs, so this is belt-and-suspenders for callers.
+            if ($this->blockExistsBetween($actorUserId, $followedUserId)) {
+                return;
+            }
+
+            // Resolve the actor's display name from the source of truth — the
+            // auth model may not have it hydrated (e.g. token-only contexts).
+            $name = trim($actorName) !== ''
+                ? trim($actorName)
+                : (string) (DB::table('users')->where('id', $actorUserId)->value('display_name') ?? 'Someone');
+            $name = $name !== '' ? $name : 'Someone';
+
+            $title = 'New follower';
+            $body = "{$name} started following you.";
+            $payload = [
+                'kind' => 'follow',
+                'route' => "/players/{$actorUserId}",
+                'actor_user_id' => $actorUserId,
+            ];
+
+            DB::table('notifications')->insert([
+                'id' => (string) Str::uuid(),
+                'user_id' => $followedUserId,
+                'type' => 'system',
+                'title' => $title,
+                'body' => $body,
+                'payload' => json_encode($payload),
+                'created_at' => now(),
+            ]);
+
+            $this->enqueuePush($followedUserId, 'system', $title, $body, $payload);
+        } catch (\Throwable) {
+            // Swallowed by design — a notification must never break the action.
+        }
+    }
+
+    /**
+     * Insert a pending push job mirroring the notification, then nudge the
+     * dispatcher (fire-and-forget). Guarded so it no-ops when the push tables
+     * aren't present (partial test schemas) and never throws into the caller.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    private function enqueuePush(string $userId, string $type, string $title, string $body, array $payload): void
+    {
+        if (! Schema::hasTable('push_notification_jobs')) {
+            return;
+        }
+
+        DB::table('push_notification_jobs')->insert([
+            'id' => (string) Str::uuid(),
+            'user_id' => $userId,
+            'type' => $type,
+            'title' => $title,
+            'body' => $body,
+            'payload' => json_encode($payload),
+            'status' => 'pending',
+            'available_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        try {
+            app(PushDispatcher::class)->process(50);
+        } catch (\Throwable) {
+            // The queued job is the source of truth; the worker retries.
+        }
     }
 
     /**
