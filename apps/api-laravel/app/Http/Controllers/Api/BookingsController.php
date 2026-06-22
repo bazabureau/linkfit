@@ -754,15 +754,36 @@ class BookingsController extends ApiController
             throw ApiException::conflict('Cancellation window has passed');
         }
 
-        DB::table('bookings')->where('id', $id)->update([
-            'status' => 'cancelled',
-            'cancelled_at' => now(),
-            'cancelled_by_user_id' => $user->id,
-            'cancellation_reason' => $data['reason'] ?? null,
-            'refund_status' => in_array($booking->status, ['paid', 'partially_paid'], true) ? 'pending_manual_review' : null,
-            'updated_at' => now(),
-        ]);
+        // Cancel + waitlist promotion are atomic: freeing the slot and flipping
+        // the earliest waitlist entry to `notified` must commit together so a
+        // crash can't leave a free slot with a stranded (still-active) waitlist
+        // entry, nor a `notified` entry for a slot that wasn't actually freed.
+        $promoted = null;
+        DB::transaction(function () use ($id, $user, $data, $booking, &$promoted): void {
+            DB::table('bookings')->where('id', $id)->update([
+                'status' => 'cancelled',
+                'cancelled_at' => now(),
+                'cancelled_by_user_id' => $user->id,
+                'cancellation_reason' => $data['reason'] ?? null,
+                'refund_status' => in_array($booking->status, ['paid', 'partially_paid'], true) ? 'pending_manual_review' : null,
+                'updated_at' => now(),
+            ]);
+            $promoted = $this->promoteWaitlistForFreedSlot($booking);
+        });
         $this->notifyBookingCancelled($booking);
+        if ($promoted !== null) {
+            $this->enqueueNotification(
+                (string) $promoted->user_id,
+                'system',
+                'Waitlist slot available',
+                'A slot you waitlisted is now available.',
+                [
+                    'court_id' => (string) $promoted->court_id,
+                    'waitlist_entry_id' => (string) $promoted->id,
+                    'starts_at' => CarbonImmutable::parse($promoted->starts_at)->toIso8601ZuluString('millisecond'),
+                ],
+            );
+        }
 
         return $this->show($request, $id);
     }
@@ -1399,6 +1420,56 @@ class BookingsController extends ApiController
             $this->enqueueNotification((string) $ownerId, 'system', 'New booking', 'A new booking was created for your venue.', ['booking_id' => $bookingId, 'venue_id' => $venueId]);
         }
         app(TransactionalMailService::class)->ownerNewBooking($bookingId, $venueId);
+    }
+
+    /**
+     * Promote the earliest ACTIVE waitlist entry whose window overlaps the slot
+     * just freed by a cancelled booking. Flips that single entry to `notified`
+     * (FIFO by created_at) and returns it so the caller can fan out a "slot
+     * available" notification; returns null when nothing matches (behaviour then
+     * unchanged). Designed to run inside the cancel transaction.
+     *
+     * Slot match: same court_id, the entry status is still `active`, and the
+     * entry's [starts_at, starts_at+duration) window overlaps the freed
+     * booking's window. Overlap (rather than exact equality) means a waitlist
+     * entry for a longer/offset slot covering the freed time still gets a shot —
+     * the entry keys (court_id + starts_at) line up with the booking keys.
+     */
+    private function promoteWaitlistForFreedSlot(object $booking): ?object
+    {
+        if (! Schema::hasTable('booking_waitlist_entries')) {
+            return null;
+        }
+
+        $freedStart = CarbonImmutable::parse($booking->starts_at);
+        $freedEnd = $freedStart->addMinutes((int) $booking->duration_minutes);
+
+        // Narrow in SQL to the same court + active entries that start before the
+        // freed window ends; the precise end-overlap (which needs duration math)
+        // is finished in PHP so the logic is identical on pgsql and sqlite.
+        $candidates = DB::table('booking_waitlist_entries')
+            ->where('court_id', $booking->court_id)
+            ->where('status', 'active')
+            ->where('starts_at', '<', $freedEnd)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($candidates as $entry) {
+            $entryStart = CarbonImmutable::parse($entry->starts_at);
+            $entryEnd = $entryStart->addMinutes((int) $entry->duration_minutes);
+            if ($entryStart < $freedEnd && $entryEnd > $freedStart) {
+                DB::table('booking_waitlist_entries')->where('id', $entry->id)->update([
+                    'status' => 'notified',
+                    'notified_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                return $entry;
+            }
+        }
+
+        return null;
     }
 
     private function notifyBookingCancelled(object $booking): void
