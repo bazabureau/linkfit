@@ -45,7 +45,9 @@ class GoogleOAuthAudienceTest extends TestCase
 
     public function test_google_token_requires_verified_email_and_google_issuer(): void
     {
-        config()->set('services.google.client_ids', []);
+        // A client id must be configured for the audience check to pass — the
+        // payload validation now fails CLOSED when no client ids are set.
+        config()->set('services.google.client_ids', ['any-client.apps.googleusercontent.com']);
 
         $base = [
             'sub' => 'google-user-1',
@@ -60,6 +62,22 @@ class GoogleOAuthAudienceTest extends TestCase
         $this->assertFalse($this->validGooglePayload([...$base, 'email_verified' => false]));
         $this->assertFalse($this->validGooglePayload([...$base, 'iss' => 'https://evil.example']));
         $this->assertFalse($this->validGooglePayload([...$base, 'exp' => time() - 1]));
+    }
+
+    public function test_google_token_fails_closed_when_no_client_ids_configured(): void
+    {
+        // Security: an empty allowlist must REJECT (never skip the audience check),
+        // otherwise a token minted for any app would be accepted.
+        config()->set('services.google.client_ids', []);
+
+        $this->assertFalse($this->validGooglePayload([
+            'sub' => 'google-user-1',
+            'email' => 'player@example.com',
+            'email_verified' => true,
+            'iss' => 'https://accounts.google.com',
+            'aud' => 'any-client.apps.googleusercontent.com',
+            'exp' => time() + 300,
+        ]));
     }
 
     /**

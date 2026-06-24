@@ -45,14 +45,15 @@ class ReportsController extends ApiController
 
     public function mine(Request $request): JsonResponse
     {
+        $reports = DB::table('reports')
+            ->where('reporter_user_id', $this->authUser($request)->id)
+            ->orderByDesc('created_at')
+            ->limit(100)
+            ->get();
+        $users = $this->prefetchReportUsers($reports);
+
         return response()->json([
-            'reports' => DB::table('reports')
-                ->where('reporter_user_id', $this->authUser($request)->id)
-                ->orderByDesc('created_at')
-                ->limit(100)
-                ->get()
-                ->map(fn ($r) => $this->reportPayload($r))
-                ->values(),
+            'reports' => $reports->map(fn ($r) => $this->reportPayload($r, false, $users))->values(),
             'next_cursor' => null,
         ]);
     }
@@ -87,14 +88,15 @@ class ReportsController extends ApiController
             });
         $total = (clone $query)->count();
 
+        $reports = $query
+            ->orderByDesc('created_at')
+            ->offset($offset)
+            ->limit($limit)
+            ->get();
+        $users = $this->prefetchReportUsers($reports);
+
         return response()->json([
-            'items' => $query
-                ->orderByDesc('created_at')
-                ->offset($offset)
-                ->limit($limit)
-                ->get()
-                ->map(fn ($r) => $this->reportPayload($r))
-                ->values(),
+            'items' => $reports->map(fn ($r) => $this->reportPayload($r, false, $users))->values(),
             'total' => $total,
         ]);
     }
@@ -171,19 +173,22 @@ class ReportsController extends ApiController
         return response()->json($this->reportPayload($row, true));
     }
 
-    private function reportPayload(object $r, bool $includeTarget = false): array
+    /**
+     * @param  array<string,object>|null  $users  prefetched users map for list callers
+     */
+    private function reportPayload(object $r, bool $includeTarget = false, ?array $users = null): array
     {
         $payload = [
             'id' => $r->id,
             'reporter_user_id' => $r->reporter_user_id,
-            'reporter' => $this->userSummary($r->reporter_user_id),
+            'reporter' => $this->userSummary($r->reporter_user_id, $users),
             'target_kind' => $r->target_kind,
             'target_id' => $r->target_id,
             'reason' => $r->reason,
             'status' => $r->status,
             'notes' => $r->notes,
             'reviewed_by_user_id' => $r->reviewed_by_user_id,
-            'reviewed_by' => $r->reviewed_by_user_id ? $this->userSummary($r->reviewed_by_user_id) : null,
+            'reviewed_by' => $r->reviewed_by_user_id ? $this->userSummary($r->reviewed_by_user_id, $users) : null,
             'reviewed_at' => $this->iso($r->reviewed_at),
             'created_at' => $this->iso($r->created_at),
         ];
@@ -375,12 +380,18 @@ class ReportsController extends ApiController
         return null;
     }
 
-    private function userSummary(?string $id): ?array
+    /**
+     * @param  array<string,object>|null  $prefetched  keyed users map; when given,
+     *                                                  reads from it instead of querying per id
+     */
+    private function userSummary(?string $id, ?array $prefetched = null): ?array
     {
         if ($id === null) {
             return null;
         }
-        $user = DB::table('users')->where('id', $id)->first(['id', 'email', 'display_name', 'photo_url', 'admin_role', 'deleted_at']);
+        $user = $prefetched !== null
+            ? ($prefetched[$id] ?? null)
+            : DB::table('users')->where('id', $id)->first(['id', 'email', 'display_name', 'photo_url', 'admin_role', 'deleted_at']);
         if ($user === null) {
             return null;
         }
@@ -393,6 +404,36 @@ class ReportsController extends ApiController
             'admin_role' => $user->admin_role,
             'deleted_at' => $this->iso($user->deleted_at),
         ];
+    }
+
+    /**
+     * Fetch the reporter + reviewer users referenced by a page of reports in ONE
+     * query, keyed by id, so reportPayload() reads from the map instead of
+     * issuing two userSummary() queries per report.
+     *
+     * @param  iterable<int,object>  $reports
+     * @return array<string,object>
+     */
+    private function prefetchReportUsers(iterable $reports): array
+    {
+        $ids = [];
+        foreach ($reports as $r) {
+            if (! empty($r->reporter_user_id)) {
+                $ids[$r->reporter_user_id] = true;
+            }
+            if (! empty($r->reviewed_by_user_id)) {
+                $ids[$r->reviewed_by_user_id] = true;
+            }
+        }
+        if ($ids === []) {
+            return [];
+        }
+
+        return DB::table('users')
+            ->whereIn('id', array_keys($ids))
+            ->get(['id', 'email', 'display_name', 'photo_url', 'admin_role', 'deleted_at'])
+            ->keyBy('id')
+            ->all();
     }
 
     private function auditWrite(string $actorUserId, string $action, string $entityId, array $metadata = []): void

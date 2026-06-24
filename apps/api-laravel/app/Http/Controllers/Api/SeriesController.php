@@ -58,9 +58,32 @@ class SeriesController extends ApiController
 
     public function show(Request $request, string $id): JsonResponse
     {
-        $this->authUser($request);
+        $user = $this->authUser($request);
+        // IDOR gate (mirrors cancel()'s ownership check): a series exposes the
+        // host's id, lat/lng, schedule and notes, so only the host or a confirmed
+        // participant of one of its games may read it. Return 404 (not 403) so we
+        // never confirm the existence of someone else's series.
+        $series = DB::table('game_series')->where('id', $id)->first(['id', 'host_user_id']);
+        if ($series === null) {
+            throw ApiException::notFound('Series not found');
+        }
+        if ((string) $series->host_user_id !== (string) $user->id
+            && ! $this->isSeriesParticipant($id, (string) $user->id)) {
+            throw ApiException::notFound('Series not found');
+        }
 
         return response()->json($this->seriesPayload($id));
+    }
+
+    /** True when the user is a confirmed participant of any game in this series. */
+    private function isSeriesParticipant(string $seriesId, string $userId): bool
+    {
+        return DB::table('game_participants as gp')
+            ->join('games as g', 'g.id', '=', 'gp.game_id')
+            ->where('g.series_id', $seriesId)
+            ->where('gp.user_id', $userId)
+            ->where('gp.status', 'confirmed')
+            ->exists();
     }
 
     public function cancel(Request $request, string $id): JsonResponse

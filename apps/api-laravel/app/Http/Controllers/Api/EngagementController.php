@@ -50,11 +50,16 @@ class EngagementController extends ApiController
         // Monday-anchored buckets, oldest first, ending at the current ISO
         // week, plus the current trailing streak and the longest streak of
         // consecutive weeks that have at least one played/confirmed game.
+        // Lower-bound the fetch to the rendered 26-week window (was unbounded
+        // below, pulling a user's entire game history into PHP). Only games from
+        // the oldest visible Monday-anchored week onward affect the heatmap.
+        $windowStart = now()->startOfWeek(\Carbon\Carbon::MONDAY)->subWeeks(25);
         $playedAt = DB::table('game_participants as gp')
             ->join('games as g', 'g.id', '=', 'gp.game_id')
             ->where('gp.user_id', $id)
             ->whereIn('gp.status', ['played', 'confirmed'])
             ->where('g.starts_at', '<=', now())
+            ->where('g.starts_at', '>=', $windowStart)
             ->pluck('g.starts_at')
             ->map(fn ($t) => \Illuminate\Support\Carbon::parse($t));
 

@@ -173,7 +173,23 @@ class SocialController extends ApiController
         $isShortId = (bool) preg_match('/^[0-9a-f]{8}$/i', $id);
         $user = DB::table('users')
             ->when($isUuid, fn ($q) => $q->where('id', $id))
-            ->when($isShortId, fn ($q) => $q->whereRaw('id::text ilike ?', [$id.'%']))
+            // Short id = the first 8 hex chars (4 bytes) of the uuid. Resolve via a
+            // uuid range predicate the PK index can serve (id >= lo AND id <= hi),
+            // instead of `id::text ilike 'x%'` which forces a full table scan on
+            // this PUBLIC, unauthenticated deep-link route. UUIDs are stored
+            // canonically lowercase, so lowercase the prefix.
+            ->when($isShortId, function ($q) use ($id) {
+                $prefix = strtolower($id);
+                if (DB::connection()->getDriverName() === 'pgsql') {
+                    $lo = $prefix.'-0000-0000-0000-000000000000';
+                    $hi = $prefix.'-ffff-ffff-ffff-ffffffffffff';
+                    $q->whereRaw('id >= ?::uuid AND id <= ?::uuid', [$lo, $hi]);
+                } else {
+                    // sqlite (tests): ids are plain strings; a case-insensitive
+                    // prefix LIKE keeps the same matching behaviour.
+                    $q->whereRaw('lower(id) like ?', [$prefix.'%']);
+                }
+            })
             ->when(! $isUuid && ! $isShortId, fn ($q) => $q->whereRaw('LOWER(username) = ?', [mb_strtolower($id)]))
             ->whereNull('deleted_at')
             ->first();

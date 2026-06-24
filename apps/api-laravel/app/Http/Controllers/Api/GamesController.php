@@ -279,6 +279,12 @@ class GamesController extends ApiController
         if ($data === []) {
             throw ApiException::validation('Provide at least one field to update');
         }
+        // Cross-field guard mirroring createGame() / AdminOpsController::updateGame:
+        // reject an inverted ELO window before it hits the games CHECK constraint.
+        if (($data['skill_min_elo'] ?? null) !== null && ($data['skill_max_elo'] ?? null) !== null
+            && $data['skill_min_elo'] > $data['skill_max_elo']) {
+            throw ApiException::validation('skill_min_elo must be <= skill_max_elo');
+        }
         if (($data['cancel'] ?? false) === true) {
             DB::table('games')->where('id', $id)->update(['status' => 'cancelled', 'updated_at' => now()]);
 

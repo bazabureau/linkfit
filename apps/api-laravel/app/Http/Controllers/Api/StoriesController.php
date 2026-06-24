@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Events\ConversationUpdated;
 use App\Events\MessageSent;
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
+use App\Http\Controllers\Api\Concerns\ResolvesDirectConversations;
+use App\Http\Controllers\Api\Concerns\ValidatesMediaUrls;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +16,8 @@ use Illuminate\Support\Str;
 class StoriesController extends ApiController
 {
     use FiltersBlockedUsers;
+    use ResolvesDirectConversations;
+    use ValidatesMediaUrls;
 
     private array $emojiKeys = ['heart', 'fire', '100', 'clap', 'padel'];
 
@@ -21,7 +25,12 @@ class StoriesController extends ApiController
     {
         $user = $this->authUser($request);
         $data = $this->validateBody($request, [
-            'media_url' => ['required', 'string', 'max:2048'],
+            // PREFERRED: a server-owned media_asset_id (resolved to a trusted URL
+            // below). Free-form media_url is still accepted for backward
+            // compatibility but is constrained to https + an allowlisted host so
+            // arbitrary off-domain URLs can't be stored and served to viewers.
+            'media_asset_id' => ['sometimes', 'nullable', 'uuid', 'required_without:media_url'],
+            'media_url' => ['sometimes', 'nullable', 'string', 'max:2048', 'required_without:media_asset_id'],
             'media_type' => ['required', 'in:image,video'],
             'caption' => ['sometimes', 'nullable', 'string', 'max:500'],
             'overlays' => ['sometimes', 'array', 'max:32'],
@@ -30,6 +39,11 @@ class StoriesController extends ApiController
             'mentions.*.x' => ['required_with:mentions', 'numeric', 'min:0', 'max:1'],
             'mentions.*.y' => ['required_with:mentions', 'numeric', 'min:0', 'max:1'],
         ]);
+        // Derive the stored media URL: from the owned asset when given, otherwise
+        // from the allowlist-validated free URL.
+        $data['media_url'] = ! empty($data['media_asset_id'])
+            ? $this->resolveOwnedMediaAssetUrl((string) $data['media_asset_id'], (string) $user->id)
+            : $this->assertAllowedMediaUrl((string) $data['media_url']);
         $id = (string) Str::uuid();
         DB::transaction(function () use ($id, $user, $data) {
             DB::table('stories')->insert([
@@ -84,16 +98,23 @@ class StoriesController extends ApiController
             ->limit(200)
             ->get(['s.*', 'u.display_name', 'u.photo_url']);
 
-        $items = $rows->groupBy('user_id')->map(function ($stories) use ($viewer) {
+        // Batch every per-story lookup over the whole feed (was ~5-6 queries per
+        // story → up to ~1000 per request). Four whereIn() queries keyed by story
+        // id feed storyPayload() + the has_unviewed check below.
+        $storyIds = $rows->pluck('id')->all();
+        $maps = $this->prefetchStoryFeedMaps($storyIds, (string) $viewer->id);
+        $viewedIds = $maps['viewed'];
+
+        $items = $rows->groupBy('user_id')->map(function ($stories) use ($viewer, $maps, $viewedIds) {
             $first = $stories->first();
 
             return [
                 'user_id' => $first->user_id,
                 'display_name' => $first->display_name,
                 'photo_url' => $first->photo_url,
-                'has_unviewed' => $stories->contains(fn ($s) => ! DB::table('story_views')->where('story_id', $s->id)->where('viewer_user_id', $viewer->id)->exists()),
+                'has_unviewed' => $stories->contains(fn ($s) => ! isset($viewedIds[$s->id])),
                 'latest_story_at' => $this->iso($first->created_at),
-                'stories' => $stories->map(fn ($s) => $this->storyPayload($s, $viewer->id))->values(),
+                'stories' => $stories->map(fn ($s) => $this->storyPayload($s, $viewer->id, $maps))->values(),
             ];
         })->values();
 
@@ -212,39 +233,18 @@ class StoriesController extends ApiController
             throw ApiException::forbidden('Cannot reply to this story');
         }
 
-        // Resolve-or-create the 1:1 DM thread between caller and author,
-        // mirroring MessagingController::startConversation EXACTLY (table
-        // names, participant rows, left_at resurrection). The
-        // `bump_conversation_last_message_at` trigger keeps
-        // conversations.last_message_at fresh on the message insert, so we
-        // don't touch it here — same as MessagingController::sendMessage.
-        $conversationId = DB::table('conversation_participants as a')
-            ->join('conversation_participants as b', 'b.conversation_id', '=', 'a.conversation_id')
-            ->join('conversations as c', 'c.id', '=', 'a.conversation_id')
-            ->where('a.user_id', $user->id)
-            ->where('b.user_id', $story->user_id)
-            ->where(fn ($q) => $q->where('c.kind', 'direct')->orWhereNull('c.kind'))
-            ->value('a.conversation_id');
-
         $messageId = (string) Str::uuid();
         // Prefix so the recipient's inbox renders it as a story reply without
         // a schema migration (matches the iOS `StoryReplyRequest` contract).
         $messageBody = '↩ Story reply: '.$body;
 
+        // Resolve-or-create the 1:1 DM thread INSIDE the transaction via the
+        // shared race-safe helper (per-pair advisory lock + in-transaction
+        // recheck), so a story reply can't split DM history by minting a
+        // duplicate thread when it races a concurrent startConversation/reply.
+        $conversationId = null;
         DB::transaction(function () use (&$conversationId, $user, $story, $messageId, $messageBody) {
-            if ($conversationId !== null) {
-                DB::table('conversation_participants')
-                    ->where('conversation_id', $conversationId)
-                    ->whereIn('user_id', [$user->id, $story->user_id])
-                    ->update(['left_at' => null]);
-            } else {
-                $conversationId = (string) Str::uuid();
-                DB::table('conversations')->insert(['id' => $conversationId, 'kind' => 'direct', 'created_at' => now()]);
-                DB::table('conversation_participants')->insert([
-                    ['conversation_id' => $conversationId, 'user_id' => $user->id],
-                    ['conversation_id' => $conversationId, 'user_id' => $story->user_id],
-                ]);
-            }
+            $conversationId = $this->getOrCreateDirectConversation((string) $user->id, (string) $story->user_id);
 
             DB::table('messages')->insert([
                 'id' => $messageId,
@@ -286,9 +286,71 @@ class StoriesController extends ApiController
         return response()->json(null, 204);
     }
 
-    private function storyPayload(object $s, string $viewerId): array
+    /**
+     * Batch the four per-story relations the feed needs across a page of story
+     * ids, so storyPayload() reads from in-memory maps instead of issuing
+     * ~5-6 queries per story. Mirrors the prefetch batching in
+     * FeedController::index / GamesController::index.
+     *
+     * @param  array<int,string>  $storyIds
+     * @return array{viewed:array<string,bool>,myReactions:array<string,string>,reactionCounts:array<string,array<string,int>>,mentions:array<string,array<int,array<string,mixed>>>}
+     */
+    private function prefetchStoryFeedMaps(array $storyIds, string $viewerId): array
     {
-        $mine = DB::table('story_reactions')->where('story_id', $s->id)->where('user_id', $viewerId)->value('emoji');
+        if ($storyIds === []) {
+            return ['viewed' => [], 'myReactions' => [], 'reactionCounts' => [], 'mentions' => []];
+        }
+
+        $viewed = DB::table('story_views')
+            ->whereIn('story_id', $storyIds)
+            ->where('viewer_user_id', $viewerId)
+            ->pluck('story_id')
+            ->mapWithKeys(fn ($id) => [$id => true])
+            ->all();
+
+        $myReactions = DB::table('story_reactions')
+            ->whereIn('story_id', $storyIds)
+            ->where('user_id', $viewerId)
+            ->pluck('emoji', 'story_id')
+            ->all();
+
+        $reactionCounts = [];
+        foreach (DB::table('story_reactions')->whereIn('story_id', $storyIds)->groupBy('story_id', 'emoji')->selectRaw('story_id, emoji, count(*) as total')->get() as $row) {
+            if (! isset($reactionCounts[$row->story_id])) {
+                $reactionCounts[$row->story_id] = array_fill_keys($this->emojiKeys, 0);
+            }
+            $reactionCounts[$row->story_id][$row->emoji] = (int) $row->total;
+        }
+
+        $mentions = [];
+        foreach (DB::table('story_mentions as m')->join('users as u', 'u.id', '=', 'm.mentioned_user_id')->whereIn('m.story_id', $storyIds)->get(['m.story_id', 'm.mentioned_user_id', 'u.display_name', 'm.x', 'm.y']) as $row) {
+            $mentions[$row->story_id][] = [
+                'user_id' => $row->mentioned_user_id,
+                'display_name' => $row->display_name,
+                'x' => (float) $row->x,
+                'y' => (float) $row->y,
+            ];
+        }
+
+        return ['viewed' => $viewed, 'myReactions' => $myReactions, 'reactionCounts' => $reactionCounts, 'mentions' => $mentions];
+    }
+
+    /**
+     * @param  array{viewed:array<string,bool>,myReactions:array<string,string>,reactionCounts:array<string,array<string,int>>,mentions:array<string,array<int,array<string,mixed>>>}|null  $maps
+     */
+    private function storyPayload(object $s, string $viewerId, ?array $maps = null): array
+    {
+        if ($maps !== null) {
+            $mine = $maps['myReactions'][$s->id] ?? null;
+            $viewed = isset($maps['viewed'][$s->id]);
+            $reactions = $maps['reactionCounts'][$s->id] ?? array_fill_keys($this->emojiKeys, 0);
+            $mentions = $maps['mentions'][$s->id] ?? [];
+        } else {
+            $mine = DB::table('story_reactions')->where('story_id', $s->id)->where('user_id', $viewerId)->value('emoji');
+            $viewed = DB::table('story_views')->where('story_id', $s->id)->where('viewer_user_id', $viewerId)->exists();
+            $reactions = $this->reactionCounts($s->id);
+            $mentions = $this->mentions($s->id);
+        }
 
         return [
             'id' => $s->id,
@@ -296,11 +358,11 @@ class StoriesController extends ApiController
             'media_type' => $s->media_type,
             'caption' => $s->caption,
             'created_at' => $this->iso($s->created_at),
-            'viewed_by_me' => DB::table('story_views')->where('story_id', $s->id)->where('viewer_user_id', $viewerId)->exists(),
-            'reactions' => $this->reactionCounts($s->id),
+            'viewed_by_me' => $viewed,
+            'reactions' => $reactions,
             'my_reaction' => $mine,
             'overlays' => json_decode($s->overlays ?? '[]', true) ?: [],
-            'mentions' => $this->mentions($s->id),
+            'mentions' => $mentions,
         ];
     }
 

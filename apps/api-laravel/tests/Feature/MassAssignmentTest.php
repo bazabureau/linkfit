@@ -36,6 +36,8 @@ class MassAssignmentTest extends TestCase
 
         config()->set('database.default', 'sqlite');
         config()->set('database.connections.sqlite.database', ':memory:');
+        // Story media_url is now constrained to https + an allowlisted host.
+        config()->set('media.allowed_hosts', ['cdn.example.com']);
         DB::purge('sqlite');
         DB::reconnect('sqlite');
 

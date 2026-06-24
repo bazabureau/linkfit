@@ -90,8 +90,46 @@ class InvitationsController extends ApiController
         if ($status) {
             $q->where('status', $status);
         }
+        $rows = $q->limit(100)->get();
 
-        return response()->json(['items' => $q->limit(100)->get()->map(fn ($r) => $this->payload($r))]);
+        // Batch the three per-row lookups (inviter user, game join, confirmed
+        // participants count) over the whole page so payload() reads from keyed
+        // maps instead of issuing 3 queries per invitation.
+        $inviterIds = $rows->pluck('inviter_user_id')->filter()->unique()->values()->all();
+        $gameIds = $rows->pluck('game_id')->filter()->unique()->values()->all();
+
+        $inviters = $inviterIds === []
+            ? collect()
+            : DB::table('users')->whereIn('id', $inviterIds)->get()->keyBy('id');
+
+        $games = $gameIds === []
+            ? collect()
+            : DB::table('games as g')
+                ->join('sports as s', 's.id', '=', 'g.sport_id')
+                ->join('users as u', 'u.id', '=', 'g.host_user_id')
+                ->leftJoin('courts as c', 'c.id', '=', 'g.court_id')
+                ->leftJoin('venues as v', 'v.id', '=', 'c.venue_id')
+                ->whereIn('g.id', $gameIds)
+                ->get(['g.*', 's.slug as sport_slug', 'u.display_name as host_display_name', 'v.name as venue_name'])
+                ->keyBy('id');
+
+        $counts = $gameIds === []
+            ? collect()
+            : DB::table('game_participants')
+                ->whereIn('game_id', $gameIds)
+                ->where('status', 'confirmed')
+                ->groupBy('game_id')
+                ->selectRaw('game_id, count(*) as cnt')
+                ->pluck('cnt', 'game_id');
+
+        return response()->json([
+            'items' => $rows->map(fn ($r) => $this->payload(
+                $r,
+                $inviters->get($r->inviter_user_id),
+                $games->get($r->game_id),
+                (int) ($counts[$r->game_id] ?? 0),
+            )),
+        ]);
     }
 
     public function accept(Request $request, string $id): JsonResponse
@@ -102,11 +140,35 @@ class InvitationsController extends ApiController
             throw ApiException::notFound('Invitation not found');
         }
         DB::transaction(function () use ($inv, $user) {
+            // Mirror GamesController::joinGame: lock the parent game row, then enforce
+            // status + capacity so accepting an invite can never over-fill a game or
+            // join a deleted/closed one. PostgreSQL forbids aggregate + FOR UPDATE,
+            // so lock the row and count without a lock.
+            $game = DB::table('games')->where('id', $inv->game_id)->lockForUpdate()->first();
+            if ($game === null || $game->deleted_at !== null) {
+                throw ApiException::notFound('Game not found');
+            }
+            if (! in_array($game->status, ['open', 'full'], true)) {
+                throw ApiException::conflict('Game is not joinable');
+            }
+            $alreadyConfirmed = DB::table('game_participants')
+                ->where('game_id', $inv->game_id)
+                ->where('user_id', $user->id)
+                ->where('status', 'confirmed')
+                ->exists();
+            if (! $alreadyConfirmed) {
+                $count = DB::table('game_participants')->where('game_id', $inv->game_id)->where('status', 'confirmed')->count();
+                if ($count >= $game->capacity) {
+                    throw ApiException::conflict('Game is full');
+                }
+            }
             DB::table('game_invitations')->where('id', $inv->id)->update(['status' => 'accepted', 'responded_at' => now()]);
             DB::table('game_participants')->updateOrInsert(
                 ['game_id' => $inv->game_id, 'user_id' => $user->id],
                 ['status' => 'confirmed', 'joined_at' => now(), 'status_changed_at' => now()],
             );
+            $next = DB::table('game_participants')->where('game_id', $inv->game_id)->where('status', 'confirmed')->count();
+            DB::table('games')->where('id', $inv->game_id)->update(['status' => $next >= $game->capacity ? 'full' : 'open', 'updated_at' => now()]);
         });
         $fresh = DB::table('game_invitations')->where('id', $id)->first();
 
@@ -129,16 +191,22 @@ class InvitationsController extends ApiController
         return response()->json(['invitation' => $this->payload($fresh)]);
     }
 
-    private function payload(object $r): array
+    /**
+     * @param  object|null  $inviter  prefetched users row (else looked up inline)
+     * @param  object|null  $game  prefetched joined games row (else looked up inline)
+     * @param  int|null  $participantsCount  prefetched confirmed count (else counted inline)
+     */
+    private function payload(object $r, ?object $inviter = null, ?object $game = null, ?int $participantsCount = null): array
     {
-        $inviter = DB::table('users')->where('id', $r->inviter_user_id)->first();
-        $game = DB::table('games as g')
+        $inviter ??= DB::table('users')->where('id', $r->inviter_user_id)->first();
+        $game ??= DB::table('games as g')
             ->join('sports as s', 's.id', '=', 'g.sport_id')
             ->join('users as u', 'u.id', '=', 'g.host_user_id')
             ->leftJoin('courts as c', 'c.id', '=', 'g.court_id')
             ->leftJoin('venues as v', 'v.id', '=', 'c.venue_id')
             ->where('g.id', $r->game_id)
             ->first(['g.*', 's.slug as sport_slug', 'u.display_name as host_display_name', 'v.name as venue_name']);
+        $participantsCount ??= DB::table('game_participants')->where('game_id', $r->game_id)->where('status', 'confirmed')->count();
 
         return [
             'id' => $r->id,
@@ -163,7 +231,7 @@ class InvitationsController extends ApiController
                 'starts_at' => $this->iso($game->starts_at),
                 'duration_minutes' => (int) $game->duration_minutes,
                 'capacity' => (int) $game->capacity,
-                'participants_count' => DB::table('game_participants')->where('game_id', $game->id)->where('status', 'confirmed')->count(),
+                'participants_count' => $participantsCount,
                 'status' => $game->status,
                 'visibility' => $game->visibility,
             ],

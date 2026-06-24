@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
 use App\Http\Controllers\Api\Concerns\HandlesIdempotentRequests;
+use App\Http\Controllers\Api\Concerns\SanitizesCsv;
 use App\Services\Launch\LaunchConfig;
 use App\Services\Mail\TransactionalMailService;
 use App\Services\Membership\MembershipService;
@@ -21,6 +22,7 @@ class BookingsController extends ApiController
 {
     use AuthorizesAdminPermissions;
     use HandlesIdempotentRequests;
+    use SanitizesCsv;
 
     public function availability(Request $request, string $id): JsonResponse
     {
@@ -543,15 +545,18 @@ class BookingsController extends ApiController
             'sport' => ['nullable', 'in:padel,tennis'],
         ]);
         $now = now();
-        $rows = $this->bookingsQuery($user->id, $query)->orderByDesc('b.starts_at')->get(['b.*']);
+        $rows = $this->bookingsQuery($user->id, $query)->orderByDesc('b.starts_at')
+            ->get(['b.*', 'c.name as court_name', 'v.id as venue_id', 'v.name as venue_name']);
+        [$splitsByBooking, $promoByBooking] = $this->prefetchBookingRelations($rows);
         $upcoming = $rows->filter(fn ($b) => CarbonImmutable::parse($b->starts_at)->greaterThanOrEqualTo($now)
             && ! in_array($b->status, ['cancelled', 'refunded', 'failed'], true));
         $past = $rows->reject(fn ($b) => CarbonImmutable::parse($b->starts_at)->greaterThanOrEqualTo($now)
             && ! in_array($b->status, ['cancelled', 'refunded', 'failed'], true));
+        $map = fn ($r) => $this->bookingPayload($r, $splitsByBooking[$r->id] ?? [], true, $promoByBooking[$r->promo_code_id ?? ''] ?? null);
 
         return response()->json([
-            'upcoming' => $upcoming->map(fn ($r) => $this->bookingPayload($r))->values(),
-            'past' => $past->map(fn ($r) => $this->bookingPayload($r))->values(),
+            'upcoming' => $upcoming->map($map)->values(),
+            'past' => $past->map($map)->values(),
         ]);
     }
 
@@ -573,12 +578,14 @@ class BookingsController extends ApiController
         $total = (clone $base)->count('b.id');
         $limit = (int) ($query['limit'] ?? 30);
         $offset = (int) ($query['offset'] ?? 0);
-        $rows = $base
+        $bookings = $base
             ->orderByDesc('b.starts_at')
             ->offset($offset)
             ->limit($limit)
-            ->get(['b.*'])
-            ->map(fn ($booking) => $this->bookingPayload($booking))
+            ->get(['b.*', 'c.name as court_name', 'v.id as venue_id', 'v.name as venue_name']);
+        [$splitsByBooking, $promoByBooking] = $this->prefetchBookingRelations($bookings);
+        $rows = $bookings
+            ->map(fn ($booking) => $this->bookingPayload($booking, $splitsByBooking[$booking->id] ?? [], true, $promoByBooking[$booking->promo_code_id ?? ''] ?? null))
             ->values();
 
         return response()->json([
@@ -629,16 +636,16 @@ class BookingsController extends ApiController
             fputcsv($out, ['id', 'venue', 'court', 'sport', 'starts_at', 'duration_minutes', 'amount', 'currency', 'status', 'payment_method']);
             foreach ($rows as $row) {
                 fputcsv($out, [
-                    $row->id,
-                    $row->venue_name,
-                    $row->court_name,
-                    $row->sport_slug,
+                    $this->csvSafe($row->id),
+                    $this->csvSafe($row->venue_name),
+                    $this->csvSafe($row->court_name),
+                    $this->csvSafe($row->sport_slug),
                     $this->iso($row->starts_at),
                     (int) $row->duration_minutes,
                     number_format(((int) $row->total_minor) / 100, 2, '.', ''),
-                    $row->currency,
-                    $row->status,
-                    $row->payment_method,
+                    $this->csvSafe($row->currency),
+                    $this->csvSafe($row->status),
+                    $this->csvSafe($row->payment_method),
                 ]);
             }
             fclose($out);
@@ -977,11 +984,64 @@ class BookingsController extends ApiController
         ];
     }
 
-    private function bookingPayload(object $b): array
+    /**
+     * Batch the two per-row relations bookingPayload() needs (payment_splits and
+     * promo codes) for a page of bookings, so the list endpoints (index, mine)
+     * issue two whereIn() queries instead of two-per-row. Returns
+     * [splitsByBookingId, promoCodeById].
+     *
+     * @param  iterable<int,object>  $bookings
+     * @return array{0:array<string,array<int,object>>,1:array<string,string>}
+     */
+    private function prefetchBookingRelations(iterable $bookings): array
     {
-        $court = DB::table('courts as c')->join('venues as v', 'v.id', '=', 'c.venue_id')->where('c.id', $b->court_id)
-            ->first(['c.name as court_name', 'v.id as venue_id', 'v.name as venue_name']);
-        $splits = DB::table('payment_splits')->where('booking_id', $b->id)->get(['id', 'user_id', 'amount_minor', 'status', 'external_ref']);
+        $bookingIds = [];
+        $promoIds = [];
+        foreach ($bookings as $b) {
+            $bookingIds[] = $b->id;
+            if (! empty($b->promo_code_id)) {
+                $promoIds[$b->promo_code_id] = true;
+            }
+        }
+
+        $splitsByBooking = [];
+        if ($bookingIds !== []) {
+            foreach (DB::table('payment_splits')->whereIn('booking_id', $bookingIds)->get(['id', 'booking_id', 'user_id', 'amount_minor', 'status', 'external_ref']) as $split) {
+                $splitsByBooking[$split->booking_id][] = (object) [
+                    'id' => $split->id,
+                    'user_id' => $split->user_id,
+                    'amount_minor' => $split->amount_minor,
+                    'status' => $split->status,
+                    'external_ref' => $split->external_ref,
+                ];
+            }
+        }
+
+        $promoById = [];
+        if ($promoIds !== [] && Schema::hasTable('promo_codes')) {
+            $promoById = DB::table('promo_codes')->whereIn('id', array_keys($promoIds))->pluck('code', 'id')->all();
+        }
+
+        return [$splitsByBooking, $promoById];
+    }
+
+    /**
+     * @param  array<int,object>|null  $splits  prefetched payment_splits for THIS booking (else queried)
+     * @param  bool  $promoResolved  true when $promoCode was prefetched (so a null means "no promo", not "look it up")
+     */
+    private function bookingPayload(object $b, ?array $splits = null, bool $promoResolved = false, ?string $promoCode = null): array
+    {
+        // When the caller already selected the joined court_name/venue_id/venue_name
+        // (list endpoints select them via bookingsQuery) reuse them; otherwise fall
+        // back to the per-row lookup for single-record callers (show/create/replay).
+        if (property_exists($b, 'court_name') && property_exists($b, 'venue_id') && property_exists($b, 'venue_name')) {
+            $court = (object) ['court_name' => $b->court_name, 'venue_id' => $b->venue_id, 'venue_name' => $b->venue_name];
+        } else {
+            $court = DB::table('courts as c')->join('venues as v', 'v.id', '=', 'c.venue_id')->where('c.id', $b->court_id)
+                ->first(['c.name as court_name', 'v.id as venue_id', 'v.name as venue_name']);
+        }
+        $splits ??= DB::table('payment_splits')->where('booking_id', $b->id)->get(['id', 'user_id', 'amount_minor', 'status', 'external_ref'])->all();
+        $promoCodeValue = $promoResolved ? $promoCode : $this->promoCodeForBooking($b->promo_code_id ?? null);
         $starts = CarbonImmutable::parse($b->starts_at);
 
         return [
@@ -1004,7 +1064,7 @@ class BookingsController extends ApiController
             'subtotal_minor' => (int) ($b->subtotal_minor ?? $b->total_minor),
             'discount_minor' => (int) ($b->discount_minor ?? 0),
             'promo_code_id' => $b->promo_code_id ?? null,
-            'promo_code' => $this->promoCodeForBooking($b->promo_code_id ?? null),
+            'promo_code' => $promoCodeValue,
             'customer_name' => $b->customer_name ?? null,
             'customer_email' => $b->customer_email ?? null,
             'idempotency_key' => $b->idempotency_key,
@@ -1255,6 +1315,17 @@ class BookingsController extends ApiController
         }
         if ((int) ($promo->min_amount_minor ?? 0) > $subtotalMinor) {
             throw ApiException::validation('Promo code minimum amount was not reached');
+        }
+        // Serialise concurrent redemptions of THIS code so the count-then-check
+        // below can't be raced past max_redemptions / per_user_limit. When we are
+        // inside a booking transaction (createBooking → promoDiscount), the
+        // lockCourtSlot lock only serialises bookings on the SAME court — two
+        // bookings on different courts would both pass the unlocked count and
+        // exceed the cap. Locking the promo_codes row here serialises them
+        // regardless of court. lockForUpdate is a no-op outside a transaction
+        // (quote()), where no redemption is written so the read-only count is fine.
+        if (DB::transactionLevel() > 0) {
+            DB::table('promo_codes')->where('id', $promo->id)->lockForUpdate()->first(['id']);
         }
         if ($promo->max_redemptions !== null) {
             $count = DB::table('booking_promo_redemptions')->where('promo_code_id', $promo->id)->count();

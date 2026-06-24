@@ -30,6 +30,8 @@ class MessagingRealtimeTest extends TestCase
         config()->set('database.default', 'sqlite');
         config()->set('database.connections.sqlite.database', ':memory:');
         config()->set('broadcasting.default', 'reverb');
+        // Chat attachment_url is now constrained to https + an allowlisted host.
+        config()->set('media.allowed_hosts', ['api.linkfit.az']);
         DB::purge('sqlite');
         DB::reconnect('sqlite');
 
@@ -187,6 +189,46 @@ class MessagingRealtimeTest extends TestCase
         Event::assertDispatched(ConversationTyping::class, fn (ConversationTyping $event) => $event->conversationId === self::CONVERSATION
             && $event->userId === self::USER_ONE
             && $event->isTyping === true);
+    }
+
+    public function test_attachment_url_on_disallowed_host_is_rejected(): void
+    {
+        Event::fake();
+
+        $this->expectException(\App\Support\ApiException::class);
+        $this->controller->sendMessage($this->requestFor(self::USER_ONE, [
+            'attachment_url' => 'https://evil.example.com/payload.jpg',
+            'attachment_type' => 'image',
+        ]), self::CONVERSATION);
+    }
+
+    public function test_group_conversation_appears_once_in_inbox(): void
+    {
+        // A 3-member group thread previously emitted one inbox row per OTHER
+        // member (N-1 duplicates). It must now appear exactly once.
+        $third = '00000000-0000-4000-8000-000000000103';
+        $group = '00000000-0000-4000-8000-000000000202';
+        DB::table('users')->insert(['id' => $third, 'display_name' => 'Three', 'last_seen_at' => now()]);
+        DB::table('conversations')->insert([
+            'id' => $group,
+            'kind' => 'group',
+            'title' => 'Game chat',
+            'created_at' => now(),
+            'last_message_at' => now(),
+        ]);
+        DB::table('conversation_participants')->insert([
+            ['conversation_id' => $group, 'user_id' => self::USER_ONE],
+            ['conversation_id' => $group, 'user_id' => self::USER_TWO],
+            ['conversation_id' => $group, 'user_id' => $third],
+        ]);
+
+        $response = $this->controller->conversations($this->requestFor(self::USER_ONE));
+        $items = $response->getData(true)['items'];
+        $groupRows = array_values(array_filter($items, fn ($i) => $i['id'] === $group));
+
+        $this->assertCount(1, $groupRows, 'group conversation must appear exactly once');
+        $this->assertSame('group', $groupRows[0]['kind']);
+        $this->assertSame('Game chat', $groupRows[0]['other_display_name']);
     }
 
     private function requestFor(string $userId, array $body = []): Request

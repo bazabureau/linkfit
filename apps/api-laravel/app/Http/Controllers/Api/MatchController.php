@@ -134,14 +134,25 @@ class MatchController extends ApiController
         $game = $this->gameRow($id);
         $this->requireResultWriteAccess($game, $id, (string) $user->id);
         $data = $this->validateBody($request, ['team' => ['required', 'in:a,b']]);
-        $row = $this->scoreRow($id);
-        if ($row->status !== 'in_progress') {
-            throw ApiException::conflict('Scoring is not in progress');
-        }
-        $points = json_decode($row->points ?? '[]', true) ?: [];
-        $points[] = $data['team'];
-        $state = $this->replayState($points);
-        DB::table('match_scores')->where('game_id', $id)->update($this->stateColumns($points, $state));
+        // Lock the score row before the read-modify-write of points[] so two
+        // concurrent scoring calls (possible via setResultAccess delegation) can't
+        // both read the same log and silently lose a point. Re-check status under
+        // the lock. complete()/reportResult() already lock; match them.
+        $state = DB::transaction(function () use ($id, $data) {
+            $row = DB::table('match_scores')->where('game_id', $id)->lockForUpdate()->first();
+            if ($row === null) {
+                throw ApiException::notFound('Scoring has not started');
+            }
+            if ($row->status !== 'in_progress') {
+                throw ApiException::conflict('Scoring is not in progress');
+            }
+            $points = json_decode($row->points ?? '[]', true) ?: [];
+            $points[] = $data['team'];
+            $state = $this->replayState($points);
+            DB::table('match_scores')->where('game_id', $id)->update($this->stateColumns($points, $state));
+
+            return $state;
+        });
         $this->auditWrite($user->id, 'match.scoring_point', 'match_scores', $id, [
             'team' => $data['team'],
             'match_complete' => $state['winner'] !== null,
@@ -155,14 +166,23 @@ class MatchController extends ApiController
         $user = $this->authUser($request);
         $game = $this->gameRow($id);
         $this->requireResultWriteAccess($game, $id, (string) $user->id);
-        $row = $this->scoreRow($id);
-        if ($row->status !== 'in_progress') {
-            throw ApiException::conflict('Scoring is not in progress');
-        }
-        $points = json_decode($row->points ?? '[]', true) ?: [];
-        $last = array_pop($points);
-        $state = $this->replayState($points);
-        DB::table('match_scores')->where('game_id', $id)->update($this->stateColumns($points, $state));
+        // Lock the score row before the read-modify-write of points[] (re-check
+        // status under the lock) so concurrent undo/point calls can't lose updates.
+        $last = DB::transaction(function () use ($id) {
+            $row = DB::table('match_scores')->where('game_id', $id)->lockForUpdate()->first();
+            if ($row === null) {
+                throw ApiException::notFound('Scoring has not started');
+            }
+            if ($row->status !== 'in_progress') {
+                throw ApiException::conflict('Scoring is not in progress');
+            }
+            $points = json_decode($row->points ?? '[]', true) ?: [];
+            $last = array_pop($points);
+            $state = $this->replayState($points);
+            DB::table('match_scores')->where('game_id', $id)->update($this->stateColumns($points, $state));
+
+            return $last;
+        });
         $this->auditWrite($user->id, 'match.scoring_undo', 'match_scores', $id, [
             'team' => $last,
         ]);
@@ -690,9 +710,15 @@ class MatchController extends ApiController
     private function minEloExpression(int $delta): Expression
     {
         $driver = DB::connection()->getDriverName();
-        $fn = $driver === 'sqlite' ? 'MAX' : 'GREATEST';
+        // Clamp BOTH ends to the DB CHECK (elo_rating BETWEEN 0 AND 4000): floor at
+        // 100, ceiling at 4000. Without the upper clamp a high-rated winner could
+        // push past 4000 and trigger a 23514 check_violation that aborts the whole
+        // complete()/reportResult() transaction.
+        if ($driver === 'sqlite') {
+            return DB::raw('MAX(100, MIN(4000, elo_rating + ('.$delta.')))');
+        }
 
-        return DB::raw($fn.'(100, elo_rating + ('.$delta.'))');
+        return DB::raw('GREATEST(100, LEAST(4000, elo_rating + ('.$delta.')))');
     }
 
     private function uuidArray(array $ids): Expression|string

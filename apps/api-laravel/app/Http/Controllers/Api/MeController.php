@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\ValidatesMediaUrls;
 use App\Services\Auth\EmailTokenService;
 use App\Services\Auth\PasswordService;
 use App\Services\Mail\TransactionalMailService;
@@ -16,6 +17,8 @@ use Illuminate\Support\Str;
 
 class MeController extends ApiController
 {
+    use ValidatesMediaUrls;
+
     public function __construct(
         private readonly PasswordService $passwords,
         private readonly EmailTokenService $emailTokens,
@@ -43,6 +46,12 @@ class MeController extends ApiController
         if (array_key_exists('home_lat', $data) xor array_key_exists('home_lng', $data)) {
             throw ApiException::validation('home_lat and home_lng must be provided together');
         }
+        // photo_url is served verbatim to other users, so a free URL must be https
+        // and on an allowlisted host (the validated upload path / a media_asset_id
+        // is preferred). A null clears the avatar and skips the host check.
+        if (! empty($data['photo_url'])) {
+            $data['photo_url'] = $this->assertAllowedMediaUrl((string) $data['photo_url']);
+        }
 
         $user = $this->authUser($request);
         foreach ($data as $key => $value) {
@@ -60,9 +69,14 @@ class MeController extends ApiController
 
         if ($file === null) {
             $data = $this->validateBody($request, [
-                'photo_url' => ['required', 'url', 'max:2048'],
+                'media_asset_id' => ['sometimes', 'nullable', 'uuid'],
+                'photo_url' => ['sometimes', 'nullable', 'url', 'max:2048', 'required_without:media_asset_id'],
             ]);
-            $user->photo_url = $data['photo_url'];
+            // Prefer a server-owned media_asset_id; otherwise the free URL must be
+            // https + allowlisted host. The value is served to all other users.
+            $user->photo_url = ! empty($data['media_asset_id'])
+                ? $this->resolveOwnedMediaAssetUrl((string) $data['media_asset_id'], (string) $user->id)
+                : $this->assertAllowedMediaUrl((string) $data['photo_url']);
             $user->save();
 
             return response()->json(['user' => $user->fresh()->toPublicUser(), 'media' => null]);

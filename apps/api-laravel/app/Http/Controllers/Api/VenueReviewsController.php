@@ -62,11 +62,33 @@ class VenueReviewsController extends ApiController
     {
         $limit = min(max((int) $request->query('limit', 20), 1), 50);
         $sort = $request->query('sort', 'recent');
+        // Keyset cursor consumed end-to-end (it was emitted but never read, so
+        // paging never advanced). The cursor carries the last row's
+        // {rating, created_at, id}; the predicate matches the active ORDER BY so a
+        // subsequent page strictly follows the previous one with no gaps/dupes.
+        $cursor = $this->decodeReviewCursor($request->query('cursor'));
         $q = DB::table('venue_reviews as r')
             ->join('users as u', 'u.id', '=', 'r.author_user_id')
             ->where('r.venue_id', $id)
             ->whereNull('r.removed_at');
-        $sort === 'highest' ? $q->orderByDesc('r.rating')->orderByDesc('r.created_at') : $q->orderByDesc('r.created_at');
+        if ($sort === 'highest') {
+            $q->orderByDesc('r.rating')->orderByDesc('r.created_at')->orderByDesc('r.id');
+            if ($cursor !== null) {
+                $q->where(function ($w) use ($cursor) {
+                    $w->where('r.rating', '<', $cursor['rating'])
+                        ->orWhere(fn ($x) => $x->where('r.rating', $cursor['rating'])->where('r.created_at', '<', $cursor['created_at']))
+                        ->orWhere(fn ($x) => $x->where('r.rating', $cursor['rating'])->where('r.created_at', $cursor['created_at'])->where('r.id', '<', $cursor['id']));
+                });
+            }
+        } else {
+            $q->orderByDesc('r.created_at')->orderByDesc('r.id');
+            if ($cursor !== null) {
+                $q->where(function ($w) use ($cursor) {
+                    $w->where('r.created_at', '<', $cursor['created_at'])
+                        ->orWhere(fn ($x) => $x->where('r.created_at', $cursor['created_at'])->where('r.id', '<', $cursor['id']));
+                });
+            }
+        }
 
         $rows = $q->limit($limit + 1)->get([
             'r.id',
@@ -81,10 +103,47 @@ class VenueReviewsController extends ApiController
             'u.photo_url as author_photo_url',
         ]);
 
+        $hasMore = $rows->count() > $limit;
+        $page = $rows->take($limit)->values();
+        $last = $page->last();
+
         return response()->json([
-            'items' => $rows->take($limit)->map(fn ($r) => $this->reviewPayload($r))->values(),
-            'next_cursor' => $rows->count() > $limit ? base64_encode((string) $rows[$limit - 1]->id) : null,
+            'items' => $page->map(fn ($r) => $this->reviewPayload($r))->values(),
+            'next_cursor' => $hasMore && $last !== null
+                ? base64_encode((string) json_encode([
+                    'rating' => (int) $last->rating,
+                    'created_at' => (string) $last->created_at,
+                    'id' => (string) $last->id,
+                ]))
+                : null,
         ]);
+    }
+
+    /**
+     * Decode the keyset cursor emitted by index(). Returns null on an absent or
+     * malformed cursor (treated as "first page").
+     *
+     * @return array{rating:int,created_at:string,id:string}|null
+     */
+    private function decodeReviewCursor(?string $raw): ?array
+    {
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+        $json = base64_decode($raw, true);
+        if ($json === false) {
+            return null;
+        }
+        $data = json_decode($json, true);
+        if (! is_array($data) || ! isset($data['created_at'], $data['id'], $data['rating'])) {
+            return null;
+        }
+
+        return [
+            'rating' => (int) $data['rating'],
+            'created_at' => (string) $data['created_at'],
+            'id' => (string) $data['id'],
+        ];
     }
 
     public function summary(string $id): JsonResponse

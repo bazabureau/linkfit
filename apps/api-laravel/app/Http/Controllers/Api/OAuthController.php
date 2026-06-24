@@ -73,8 +73,11 @@ class OAuthController extends ApiController
             if (($decoded['iss'] ?? '') !== 'https://appleid.apple.com') {
                 return null;
             }
+            // Fail CLOSED on audience: require the bundle id to be configured and
+            // the token's aud to match it. An unset client id must reject, never
+            // skip the audience check (that would accept tokens minted for any app).
             $clientId = config('services.apple.client_id');
-            if ($clientId && ($decoded['aud'] ?? null) !== $clientId) {
+            if (empty($clientId) || ($decoded['aud'] ?? null) !== $clientId) {
                 return null;
             }
 
@@ -105,12 +108,17 @@ class OAuthController extends ApiController
         $exp = (int) ($payload['exp'] ?? 0);
         $clientIds = array_values(array_filter(array_map('strval', (array) config('services.google.client_ids', []))));
 
+        // Fail CLOSED on audience: when no OAuth client ids are configured we must
+        // reject (an empty allowlist accepts nothing), and otherwise only accept a
+        // token whose aud is one of the configured client ids. Never skip the
+        // audience check — doing so would accept tokens minted for any app.
         return ! empty($payload['sub'])
             && ! empty($payload['email'])
             && in_array($iss, ['accounts.google.com', 'https://accounts.google.com'], true)
             && ($exp === 0 || $exp > time())
             && ($emailVerified === true || $emailVerified === 'true')
-            && ($clientIds === [] || in_array((string) ($payload['aud'] ?? ''), $clientIds, true));
+            && $clientIds !== []
+            && in_array((string) ($payload['aud'] ?? ''), $clientIds, true);
     }
 
     private function sessionForOAuth(string $column, string $sub, string $email, string $displayName): array

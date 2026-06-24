@@ -201,11 +201,18 @@ class WebController extends ApiController
             ->whereIn('s.slug', ['padel', 'tennis'])
             ->orderBy('g.starts_at')
             ->limit(50)
-            ->get(['g.id', 'g.starts_at', 'g.status', 'g.capacity', 's.slug as sport_slug', 'c.name as court_name', 'v.name as venue_name'])
+            // Inline correlated subquery for the confirmed participant count
+            // (was a per-row COUNT — up to 50 extra queries). Mirrors
+            // DiscoveryController::nearbyGamesData / GamesController.
+            ->get([
+                'g.id', 'g.starts_at', 'g.status', 'g.capacity',
+                's.slug as sport_slug', 'c.name as court_name', 'v.name as venue_name',
+                DB::raw("(select count(*) from game_participants gp2 where gp2.game_id = g.id and gp2.status = 'confirmed') as participants_count"),
+            ])
             ->map(fn ($game) => [
                 ...((array) $game),
                 'starts_at' => $this->iso($game->starts_at),
-                'participants_count' => DB::table('game_participants')->where('game_id', $game->id)->where('status', 'confirmed')->count(),
+                'participants_count' => (int) $game->participants_count,
             ])
             ->values();
 

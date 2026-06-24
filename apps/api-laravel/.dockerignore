@@ -1,0 +1,57 @@
+# Docker build-context excludes for the production image (build context is this
+# directory — see docker-compose.prod.yml `build.context: ./apps/api-laravel`).
+#
+# The critical entry is `.env`: without it a dev .env (APP_ENV=local,
+# DB_HOST=127.0.0.1, QUEUE_CONNECTION=sync, BROADCAST_CONNECTION=log,
+# APP_URL=http://localhost) would be COPYed in and baked into
+# bootstrap/cache/config.php by `php artisan config:cache`. Keeping it out means
+# only the real runtime env (docker-compose `environment:`) is ever used.
+
+# Environment files — never bake secrets/dev config into the image.
+.env
+.env.*
+# …but keep the templates so operators/docs still ship.
+!.env.example
+!.env.production.example
+
+# Dependencies + build output — reinstalled/regenerated inside the image.
+vendor/
+node_modules/
+public/build
+public/hot
+
+# VCS metadata.
+.git/
+.gitignore
+.gitattributes
+
+# Runtime state that must not be baked into the image.
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/framework/testing/*
+storage/*.key
+database/database.sqlite
+
+# Tests + dev-only artifacts.
+tests/
+phpunit.xml
+.phpunit.result.cache
+.phpunit.cache/
+output/
+
+# Editor / OS / tooling noise.
+.editorconfig
+.idea/
+.vscode/
+.zed/
+.nova/
+.DS_Store
+Thumbs.db
+*.log
+
+# Docs / large binaries that don't belong in a runtime image.
+*.md
+*.pptx
+*.pdf

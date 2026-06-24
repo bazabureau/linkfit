@@ -40,7 +40,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
+    environment: &api_environment
       APP_NAME: ${APP_NAME:-Linkfit}
       APP_ENV: production
       APP_DEBUG: ${APP_DEBUG:-false}
@@ -96,6 +96,40 @@ services:
     expose:
       - "8000"
     # Only reachable via the nginx reverse proxy; not published to host.
+
+  # Queue worker — QUEUE_CONNECTION defaults to `database`, so without a worker
+  # process nothing drains the jobs table (push notifications, emails, async
+  # work would queue forever). Reuses the api image + env; only the command
+  # differs (it does not serve HTTP).
+  worker:
+    build:
+      context: ./apps/api-laravel
+      dockerfile: Dockerfile
+    container_name: linkfit-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment: *api_environment
+    volumes:
+      - uploads:/app/storage/app/public
+    command: php artisan queue:work --tries=3 --max-time=3600 --sleep=3
+
+  # Scheduler — runs `php artisan schedule:work` so any scheduled console tasks
+  # (reminders, cleanup) fire on time without a host crontab.
+  scheduler:
+    build:
+      context: ./apps/api-laravel
+      dockerfile: Dockerfile
+    container_name: linkfit-scheduler
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment: *api_environment
+    volumes:
+      - uploads:/app/storage/app/public
+    command: php artisan schedule:work
 
   nginx:
     image: nginx:1.27-alpine

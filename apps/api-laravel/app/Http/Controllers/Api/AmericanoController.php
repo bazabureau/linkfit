@@ -263,8 +263,9 @@ class AmericanoController extends ApiController
             ->orderByDesc('created_at')
             ->limit($limit)
             ->get();
+        $counts = $this->teamCountsFor($rows);
 
-        return response()->json(['items' => $rows->map(fn ($r) => $this->listPayload($r))->values()]);
+        return response()->json(['items' => $rows->map(fn ($r) => $this->listPayload($r, $counts[$r->id] ?? 0))->values()]);
     }
 
     public function mine(Request $request): JsonResponse
@@ -291,9 +292,37 @@ class AmericanoController extends ApiController
                 }
             })
             ->orderByDesc('created_at')
+            ->limit(100)
             ->get();
+        $counts = $this->teamCountsFor($rows);
 
-        return response()->json(['items' => $rows->map(fn ($r) => $this->listPayload($r))->values()]);
+        return response()->json(['items' => $rows->map(fn ($r) => $this->listPayload($r, $counts[$r->id] ?? 0))->values()]);
+    }
+
+    /**
+     * Per-tournament team counts for a page of rows in ONE grouped query, so
+     * listPayload() reads the precomputed value instead of a per-row COUNT.
+     *
+     * @param  iterable<int,object>  $rows
+     * @return array<string,int>
+     */
+    private function teamCountsFor(iterable $rows): array
+    {
+        $ids = [];
+        foreach ($rows as $r) {
+            $ids[] = $r->id;
+        }
+        if ($ids === []) {
+            return [];
+        }
+
+        return DB::table('americano_teams')
+            ->whereIn('tournament_id', $ids)
+            ->groupBy('tournament_id')
+            ->selectRaw('tournament_id, count(*) as cnt')
+            ->pluck('cnt', 'tournament_id')
+            ->map(fn ($v) => (int) $v)
+            ->all();
     }
 
     /**
@@ -303,9 +332,9 @@ class AmericanoController extends ApiController
      *
      * @return array<string,mixed>
      */
-    private function listPayload(object $r): array
+    private function listPayload(object $r, ?int $teamsCount = null): array
     {
-        $teamsCount = (int) DB::table('americano_teams')->where('tournament_id', $r->id)->count();
+        $teamsCount ??= (int) DB::table('americano_teams')->where('tournament_id', $r->id)->count();
 
         return array_merge((array) $r, [
             'title' => $r->name ?? null,
@@ -313,6 +342,10 @@ class AmericanoController extends ApiController
             'teams_count' => $teamsCount,
             'entries_count' => $teamsCount,
             'capacity' => isset($r->court_count) ? (int) $r->court_count : null,
+            // created_at is the only non-timestamptz column in the schema; emit it
+            // as ISO-8601 Zulu like every other endpoint instead of the raw
+            // 'YYYY-MM-DD HH:MM:SS' the array_merge above would otherwise pass through.
+            'created_at' => isset($r->created_at) ? $this->iso($r->created_at) : null,
         ]);
     }
 

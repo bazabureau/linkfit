@@ -27,13 +27,17 @@ class TournamentsController extends ApiController
         $q = DB::table('tournaments as t')
             ->join('sports as s', 's.id', '=', 't.sport_id')
             ->leftJoin('venues as v', 'v.id', '=', 't.venue_id')
+            // Batch the per-tournament non-withdrawn entry count (was a per-row
+            // COUNT fallback in payload()) via a grouped leftJoinSub, mirroring
+            // CatalogController's aggregate pattern.
+            ->leftJoinSub($this->entryCountAggregate(), 'ec', 'ec.tournament_id', '=', 't.id')
             ->whereIn('s.slug', ['padel', 'tennis'])
             ->when(! empty($query['sport']), fn ($q) => $q->where('s.slug', $query['sport']))
             ->when(! empty($query['status']), fn ($q) => $q->where('t.status', $query['status']))
             ->orderBy('t.starts_at')
             ->limit((int) ($query['limit'] ?? 50));
 
-        return response()->json(['items' => $q->get(['t.*', 's.slug as sport_slug', 'v.name as venue_name'])->map(fn ($r) => $this->payload($r))]);
+        return response()->json(['items' => $q->get(['t.*', 's.slug as sport_slug', 'v.name as venue_name', DB::raw('coalesce(ec.entries_count, 0) as entries_count')])->map(fn ($r) => $this->payload($r))]);
     }
 
     public function mine(Request $request): JsonResponse
@@ -51,6 +55,7 @@ class TournamentsController extends ApiController
                 $q->where('e.captain_user_id', $user->id)
                     ->orWhereRaw('(?)::text = ANY(e.player_ids::text[])', [(string) $user->id]);
             })
+            ->leftJoinSub($this->entryCountAggregate(), 'ec', 'ec.tournament_id', '=', 't.id')
             ->where('e.status', '!=', 'withdrawn')
             ->whereIn('s.slug', ['padel', 'tennis'])
             ->orderBy('t.starts_at')
@@ -60,6 +65,7 @@ class TournamentsController extends ApiController
                 'v.name as venue_name',
                 'e.id as entry_id',
                 'e.status as entry_status',
+                DB::raw('coalesce(ec.entries_count, 0) as entries_count'),
             ]);
 
         return response()->json(['items' => $rows->map(fn ($r) => $this->payload($r))]);
@@ -439,6 +445,18 @@ class TournamentsController extends ApiController
             array_map(fn ($v) => trim($v, '" '), explode(',', $trimmed)),
             fn ($v) => $v !== ''
         ));
+    }
+
+    /**
+     * Grouped per-tournament non-withdrawn entry count, joined into the list
+     * queries so payload() reads the prefetched alias instead of a per-row COUNT.
+     */
+    private function entryCountAggregate()
+    {
+        return DB::table('tournament_entries')
+            ->where('status', '!=', 'withdrawn')
+            ->groupBy('tournament_id')
+            ->select('tournament_id', DB::raw('count(*) as entries_count'));
     }
 
     private function payload(object $r): array

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\SanitizesCsv;
 use App\Services\Auth\PasswordService;
 use App\Services\Launch\LaunchConfig;
 use App\Services\Mail\TransactionalMailService;
@@ -18,6 +19,8 @@ use Illuminate\Support\Str;
 
 class AdminOpsController extends ApiController
 {
+    use SanitizesCsv;
+
     public function bootstrap(Request $request): JsonResponse
     {
         $admin = $this->staff($request, 'dashboard');
@@ -1562,15 +1565,15 @@ class AdminOpsController extends ApiController
             fputcsv($out, ['id', 'created_at', 'actor_user_id', 'actor_name', 'actor_email', 'action', 'entity', 'entity_id', 'metadata']);
             foreach ($rows as $row) {
                 fputcsv($out, [
-                    $row->id,
+                    $this->csvSafe($row->id),
                     $this->iso($row->created_at),
-                    $row->actor_user_id,
-                    $row->actor_display_name,
-                    $row->actor_email,
-                    $row->action,
-                    $row->entity,
-                    $row->entity_id,
-                    json_encode($this->metadataPayload($row->metadata)),
+                    $this->csvSafe($row->actor_user_id),
+                    $this->csvSafe($row->actor_display_name),
+                    $this->csvSafe($row->actor_email),
+                    $this->csvSafe($row->action),
+                    $this->csvSafe($row->entity),
+                    $this->csvSafe($row->entity_id),
+                    $this->csvSafe(json_encode($this->metadataPayload($row->metadata))),
                 ]);
             }
             fclose($out);
@@ -1867,8 +1870,8 @@ class AdminOpsController extends ApiController
             'status' => ['sometimes', 'in:open,full,cancelled,completed'],
             'capacity' => ['sometimes', 'integer', 'min:1', 'max:200'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
-            'skill_min_elo' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:5000'],
-            'skill_max_elo' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:5000'],
+            'skill_min_elo' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:4000'],
+            'skill_max_elo' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:4000'],
         ]);
         if ($data === []) {
             throw ApiException::validation('Provide at least one field to update');

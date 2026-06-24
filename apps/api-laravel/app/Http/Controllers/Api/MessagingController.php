@@ -8,6 +8,8 @@ use App\Events\MessageSent;
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Http\Controllers\Api\Concerns\HandlesIdempotentRequests;
+use App\Http\Controllers\Api\Concerns\ResolvesDirectConversations;
+use App\Http\Controllers\Api\Concerns\ValidatesMediaUrls;
 use App\Support\ApiException;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -21,6 +23,8 @@ class MessagingController extends ApiController
     use AuthorizesAdminPermissions;
     use FiltersBlockedUsers;
     use HandlesIdempotentRequests;
+    use ResolvesDirectConversations;
+    use ValidatesMediaUrls;
 
     public function notifications(Request $request): JsonResponse
     {
@@ -158,13 +162,20 @@ class MessagingController extends ApiController
         $limit = (int) ($query['limit'] ?? 20);
         $cursor = $this->decodeCursor($query['cursor'] ?? null);
 
+        // Restrict the "other participant" join to DIRECT threads only. Previously
+        // it joined every other member of a thread, so a group conversation
+        // (c.kind='group' with N members) emitted N rows — duplicating it in the
+        // list and breaking keyset pagination. A group's display fields come from
+        // the conversations row (title) instead, so each conversation now yields
+        // exactly one row.
         $rows = DB::table('conversation_participants as me')
             ->join('conversations as c', 'c.id', '=', 'me.conversation_id')
-            ->join('conversation_participants as other_cp', function ($join) {
+            ->leftJoin('conversation_participants as other_cp', function ($join) {
                 $join->on('other_cp.conversation_id', '=', 'c.id')
-                    ->whereColumn('other_cp.user_id', '!=', 'me.user_id');
+                    ->whereColumn('other_cp.user_id', '!=', 'me.user_id')
+                    ->where('c.kind', '=', 'direct');
             })
-            ->join('users as other', 'other.id', '=', 'other_cp.user_id')
+            ->leftJoin('users as other', 'other.id', '=', 'other_cp.user_id')
             ->where('me.user_id', $user->id)
             ->whereNull('me.left_at')
             // Hide 1:1 threads with a blocked user (either direction); group
@@ -194,6 +205,7 @@ class MessagingController extends ApiController
             ->get([
                 'c.id',
                 'c.kind',
+                'c.title as conversation_title',
                 'other.id as other_user_id',
                 'other.display_name as other_display_name',
                 'other.photo_url as other_photo_url',
@@ -221,15 +233,19 @@ class MessagingController extends ApiController
         return response()->json([
             'items' => $pageRows->map(function ($r) use ($lastMessages) {
                 $last = $lastMessages->get($r->id);
+                // A group thread has no single counterpart; surface the group title
+                // (and placeholder other_* fields the client ignores for groups)
+                // derived from the conversations row rather than a member join.
+                $isGroup = $r->kind === 'group';
 
                 return [
                     'id' => $r->id,
                     'kind' => $r->kind,
-                    'other_user_id' => $r->other_user_id,
-                    'other_display_name' => $r->other_display_name,
-                    'other_photo_url' => $r->other_photo_url,
-                    'other_last_seen_at' => $this->iso($r->other_last_seen_at),
-                    'other_is_online' => $this->isOnline($r->other_last_seen_at),
+                    'other_user_id' => $isGroup ? $r->id : $r->other_user_id,
+                    'other_display_name' => $isGroup ? ($r->conversation_title ?? 'Group chat') : $r->other_display_name,
+                    'other_photo_url' => $isGroup ? null : $r->other_photo_url,
+                    'other_last_seen_at' => $isGroup ? null : $this->iso($r->other_last_seen_at),
+                    'other_is_online' => $isGroup ? false : $this->isOnline($r->other_last_seen_at),
                     'last_message_body' => $last->body ?? null,
                     'last_message_attachment_url' => $last->attachment_url ?? null,
                     'last_message_attachment_type' => $last->attachment_type ?? null,
@@ -257,31 +273,20 @@ class MessagingController extends ApiController
             throw ApiException::forbidden('Cannot message this user');
         }
 
-        // Only match an existing DIRECT (1:1) conversation — never a group chat
-        // (game/tournament/squad), which shares the same participant table.
-        $existing = DB::table('conversation_participants as a')
+        // Race-safe get-or-create of the DIRECT (1:1) thread: the lookup + insert
+        // run inside one transaction under a per-pair advisory lock, so concurrent
+        // calls can never mint duplicate threads (which would split DM history).
+        // Group chats share the same participant table but are never matched here.
+        $existsBefore = DB::table('conversation_participants as a')
             ->join('conversation_participants as b', 'b.conversation_id', '=', 'a.conversation_id')
             ->join('conversations as c', 'c.id', '=', 'a.conversation_id')
             ->where('a.user_id', $user->id)
             ->where('b.user_id', $data['other_user_id'])
             ->where(fn ($q) => $q->where('c.kind', 'direct')->orWhereNull('c.kind'))
-            ->value('a.conversation_id');
-        if ($existing !== null) {
-            DB::table('conversation_participants')->where('conversation_id', $existing)->whereIn('user_id', [$user->id, $data['other_user_id']])->update(['left_at' => null]);
-            $this->broadcastConversationUpdated((string) $existing, 'conversation_opened');
+            ->exists();
 
-            return response()->json(['conversation_id' => $existing]);
-        }
-
-        $id = (string) Str::uuid();
-        DB::transaction(function () use ($id, $user, $data) {
-            DB::table('conversations')->insert(['id' => $id, 'kind' => 'direct', 'created_at' => now()]);
-            DB::table('conversation_participants')->insert([
-                ['conversation_id' => $id, 'user_id' => $user->id],
-                ['conversation_id' => $id, 'user_id' => $data['other_user_id']],
-            ]);
-        });
-        $this->broadcastConversationUpdated($id, 'conversation_created');
+        $id = DB::transaction(fn () => $this->getOrCreateDirectConversation((string) $user->id, (string) $data['other_user_id']));
+        $this->broadcastConversationUpdated((string) $id, $existsBefore ? 'conversation_opened' : 'conversation_created');
 
         return response()->json(['conversation_id' => $id]);
     }
@@ -334,14 +339,28 @@ class MessagingController extends ApiController
         $created = false;
         if ($existing === null) {
             $id = (string) Str::uuid();
-            DB::table('conversations')->insert([
-                'id' => $id,
-                'kind' => 'group',
-                'title' => $target->name ?? 'Group chat',
-                $targetColumn => $data['target_id'],
-                'created_at' => now(),
-            ]);
-            $created = true;
+            try {
+                DB::table('conversations')->insert([
+                    'id' => $id,
+                    'kind' => 'group',
+                    'title' => $target->name ?? 'Group chat',
+                    $targetColumn => $data['target_id'],
+                    'created_at' => now(),
+                ]);
+                $created = true;
+            } catch (QueryException $e) {
+                // 23505 = the conversations_group_game_uq / _tournament_uq partial
+                // unique index — a concurrent first-open won the race. Replay the
+                // group row it created instead of 500ing. Mirrors createMessage.
+                if ((string) ($e->errorInfo[0] ?? '') !== '23505') {
+                    throw $e;
+                }
+                $existing = DB::table('conversations')->where('kind', 'group')->where($targetColumn, $data['target_id'])->first();
+                if ($existing === null) {
+                    throw $e;
+                }
+                $id = $existing->id;
+            }
         } else {
             $id = $existing->id;
         }
@@ -553,12 +572,24 @@ class MessagingController extends ApiController
         }
         $data = $this->validateBody($request, [
             'body' => ['sometimes', 'nullable', 'string', 'max:4000'],
+            // PREFERRED: a server-owned media_asset_id, resolved to a trusted URL.
+            // A free-form attachment_url is still accepted but constrained to
+            // https + an allowlisted host so arbitrary off-domain URLs can't be
+            // stored and served to the conversation peers.
+            'media_asset_id' => ['sometimes', 'nullable', 'uuid'],
             'attachment_url' => ['sometimes', 'nullable', 'string', 'max:2048'],
             'attachment_type' => ['sometimes', 'nullable', 'in:image,voice,video,audio'],
             'idempotency_key' => ['sometimes', 'nullable', 'string', 'min:8', 'max:200'],
         ]);
         if (($data['attachment_type'] ?? null) === 'audio') {
             $data['attachment_type'] = 'voice';
+        }
+        // Resolve/validate the attachment URL: an owned media asset wins, else the
+        // free URL must pass the host allowlist. A null/absent attachment stays null.
+        if (! empty($data['media_asset_id'])) {
+            $data['attachment_url'] = $this->resolveOwnedMediaAssetUrl((string) $data['media_asset_id'], (string) $user->id);
+        } elseif (! empty($data['attachment_url'])) {
+            $data['attachment_url'] = $this->assertAllowedMediaUrl((string) $data['attachment_url']);
         }
         $body = trim((string) ($data['body'] ?? ''));
         if ($body === '' && empty($data['attachment_url'])) {
