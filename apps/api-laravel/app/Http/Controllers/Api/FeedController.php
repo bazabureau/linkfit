@@ -273,8 +273,19 @@ class FeedController extends ApiController
      */
     private function assertEventInteractable(object $event, string $actorUserId): void
     {
-        if ((string) ($event->visibility ?? '') === 'private'
-            && (string) $event->actor_user_id !== $actorUserId) {
+        $visibility = (string) ($event->visibility ?? '');
+        $isAuthor = (string) $event->actor_user_id === $actorUserId;
+        // Private: author-only.
+        if ($visibility === 'private' && ! $isAuthor) {
+            throw ApiException::notFound('Feed event not found');
+        }
+        // Followers-only: a non-follower must not like/comment on it. The actor
+        // must follow the author (or be the author).
+        if ($visibility === 'followers' && ! $isAuthor
+            && ! DB::table('follows')
+                ->where('follower_user_id', $actorUserId)
+                ->where('followed_user_id', $event->actor_user_id)
+                ->exists()) {
             throw ApiException::notFound('Feed event not found');
         }
     }

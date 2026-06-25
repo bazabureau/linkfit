@@ -818,6 +818,11 @@ class BookingsController extends ApiController
         if (! in_array($booking->status, ['pending_payment', 'partially_paid'], true)) {
             throw ApiException::conflict('Booking cannot be marked paid from its current status');
         }
+        // Validate the payment method instead of storing arbitrary client input.
+        $this->validateBody($request, [
+            'payment_method' => ['sometimes', 'nullable', 'in:cash,bank_transfer,onsite,manual'],
+            'payment_note' => ['sometimes', 'nullable', 'string', 'max:2000'],
+        ]);
 
         DB::transaction(function () use ($id, $request, $booking): void {
             DB::table('bookings')->where('id', $id)->update([

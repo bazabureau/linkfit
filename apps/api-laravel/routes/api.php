@@ -188,10 +188,10 @@ Route::prefix('api/v1')->group(function () {
         Route::get('me/matchmaking/players/for-me', [DiscoveryController::class, 'matchmakingPlayers']);
         Route::get('me/challenges/today', [DiscoveryController::class, 'challenges']);
         Route::post('me/challenges/{code}/check', [DiscoveryController::class, 'checkChallenge']);
-        Route::post('me/delete', [DataRightsController::class, 'requestDeletion']);
-        Route::post('me/delete/cancel', [DataRightsController::class, 'cancelDeletion']);
+        Route::post('me/delete', [DataRightsController::class, 'requestDeletion'])->middleware('throttle:5,60');
+        Route::post('me/delete/cancel', [DataRightsController::class, 'cancelDeletion'])->middleware('throttle:10,60');
         Route::get('me/delete', [DataRightsController::class, 'deletionStatus']);
-        Route::post('me/data-export', [DataRightsController::class, 'requestExport']);
+        Route::post('me/data-export', [DataRightsController::class, 'requestExport'])->middleware('throttle:5,60');
         Route::get('me/data-export', [DataRightsController::class, 'latestExport']);
         Route::get('me/medical-profile', [MedicalController::class, 'show']);
         Route::put('me/medical-profile', [MedicalController::class, 'update']);

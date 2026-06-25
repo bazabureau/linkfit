@@ -89,27 +89,32 @@ class MatchController extends ApiController
         // A completed match's stats + ELO have already been applied. Resetting it
         // back to in_progress and re-running complete() would double-apply ELO,
         // so refuse to (re)start scoring on an already-completed match.
-        $existing = DB::table('match_scores')->where('game_id', $id)->first(['status']);
-        if (($existing->status ?? null) === 'completed') {
-            throw ApiException::conflict('Match is already completed');
-        }
-        DB::table('match_scores')->updateOrInsert(
-            ['game_id' => $id],
-            [
-                'team_a_user_ids' => $this->uuidArray($data['team_a_user_ids']),
-                'team_b_user_ids' => $this->uuidArray($data['team_b_user_ids']),
-                'sets' => json_encode([]),
-                'points' => json_encode([]),
-                'current_set' => 0,
-                'current_game_a' => 0,
-                'current_game_b' => 0,
-                'point_a' => 0,
-                'point_b' => 0,
-                'status' => 'in_progress',
-                'started_at' => now(),
-                'updated_at' => now(),
-            ],
-        );
+        // Lock the row so a concurrent complete() can't flip status to 'completed'
+        // between this check and the write — which would re-init a finished match
+        // and let the next complete() double-apply ELO.
+        DB::transaction(function () use ($id, $data) {
+            $existing = DB::table('match_scores')->where('game_id', $id)->lockForUpdate()->first(['status']);
+            if (($existing->status ?? null) === 'completed') {
+                throw ApiException::conflict('Match is already completed');
+            }
+            DB::table('match_scores')->updateOrInsert(
+                ['game_id' => $id],
+                [
+                    'team_a_user_ids' => $this->uuidArray($data['team_a_user_ids']),
+                    'team_b_user_ids' => $this->uuidArray($data['team_b_user_ids']),
+                    'sets' => json_encode([]),
+                    'points' => json_encode([]),
+                    'current_set' => 0,
+                    'current_game_a' => 0,
+                    'current_game_b' => 0,
+                    'point_a' => 0,
+                    'point_b' => 0,
+                    'status' => 'in_progress',
+                    'started_at' => now(),
+                    'updated_at' => now(),
+                ],
+            );
+        });
         $this->auditWrite($user->id, 'match.scoring_start', 'match_scores', $id, [
             'team_a_user_ids' => array_values($data['team_a_user_ids']),
             'team_b_user_ids' => array_values($data['team_b_user_ids']),

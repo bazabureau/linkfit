@@ -139,6 +139,12 @@ class OwnerApplicationsController extends ApiController
         if ($venueId !== null && ! DB::table('venues')->where('id', $venueId)->exists()) {
             throw ApiException::notFound('Venue not found');
         }
+        // Reassigning an EXISTING venue's ownership is admin-only. Without this a
+        // moderator (venues permission) could transfer any user's venue to an
+        // applicant by passing its id. Moderators may still create NEW venues.
+        if ($venueId !== null && ($admin->admin_role ?? null) !== 'admin') {
+            throw ApiException::forbidden('Only admins can assign an existing venue to an applicant');
+        }
         if ($venueId === null) {
             if ($application->lat === null || $application->lng === null) {
                 throw ApiException::validation('lat and lng are required to create a new venue');

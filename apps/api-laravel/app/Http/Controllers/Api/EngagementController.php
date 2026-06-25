@@ -161,11 +161,12 @@ class EngagementController extends ApiController
             $base->where('s.slug', $sport);
         }
         if ($search !== '') {
-            $needle = '%'.mb_strtolower($search).'%';
+            // Escape LIKE wildcards; search only public display_name/username —
+            // NOT email (a public leaderboard must not let anyone enumerate emails).
+            $needle = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_strtolower($search)).'%';
             $base->where(function ($q) use ($needle) {
                 $q->whereRaw('LOWER(u.display_name) LIKE ?', [$needle])
-                    ->orWhereRaw('LOWER(u.username) LIKE ?', [$needle])
-                    ->orWhereRaw('LOWER(u.email) LIKE ?', [$needle]);
+                    ->orWhereRaw('LOWER(u.username) LIKE ?', [$needle]);
             });
         }
 

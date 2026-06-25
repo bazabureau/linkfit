@@ -29,7 +29,7 @@ class SocialController extends ApiController
 
         $rows = $this->playersBaseQuery($viewerId === null)
             ->when(! empty($query['q']), function ($q) use ($query) {
-                $needle = '%'.$query['q'].'%';
+                $needle = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], (string) $query['q']).'%';
                 $q->where(function ($qq) use ($needle) {
                     $qq->where('u.display_name', 'ilike', $needle)
                         ->orWhere('u.username', 'ilike', $needle);
@@ -49,7 +49,9 @@ class SocialController extends ApiController
 
     public function search(Request $request): JsonResponse
     {
-        $q = (string) $request->query('q', '');
+        // Escape LIKE wildcards so a `%`/`_` in the query can't broaden the match
+        // (pattern-injection / enumeration) — they become literals.
+        $q = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], (string) $request->query('q', ''));
         $type = $request->query('type');
         $limit = min(max((int) $request->query('limit', 20), 1), 50);
         $viewerId = $this->optionalViewerId($request);
