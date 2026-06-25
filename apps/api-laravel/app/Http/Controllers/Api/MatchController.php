@@ -45,10 +45,14 @@ class MatchController extends ApiController
             throw ApiException::notFound('Game not found');
         }
         // Ratings describe how a match actually went — only accept them once the
-        // game has started or finished. Rating an open/confirmed/cancelled game
-        // would let players manufacture ELO/behaviour signal for a match that
-        // never happened.
-        if (! in_array($game->status, ['in_progress', 'completed'], true)) {
+        // match has started or finished. Rating an open/cancelled game would let
+        // players manufacture ELO/behaviour signal for a match that never happened.
+        // NOTE: 'in_progress' is a match_scores status, NOT a games status (games
+        // are open|full|cancelled|completed), so check both: a completed game OR a
+        // started/completed scoring row.
+        $matchStarted = $game->status === 'completed'
+            || DB::table('match_scores')->where('game_id', $id)->whereIn('status', ['in_progress', 'completed'])->exists();
+        if (! $matchStarted) {
             throw ApiException::validation('Ratings can only be submitted after the game has started');
         }
         if (! $this->isConfirmedParticipant($id, (string) $user->id)) {
@@ -101,7 +105,7 @@ class MatchController extends ApiController
         // and let the next complete() double-apply ELO.
         DB::transaction(function () use ($id, $data) {
             $existing = DB::table('match_scores')->where('game_id', $id)->lockForUpdate()->first(['status']);
-            if (($existing->status ?? null) === 'completed') {
+            if ($existing?->status === 'completed') {
                 throw ApiException::conflict('Match is already completed');
             }
             DB::table('match_scores')->updateOrInsert(

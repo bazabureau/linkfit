@@ -328,8 +328,18 @@ class CatalogController extends ApiController
             ->where('ends_at', '>', $start->utc())
             ->get()
             ->groupBy('court_id');
+        // Active (unexpired) holds occupy a slot too — without this, the public
+        // availability view shows a held slot as "free" and the user only finds
+        // out it's taken when the booking 409s.
+        $holds = DB::table('booking_holds')
+            ->whereIn('court_id', $courtIds)
+            ->where('expires_at', '>', now())
+            ->where('starts_at', '<', $end->utc())
+            ->whereRaw("(starts_at + (duration_minutes || ' minutes')::interval) > ?", [$start->utc()])
+            ->get()
+            ->groupBy('court_id');
 
-        $items = $courts->map(function ($court) use ($bookings, $blocks, $policy, $start, $end) {
+        $items = $courts->map(function ($court) use ($bookings, $blocks, $holds, $policy, $start, $end) {
             $slots = [];
             for ($slot = $start; $slot < $end; $slot = $slot->addMinutes($policy['slot_minutes'])) {
                 $slotEnd = $slot->addMinutes($policy['slot_minutes']);
@@ -345,10 +355,16 @@ class CatalogController extends ApiController
 
                     return $blockedStart < $slotEnd && $blockedEnd > $slot;
                 });
+                $hold = ($holds->get($court->id) ?? collect())->first(function ($held) use ($slot, $slotEnd) {
+                    $heldStart = CarbonImmutable::parse($held->starts_at);
+                    $heldEnd = $heldStart->addMinutes((int) $held->duration_minutes);
+
+                    return $heldStart < $slotEnd && $heldEnd > $slot;
+                });
                 $slots[] = [
                     'start_at' => $slot->utc()->toIso8601ZuluString('millisecond'),
                     'end_at' => $slotEnd->utc()->toIso8601ZuluString('millisecond'),
-                    'status' => $block !== null ? 'blocked' : ($match === null ? 'free' : 'booked'),
+                    'status' => $block !== null ? 'blocked' : ($match !== null ? 'booked' : ($hold !== null ? 'held' : 'free')),
                     'booking_id' => $match->id ?? null,
                     'block_id' => $block->id ?? null,
                     'reason' => $block->reason ?? null,

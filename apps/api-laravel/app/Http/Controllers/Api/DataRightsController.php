@@ -127,7 +127,7 @@ class DataRightsController extends ApiController
             'user_id' => $r->user_id,
             'status' => $r->status,
             'requested_at' => $this->iso($r->requested_at),
-            'scheduled_at' => $this->iso($r->requested_at),
+            'scheduled_at' => $this->iso($r->hard_delete_at),
             'hard_delete_at' => $this->iso($r->hard_delete_at),
             'cancelled_at' => $this->iso($r->cancelled_at),
             'completed_at' => $this->iso($r->completed_at),
