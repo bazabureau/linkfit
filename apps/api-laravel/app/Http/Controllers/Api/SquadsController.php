@@ -132,7 +132,7 @@ class SquadsController extends ApiController
     {
         $owner = $this->authUser($request);
         $this->ownerOnly($request, $id);
-        $data = $this->validateBody($request, ['user_id' => ['required', 'uuid']]);
+        $data = $this->validateBody($request, ['user_id' => ['required', 'uuid', 'exists:users,id,deleted_at,NULL']]);
 
         // P2#54: never let an invite cross a block. A blocked user must not end
         // up sharing a squad with the person who blocked them, in EITHER

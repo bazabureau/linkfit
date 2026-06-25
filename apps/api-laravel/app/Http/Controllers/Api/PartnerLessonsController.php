@@ -209,6 +209,23 @@ class PartnerLessonsController extends ApiController
         if (! empty($data['court_id'])) {
             $this->ownedCourt($venueId, $data['court_id']);
         }
+        // No rescheduling into the past, keep min<=max ELO, and don't double-book
+        // the coach. Effective coach/start/duration = new value if given, else current.
+        if (isset($data['starts_at']) && strtotime((string) $data['starts_at']) <= time()) {
+            throw ApiException::validation('starts_at must be in the future');
+        }
+        if (isset($data['level_min_elo'], $data['level_max_elo']) && $data['level_min_elo'] !== null && $data['level_max_elo'] !== null && $data['level_min_elo'] > $data['level_max_elo']) {
+            throw ApiException::validation('level_min_elo cannot exceed level_max_elo');
+        }
+        if (isset($data['starts_at']) || isset($data['coach_id']) || isset($data['duration_minutes'])) {
+            $current = DB::table('lessons')->where('id', $id)->first(['coach_id', 'starts_at', 'duration_minutes']);
+            $this->assertNoCoachOverlap(
+                (string) ($data['coach_id'] ?? $current->coach_id),
+                (string) ($data['starts_at'] ?? $current->starts_at),
+                (int) ($data['duration_minutes'] ?? $current->duration_minutes),
+                $id,
+            );
+        }
         $update = array_intersect_key($data, array_flip([
             'coach_id', 'court_id', 'title', 'description', 'kind', 'level_label', 'level_min_elo',
             'level_max_elo', 'starts_at', 'duration_minutes', 'capacity', 'price_minor', 'currency', 'status',

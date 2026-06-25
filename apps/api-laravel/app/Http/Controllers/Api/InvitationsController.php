@@ -17,7 +17,7 @@ class InvitationsController extends ApiController
     public function create(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
-        $data = $this->validateBody($request, ['invitee_user_id' => ['required', 'uuid']]);
+        $data = $this->validateBody($request, ['invitee_user_id' => ['required', 'uuid', 'exists:users,id,deleted_at,NULL']]);
         $game = DB::table('games')->where('id', $id)->first();
         if ($game === null) {
             throw ApiException::notFound('Game not found');
@@ -55,7 +55,7 @@ class InvitationsController extends ApiController
         // loop below can never be turned into an amplification vector.
         $data = $this->validateBody($request, [
             'user_ids' => ['nullable', 'array', 'max:50'],
-            'user_ids.*' => ['uuid'],
+            'user_ids.*' => ['uuid', 'exists:users,id,deleted_at,NULL'],
         ]);
         $game = DB::table('games')->where('id', $id)->first();
         if ($game === null) {

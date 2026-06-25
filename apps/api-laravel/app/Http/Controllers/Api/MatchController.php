@@ -44,6 +44,13 @@ class MatchController extends ApiController
         if ($game === null) {
             throw ApiException::notFound('Game not found');
         }
+        // Ratings describe how a match actually went — only accept them once the
+        // game has started or finished. Rating an open/confirmed/cancelled game
+        // would let players manufacture ELO/behaviour signal for a match that
+        // never happened.
+        if (! in_array($game->status, ['in_progress', 'completed'], true)) {
+            throw ApiException::validation('Ratings can only be submitted after the game has started');
+        }
         if (! $this->isConfirmedParticipant($id, (string) $user->id)) {
             throw ApiException::forbidden('Only confirmed participants can submit ratings');
         }
