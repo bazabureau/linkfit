@@ -115,7 +115,7 @@ class MatchController extends ApiController
             'team_b_user_ids' => array_values($data['team_b_user_ids']),
         ]);
 
-        return $this->scoring($id);
+        return $this->scoringResponse($id);
     }
 
     // ── Padel scoring rules (best-of-3). The schema (match-scores.sql) has no
@@ -158,7 +158,7 @@ class MatchController extends ApiController
             'match_complete' => $state['winner'] !== null,
         ]);
 
-        return $this->scoring($id);
+        return $this->scoringResponse($id);
     }
 
     public function undo(Request $request, string $id): JsonResponse
@@ -187,7 +187,7 @@ class MatchController extends ApiController
             'team' => $last,
         ]);
 
-        return $this->scoring($id);
+        return $this->scoringResponse($id);
     }
 
     public function complete(Request $request, string $id): JsonResponse
@@ -256,7 +256,7 @@ class MatchController extends ApiController
             'elo_delta_by_user' => $deltas ?? [],
         ]);
 
-        return $this->scoring($id);
+        return $this->scoringResponse($id);
     }
 
     /**
@@ -338,7 +338,7 @@ class MatchController extends ApiController
             ]);
         }
 
-        return $this->scoring($id);
+        return $this->scoringResponse($id);
     }
 
     public function setResultAccess(Request $request, string $id, string $uid): JsonResponse
@@ -597,7 +597,35 @@ class MatchController extends ApiController
         return $a === $b ? null : ($a > $b ? 'a' : 'b');
     }
 
-    public function scoring(string $id): JsonResponse
+    public function scoring(Request $request, string $id): JsonResponse
+    {
+        // Public games keep their open (spectator) scoreboard, but an invite-only
+        // game's live score, team rosters and per-user ELO deltas must only be
+        // readable by the host or a confirmed participant — otherwise any
+        // authenticated user could enumerate game ids and read the team
+        // composition + ELO movement of private games. 404 (not 403) so the
+        // endpoint never confirms an invite-only game exists to outsiders,
+        // matching the invite-only access model GamesController enforces.
+        $game = $this->gameRow($id);
+        if ($game->visibility === 'invite') {
+            $user = $this->authUser($request);
+            $isAllowed = (string) $game->host_user_id === (string) $user->id
+                || $this->isConfirmedParticipant($id, (string) $user->id);
+            if (! $isAllowed) {
+                throw ApiException::notFound('Scoring has not started');
+            }
+        }
+
+        return $this->scoringResponse($id);
+    }
+
+    /**
+     * Render the scoreboard payload without any access gate — the single
+     * authoritative scoring response shape, reused by the gated route handler
+     * scoring() and by every write path (startScoring/point/undo/complete/
+     * reportResult) which has already enforced result-write access.
+     */
+    private function scoringResponse(string $id): JsonResponse
     {
         return response()->json($this->scorePayload($this->scoreRow($id)));
     }

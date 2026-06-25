@@ -27,7 +27,7 @@ class SocialController extends ApiController
         // Optional viewer (route may be public); used to resolve per-row follow state.
         $viewerId = $this->optionalViewerId($request);
 
-        $rows = $this->playersBaseQuery()
+        $rows = $this->playersBaseQuery($viewerId === null)
             ->when(! empty($query['q']), function ($q) use ($query) {
                 $needle = '%'.$query['q'].'%';
                 $q->where(function ($qq) use ($needle) {
@@ -56,7 +56,7 @@ class SocialController extends ApiController
 
         $players = collect();
         if ($type === null || $type === 'players') {
-            $players = $this->playersBaseQuery()
+            $players = $this->playersBaseQuery($viewerId === null)
                 ->where('u.display_name', 'ilike', '%'.$q.'%')
                 ->when($viewerId !== null, fn ($qq) => $this->whereNotBlocked($qq, $viewerId, 'u.id'))
                 ->orderBy('u.display_name')
@@ -80,9 +80,10 @@ class SocialController extends ApiController
                 ->leftJoin('venues as v', 'v.id', '=', 'c.venue_id')
                 ->whereIn('s.slug', ['padel', 'tennis'])
                 // A game search row leaks the host's identity (display_name) and
-                // their hosted game, so honour the same bidirectional block rule
-                // applied to the players sub-query above — a blocked-either-way
-                // viewer must not see the host's games.
+                // their hosted game. Anonymous viewers may only see games hosted by
+                // the curated public directory (matching the players sub-query);
+                // signed-in viewers see all except hosts blocked either way.
+                ->when($viewerId === null, fn ($qq) => $this->wherePublicPlayerDirectoryAllowed($qq, 'h'))
                 ->when($viewerId !== null, fn ($qq) => $this->whereNotBlocked($qq, $viewerId, 'h.id'))
                 ->where(function ($builder) use ($q) {
                     $builder->where('h.display_name', 'ilike', '%'.$q.'%')
@@ -555,7 +556,7 @@ class SocialController extends ApiController
         ];
     }
 
-    private function playersBaseQuery()
+    private function playersBaseQuery(bool $publicOnly = true)
     {
         $primaryStats = DB::table('player_sport_stats as ps')
             ->join('sports as s', 's.id', '=', 'ps.sport_id')
@@ -569,7 +570,9 @@ class SocialController extends ApiController
             ->leftJoinSub($primaryStats, 'primary_stats', 'primary_stats.user_id', '=', 'u.id')
             ->whereNull('u.deleted_at')
             ->whereNull('u.admin_role')
-            ->when(true, fn ($q) => $this->wherePublicPlayerDirectoryAllowed($q, 'u'))
+            // Curated public directory only applies to anonymous viewers; signed-in
+            // users see every real player.
+            ->when($publicOnly, fn ($q) => $this->wherePublicPlayerDirectoryAllowed($q, 'u'))
             ->select([
                 'u.id',
                 'u.username',

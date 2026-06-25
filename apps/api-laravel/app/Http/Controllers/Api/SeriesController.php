@@ -97,13 +97,21 @@ class SeriesController extends ApiController
         if ((string) $series->host_user_id !== (string) $user->id) {
             throw ApiException::forbidden('Only the host can cancel this series');
         }
-        DB::table('game_series')->where('id', $id)->update(['status' => 'cancelled']);
-        $cancelledCount = DB::table('games')
-            ->where('series_id', $id)
-            ->where('starts_at', '>=', now())
-            ->update(['status' => 'cancelled', 'updated_at' => now()]);
+        // Cancelling the series template AND its future occurrences is one
+        // logical operation: if the games update fails after the series row is
+        // flipped, the series would read `cancelled` while its future games stay
+        // active (and re-running cancel() can't fix it on a non-host caller).
+        // Wrap both writes so either both land or neither does.
+        $cancelledCount = DB::transaction(function () use ($id): int {
+            DB::table('game_series')->where('id', $id)->update(['status' => 'cancelled']);
 
-        return response()->json(['cancelled_count' => (int) $cancelledCount]);
+            return (int) DB::table('games')
+                ->where('series_id', $id)
+                ->where('starts_at', '>=', now())
+                ->update(['status' => 'cancelled', 'updated_at' => now()]);
+        });
+
+        return response()->json(['cancelled_count' => $cancelledCount]);
     }
 
     /**

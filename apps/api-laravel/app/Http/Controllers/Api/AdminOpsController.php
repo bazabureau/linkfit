@@ -597,15 +597,37 @@ class AdminOpsController extends ApiController
         $data = $this->validateBody($request, [
             'role' => ['nullable', 'in:admin,moderator'],
         ]);
-        $oldRole = DB::table('users')->where('id', $id)->value('admin_role');
-        DB::table('users')->where('id', $id)->update(['admin_role' => $data['role'] ?? null, 'updated_at' => now()]);
+        // Validate existence BEFORE writing so a missing id is a clean 404 rather
+        // than a write-then-validate no-op.
         $user = DB::table('users')->where('id', $id)->first();
         if ($user === null) {
             throw ApiException::notFound('User not found');
         }
+        $oldRole = $user->admin_role;
+        $newRole = $data['role'] ?? null;
+        // Self-mutation guard: an admin must not change their own role (could lock
+        // themselves out by demoting to moderator/null), mirroring the
+        // self-deletion guard in deleteStaffAccount.
+        if ((string) $admin->id === $id) {
+            throw ApiException::conflict('You cannot change your own admin role');
+        }
+        // Last-admin guard: never demote the final remaining admin to a non-admin
+        // role, which would leave the platform with no admin.
+        if ($oldRole === 'admin' && $newRole !== 'admin') {
+            $remainingAdmins = DB::table('users')
+                ->where('admin_role', 'admin')
+                ->where('id', '!=', $id)
+                ->whereNull('deleted_at')
+                ->count();
+            if ($remainingAdmins === 0) {
+                throw ApiException::conflict('Cannot demote the last remaining admin');
+            }
+        }
+        DB::table('users')->where('id', $id)->update(['admin_role' => $newRole, 'updated_at' => now()]);
+        $user = DB::table('users')->where('id', $id)->first();
         $this->auditWrite($admin->id, 'user.role', 'users', $id, [
             'old_role' => $oldRole,
-            'new_role' => $data['role'] ?? null,
+            'new_role' => $newRole,
         ]);
 
         return response()->json($this->adminUserPayload((object) [

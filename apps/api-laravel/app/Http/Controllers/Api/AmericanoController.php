@@ -21,7 +21,12 @@ class AmericanoController extends ApiController
             'name' => ['required', 'string', 'max:100'],
             'format' => ['sometimes', 'in:solo,team'],
             'court_count' => ['sometimes', 'integer', 'min:1', 'max:50'],
-            'scoring_system' => ['sometimes', 'string', 'max:30'],
+            // Constrain to the two values the standing recompute understands
+            // (`points` sums points; anything else is the win/draw tally). The
+            // client only ever sends `points`|`games`, so pinning the enum
+            // rejects arbitrary strings landing in the column without narrowing
+            // any value the app legitimately sends.
+            'scoring_system' => ['sometimes', 'in:points,games'],
         ]);
         $id = (string) Str::uuid();
         DB::table('americano_tournaments')->insert([

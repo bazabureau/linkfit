@@ -8,9 +8,13 @@ import {
 
 // In production the API URL must be an explicit https endpoint — fail fast
 // rather than silently shipping cleartext requests to a non-existent host.
+// Gated on NEXT_PHASE (set by Next ONLY during `next build`) instead of an
+// env-inlined IS_BUILD_PHASE flag: an inlined flag would bake "true" into the
+// runtime bundle and never re-evaluate, which is exactly how a build-phase
+// shortcut can silently disable this runtime check.
 if (
   process.env.NODE_ENV === "production" &&
-  process.env.IS_BUILD_PHASE !== "true" &&
+  process.env.NEXT_PHASE !== "phase-production-build" &&
   (!process.env.NEXT_PUBLIC_API_URL ||
     !process.env.NEXT_PUBLIC_API_URL.startsWith("https://"))
 ) {

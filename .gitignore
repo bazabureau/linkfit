@@ -20,3 +20,5 @@ apps/iosv2/
 
 # iOS build artifacts (root)
 /build/
+/output/
+apps/api-laravel/storage/framework/testing/

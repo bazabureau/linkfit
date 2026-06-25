@@ -41,7 +41,7 @@ class CatalogController extends ApiController
         $base = DB::table('venues as v')
             ->leftJoinSub($this->venueCourtAggregates(), 'agg', 'agg.venue_id', '=', 'v.id')
             ->where(fn ($q) => $q->whereNull('v.status')->orWhere('v.status', 'published'))
-            ->selectRaw('v.id, v.name, v.address, v.lat, v.lng, v.is_partner, v.phone, v.description, v.photo_url, v.photo_urls, v.rating_avg, v.rating_count, agg.courts_count, agg.from_price_minor');
+            ->selectRaw('v.id, v.name, v.address, v.lat, v.lng, v.is_partner, v.phone, v.description, v.description_i18n, v.photo_url, v.photo_urls, v.rating_avg, v.rating_count, agg.courts_count, agg.from_price_minor');
 
         if (! empty($query['sport'])) {
             $base->whereExists(function ($q) use ($query) {
@@ -262,7 +262,13 @@ class CatalogController extends ApiController
             'sport' => ['nullable', 'string', 'max:80'],
         ]);
 
-        $venue = DB::table('venues')->where('id', $id)->first();
+        // Match every other public catalog read (venue/venues/court/courts):
+        // only PUBLISHED venues are exposed. Without this filter a draft/hidden
+        // venue's details + slot availability leak on this public endpoint.
+        $venue = DB::table('venues')
+            ->where('id', $id)
+            ->where(fn ($q) => $q->whereNull('status')->orWhere('status', 'published'))
+            ->first();
         if ($venue === null) {
             throw ApiException::notFound('Venue not found');
         }
@@ -394,6 +400,7 @@ class CatalogController extends ApiController
                 'v.is_partner',
                 'v.phone',
                 'v.description',
+                'v.description_i18n',
                 'v.photo_url',
                 'v.photo_urls',
                 'v.rating_avg',
@@ -548,6 +555,12 @@ class CatalogController extends ApiController
             'is_partner' => (bool) $r->is_partner,
             'phone' => $r->phone ?? null,
             'description' => $r->description ?? null,
+            // Localized descriptions {az,en,ru} (jsonb). Decoded to an object so the
+            // web/app can show the venue blurb in the active language; falls back to
+            // the plain `description` when a locale is missing.
+            'description_i18n' => isset($r->description_i18n) && is_string($r->description_i18n)
+                ? json_decode($r->description_i18n, true)
+                : ($r->description_i18n ?? null),
             'photo_url' => $r->photo_url ?? null,
             'photo_urls' => $this->pgArray($r->photo_urls ?? null),
             'rating_avg' => $r->rating_avg !== null ? (float) $r->rating_avg : null,

@@ -23,7 +23,17 @@ class MediaController extends ApiController
         }
         $detectedMime = $this->normalizeMime((string) $file->getMimeType());
         $clientMime = $this->normalizeMime((string) $file->getClientMimeType());
-        $purpose = (string) $request->input('purpose', 'general');
+        // Constrain the client-supplied purpose: it is persisted into the
+        // media_assets.purpose string(64) column, so an over-long value would
+        // raise a DB "value too long" error (500). Trim + cap to the column
+        // width and fall back to the default for an empty value. The app only
+        // sends short tokens (general, message_voice, avatar, …) so legitimate
+        // input is never narrowed.
+        $purpose = trim((string) $request->input('purpose', 'general'));
+        if ($purpose === '') {
+            $purpose = 'general';
+        }
+        $purpose = mb_substr($purpose, 0, 64);
         $isVoicePurpose = in_array($purpose, ['message_voice', 'voice', 'audio'], true);
 
         $audioMimes = ['audio/aac', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/wav', 'audio/webm', 'audio/x-m4a', 'audio/m4a', 'audio/caf', 'audio/x-caf', 'audio/amr', 'audio/3gpp', 'application/ogg'];
@@ -187,6 +197,12 @@ class MediaController extends ApiController
     public function delete(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        // The id maps to the media_assets.id uuid column; a non-uuid route value
+        // would raise a Postgres invalid-text-representation error (surfacing as a
+        // generic 500) instead of the intended 404. Reject it up front.
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Media asset not found');
+        }
         $asset = DB::table('media_assets')->where('id', $id)->first();
         if ($asset === null || $asset->deleted_at !== null) {
             throw ApiException::notFound('Media asset not found');

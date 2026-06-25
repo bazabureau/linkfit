@@ -18,10 +18,11 @@ const unbounded = Unbounded({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://admin.linkfit.az"),
   title: "LinkFit · Idarəetmə",
   description: "LinkFit administration panel",
   // Internet-facing admin panel — never let crawlers index it.
-  robots: { index: false, follow: false },
+  robots: { index: false, follow: false, nocache: true },
 };
 
 export default function RootLayout({

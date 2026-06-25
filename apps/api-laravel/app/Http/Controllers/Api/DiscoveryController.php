@@ -146,6 +146,13 @@ class DiscoveryController extends ApiController
         $user = $this->authUser($request);
 
         $slug = (string) ($request->query('sport') ?: 'padel');
+        // Constrain to the supported sports (mirrors the padel/tennis whitelist used
+        // across discovery/games) so an arbitrary client string can't be reflected
+        // back as `sport_slug`; fall back to the default rather than 422 so existing
+        // clients keep getting the headline snapshot.
+        if (! in_array($slug, ['padel', 'tennis'], true)) {
+            $slug = 'padel';
+        }
         $days = (int) ($request->query('days') ?: 30);
         $days = max(1, min($days, 1825));
         $windowStart = now()->subDays($days);
@@ -545,7 +552,7 @@ class DiscoveryController extends ApiController
         $rows = DB::table('users as u')
             ->where('u.id', '!=', $userId)
             ->whereNull('u.deleted_at')
-            ->when(true, fn ($q) => $this->wherePublicPlayerDirectoryAllowed($q, 'u'))
+            // Suggestions are signed-in-only — surface all real players, not just the curated public set.
             ->whereNotExists(function ($q) use ($userId) {
                 $q->selectRaw('1')->from('follows as f')
                     ->whereColumn('f.followed_user_id', 'u.id')
@@ -609,7 +616,7 @@ class DiscoveryController extends ApiController
         $rows = DB::table('users as u')
             ->where('u.id', '!=', $user->id)
             ->whereNull('u.deleted_at')
-            ->when(true, fn ($q) => $this->wherePublicPlayerDirectoryAllowed($q, 'u'))
+            // Suggestions are signed-in-only — surface all real players, not just the curated public set.
             ->whereNotExists(function ($q) use ($user) {
                 $q->selectRaw('1')->from('follows as f')->whereColumn('f.followed_user_id', 'u.id')->where('f.follower_user_id', $user->id);
             })
@@ -695,7 +702,7 @@ class DiscoveryController extends ApiController
             ->where('u.id', '!=', $user->id)
             ->whereNull('u.deleted_at')
             ->whereNull('u.admin_role')
-            ->when(true, fn ($q) => $this->wherePublicPlayerDirectoryAllowed($q, 'u'))
+            // Suggestions are signed-in-only — surface all real players, not just the curated public set.
             ->whereNotExists(function ($q) use ($user) {
                 $q->selectRaw('1')->from('follows as f')
                     ->whereColumn('f.followed_user_id', 'u.id')

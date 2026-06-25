@@ -18,26 +18,40 @@ class LessonsController extends ApiController
     /** GET /lessons — browse upcoming scheduled lessons (filters: sport, venue_id, kind, date, level). */
     public function index(Request $request): JsonResponse
     {
+        // Validate filters: a bad venue_id (UUID column) or malformed date would
+        // otherwise reach Postgres and surface as a 500 instead of a clean 422.
+        // All fields stay optional so legitimately-sent params are unaffected.
+        $filters = $this->validateQuery($request, [
+            'sport' => ['nullable', 'string', 'max:80'],
+            'venue_id' => ['nullable', 'uuid'],
+            'kind' => ['nullable', 'in:group,private'],
+            'date' => ['nullable', 'regex:/^\d{4}-\d{2}-\d{2}$/'],
+            'level' => ['nullable', 'string', 'max:80'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'offset' => ['nullable', 'integer', 'min:0'],
+            'cursor' => ['nullable', 'integer', 'min:0'],
+        ]);
+
         $viewerId = $this->optionalViewerId($request);
-        $limit = min(max((int) $request->query('limit', 30), 1), 100);
+        $limit = min(max((int) ($filters['limit'] ?? 30), 1), 100);
         // Accept either `offset` or an opaque numeric `cursor` (mobile clients
         // page via `cursor`, echoing back the `next_cursor` we return below).
-        $offset = max((int) ($request->query('cursor') ?? $request->query('offset', 0)), 0);
+        $offset = max((int) ($filters['cursor'] ?? $filters['offset'] ?? 0), 0);
 
         $query = $this->baseQuery()
             ->where('l.status', 'scheduled')
             ->where('l.starts_at', '>=', now());
 
-        if ($sport = $request->query('sport')) {
+        if ($sport = ($filters['sport'] ?? null)) {
             $query->where('s.slug', $sport);
         }
-        if ($venueId = $request->query('venue_id')) {
+        if ($venueId = ($filters['venue_id'] ?? null)) {
             $query->where('l.venue_id', $venueId);
         }
-        if ($kind = $request->query('kind')) {
+        if ($kind = ($filters['kind'] ?? null)) {
             $query->where('l.kind', $kind);
         }
-        if ($date = $request->query('date')) {
+        if ($date = ($filters['date'] ?? null)) {
             $query->whereRaw('l.starts_at::date = ?', [$date]);
         }
 
@@ -60,6 +74,10 @@ class LessonsController extends ApiController
     /** GET /lessons/{id} — full lesson detail. */
     public function show(Request $request, string $id): JsonResponse
     {
+        // id is a UUID column; a non-UUID would error on Postgres' uuid cast.
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Lesson not found');
+        }
         $viewerId = $this->optionalViewerId($request);
         $l = $this->baseQuery()->where('l.id', $id)->first();
         if ($l === null) {
@@ -91,6 +109,9 @@ class LessonsController extends ApiController
     public function book(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Lesson not found');
+        }
 
         return DB::transaction(function () use ($user, $id) {
             $lesson = DB::table('lessons')->where('id', $id)->lockForUpdate()->first();
@@ -138,6 +159,9 @@ class LessonsController extends ApiController
     public function cancel(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Lesson not found');
+        }
 
         return DB::transaction(function () use ($user, $id) {
             $lesson = DB::table('lessons')->where('id', $id)->lockForUpdate()->first();
@@ -192,20 +216,30 @@ class LessonsController extends ApiController
     /** GET /coaches — list active coaches (filters: sport, venue_id; paged via limit + cursor/offset). */
     public function coaches(Request $request): JsonResponse
     {
-        $limit = min(max((int) $request->query('limit', 50), 1), 100);
+        // venue_id is a UUID column; validate so a bad value yields a 422 rather
+        // than a Postgres uuid-cast 500. Fields stay optional (no contract change).
+        $filters = $this->validateQuery($request, [
+            'sport' => ['nullable', 'string', 'max:80'],
+            'venue_id' => ['nullable', 'uuid'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'offset' => ['nullable', 'integer', 'min:0'],
+            'cursor' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $limit = min(max((int) ($filters['limit'] ?? 50), 1), 100);
         // Accept either `offset` or an opaque numeric `cursor` — mirrors index():
         // clients page by echoing back the `next_cursor` we return below.
-        $offset = max((int) ($request->query('cursor') ?? $request->query('offset', 0)), 0);
+        $offset = max((int) ($filters['cursor'] ?? $filters['offset'] ?? 0), 0);
 
         $query = DB::table('coaches as co')
             ->leftJoin('sports as s', 's.id', '=', 'co.sport_id')
             ->leftJoin('venues as v', 'v.id', '=', 'co.venue_id')
             ->where('co.is_active', true);
 
-        if ($sport = $request->query('sport')) {
+        if ($sport = ($filters['sport'] ?? null)) {
             $query->where('s.slug', $sport);
         }
-        if ($venueId = $request->query('venue_id')) {
+        if ($venueId = ($filters['venue_id'] ?? null)) {
             $query->where('co.venue_id', $venueId);
         }
 
@@ -236,6 +270,10 @@ class LessonsController extends ApiController
     /** GET /coaches/{id} — coach profile + their upcoming lessons. */
     public function coach(Request $request, string $id): JsonResponse
     {
+        // id is a UUID column; a non-UUID would error on Postgres' uuid cast.
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Coach not found');
+        }
         $viewerId = $this->optionalViewerId($request);
         $c = DB::table('coaches as co')
             ->leftJoin('sports as s', 's.id', '=', 'co.sport_id')

@@ -172,6 +172,16 @@ class CoachPortalController extends ApiController
                 throw ApiException::validation('capacity cannot be lower than current bookings');
             }
         }
+        // When the lesson is being moved (time or duration changes) re-check that
+        // it does not overlap another of this coach's lessons — mirroring create.
+        if (array_key_exists('starts_at', $data) || array_key_exists('duration_minutes', $data)) {
+            $existingLesson = DB::table('lessons')->where('id', $id)->where('coach_id', $coach->id)->first(['starts_at', 'duration_minutes']);
+            $startsAt = $data['starts_at'] ?? (string) ($existingLesson->starts_at ?? '');
+            $duration = (int) ($data['duration_minutes'] ?? ($existingLesson->duration_minutes ?? 0));
+            if ($startsAt !== '' && $duration > 0) {
+                $this->assertNoCoachOverlap((string) $coach->id, $startsAt, $duration, $id);
+            }
+        }
 
         $update = array_intersect_key($data, array_flip([
             'court_id', 'title', 'description', 'kind', 'level_label', 'starts_at',

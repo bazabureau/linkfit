@@ -126,7 +126,10 @@ Route::prefix('api/v1')->group(function () {
     Route::get('web/bootstrap', [WebController::class, 'bootstrap']);
     Route::get('web/checkout/courts/{courtId}', [WebController::class, 'checkout'])->middleware('throttle:public-discovery');
 
-    Route::middleware('jwt')->group(function () {
+    // jwt authenticates + sets auth_user; PortalRoleGuard then enforces role by
+    // path prefix (admin/partner/owner/coach) as defense-in-depth on top of the
+    // in-controller checks. It passes through all consumer (non-portal) paths.
+    Route::middleware(['jwt', \App\Http\Middleware\PortalRoleGuard::class])->group(function () {
         Route::post('auth/send-verification', [AuthExtrasController::class, 'sendVerification'])->middleware('throttle:3,1');
         Route::get('me', [MeController::class, 'show']);
         Route::get('mobile/bootstrap', [MobileController::class, 'bootstrap']);
@@ -165,7 +168,7 @@ Route::prefix('api/v1')->group(function () {
         Route::post('courts/{id}/save', [CatalogController::class, 'saveCourt']);
         Route::delete('courts/{id}/save', [CatalogController::class, 'unsaveCourt']);
         Route::get('me/waitlist', [WaitlistController::class, 'mine']);
-        Route::post('courts/{id}/waitlist', [WaitlistController::class, 'create']);
+        Route::post('courts/{id}/waitlist', [WaitlistController::class, 'create'])->middleware('throttle:write-action');
         Route::delete('waitlist/{id}', [WaitlistController::class, 'cancel']);
         Route::get('booking-holds', [BookingsController::class, 'holds']);
         Route::post('booking-holds', [BookingsController::class, 'createHold'])->middleware('throttle:write-action');
@@ -202,12 +205,12 @@ Route::prefix('api/v1')->group(function () {
         Route::post('membership/cancel', [MembershipController::class, 'cancel'])->middleware('throttle:write-action');
         Route::get('payments/history', [PaymentsController::class, 'history']);
         Route::get('payments/summary', [PaymentsController::class, 'summary']);
-        Route::post('payments/booking/{id}/intent', [PaymentsController::class, 'bookingIntent']);
+        Route::post('payments/booking/{id}/intent', [PaymentsController::class, 'bookingIntent'])->middleware('throttle:write-action');
         Route::get('payments/booking/{id}/status', [PaymentsController::class, 'bookingStatus']);
-        Route::post('payments/tournament/{tournamentId}/entry-intent', [PaymentsController::class, 'tournamentIntent']);
-        Route::post('game-series', [SeriesController::class, 'store']);
+        Route::post('payments/tournament/{tournamentId}/entry-intent', [PaymentsController::class, 'tournamentIntent'])->middleware('throttle:write-action');
+        Route::post('game-series', [SeriesController::class, 'store'])->middleware('throttle:write-action');
         Route::get('game-series/{id}', [SeriesController::class, 'show']);
-        Route::post('game-series/{id}/cancel', [SeriesController::class, 'cancel']);
+        Route::post('game-series/{id}/cancel', [SeriesController::class, 'cancel'])->middleware('throttle:write-action');
         Route::post('americano/tournaments', [AmericanoController::class, 'store'])->middleware('throttle:write-action');
         Route::get('americano/tournaments', [AmericanoController::class, 'index']);
         Route::get('americano/tournaments/my', [AmericanoController::class, 'mine']);
@@ -436,15 +439,15 @@ Route::prefix('api/v1')->group(function () {
         Route::post('games/{id}/join', [GamesController::class, 'join'])->middleware('throttle:write-action');
         Route::post('games/{id}/leave', [GamesController::class, 'leave']);
         Route::post('games/{id}/cancel', [GamesController::class, 'cancel']);
-        Route::post('games/{id}/invitations', [InvitationsController::class, 'batch']);
-        Route::post('games/{id}/invite', [InvitationsController::class, 'create']);
+        Route::post('games/{id}/invitations', [InvitationsController::class, 'batch'])->middleware('throttle:write-action');
+        Route::post('games/{id}/invite', [InvitationsController::class, 'create'])->middleware('throttle:write-action');
         Route::get('games/{id}/medical-summary', [MedicalController::class, 'gameSummary']);
-        Route::post('games/{id}/ratings', [MatchController::class, 'submitRatings']);
+        Route::post('games/{id}/ratings', [MatchController::class, 'submitRatings'])->middleware('throttle:write-action');
         Route::post('games/{id}/scoring/start', [MatchController::class, 'startScoring']);
         Route::post('games/{id}/scoring/point', [MatchController::class, 'point']);
         Route::post('games/{id}/scoring/undo', [MatchController::class, 'undo']);
         Route::post('games/{id}/scoring/complete', [MatchController::class, 'complete']);
-        Route::post('games/{id}/result', [MatchController::class, 'reportResult']);
+        Route::post('games/{id}/result', [MatchController::class, 'reportResult'])->middleware('throttle:write-action');
         Route::get('games/{id}/scoring', [MatchController::class, 'scoring']);
         Route::patch('games/{id}', [GamesController::class, 'update']);
         Route::delete('games/{id}', [GamesController::class, 'destroy']);

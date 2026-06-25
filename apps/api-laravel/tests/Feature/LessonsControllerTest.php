@@ -10,7 +10,9 @@ use Tests\TestCase;
 
 class LessonsControllerTest extends TestCase
 {
-    private const COACH_ID = 'coach-1';
+    // Real coach ids are uuids (Str::uuid()); use a valid uuid so the
+    // controller's uuid-format guard accepts it like a production request.
+    private const COACH_ID = '11111111-1111-4111-8111-111111111111';
 
     protected function setUp(): void
     {

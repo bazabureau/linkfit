@@ -50,7 +50,7 @@ class MedicalController extends ApiController
         if ($game === null) {
             throw ApiException::notFound('Game not found');
         }
-        if ($game->host_user_id !== $user->id) {
+        if ((string) $game->host_user_id !== (string) $user->id) {
             throw ApiException::forbidden('Only host can view medical summary');
         }
 

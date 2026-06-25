@@ -24,6 +24,15 @@ class FcmSender
 
     private const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
+    /**
+     * Hard ceiling on registration tokens delivered to per send() call. FCM HTTP
+     * v1 has no batch endpoint, so each token is a separate POST; this bounds the
+     * synchronous network I/O performed inside a single claimed push job even if a
+     * caller passes a very large token list. PushDispatcher already caps tokens
+     * fetched per job; this is a defensive secondary bound.
+     */
+    private const MAX_TOKENS_PER_SEND = 500;
+
     private ?array $credentials = null;
 
     /**
@@ -78,6 +87,10 @@ class FcmSender
             'base_uri' => "https://fcm.googleapis.com/v1/projects/{$projectId}/",
             'timeout' => 10,
         ]);
+
+        if (count($tokens) > self::MAX_TOKENS_PER_SEND) {
+            $tokens = array_slice($tokens, 0, self::MAX_TOKENS_PER_SEND);
+        }
 
         foreach ($tokens as $token) {
             $token = (string) $token;

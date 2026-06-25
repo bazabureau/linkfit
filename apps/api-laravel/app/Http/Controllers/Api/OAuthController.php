@@ -10,6 +10,7 @@ use Firebase\JWT\JWT;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
@@ -26,7 +27,9 @@ class OAuthController extends ApiController
             return $this->unauth($request, 'Invalid Google token');
         }
 
-        return response()->json($this->sessionForOAuth('google_sub', (string) $payload['sub'], (string) $payload['email'], (string) ($payload['name'] ?? explode('@', (string) $payload['email'])[0])));
+        // validGooglePayload already required email_verified to be truthy, so the
+        // email is provider-verified and safe to link an existing account by.
+        return response()->json($this->sessionForOAuth('google_sub', (string) $payload['sub'], (string) $payload['email'], (string) ($payload['name'] ?? explode('@', (string) $payload['email'])[0]), true));
     }
 
     public function apple(Request $request): JsonResponse
@@ -34,6 +37,8 @@ class OAuthController extends ApiController
         $data = $this->validateBody($request, [
             'identity_token' => ['required', 'string', 'min:8', 'max:8192'],
             'name' => ['sometimes', 'array'],
+            'name.first' => ['sometimes', 'nullable', 'string', 'max:80'],
+            'name.last' => ['sometimes', 'nullable', 'string', 'max:80'],
         ]);
 
         // CRITICAL: verify the Apple JWT signature against Apple's JWKS — never
@@ -43,9 +48,18 @@ class OAuthController extends ApiController
             return $this->unauth($request, 'Invalid Apple token');
         }
 
+        // Account-takeover guard: sessionForOAuth links to an existing account by
+        // email, so we may only do that when Apple asserts the email is verified.
+        // Apple's `email_verified` claim is a bool OR the string "true"/"false";
+        // a private-relay address is always Apple-verified. Treat a missing claim
+        // as NOT verified (fail closed) — matches Google's email_verified gate.
+        $appleEmailVerified = $claims['email_verified'] ?? null;
+        $emailVerified = ($appleEmailVerified === true || $appleEmailVerified === 'true')
+            || (($claims['is_private_email'] ?? null) === true || ($claims['is_private_email'] ?? null) === 'true');
+
         $name = trim(((string) ($data['name']['first'] ?? '')).' '.((string) ($data['name']['last'] ?? '')));
 
-        return response()->json($this->sessionForOAuth('apple_sub', (string) $claims['sub'], (string) $claims['email'], $name !== '' ? $name : explode('@', (string) $claims['email'])[0]));
+        return response()->json($this->sessionForOAuth('apple_sub', (string) $claims['sub'], (string) $claims['email'], $name !== '' ? $name : explode('@', (string) $claims['email'])[0], $emailVerified));
     }
 
     /**
@@ -73,11 +87,15 @@ class OAuthController extends ApiController
             if (($decoded['iss'] ?? '') !== 'https://appleid.apple.com') {
                 return null;
             }
-            // Fail CLOSED on audience: require the bundle id to be configured and
-            // the token's aud to match it. An unset client id must reject, never
-            // skip the audience check (that would accept tokens minted for any app).
-            $clientId = config('services.apple.client_id');
-            if (empty($clientId) || ($decoded['aud'] ?? null) !== $clientId) {
+            // Fail CLOSED on audience: accept only a token whose aud is one of the
+            // configured Apple client ids (the iOS bundle id by default, plus any
+            // web Service ID). An empty set rejects everything — never skip the
+            // audience check (that would accept tokens minted for any app).
+            $clientIds = array_values(array_filter(array_map(
+                'strval',
+                (array) config('services.apple.client_ids', [])
+            )));
+            if ($clientIds === [] || ! in_array((string) ($decoded['aud'] ?? ''), $clientIds, true)) {
                 return null;
             }
 
@@ -121,29 +139,48 @@ class OAuthController extends ApiController
             && in_array((string) ($payload['aud'] ?? ''), $clientIds, true);
     }
 
-    private function sessionForOAuth(string $column, string $sub, string $email, string $displayName): array
+    private function sessionForOAuth(string $column, string $sub, string $email, string $displayName, bool $emailVerified): array
     {
-        $user = User::where($column, $sub)->whereNull('deleted_at')->first();
-        if ($user === null) {
-            // Safe to link by email: the provider token is now cryptographically
-            // verified and the email is provider-verified (Apple inherently,
-            // Google via email_verified).
-            $user = User::where('email', strtolower($email))->whereNull('deleted_at')->first();
-        }
-        if ($user === null) {
-            $user = new User;
-            $user->email = strtolower($email);
-            $user->display_name = $displayName;
-            $user->{$column} = $sub;
-            $user->email_verified_at = now();
-            $user->save();
-        } else {
-            $user->{$column} = $sub;
-            if ($user->email_verified_at === null) {
-                $user->email_verified_at = now();
+        $email = strtolower($email);
+        // Clamp to the same length register enforces (users.display_name) so a
+        // provider-supplied name can't write an oversized/garbage value.
+        $displayName = mb_substr($displayName, 0, 80);
+
+        // Lookup + create run inside a transaction so the whole link/create is
+        // atomic. The DB's unique constraints on the provider-sub / email columns
+        // remain the final guard against a concurrent duplicate-account insert.
+        $user = DB::transaction(function () use ($column, $sub, $email, $displayName, $emailVerified) {
+            $existing = User::where($column, $sub)->whereNull('deleted_at')->first();
+
+            // Only link to a pre-existing account by email when the provider
+            // asserts the email is verified — otherwise an attacker controlling
+            // an unverified-email provider account could take over a victim's
+            // password account that happens to share that email.
+            if ($existing === null && $emailVerified) {
+                $existing = User::where('email', $email)->whereNull('deleted_at')->first();
             }
-            $user->save();
-        }
+
+            if ($existing === null) {
+                $new = new User;
+                $new->email = $email;
+                $new->display_name = $displayName;
+                $new->{$column} = $sub;
+                if ($emailVerified) {
+                    $new->email_verified_at = now();
+                }
+                $new->save();
+
+                return $new;
+            }
+
+            $existing->{$column} = $sub;
+            if ($emailVerified && $existing->email_verified_at === null) {
+                $existing->email_verified_at = now();
+            }
+            $existing->save();
+
+            return $existing;
+        });
 
         return $this->tokens->issueSession($user);
     }

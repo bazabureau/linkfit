@@ -36,10 +36,17 @@ return [
     ],
 
     'google' => [
-        'client_id' => env('GOOGLE_CLIENT_ID'),
+        // Default to the app's OAuth client ids (server + iOS) so Google sign-in
+        // works out of the box. With google_sign_in's serverClientId set, the ID
+        // token's aud is the SERVER client id — accept both. These are public
+        // OAuth client ids (not secrets); override via GOOGLE_CLIENT_IDS.
+        'client_id' => env('GOOGLE_CLIENT_ID', '655337821050-mn0csu1bml6bbps9egumdsgr2akddnlp.apps.googleusercontent.com'),
         'client_ids' => array_values(array_filter(array_map(
             'trim',
-            explode(',', (string) env('GOOGLE_CLIENT_IDS', env('GOOGLE_CLIENT_ID', '')))
+            explode(',', (string) env(
+                'GOOGLE_CLIENT_IDS',
+                env('GOOGLE_CLIENT_ID', '655337821050-mn0csu1bml6bbps9egumdsgr2akddnlp.apps.googleusercontent.com,655337821050-pi74ppu4gjv7b0gs0v417djtndrl7nt2.apps.googleusercontent.com')
+            ))
         ))),
     ],
 
@@ -50,7 +57,16 @@ return [
     ],
 
     'apple' => [
-        'client_id' => env('APPLE_CLIENT_ID'),
+        // Native iOS "Sign in with Apple" identity tokens carry aud = the app
+        // bundle id. The bundle id is public (not a secret), so default to it —
+        // Apple sign-in then works out of the box, no prod env change required.
+        // Override or extend (e.g. add a web Service ID) via APPLE_CLIENT_ID, or
+        // a comma-separated APPLE_CLIENT_IDS.
+        'client_id' => env('APPLE_CLIENT_ID', 'az.linkfit.app'),
+        'client_ids' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('APPLE_CLIENT_IDS', env('APPLE_CLIENT_ID', 'az.linkfit.app')))
+        ))),
     ],
 
     'apns' => [

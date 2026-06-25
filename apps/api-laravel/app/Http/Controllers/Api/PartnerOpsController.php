@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\SanitizesCsv;
 use App\Services\Auth\PasswordService;
 use App\Services\Mail\TransactionalMailService;
 use App\Support\ApiException;
@@ -15,6 +16,8 @@ use Illuminate\Support\Str;
 
 class PartnerOpsController extends ApiController
 {
+    use SanitizesCsv;
+
     public function account(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
@@ -296,21 +299,22 @@ class PartnerOpsController extends ApiController
             ->when($to, fn ($q) => $q->where('b.starts_at', '<=', $to))
             ->orderBy('b.starts_at')
             ->get(['b.id', 'b.starts_at', 'b.duration_minutes', 'b.status', 'b.total_minor', 'b.currency', 'b.payment_method', 'b.customer_name', 'b.customer_email', 'c.name as court_name', 'u.display_name as booker_display_name', 'u.email as booker_email']);
+        $cell = fn (mixed $value): string => '"'.str_replace('"', '""', $this->csvSafe($value)).'"';
         $csv = "id,starts_at,duration_minutes,court,status,payment_method,total_minor,currency,booker,booker_email,customer_name,customer_email\n";
         foreach ($rows as $row) {
             $csv .= implode(',', [
                 $row->id,
                 $row->starts_at,
                 $row->duration_minutes,
-                '"'.str_replace('"', '""', (string) $row->court_name).'"',
+                $cell($row->court_name),
                 $row->status,
-                $row->payment_method,
+                $cell($row->payment_method),
                 $row->total_minor,
                 $row->currency,
-                '"'.str_replace('"', '""', (string) $row->booker_display_name).'"',
-                $row->booker_email,
-                '"'.str_replace('"', '""', (string) $row->customer_name).'"',
-                $row->customer_email,
+                $cell($row->booker_display_name),
+                $cell($row->booker_email),
+                $cell($row->customer_name),
+                $cell($row->customer_email),
             ])."\n";
         }
 
@@ -325,6 +329,11 @@ class PartnerOpsController extends ApiController
         $venueId = $this->venueId($request);
         $base = DB::table('bookings as b')->join('courts as c', 'c.id', '=', 'b.court_id')->where('c.venue_id', $venueId)->where('b.starts_at', '>=', $start)->where('b.starts_at', '<', $end);
 
+        // Redact revenue / booker PII for staff narrowed below the reports /
+        // bookings permission (today() is reachable standalone and via bootstrap).
+        $canSeeRevenue = $this->canPermission($request, 'reports') || $this->canPermission($request, 'revenue');
+        $canSeeBookings = $this->canPermission($request, 'bookings');
+
         return response()->json([
             'date' => $date,
             'summary' => [
@@ -332,7 +341,7 @@ class PartnerOpsController extends ApiController
                 'paid' => (clone $base)->where('b.status', 'paid')->count(),
                 'unpaid' => (clone $base)->whereIn('b.status', ['pending_payment', 'partially_paid'])->count(),
                 'cancelled' => (clone $base)->where('b.status', 'cancelled')->count(),
-                'revenue_paid_minor' => (int) (clone $base)->where('b.status', 'paid')->sum('b.total_minor'),
+                'revenue_paid_minor' => $canSeeRevenue ? (int) (clone $base)->where('b.status', 'paid')->sum('b.total_minor') : 0,
             ],
             'next_bookings' => (clone $base)
                 ->leftJoin('users as u', 'u.id', '=', 'b.user_id')
@@ -340,7 +349,13 @@ class PartnerOpsController extends ApiController
                 ->orderBy('b.starts_at')
                 ->limit(12)
                 ->get(['b.*', 'c.name as court_name', 'u.display_name as booker_display_name', 'u.email as booker_email'])
-                ->map(fn ($booking) => $this->bookingPayload($booking)),
+                ->map(function ($booking) use ($canSeeBookings) {
+                    if (! $canSeeBookings) {
+                        $booking->booker_email = null;
+                    }
+
+                    return $this->bookingPayload($booking);
+                }),
             'blocks' => DB::table('court_blocks as cb')
                 ->join('courts as c', 'c.id', '=', 'cb.court_id')
                 ->where('c.venue_id', $venueId)
@@ -416,15 +431,26 @@ class PartnerOpsController extends ApiController
     public function userSearch(Request $request): JsonResponse
     {
         $this->requirePermission($request, 'customers');
+        $venueId = $this->venueId($request);
         $term = trim((string) $request->query('q', ''));
         if ($term === '') {
             return response()->json(['items' => []]);
         }
         $like = '%'.$term.'%';
 
+        // Scope to users who already have a relationship with THIS venue (a prior
+        // booking at one of its courts). Previously this matched the entire users
+        // table, turning it into a platform-wide email/identity enumeration
+        // surface for any partner with the 'customers' permission.
+        $venueCustomerIds = DB::table('bookings as b')
+            ->join('courts as c', 'c.id', '=', 'b.court_id')
+            ->where('c.venue_id', $venueId)
+            ->whereNotNull('b.user_id');
+
         return response()->json([
             'items' => DB::table('users')
                 ->whereNull('deleted_at')
+                ->whereIn('id', $venueCustomerIds->select('b.user_id'))
                 ->where(fn ($q) => $q->where('display_name', 'ilike', $like)->orWhere('email', 'ilike', $like))
                 ->orderBy('display_name')
                 ->limit(min(max((int) $request->query('limit', 20), 1), 50))
@@ -549,10 +575,12 @@ class PartnerOpsController extends ApiController
                 $updates[$field] = $data[$field];
             }
         }
-        DB::table('bookings')->where('id', $booking->id)->update($updates);
-        if ($booking->user_id !== null) {
-            $this->enqueueNotification((string) $booking->user_id, 'system', 'Booking cancelled', 'Your booking was cancelled by the venue.', ['booking_id' => $booking->id]);
-        }
+        DB::transaction(function () use ($booking, $updates): void {
+            DB::table('bookings')->where('id', $booking->id)->update($updates);
+            if ($booking->user_id !== null) {
+                $this->enqueueNotification((string) $booking->user_id, 'system', 'Booking cancelled', 'Your booking was cancelled by the venue.', ['booking_id' => $booking->id]);
+            }
+        });
         app(TransactionalMailService::class)->bookingCancelled((string) $booking->id, $updates['cancellation_reason'] ?? null);
         $this->auditWrite($user->id, 'partner.booking.cancel', 'bookings', (string) $booking->id, $updates);
 
@@ -580,10 +608,12 @@ class PartnerOpsController extends ApiController
             $updates['status'] = 'refunded';
             $updates['refunded_at'] = now();
         }
-        DB::table('bookings')->where('id', $booking->id)->update($updates);
-        if ($booking->user_id !== null) {
-            $this->enqueueNotification((string) $booking->user_id, 'system', 'Booking refund updated', 'Your booking refund status was updated by the venue.', ['booking_id' => $booking->id, 'refund_status' => $refundStatus]);
-        }
+        DB::transaction(function () use ($booking, $updates, $refundStatus): void {
+            DB::table('bookings')->where('id', $booking->id)->update($updates);
+            if ($booking->user_id !== null) {
+                $this->enqueueNotification((string) $booking->user_id, 'system', 'Booking refund updated', 'Your booking refund status was updated by the venue.', ['booking_id' => $booking->id, 'refund_status' => $refundStatus]);
+            }
+        });
         app(TransactionalMailService::class)->bookingRefundUpdated((string) $booking->id);
         $this->auditWrite($user->id, 'partner.booking.refund', 'bookings', (string) $booking->id, $updates);
 
@@ -594,11 +624,15 @@ class PartnerOpsController extends ApiController
     {
         $this->requirePermission($request, 'bookings');
         $booking = $this->bookingForVenue($request, $id);
+        $data = $this->validateBody($request, [
+            'payment_method' => ['sometimes', 'nullable', 'in:cash,bank_transfer,manual,onsite'],
+            'payment_note' => ['sometimes', 'nullable', 'string', 'max:1000'],
+        ]);
         $updates = [
             'status' => 'paid',
             'paid_at' => now(),
-            'payment_method' => $request->input('payment_method', 'manual'),
-            'payment_note' => $request->input('payment_note'),
+            'payment_method' => $data['payment_method'] ?? 'manual',
+            'payment_note' => $data['payment_note'] ?? null,
             'updated_at' => now(),
         ];
         DB::table('bookings')->where('id', $booking->id)->update($updates);
@@ -627,37 +661,58 @@ class PartnerOpsController extends ApiController
         if ($court === null) {
             throw ApiException::validation('Unknown court_id');
         }
-        if (! empty($data['user_id']) && ! DB::table('users')->where('id', $data['user_id'])->whereNull('deleted_at')->exists()) {
-            throw ApiException::validation('Unknown user_id');
+        if (! empty($data['user_id'])) {
+            if (! DB::table('users')->where('id', $data['user_id'])->whereNull('deleted_at')->exists()) {
+                throw ApiException::validation('Unknown user_id');
+            }
+            // Only attach the booking to an account that is already a customer of
+            // THIS venue (has a prior booking at one of its courts). For any other
+            // account, fall back to a non-linked manual booking (customer_name /
+            // customer_email only) instead of attributing it to an arbitrary user.
+            $isVenueCustomer = DB::table('bookings as b')
+                ->join('courts as c', 'c.id', '=', 'b.court_id')
+                ->where('c.venue_id', $venueId)
+                ->where('b.user_id', $data['user_id'])
+                ->exists();
+            if (! $isVenueCustomer) {
+                $data['user_id'] = null;
+            }
         }
         $starts = CarbonImmutable::parse($data['starts_at']);
         $ends = $starts->addMinutes((int) $data['duration_minutes']);
         $this->assertVenueRules($court, $starts, (int) $data['duration_minutes']);
-        $this->assertCourtAvailable($data['court_id'], $starts, $ends);
 
         $id = (string) Str::uuid();
         $status = $data['status'] ?? 'pending_payment';
-        DB::table('bookings')->insert([
-            'id' => $id,
-            'game_id' => null,
-            'court_id' => $data['court_id'],
-            'user_id' => $data['user_id'] ?? $user->id,
-            'starts_at' => $starts,
-            'duration_minutes' => $data['duration_minutes'],
-            'total_minor' => $this->bookingTotalMinor($court, (int) $data['duration_minutes']),
-            'currency' => $court->currency,
-            'status' => $status,
-            'source' => 'owner_manual',
-            'payment_method' => $data['payment_method'] ?? 'manual',
-            'payment_note' => $data['payment_note'] ?? null,
-            'customer_name' => $data['customer_name'] ?? null,
-            'customer_email' => $data['customer_email'] ?? null,
-            'created_by_user_id' => $user->id,
-            'idempotency_key' => 'owner:'.$id,
-            'paid_at' => $status === 'paid' ? now() : null,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        // Serialise concurrent manual creates for the same court: lock the court
+        // row first so the availability check + insert cannot interleave with a
+        // second owner_manual create and double-book the same slot.
+        DB::transaction(function () use ($data, $court, $starts, $ends, $id, $status, $user, $venueId): void {
+            DB::table('courts')->where('id', $data['court_id'])->where('venue_id', $venueId)->lockForUpdate()->first();
+            $this->assertCourtAvailable($data['court_id'], $starts, $ends);
+            DB::table('bookings')->insert([
+                'id' => $id,
+                'game_id' => null,
+                'court_id' => $data['court_id'],
+                'user_id' => $data['user_id'] ?? $user->id,
+                'starts_at' => $starts,
+                'duration_minutes' => $data['duration_minutes'],
+                'total_minor' => $this->bookingTotalMinor($court, (int) $data['duration_minutes']),
+                'currency' => $court->currency,
+                'status' => $status,
+                'source' => 'owner_manual',
+                'payment_method' => $data['payment_method'] ?? 'manual',
+                'payment_note' => $data['payment_note'] ?? null,
+                'customer_name' => $data['customer_name'] ?? null,
+                'customer_email' => $data['customer_email'] ?? null,
+                'created_by_user_id' => $user->id,
+                'idempotency_key' => 'owner:'.$id,
+                'paid_at' => $status === 'paid' ? now() : null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
+        // Side effect only after the booking durably commits.
         app(TransactionalMailService::class)->bookingConfirmed($id);
         $this->auditWrite($user->id, 'partner.booking.create', 'bookings', $id, [
             'venue_id' => $venueId,
@@ -911,13 +966,19 @@ class PartnerOpsController extends ApiController
         $capacity = $courtsCount * 7 * 14;
         $occupancyRate = $capacity > 0 ? min(100, (int) round(100 * $upcoming7 / $capacity)) : 0;
 
+        // A staff member without revenue visibility must not receive revenue
+        // figures via stats() (reachable standalone and via bootstrap()). The
+        // keys stay present to preserve the web contract; the values are zeroed.
+        $canSeeRevenue = $this->canPermission($request, 'reports') || $this->canPermission($request, 'revenue');
+        $revenuePaidMinorOut = $canSeeRevenue ? $revenuePaidMinor : 0;
+
         return response()->json([
             'courts' => $courtsCount,
             'bookings' => $totalBookings,
             'bookings_today' => (clone $bookings)->whereBetween('b.starts_at', [$todayStart, $todayEnd])->count(),
             'bookings_upcoming' => (clone $bookings)->where('b.starts_at', '>=', now())->whereNotIn('b.status', ['cancelled', 'refunded', 'failed'])->count(),
             'bookings_unpaid' => $pendingBookings,
-            'revenue_paid_minor' => $revenuePaidMinor,
+            'revenue_paid_minor' => $revenuePaidMinorOut,
             'maintenance_blocks' => DB::table('court_blocks as cb')->join('courts as c', 'c.id', '=', 'cb.court_id')->where('c.venue_id', $venueId)->where('cb.ends_at', '>=', now())->count(),
             'staff_accounts' => DB::table('users')->where('admin_role', 'partner')->where('venue_id', $venueId)->whereNull('deleted_at')->count(),
             // Fields consumed by the owner overview KPIs:
@@ -925,7 +986,7 @@ class PartnerOpsController extends ApiController
             'paid_bookings' => $paidBookings,
             'pending_bookings' => $pendingBookings,
             'cancelled_bookings' => $cancelledBookings,
-            'total_revenue_minor' => $revenuePaidMinor,
+            'total_revenue_minor' => $revenuePaidMinorOut,
             'currency' => $currency,
             'occupancy_rate' => $occupancyRate,
         ]);
@@ -999,14 +1060,15 @@ class PartnerOpsController extends ApiController
             ->orderBy('b.starts_at')
             ->get(['b.id', 'b.starts_at', 'b.duration_minutes', 'b.total_minor', 'b.currency', 'b.status', 'b.payment_method', 'c.name as court_name']);
         if ($request->query('format') === 'csv') {
+            $cell = fn (mixed $value): string => '"'.str_replace('"', '""', $this->csvSafe($value)).'"';
             $csv = "id,starts_at,court,status,payment_method,total_minor,currency\n";
             foreach ($rows as $row) {
                 $csv .= implode(',', [
                     $row->id,
                     $row->starts_at,
-                    '"'.str_replace('"', '""', (string) $row->court_name).'"',
+                    $cell($row->court_name),
                     $row->status,
-                    $row->payment_method,
+                    $cell($row->payment_method),
                     $row->total_minor,
                     $row->currency,
                 ])."\n";
@@ -1358,7 +1420,16 @@ class PartnerOpsController extends ApiController
     public function updateStaff(Request $request, string $id): JsonResponse
     {
         $this->requirePermission($request, 'staff');
+        $actor = $this->authUser($request);
         $venueId = $this->venueId($request);
+        $isOwner = $this->isVenueOwner($actor, $venueId);
+        $ownerUserId = $this->venueOwnerUserId($venueId);
+        // Only the venue owner may act on the owner account or on their own row;
+        // a non-owner staff member must not be able to lock out / strip the owner
+        // or escalate by editing their own permissions.
+        if (! $isOwner && ($id === $ownerUserId || (string) $actor->id === $id)) {
+            throw ApiException::forbidden('Only the venue owner can modify the owner or your own account');
+        }
         $data = $this->validateBody($request, [
             'display_name' => ['sometimes', 'string', 'min:1', 'max:80'],
             'password' => ['sometimes', 'string', 'min:8', 'max:200'],
@@ -1380,7 +1451,9 @@ class PartnerOpsController extends ApiController
             $updates['staff_title'] = $data['staff_title'] !== null ? trim($data['staff_title']) : null;
         }
         if (array_key_exists('staff_permissions', $data)) {
-            $updates['staff_permissions'] = json_encode($this->normalizeStaffPermissions($data['staff_permissions']));
+            // Clamp granted permissions to the acting user's own set so staff
+            // cannot escalate a target (or be granted) a permission they lack.
+            $updates['staff_permissions'] = json_encode($this->clampStaffPermissions($data['staff_permissions'] ?? [], $actor, $venueId));
         }
         if (($data['restore'] ?? false) === true) {
             $updates['deleted_at'] = null;
@@ -1400,6 +1473,7 @@ class PartnerOpsController extends ApiController
     public function createStaff(Request $request): JsonResponse
     {
         $this->requirePermission($request, 'staff');
+        $actor = $this->authUser($request);
         $venueId = $this->venueId($request);
         $data = $this->validateBody($request, [
             'email' => ['required', 'email', 'max:254'],
@@ -1412,6 +1486,10 @@ class PartnerOpsController extends ApiController
         if (DB::table('users')->where('email', $email)->exists()) {
             throw ApiException::conflict('Email is already registered');
         }
+        // Clamp the new account's permissions to what the acting user actually
+        // holds so a non-owner staff member cannot mint an account with elevated
+        // (revenue/venue_settings/staff) permissions they lack themselves.
+        $permissions = $this->clampStaffPermissions($data['staff_permissions'] ?? [], $actor, $venueId);
         $id = (string) Str::uuid();
         DB::table('users')->insert([
             'id' => $id,
@@ -1421,7 +1499,7 @@ class PartnerOpsController extends ApiController
             'admin_role' => 'partner',
             'venue_id' => $venueId,
             'staff_title' => isset($data['staff_title']) ? trim((string) $data['staff_title']) : 'Venue staff',
-            'staff_permissions' => json_encode($this->normalizeStaffPermissions($data['staff_permissions'] ?? null)),
+            'staff_permissions' => json_encode($permissions),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -1436,7 +1514,17 @@ class PartnerOpsController extends ApiController
     public function deleteStaff(Request $request, string $id): JsonResponse
     {
         $this->requirePermission($request, 'staff');
+        $actor = $this->authUser($request);
         $venueId = $this->venueId($request);
+        $ownerUserId = $this->venueOwnerUserId($venueId);
+        // Never let a non-owner soft-delete the owner account (lockout) or, for
+        // any actor, delete their own account out from under themselves.
+        if ($id === $ownerUserId && ! $this->isVenueOwner($actor, $venueId)) {
+            throw ApiException::forbidden('Only the venue owner can remove the owner account');
+        }
+        if ((string) $actor->id === $id) {
+            throw ApiException::conflict('You cannot delete your own account');
+        }
         DB::table('users')->where('id', $id)->where('venue_id', $venueId)->where('admin_role', 'partner')->update(['deleted_at' => now(), 'updated_at' => now()]);
         $this->auditWrite($this->authUser($request)->id, 'partner.staff.delete', 'users', $id, [
             'venue_id' => $venueId,
@@ -1487,6 +1575,31 @@ class PartnerOpsController extends ApiController
     private function isVenueOwner(object $user, string $venueId): bool
     {
         return DB::table('venues')->where('id', $venueId)->where('owner_user_id', $user->id)->exists();
+    }
+
+    private function venueOwnerUserId(string $venueId): ?string
+    {
+        $ownerId = DB::table('venues')->where('id', $venueId)->value('owner_user_id');
+
+        return $ownerId !== null ? (string) $ownerId : null;
+    }
+
+    /**
+     * Clamp a requested staff_permissions map to the acting user's own effective
+     * permissions: a staff member can never grant a permission they do not hold.
+     * The venue owner has every permission, so this is a no-op for the owner.
+     */
+    private function clampStaffPermissions(array $requested, object $actor, string $venueId): array
+    {
+        $normalized = $this->normalizeStaffPermissions($requested);
+        $actorPermissions = $this->permissionsForUser($actor, $venueId);
+        foreach ($normalized as $key => $value) {
+            if ($value === true && ($actorPermissions[$key] ?? false) !== true) {
+                $normalized[$key] = false;
+            }
+        }
+
+        return $normalized;
     }
 
     private function staffPayload(object $user): array

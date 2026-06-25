@@ -21,6 +21,12 @@ class AdminLessonsController extends ApiController
     public function coaches(Request $request): JsonResponse
     {
         $this->staff($request);
+        $this->validateQuery($request, [
+            'venue_id' => ['sometimes', 'uuid'],
+            'sport' => ['sometimes', 'in:padel,tennis'],
+            'is_active' => ['sometimes', 'boolean'],
+            'q' => ['sometimes', 'string', 'max:120'],
+        ]);
         $query = DB::table('coaches as co')
             ->leftJoin('users as u', 'u.id', '=', 'co.user_id')
             ->leftJoin('sports as s', 's.id', '=', 'co.sport_id')
@@ -68,33 +74,39 @@ class AdminLessonsController extends ApiController
         ]);
         $this->assertVenue($data['venue_id']);
         $this->assertSport($data['sport_id'] ?? null);
-        $linkedUserId = $this->resolveCoachUserId($data, $data['display_name']);
 
         $id = (string) Str::uuid();
-        DB::table('coaches')->insert([
-            'id' => $id,
-            'user_id' => $linkedUserId,
-            'venue_id' => $data['venue_id'],
-            'sport_id' => $data['sport_id'] ?? null,
-            'display_name' => $data['display_name'],
-            'photo_url' => $data['photo_url'] ?? null,
-            'bio' => $data['bio'] ?? null,
-            'hourly_rate_minor' => $data['hourly_rate_minor'] ?? null,
-            'currency' => $data['currency'] ?? 'AZN',
-            'years_experience' => $data['years_experience'] ?? null,
-            'rating' => $data['rating'] ?? null,
-            'is_active' => true,
-            'created_by' => $user->id,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        if ($linkedUserId !== null) {
-            DB::table('users')->where('id', $linkedUserId)->update([
-                'admin_role' => 'coach',
+        // Coach creation spans multiple dependent writes (optional users insert in
+        // resolveCoachUserId, coaches insert, users.admin_role update, and the
+        // credential sync which can throw on a duplicate email). Wrap them so a
+        // later failure never leaves an orphaned/partial coach+user pair.
+        DB::transaction(function () use ($id, $data, $user): void {
+            $linkedUserId = $this->resolveCoachUserId($data, $data['display_name']);
+            DB::table('coaches')->insert([
+                'id' => $id,
+                'user_id' => $linkedUserId,
+                'venue_id' => $data['venue_id'],
+                'sport_id' => $data['sport_id'] ?? null,
+                'display_name' => $data['display_name'],
+                'photo_url' => $data['photo_url'] ?? null,
+                'bio' => $data['bio'] ?? null,
+                'hourly_rate_minor' => $data['hourly_rate_minor'] ?? null,
+                'currency' => $data['currency'] ?? 'AZN',
+                'years_experience' => $data['years_experience'] ?? null,
+                'rating' => $data['rating'] ?? null,
+                'is_active' => true,
+                'created_by' => $user->id,
+                'created_at' => now(),
                 'updated_at' => now(),
             ]);
-            $this->syncCoachUserCredentials($linkedUserId, $data, $data['display_name']);
-        }
+            if ($linkedUserId !== null) {
+                DB::table('users')->where('id', $linkedUserId)->update([
+                    'admin_role' => 'coach',
+                    'updated_at' => now(),
+                ]);
+                $this->syncCoachUserCredentials($linkedUserId, $data, $data['display_name']);
+            }
+        });
 
         return $this->showCoach($id, 201);
     }
@@ -125,28 +137,34 @@ class AdminLessonsController extends ApiController
         if (array_key_exists('sport_id', $data)) {
             $this->assertSport($data['sport_id']);
         }
-        if (array_key_exists('user_id', $data) || ! empty($data['email'])) {
-            $displayName = (string) ($data['display_name'] ?? DB::table('coaches')->where('id', $id)->value('display_name') ?? 'Coach');
-            $data['user_id'] = $this->resolveCoachUserId($data, $displayName, $id);
-        }
-        $update = array_intersect_key($data, array_flip([
-            'venue_id', 'display_name', 'sport_id', 'photo_url', 'bio', 'hourly_rate_minor',
-            'currency', 'years_experience', 'rating', 'is_active', 'user_id',
-        ]));
-        if ($update !== []) {
-            $update['updated_at'] = now();
-            DB::table('coaches')->where('id', $id)->update($update);
-            if (isset($update['user_id'])) {
-                DB::table('users')->where('id', $update['user_id'])->update([
-                    'admin_role' => 'coach',
-                    'updated_at' => now(),
-                ]);
+        // The coach update can resolve/insert a linked user, update the coaches
+        // row, promote the user's admin_role, and sync credentials (which can
+        // throw on a duplicate email). Wrap them so a partial failure rolls back
+        // rather than leaving a half-updated coach+user pair.
+        DB::transaction(function () use ($id, $data): void {
+            if (array_key_exists('user_id', $data) || ! empty($data['email'])) {
+                $displayName = (string) ($data['display_name'] ?? DB::table('coaches')->where('id', $id)->value('display_name') ?? 'Coach');
+                $data['user_id'] = $this->resolveCoachUserId($data, $displayName, $id);
             }
-        }
-        $targetUserId = $update['user_id'] ?? DB::table('coaches')->where('id', $id)->value('user_id');
-        if ($targetUserId !== null && ($update !== [] || ! empty($data['email']) || ! empty($data['password']) || array_key_exists('email_verified', $data))) {
-            $this->syncCoachUserCredentials((string) $targetUserId, $data, (string) ($update['display_name'] ?? DB::table('coaches')->where('id', $id)->value('display_name') ?? 'Coach'));
-        }
+            $update = array_intersect_key($data, array_flip([
+                'venue_id', 'display_name', 'sport_id', 'photo_url', 'bio', 'hourly_rate_minor',
+                'currency', 'years_experience', 'rating', 'is_active', 'user_id',
+            ]));
+            if ($update !== []) {
+                $update['updated_at'] = now();
+                DB::table('coaches')->where('id', $id)->update($update);
+                if (isset($update['user_id'])) {
+                    DB::table('users')->where('id', $update['user_id'])->update([
+                        'admin_role' => 'coach',
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+            $targetUserId = $update['user_id'] ?? DB::table('coaches')->where('id', $id)->value('user_id');
+            if ($targetUserId !== null && ($update !== [] || ! empty($data['email']) || ! empty($data['password']) || array_key_exists('email_verified', $data))) {
+                $this->syncCoachUserCredentials((string) $targetUserId, $data, (string) ($update['display_name'] ?? DB::table('coaches')->where('id', $id)->value('display_name') ?? 'Coach'));
+            }
+        });
 
         return $this->showCoach($id);
     }
@@ -155,9 +173,14 @@ class AdminLessonsController extends ApiController
     {
         $this->staff($request);
         $this->assertCoach($id);
-        DB::table('coaches')->where('id', $id)->update(['is_active' => false, 'updated_at' => now()]);
-        DB::table('lessons')->where('coach_id', $id)->where('status', 'scheduled')
-            ->where('starts_at', '>=', now())->update(['status' => 'cancelled', 'updated_at' => now()]);
+        // Deactivating the coach and cancelling their future lessons must commit
+        // together so a failure can't leave an inactive coach with still-scheduled
+        // lessons (mirrors the transaction in deleteLesson()).
+        DB::transaction(function () use ($id): void {
+            DB::table('coaches')->where('id', $id)->update(['is_active' => false, 'updated_at' => now()]);
+            DB::table('lessons')->where('coach_id', $id)->where('status', 'scheduled')
+                ->where('starts_at', '>=', now())->update(['status' => 'cancelled', 'updated_at' => now()]);
+        });
 
         return response()->json(null, 204);
     }
@@ -167,6 +190,12 @@ class AdminLessonsController extends ApiController
     public function lessons(Request $request): JsonResponse
     {
         $this->staff($request);
+        $this->validateQuery($request, [
+            'venue_id' => ['sometimes', 'uuid'],
+            'sport' => ['sometimes', 'in:padel,tennis'],
+            'status' => ['sometimes', 'in:scheduled,cancelled,completed'],
+            'kind' => ['sometimes', 'in:group,private'],
+        ]);
         $query = $this->lessonQuery();
 
         if ($venueId = $request->query('venue_id')) {

@@ -17,11 +17,25 @@ class WebController extends ApiController
             ->orderByRaw("case when slug = 'padel' then 0 when slug = 'tennis' then 1 else 2 end")
             ->get(['id', 'slug', 'name', 'min_players', 'max_players']);
 
-        $venues = DB::table('venues as v')
+        $venueRows = DB::table('venues as v')
             ->where(fn ($q) => $q->whereNull('v.status')->orWhere('v.status', 'published'))
             ->orderBy('v.name')
             ->limit(12)
-            ->get(['v.id', 'v.name', 'v.address', 'v.lat', 'v.lng', 'v.photo_url', 'v.photo_urls', 'v.rating_avg', 'v.rating_count'])
+            ->get(['v.id', 'v.name', 'v.address', 'v.lat', 'v.lng', 'v.photo_url', 'v.photo_urls', 'v.rating_avg', 'v.rating_count']);
+
+        // Single grouped active-court count keyed by venue_id (was one COUNT per
+        // venue — up to 12 extra queries on this public, uncached hot path).
+        $venueIds = $venueRows->pluck('id')->all();
+        $courtsCountByVenue = $venueIds === []
+            ? collect()
+            : DB::table('courts')
+                ->whereIn('venue_id', $venueIds)
+                ->where(fn ($q) => $q->whereNull('status')->orWhere('status', 'active'))
+                ->groupBy('venue_id')
+                ->selectRaw('venue_id, count(*) as cnt')
+                ->pluck('cnt', 'venue_id');
+
+        $venues = $venueRows
             ->map(fn ($venue) => [
                 ...((array) $venue),
                 'lat' => (float) $venue->lat,
@@ -29,11 +43,11 @@ class WebController extends ApiController
                 'photo_urls' => $this->arrayPayload($venue->photo_urls ?? null),
                 'rating_avg' => $venue->rating_avg !== null ? (float) $venue->rating_avg : null,
                 'rating_count' => (int) ($venue->rating_count ?? 0),
-                'courts_count' => DB::table('courts')->where('venue_id', $venue->id)->where(fn ($q) => $q->whereNull('status')->orWhere('status', 'active'))->count(),
+                'courts_count' => (int) ($courtsCountByVenue[$venue->id] ?? 0),
             ])
             ->values();
 
-        $games = DB::table('games as g')
+        $gameRows = DB::table('games as g')
             ->join('sports as s', 's.id', '=', 'g.sport_id')
             ->join('users as hu', 'hu.id', '=', 'g.host_user_id')
             ->leftJoin('courts as c', 'c.id', '=', 'g.court_id')
@@ -69,15 +83,26 @@ class WebController extends ApiController
                 'v.id as venue_id',
                 'v.name as venue_name',
                 'v.address as venue_address',
-            ])
-            ->map(function ($game) {
-                $participants = DB::table('game_participants as gp')
-                    ->join('users as u', 'u.id', '=', 'gp.user_id')
-                    ->where('gp.game_id', $game->id)
-                    ->where('gp.status', 'confirmed')
-                    ->whereNull('u.deleted_at')
-                    ->orderBy('gp.joined_at')
-                    ->get(['gp.user_id', 'u.display_name', 'u.photo_url', 'gp.status']);
+            ]);
+
+        // Batch all confirmed participants for the page's games into ONE query
+        // (was a per-game lookup — up to 8 extra round trips per public load),
+        // then group by game_id in memory. Response shape is unchanged.
+        $gameIds = $gameRows->pluck('id')->all();
+        $participantsByGame = $gameIds === []
+            ? collect()
+            : DB::table('game_participants as gp')
+                ->join('users as u', 'u.id', '=', 'gp.user_id')
+                ->whereIn('gp.game_id', $gameIds)
+                ->where('gp.status', 'confirmed')
+                ->whereNull('u.deleted_at')
+                ->orderBy('gp.joined_at')
+                ->get(['gp.game_id', 'gp.user_id', 'u.display_name', 'u.photo_url', 'gp.status'])
+                ->groupBy('game_id');
+
+        $games = $gameRows
+            ->map(function ($game) use ($participantsByGame) {
+                $participants = $participantsByGame->get($game->id) ?? collect();
                 $totalMinor = $game->hourly_price_minor !== null
                     ? (int) round(((int) $game->hourly_price_minor) * ((int) ($game->duration_minutes ?? 60)) / 60)
                     : null;

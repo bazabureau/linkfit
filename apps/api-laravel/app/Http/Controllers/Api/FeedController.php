@@ -98,10 +98,11 @@ class FeedController extends ApiController
     public function like(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
-        $event = DB::table('feed_events')->where('id', $id)->first(['id', 'actor_user_id']);
+        $event = DB::table('feed_events')->where('id', $id)->first(['id', 'actor_user_id', 'visibility']);
         if ($event === null) {
             throw ApiException::validation('Unknown feed event');
         }
+        $this->assertEventInteractable($event, (string) $user->id);
 
         // Only a NEW like notifies the author — an idempotent re-like (the
         // updateOrInsert just refreshing created_at) must not re-spam them.
@@ -136,9 +137,11 @@ class FeedController extends ApiController
         // bogus id returns a consistent validation error instead of silently
         // reporting a zero count for an event that never existed. Removing a
         // like that isn't there stays an idempotent no-op.
-        if (! DB::table('feed_events')->where('id', $id)->exists()) {
+        $event = DB::table('feed_events')->where('id', $id)->first(['id', 'actor_user_id', 'visibility']);
+        if ($event === null) {
             throw ApiException::validation('Unknown feed event');
         }
+        $this->assertEventInteractable($event, (string) $user->id);
         DB::table('feed_event_reactions')
             ->where('feed_event_id', $id)
             ->where('user_id', $user->id)
@@ -151,6 +154,14 @@ class FeedController extends ApiController
     {
         $limit = min(max((int) $request->query('limit', 50), 1), 100);
         $viewerId = $this->optionalViewerId($request);
+        // A `private` event is author-only; never leak its comment thread (even
+        // an empty one) to anyone but the author. Other tiers keep their
+        // existing read behaviour. A missing event yields an empty thread below.
+        $event = DB::table('feed_events')->where('id', $eventId)->first(['actor_user_id', 'visibility']);
+        if ($event !== null && (string) $event->visibility === 'private'
+            && ($viewerId === null || $viewerId !== (string) $event->actor_user_id)) {
+            throw ApiException::notFound('Feed event not found');
+        }
         // Keyset pagination: the previously-emitted next_cursor was never read,
         // so callers could never page past the first screen. Consume it here via
         // the same (created_at, id) keyset used by index() / decodeCursor().
@@ -191,10 +202,11 @@ class FeedController extends ApiController
         $data = $this->validateBody($request, [
             'body' => ['required', 'string', 'min:1', 'max:500'],
         ]);
-        $event = DB::table('feed_events')->where('id', $eventId)->first(['id', 'actor_user_id']);
+        $event = DB::table('feed_events')->where('id', $eventId)->first(['id', 'actor_user_id', 'visibility']);
         if ($event === null) {
             throw ApiException::notFound('Feed event not found');
         }
+        $this->assertEventInteractable($event, (string) $user->id);
 
         $id = (string) Str::uuid();
         DB::table('feed_comments')->insert([
@@ -249,6 +261,22 @@ class FeedController extends ApiController
         }
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * Guard a like/comment write against a feed event the actor isn't allowed to
+     * touch. A `private` event is author-only (the read feed never surfaces it to
+     * anyone else), so a non-author reaching its id is always an out-of-band IDOR
+     * attempt — reject it. `public`/`followers` tiers keep their existing
+     * behaviour (incl. the documented "blocked actor's like still succeeds, just
+     * doesn't notify" contract), which the read feed enforces separately.
+     */
+    private function assertEventInteractable(object $event, string $actorUserId): void
+    {
+        if ((string) ($event->visibility ?? '') === 'private'
+            && (string) $event->actor_user_id !== $actorUserId) {
+            throw ApiException::notFound('Feed event not found');
+        }
     }
 
     private function eventPayload(object $r, ?string $viewerId): array

@@ -66,6 +66,13 @@ class PaymentsController extends ApiController
         $this->assertPaymentIntentAvailable();
 
         $user = $this->authUser($request);
+        // A non-UUID {id} would otherwise reach Postgres and surface as a raw
+        // 22P02 QueryException → generic 500 + error-log noise. Treat a malformed
+        // id as a clean "not found" (same 404 the app already gets for a missing
+        // booking), and never let client input hit the DB driver as bad SQL.
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Booking not found');
+        }
         $booking = DB::table('bookings')->where('id', $id)->first();
         if ($booking === null) {
             throw ApiException::notFound('Booking not found');
@@ -98,6 +105,9 @@ class PaymentsController extends ApiController
         $this->assertPaymentHistoryAvailable();
 
         $user = $this->authUser($request);
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Booking not found');
+        }
         $booking = DB::table('bookings')->where('id', $id)->first();
         if ($booking === null) {
             throw ApiException::notFound('Booking not found');
@@ -181,6 +191,12 @@ class PaymentsController extends ApiController
 
     private function tournamentRow(string $id): object
     {
+        // Reject a non-UUID id before it reaches Postgres (would otherwise be a
+        // raw 22P02 → 500); a malformed id is treated as a clean 404 like a
+        // missing tournament.
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Tournament not found');
+        }
         $tournament = DB::table('tournaments as t')
             ->join('sports as s', 's.id', '=', 't.sport_id')
             ->where('t.id', $id)

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
+use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Http\Controllers\Api\Concerns\FiltersPublicPlayerDirectory;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -13,6 +14,7 @@ use Illuminate\Support\Str;
 class EngagementController extends ApiController
 {
     use AuthorizesAdminPermissions;
+    use FiltersBlockedUsers;
     use FiltersPublicPlayerDirectory;
 
     public function achievements(Request $request, string $id): JsonResponse
@@ -104,7 +106,18 @@ class EngagementController extends ApiController
 
     private function assertPublicProfileMetricVisible(Request $request, string $userId): void
     {
-        if ($this->optionalViewerId($request) !== null) {
+        $viewerId = $this->optionalViewerId($request);
+
+        // An authenticated viewer reading someone else's metrics is hidden by a
+        // block in EITHER direction — mirroring SocialController's profile
+        // visibility contract so a blocked caller can't read the achievements/
+        // streaks the profile route already conceals. Reading your own metrics
+        // is always allowed.
+        if ($viewerId !== null) {
+            if ((string) $viewerId !== $userId && $this->blockExistsBetween((string) $viewerId, $userId)) {
+                throw ApiException::notFound('User not found');
+            }
+
             return;
         }
 
@@ -134,12 +147,16 @@ class EngagementController extends ApiController
         $sort = $query['sort'] ?? 'elo';
         $limit = min(max((int) ($query['limit'] ?? 50), 1), 100);
         $offset = max((int) ($query['offset'] ?? 0), 0);
+        // Anonymous viewers see only the curated public directory; signed-in users
+        // see the full leaderboard.
+        $viewerId = $this->optionalViewerId($request);
 
         $base = DB::table('player_sport_stats as p')
             ->join('users as u', 'u.id', '=', 'p.user_id')
             ->join('sports as s', 's.id', '=', 'p.sport_id')
             ->whereNull('u.deleted_at')
-            ->when(true, fn ($q) => $this->wherePublicPlayerDirectoryAllowed($q, 'u'));
+            ->whereNull('u.admin_role')
+            ->when($viewerId === null, fn ($q) => $this->wherePublicPlayerDirectoryAllowed($q, 'u'));
         if ($sport) {
             $base->where('s.slug', $sport);
         }
@@ -258,8 +275,18 @@ class EngagementController extends ApiController
 
     public function dismissAnnouncement(Request $request, string $id): JsonResponse
     {
+        $user = $this->authUser($request);
+
+        // Guard before touching user_dismissed_announcements: a malformed (non-uuid)
+        // or unknown id would otherwise hit the announcement_id uuid cast / FK and
+        // surface as a 500 instead of a clean 404, and would let callers seed orphan
+        // dismissal rows for arbitrary ids.
+        if (! Str::isUuid($id) || ! DB::table('announcements')->where('id', $id)->exists()) {
+            throw ApiException::notFound('Announcement not found');
+        }
+
         DB::table('user_dismissed_announcements')->updateOrInsert([
-            'user_id' => $this->authUser($request)->id,
+            'user_id' => $user->id,
             'announcement_id' => $id,
         ], ['dismissed_at' => now()]);
 

@@ -14,6 +14,14 @@ class WaitlistController extends ApiController
 {
     use AuthorizesAdminPermissions;
 
+    /**
+     * Cap on concurrent ACTIVE/NOTIFIED waitlist entries per user. The create
+     * route ({@see create}) is not rate-limited at the route layer, so this
+     * bounds abuse / unbounded table growth while staying well above any
+     * realistic legitimate use.
+     */
+    private const MAX_ACTIVE_WAITLIST_ENTRIES = 50;
+
     public function mine(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
@@ -53,6 +61,12 @@ class WaitlistController extends ApiController
         }
 
         $starts = CarbonImmutable::parse($data['starts_at']);
+        // Data integrity: never waitlist a slot that has already fully elapsed —
+        // compared on the slot END so the in-progress slot is still allowed. Real
+        // clients only send future times, so this rejects stale/abusive input only.
+        if ($starts->addMinutes((int) $data['duration_minutes'])->lessThanOrEqualTo(CarbonImmutable::now())) {
+            throw ApiException::conflict('Waitlist time is in the past');
+        }
         $existing = DB::table('booking_waitlist_entries')
             ->where('user_id', $user->id)
             ->where('court_id', $courtId)
@@ -66,6 +80,17 @@ class WaitlistController extends ApiController
                 'updated_at' => now(),
             ]);
         } else {
+            // Abuse / unbounded-growth guard: this write route is not throttled,
+            // so cap how many ACTIVE/NOTIFIED waitlist entries a single user may
+            // hold at once. Reactivating an existing entry (above) is exempt so a
+            // legitimate re-join is never blocked.
+            $activeCount = DB::table('booking_waitlist_entries')
+                ->where('user_id', $user->id)
+                ->whereIn('status', ['active', 'notified'])
+                ->count();
+            if ($activeCount >= self::MAX_ACTIVE_WAITLIST_ENTRIES) {
+                throw ApiException::conflict('You have reached the maximum number of active waitlist entries');
+            }
             DB::table('booking_waitlist_entries')->insert([
                 'id' => (string) Str::uuid(),
                 'user_id' => $user->id,

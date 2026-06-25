@@ -49,6 +49,14 @@ class InvitationsController extends ApiController
     public function batch(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        // Bound + type the batch BEFORE any work: an unvalidated user_ids list
+        // let a caller hand us thousands of ids (or non-uuid junk), each driving
+        // an insert + notification query. Cap the page and require uuids so the
+        // loop below can never be turned into an amplification vector.
+        $data = $this->validateBody($request, [
+            'user_ids' => ['nullable', 'array', 'max:50'],
+            'user_ids.*' => ['uuid'],
+        ]);
         $game = DB::table('games')->where('id', $id)->first();
         if ($game === null) {
             throw ApiException::notFound('Game not found');
@@ -58,7 +66,7 @@ class InvitationsController extends ApiController
         }
         $sent = 0;
         $blocked = 0;
-        foreach ((array) $request->input('user_ids', []) as $uid) {
+        foreach ($data['user_ids'] ?? [] as $uid) {
             if ($uid === $user->id || $this->blockExistsBetween((string) $user->id, (string) $uid)) {
                 $blocked++;
 
@@ -85,7 +93,13 @@ class InvitationsController extends ApiController
 
     public function mine(Request $request): JsonResponse
     {
-        $status = $request->query('status');
+        // Constrain the status filter to the known enum — an arbitrary string
+        // would just scan to zero rows, but validating keeps the contract tight
+        // and the value off any later code path. Absent filter = all statuses.
+        $filter = $this->validateQuery($request, [
+            'status' => ['nullable', 'in:pending,accepted,declined'],
+        ]);
+        $status = $filter['status'] ?? null;
         $q = DB::table('game_invitations')->where('invitee_user_id', $this->authUser($request)->id)->orderByDesc('created_at');
         if ($status) {
             $q->where('status', $status);

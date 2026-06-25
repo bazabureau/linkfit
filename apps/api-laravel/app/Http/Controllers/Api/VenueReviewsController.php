@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
+use App\Http\Controllers\Api\Concerns\ValidatesMediaUrls;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,15 +13,27 @@ use Illuminate\Support\Str;
 class VenueReviewsController extends ApiController
 {
     use AuthorizesAdminPermissions;
+    use ValidatesMediaUrls;
 
     public function store(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        // venue id is a UUID column; reject a non-UUID cleanly (404) before it
+        // reaches Postgres and surfaces as a 500 from a failed uuid cast.
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Venue not found');
+        }
         $data = $this->validateBody($request, [
             'rating' => ['required', 'integer', 'min:1', 'max:5'],
             'body' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'photo_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
         ]);
+        // The review photo is stored and re-served to other users; constrain it
+        // to the approved-host allowlist (blocks arbitrary off-domain / stored-URL
+        // / privacy-leak URLs) the same way as profile/story/chat media.
+        $photoUrl = isset($data['photo_url']) && $data['photo_url'] !== null && $data['photo_url'] !== ''
+            ? $this->assertAllowedMediaUrl((string) $data['photo_url'])
+            : null;
         if (! DB::table('venues')->where('id', $id)->exists()) {
             throw ApiException::notFound('Venue not found');
         }
@@ -28,38 +41,48 @@ class VenueReviewsController extends ApiController
             throw ApiException::forbidden('You can review a venue only after a booking there');
         }
 
-        $existing = DB::table('venue_reviews')
-            ->where('venue_id', $id)
-            ->where('author_user_id', $user->id)
-            ->first(['id']);
-        if ($existing !== null) {
-            DB::table('venue_reviews')->where('id', $existing->id)->update([
-                'rating' => $data['rating'],
-                'body' => $data['body'] ?? null,
-                'photo_url' => $data['photo_url'] ?? null,
-                'removed_at' => null,
-                'updated_at' => now(),
-            ]);
-        } else {
-            DB::table('venue_reviews')->insert([
-                'id' => (string) Str::uuid(),
-                'venue_id' => $id,
-                'author_user_id' => $user->id,
-                'rating' => $data['rating'],
-                'body' => $data['body'] ?? null,
-                'photo_url' => $data['photo_url'] ?? null,
-                'removed_at' => null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
-        $this->refreshVenueRating($id);
+        // Wrap the review write + venue rating refresh in one transaction so a
+        // failure can't leave the review persisted but the aggregate stale.
+        DB::transaction(function () use ($id, $user, $data, $photoUrl): void {
+            $existing = DB::table('venue_reviews')
+                ->where('venue_id', $id)
+                ->where('author_user_id', $user->id)
+                ->lockForUpdate()
+                ->first(['id']);
+            if ($existing !== null) {
+                DB::table('venue_reviews')->where('id', $existing->id)->update([
+                    'rating' => $data['rating'],
+                    'body' => $data['body'] ?? null,
+                    'photo_url' => $photoUrl,
+                    'removed_at' => null,
+                    'updated_at' => now(),
+                ]);
+            } else {
+                DB::table('venue_reviews')->insert([
+                    'id' => (string) Str::uuid(),
+                    'venue_id' => $id,
+                    'author_user_id' => $user->id,
+                    'rating' => $data['rating'],
+                    'body' => $data['body'] ?? null,
+                    'photo_url' => $photoUrl,
+                    'removed_at' => null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+            $this->refreshVenueRating($id);
+        });
 
         return response()->json($this->latestReview($id, $user->id), 201);
     }
 
     public function index(Request $request, string $id): JsonResponse
     {
+        // venue id is a UUID column; a non-UUID would error on Postgres' cast.
+        // Return an empty page (matching "no reviews") rather than a 500.
+        if (! Str::isUuid($id)) {
+            return response()->json(['items' => [], 'next_cursor' => null]);
+        }
         $limit = min(max((int) $request->query('limit', 20), 1), 50);
         $sort = $request->query('sort', 'recent');
         // Keyset cursor consumed end-to-end (it was emitted but never read, so
@@ -149,6 +172,16 @@ class VenueReviewsController extends ApiController
     public function summary(string $id): JsonResponse
     {
         $hist = ['1' => 0, '2' => 0, '3' => 0, '4' => 0, '5' => 0];
+        // venue id is a UUID column; a non-UUID would error on Postgres' cast.
+        // Serve the stable "no reviews" summary shape instead of a 500.
+        if (! Str::isUuid($id)) {
+            return response()->json([
+                'venue_id' => $id,
+                'avg_rating' => null,
+                'review_count' => 0,
+                'histogram' => $hist,
+            ]);
+        }
         foreach (DB::table('venue_reviews')->where('venue_id', $id)->whereNull('removed_at')->selectRaw('rating, count(*) as total')->groupBy('rating')->get() as $r) {
             $hist[(string) $r->rating] = (int) $r->total;
         }
@@ -242,15 +275,22 @@ class VenueReviewsController extends ApiController
     public function destroy(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        // id is a UUID column; reject a non-UUID cleanly (404) before Postgres.
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Review not found');
+        }
         $review = DB::table('venue_reviews')->where('id', $id)->first();
         if ($review === null) {
             throw ApiException::notFound('Review not found');
         }
+        // Author may delete their own review; anyone else needs admin permission.
         if ($review->author_user_id !== $user->id) {
             $this->requireAdminPermission($request, 'reviews');
         }
-        DB::table('venue_reviews')->where('id', $id)->update(['removed_at' => now(), 'updated_at' => now()]);
-        $this->refreshVenueRating($review->venue_id);
+        DB::transaction(function () use ($id, $review): void {
+            DB::table('venue_reviews')->where('id', $id)->update(['removed_at' => now(), 'updated_at' => now()]);
+            $this->refreshVenueRating($review->venue_id);
+        });
 
         return response()->json(null, 204);
     }
@@ -398,6 +438,10 @@ class VenueReviewsController extends ApiController
 
     private function reviewById(string $id, bool $includeRemoved = false): object
     {
+        // id is a UUID column; a non-UUID would error on Postgres' cast.
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Review not found');
+        }
         $query = $this->reviewsBaseQuery()->where('r.id', $id);
         if (! $includeRemoved) {
             $query->whereNull('r.removed_at');
@@ -412,6 +456,10 @@ class VenueReviewsController extends ApiController
 
     private function reviewForVenue(string $id, string $venueId, bool $includeRemoved = false): object
     {
+        // id is a UUID column; a non-UUID would error on Postgres' cast.
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Review not found');
+        }
         $query = $this->reviewsBaseQuery()->where('r.id', $id)->where('r.venue_id', $venueId);
         if (! $includeRemoved) {
             $query->whereNull('r.removed_at');
@@ -426,15 +474,20 @@ class VenueReviewsController extends ApiController
 
     private function setRemoved(Request $request, object $review, bool $removed, string $action): JsonResponse
     {
-        DB::table('venue_reviews')->where('id', $review->id)->update([
-            'removed_at' => $removed ? now() : null,
-            'updated_at' => now(),
-        ]);
-        $this->refreshVenueRating($review->venue_id);
-        $this->auditWrite($this->authUser($request)->id, $action, $review->id, [
-            'venue_id' => $review->venue_id,
-            'author_user_id' => $review->author_user_id,
-        ]);
+        $actorId = $this->authUser($request)->id;
+        // Atomic moderation: the soft-delete flip, the venue rating refresh and
+        // the audit row commit together (or not at all).
+        DB::transaction(function () use ($review, $removed, $action, $actorId): void {
+            DB::table('venue_reviews')->where('id', $review->id)->update([
+                'removed_at' => $removed ? now() : null,
+                'updated_at' => now(),
+            ]);
+            $this->refreshVenueRating($review->venue_id);
+            $this->auditWrite($actorId, $action, $review->id, [
+                'venue_id' => $review->venue_id,
+                'author_user_id' => $review->author_user_id,
+            ]);
+        });
 
         return response()->json($this->reviewPayload($this->reviewById($review->id, true)));
     }

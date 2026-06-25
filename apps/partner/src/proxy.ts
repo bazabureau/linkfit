@@ -6,11 +6,6 @@ const PUBLIC_PATHS = ["/login"];
 export function proxy(req: NextRequest): NextResponse {
   const { pathname } = req.nextUrl;
 
-  // Bypass redirect during static generation/build time
-  if (process.env.IS_BUILD_PHASE === "true") {
-    return NextResponse.next();
-  }
-
   // Allow Next internals + static assets + public auth pages through untouched.
   if (
     pathname.startsWith("/_next") ||

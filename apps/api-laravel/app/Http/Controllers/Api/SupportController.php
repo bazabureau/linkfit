@@ -123,25 +123,27 @@ class SupportController extends ApiController
             'body' => ['required', 'string', 'min:1', 'max:4000'],
         ]);
         $messageId = (string) Str::uuid();
-        DB::table('support_ticket_messages')->insert([
-            'id' => $messageId,
-            'ticket_id' => $id,
-            'author_user_id' => $user->id,
-            'author_role' => $this->isStaff($user) ? 'staff' : 'user',
-            'body' => $data['body'],
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        DB::table('support_tickets')->where('id', $id)->update([
-            'status' => $this->isStaff($user) ? 'pending' : 'open',
-            'updated_at' => now(),
-        ]);
-        if ($this->isStaff($user)) {
-            $this->auditWrite($user->id, 'support.message', $id, [
-                'ticket_user_id' => $ticket->user_id,
-                'message_id' => $messageId,
+        DB::transaction(function () use ($id, $messageId, $user, $ticket, $data): void {
+            DB::table('support_ticket_messages')->insert([
+                'id' => $messageId,
+                'ticket_id' => $id,
+                'author_user_id' => $user->id,
+                'author_role' => $this->isStaff($user) ? 'staff' : 'user',
+                'body' => $data['body'],
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
-        }
+            DB::table('support_tickets')->where('id', $id)->update([
+                'status' => $this->isStaff($user) ? 'pending' : 'open',
+                'updated_at' => now(),
+            ]);
+            if ($this->isStaff($user)) {
+                $this->auditWrite($user->id, 'support.message', $id, [
+                    'ticket_user_id' => $ticket->user_id,
+                    'message_id' => $messageId,
+                ]);
+            }
+        });
 
         return response()->json($this->ticketPayload($this->ticketRow($id), true), 201);
     }
@@ -153,16 +155,18 @@ class SupportController extends ApiController
         if ($ticket->user_id !== $user->id) {
             $this->requireAdminPermission($request, 'operations');
         }
-        DB::table('support_tickets')->where('id', $id)->update([
-            'status' => 'closed',
-            'resolved_at' => now(),
-            'updated_at' => now(),
-        ]);
-        if ($this->isStaff($user)) {
-            $this->auditWrite($user->id, 'support.close', $id, [
-                'ticket_user_id' => $ticket->user_id,
+        DB::transaction(function () use ($id, $user, $ticket): void {
+            DB::table('support_tickets')->where('id', $id)->update([
+                'status' => 'closed',
+                'resolved_at' => now(),
+                'updated_at' => now(),
             ]);
-        }
+            if ($this->isStaff($user)) {
+                $this->auditWrite($user->id, 'support.close', $id, [
+                    'ticket_user_id' => $ticket->user_id,
+                ]);
+            }
+        });
 
         return response()->json($this->ticketPayload($this->ticketRow($id), true));
     }
@@ -185,7 +189,7 @@ class SupportController extends ApiController
             }
         }
         if (! empty($query['q'])) {
-            $needle = '%'.mb_strtolower($query['q']).'%';
+            $needle = '%'.addcslashes(mb_strtolower($query['q']), '%_\\').'%';
             $base->where(function ($q) use ($needle) {
                 $q->whereRaw('LOWER(t.subject) LIKE ?', [$needle])
                     ->orWhereRaw('LOWER(t.message) LIKE ?', [$needle])
@@ -230,13 +234,15 @@ class SupportController extends ApiController
         } elseif (! array_key_exists('assigned_to_user_id', $data)) {
             $updates['assigned_to_user_id'] = $staff->id;
         }
-        DB::table('support_tickets')->where('id', $id)->update($updates);
-        $this->auditWrite($staff->id, 'support.update', $id, [
-            'ticket_user_id' => $ticket->user_id,
-            'fields' => array_keys($data),
-            'status' => $data['status'] ?? null,
-            'priority' => $data['priority'] ?? null,
-        ]);
+        DB::transaction(function () use ($id, $updates, $staff, $ticket, $data): void {
+            DB::table('support_tickets')->where('id', $id)->update($updates);
+            $this->auditWrite($staff->id, 'support.update', $id, [
+                'ticket_user_id' => $ticket->user_id,
+                'fields' => array_keys($data),
+                'status' => $data['status'] ?? null,
+                'priority' => $data['priority'] ?? null,
+            ]);
+        });
 
         return response()->json($this->ticketPayload($this->ticketRow($id), true));
     }
@@ -291,17 +297,23 @@ class SupportController extends ApiController
         return $payload;
     }
 
+    /** @var array<string,array<string,mixed>|null> per-request memo so list payloads don't re-query the same user id */
+    private array $userSummaryCache = [];
+
     private function userSummary(?string $id): ?array
     {
         if (! $id) {
             return null;
         }
+        if (array_key_exists($id, $this->userSummaryCache)) {
+            return $this->userSummaryCache[$id];
+        }
         $user = DB::table('users')->where('id', $id)->first(['id', 'email', 'display_name', 'photo_url', 'admin_role']);
         if (! $user) {
-            return null;
+            return $this->userSummaryCache[$id] = null;
         }
 
-        return [
+        return $this->userSummaryCache[$id] = [
             'id' => $user->id,
             'email' => $user->email,
             'display_name' => $user->display_name,

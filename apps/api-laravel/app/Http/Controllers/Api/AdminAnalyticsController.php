@@ -31,7 +31,9 @@ class AdminAnalyticsController extends ApiController
             ],
             'venues' => [
                 'total' => DB::table('venues')->count(),
-                'active' => DB::table('venues')->where('status', 'active')->count(),
+                // The venues.status enum is draft/pending/published/suspended (see
+                // lookups()); 'published' is the live/active state, not 'active'.
+                'active' => DB::table('venues')->where('status', 'published')->count(),
             ],
             'games' => [
                 'total' => DB::table('games')->whereNull('deleted_at')->count(),

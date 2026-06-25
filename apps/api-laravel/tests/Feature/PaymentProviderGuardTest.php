@@ -47,7 +47,7 @@ class PaymentProviderGuardTest extends TestCase
         $this->insertBooking();
 
         try {
-            app(PaymentsController::class)->bookingIntent($this->requestForUser('user-1'), 'booking-1');
+            app(PaymentsController::class)->bookingIntent($this->requestForUser('user-1'), '22222222-2222-4222-8222-222222222222');
             $this->fail('Expected disabled payments to reject checkout intent creation.');
         } catch (ApiException $exception) {
             $this->assertSame('PAYMENTS_DISABLED', $exception->wireCode());
@@ -57,7 +57,7 @@ class PaymentProviderGuardTest extends TestCase
             $this->assertFalse($exception->getDetails()['checkout_available'] ?? true);
         }
 
-        $this->assertNull(DB::table('bookings')->where('id', 'booking-1')->value('external_ref'));
+        $this->assertNull(DB::table('bookings')->where('id', '22222222-2222-4222-8222-222222222222')->value('external_ref'));
     }
 
     public function test_booking_payment_intent_waits_for_real_provider_adapter(): void
@@ -68,7 +68,7 @@ class PaymentProviderGuardTest extends TestCase
         $this->insertBooking();
 
         try {
-            app(PaymentsController::class)->bookingIntent($this->requestForUser('user-1'), 'booking-1');
+            app(PaymentsController::class)->bookingIntent($this->requestForUser('user-1'), '22222222-2222-4222-8222-222222222222');
             $this->fail('Expected missing payment adapter to reject checkout intent creation.');
         } catch (ApiException $exception) {
             $this->assertSame('PAYMENT_ADAPTER_NOT_IMPLEMENTED', $exception->wireCode());
@@ -78,7 +78,7 @@ class PaymentProviderGuardTest extends TestCase
             $this->assertFalse($exception->getDetails()['checkout_available'] ?? true);
         }
 
-        $this->assertNull(DB::table('bookings')->where('id', 'booking-1')->value('external_ref'));
+        $this->assertNull(DB::table('bookings')->where('id', '22222222-2222-4222-8222-222222222222')->value('external_ref'));
     }
 
     public function test_booking_payment_intent_is_hidden_when_subscriptions_are_private_even_if_payments_are_enabled(): void
@@ -89,7 +89,7 @@ class PaymentProviderGuardTest extends TestCase
         $this->insertBooking();
 
         try {
-            app(PaymentsController::class)->bookingIntent($this->requestForUser('user-1'), 'booking-1');
+            app(PaymentsController::class)->bookingIntent($this->requestForUser('user-1'), '22222222-2222-4222-8222-222222222222');
             $this->fail('Expected private launch subscriptions to reject checkout intent creation.');
         } catch (ApiException $exception) {
             $this->assertSame('PAYMENTS_DISABLED', $exception->wireCode());
@@ -97,7 +97,7 @@ class PaymentProviderGuardTest extends TestCase
             $this->assertFalse($exception->getDetails()['checkout_available'] ?? true);
         }
 
-        $this->assertNull(DB::table('bookings')->where('id', 'booking-1')->value('external_ref'));
+        $this->assertNull(DB::table('bookings')->where('id', '22222222-2222-4222-8222-222222222222')->value('external_ref'));
     }
 
     public function test_payment_history_is_hidden_while_payments_are_disabled(): void
@@ -135,7 +135,7 @@ class PaymentProviderGuardTest extends TestCase
         $this->insertBooking(['status' => 'paid', 'paid_at' => now()]);
 
         try {
-            app(PaymentsController::class)->bookingStatus($this->requestForUser('user-1'), 'booking-1');
+            app(PaymentsController::class)->bookingStatus($this->requestForUser('user-1'), '22222222-2222-4222-8222-222222222222');
             $this->fail('Expected disabled payments to hide booking payment status.');
         } catch (ApiException $exception) {
             $this->assertSame('PAYMENTS_NOT_AVAILABLE', $exception->wireCode());
@@ -150,7 +150,7 @@ class PaymentProviderGuardTest extends TestCase
         config()->set('membership.public_subscriptions_enabled', true);
         $this->insertBooking(['status' => 'paid', 'paid_at' => '2026-06-20 10:00:00']);
 
-        $response = app(PaymentsController::class)->bookingStatus($this->requestForUser('user-1'), 'booking-1');
+        $response = app(PaymentsController::class)->bookingStatus($this->requestForUser('user-1'), '22222222-2222-4222-8222-222222222222');
         $payload = $response->getData(true);
 
         $this->assertSame(200, $response->getStatusCode());
@@ -161,7 +161,7 @@ class PaymentProviderGuardTest extends TestCase
     private function insertBooking(array $overrides = []): void
     {
         DB::table('bookings')->insert(array_merge([
-            'id' => 'booking-1',
+            'id' => '22222222-2222-4222-8222-222222222222',
             'user_id' => 'user-1',
             'total_minor' => 2500,
             'currency' => 'AZN',

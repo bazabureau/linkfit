@@ -117,6 +117,12 @@ class MessagingController extends ApiController
 
     public function markNotificationRead(Request $request, string $id): JsonResponse
     {
+        // The notifications.id column is a uuid; a malformed route value would
+        // raise a Postgres invalid-text-representation error (a generic 500)
+        // rather than a clean no-op. Guard so a bad id is a 204 no-op.
+        if (! Str::isUuid($id)) {
+            return response()->json(null, 204);
+        }
         DB::table('notifications')
             ->where('id', $id)
             ->where('user_id', $this->authUser($request)->id)
@@ -137,6 +143,11 @@ class MessagingController extends ApiController
 
     public function deleteNotification(Request $request, string $id): JsonResponse
     {
+        // See markNotificationRead: a non-uuid id would 500 on the uuid column;
+        // treat it as a 204 no-op instead.
+        if (! Str::isUuid($id)) {
+            return response()->json(null, 204);
+        }
         DB::table('notifications')
             ->where('id', $id)
             ->where('user_id', $this->authUser($request)->id)
@@ -500,6 +511,13 @@ class MessagingController extends ApiController
         if (! DB::table('users')->where('id', $data['user_id'])->whereNull('deleted_at')->exists()) {
             throw ApiException::notFound('User not found');
         }
+        // Honor the block-everywhere contract used on every other contact-initiating
+        // surface (startConversation, invite, follow, story reply): the actor cannot
+        // pull a user they have blocked — or who has blocked them — into a shared
+        // group thread (which grants read of the full history). Either-direction block.
+        if ($this->blockExistsBetween((string) $user->id, (string) $data['user_id'])) {
+            throw ApiException::forbidden('Cannot add this user');
+        }
         $added = DB::table('conversation_participants')->updateOrInsert(
             ['conversation_id' => $id, 'user_id' => $data['user_id']],
             ['left_at' => null]
@@ -520,6 +538,12 @@ class MessagingController extends ApiController
     public function removeParticipant(Request $request, string $id, string $userId): JsonResponse
     {
         $user = $this->authUser($request);
+        // userId targets the conversation_participants.user_id uuid column; a
+        // malformed route value would raise a Postgres invalid-text-representation
+        // error (a generic 500). Reject it as a clean 404 before any query.
+        if (! Str::isUuid($userId)) {
+            throw ApiException::notFound('Participant not found');
+        }
         $conversation = $this->groupConversationForParticipant($id, $user->id);
         $adminAction = $this->conversationOwnerId($conversation) !== $user->id;
         if ($adminAction) {

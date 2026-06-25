@@ -82,6 +82,22 @@ class DataRightsController extends ApiController
     public function requestExport(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
+
+        // This route is not throttled and each request fans out into a
+        // background PII-export job, so a blind insert lets a user spam
+        // unbounded export rows/jobs. Coalesce onto any still-in-flight
+        // request (queued/processing) instead of creating a duplicate — the
+        // client polls latestExport() for the same row either way, so the
+        // wire shape is unchanged.
+        $pending = DB::table('data_export_requests')
+            ->where('user_id', $user->id)
+            ->whereIn('status', ['queued', 'processing'])
+            ->orderByDesc('created_at')
+            ->first();
+        if ($pending !== null) {
+            return response()->json($this->exportPayload($pending));
+        }
+
         $id = (string) Str::uuid();
         DB::table('data_export_requests')->insert([
             'id' => $id,

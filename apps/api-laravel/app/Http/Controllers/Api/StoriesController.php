@@ -44,8 +44,39 @@ class StoriesController extends ApiController
         $data['media_url'] = ! empty($data['media_asset_id'])
             ? $this->resolveOwnedMediaAssetUrl((string) $data['media_asset_id'], (string) $user->id)
             : $this->assertAllowedMediaUrl((string) $data['media_url']);
+        // Resolve which mentioned users are actually taggable: they must exist
+        // (a real, non-deleted user) and must not be in a block relationship with
+        // the author in EITHER direction — so a story can't tag a non-existent
+        // user or someone who blocked the author. Done once up front (batched
+        // existence + block checks) so the transaction below only inserts valid
+        // rows; the response shape is unchanged (it reflects the stored mentions).
+        $mentionUserIds = collect($data['mentions'] ?? [])
+            ->pluck('user_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $existingMentionIds = $mentionUserIds === []
+            ? []
+            : DB::table('users')
+                ->whereIn('id', $mentionUserIds)
+                ->whereNull('deleted_at')
+                ->pluck('id')
+                ->map(fn ($v) => (string) $v)
+                ->all();
+        $blockedMentionIds = [];
+        foreach ($existingMentionIds as $mentionedId) {
+            if ($this->blockExistsBetween((string) $user->id, $mentionedId)) {
+                $blockedMentionIds[$mentionedId] = true;
+            }
+        }
+        $taggable = array_flip(array_filter(
+            $existingMentionIds,
+            fn ($mentionedId) => ! isset($blockedMentionIds[$mentionedId]),
+        ));
+
         $id = (string) Str::uuid();
-        DB::transaction(function () use ($id, $user, $data) {
+        DB::transaction(function () use ($id, $user, $data, $taggable) {
             DB::table('stories')->insert([
                 'id' => $id,
                 'user_id' => $user->id,
@@ -57,6 +88,11 @@ class StoriesController extends ApiController
                 'expires_at' => now()->addDay(),
             ]);
             foreach (($data['mentions'] ?? []) as $mention) {
+                // Silently drop tags for non-existent or blocking users — never
+                // mint a story_mentions row for them.
+                if (! isset($taggable[(string) $mention['user_id']])) {
+                    continue;
+                }
                 DB::table('story_mentions')->insertOrIgnore([
                     'story_id' => $id,
                     'mentioned_user_id' => $mention['user_id'],
@@ -128,7 +164,13 @@ class StoriesController extends ApiController
         // the feed's bidirectional `whereNotBlocked` discovery rule — so a
         // blocked viewer can neither read it nor inflate the author's view_count.
         $story = DB::table('stories')->where('id', $id)->first(['user_id']);
-        if ($story !== null && $this->blockExistsBetween((string) $user->id, (string) $story->user_id)) {
+        // Reject a client-supplied id that resolves to no story: otherwise the
+        // block guard below is silently skipped (null story) and an orphan
+        // `story_views` row is minted for an arbitrary id.
+        if ($story === null) {
+            throw ApiException::notFound('Story not found');
+        }
+        if ($this->blockExistsBetween((string) $user->id, (string) $story->user_id)) {
             throw ApiException::forbidden('Cannot view this story');
         }
         $inserted = DB::table('story_views')->insertOrIgnore(['story_id' => $id, 'viewer_user_id' => $user->id, 'viewed_at' => now()]);
@@ -189,7 +231,13 @@ class StoriesController extends ApiController
         $user = $this->authUser($request);
         $data = $this->validateBody($request, ['emoji' => ['required', 'in:heart,fire,100,clap,padel']]);
         $story = DB::table('stories')->where('id', $id)->first(['user_id']);
-        if ($story !== null && $this->blockExistsBetween((string) $user->id, (string) $story->user_id)) {
+        // Reject a client-supplied id that resolves to no story: otherwise the
+        // block guard below is silently skipped (null story) and an orphan
+        // `story_reactions` row is minted for an arbitrary id.
+        if ($story === null) {
+            throw ApiException::notFound('Story not found');
+        }
+        if ($this->blockExistsBetween((string) $user->id, (string) $story->user_id)) {
             throw ApiException::forbidden('Cannot react to this story');
         }
         DB::table('story_reactions')->updateOrInsert(

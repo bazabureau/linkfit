@@ -90,25 +90,29 @@ class ReminderDispatcher
 
     private function enqueueNotification(string $userId, string $type, string $title, string $body, array $payload = []): void
     {
-        DB::table('notifications')->insert([
-            'id' => (string) Str::uuid(),
-            'user_id' => $userId,
-            'type' => $type,
-            'title' => $title,
-            'body' => $body,
-            'payload' => json_encode($payload),
-            'created_at' => now(),
-        ]);
-        DB::table('push_notification_jobs')->insert([
-            'id' => (string) Str::uuid(),
-            'user_id' => $userId,
-            'type' => $type,
-            'title' => $title,
-            'body' => $body,
-            'payload' => json_encode($payload),
-            'available_at' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        // Atomic: a partial failure must not leave an in-app notification without
+        // its push job (or vice-versa).
+        DB::transaction(function () use ($userId, $type, $title, $body, $payload) {
+            DB::table('notifications')->insert([
+                'id' => (string) Str::uuid(),
+                'user_id' => $userId,
+                'type' => $type,
+                'title' => $title,
+                'body' => $body,
+                'payload' => json_encode($payload),
+                'created_at' => now(),
+            ]);
+            DB::table('push_notification_jobs')->insert([
+                'id' => (string) Str::uuid(),
+                'user_id' => $userId,
+                'type' => $type,
+                'title' => $title,
+                'body' => $body,
+                'payload' => json_encode($payload),
+                'available_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
     }
 }

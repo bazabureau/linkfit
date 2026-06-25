@@ -42,17 +42,21 @@ class AuthExtrasController extends ApiController
             'token' => ['required_without:code', 'string', 'min:6', 'max:200'],
         ]);
 
-        if (isset($data['email'], $data['code'])) {
-            $user = User::where('email', strtolower($data['email']))->first();
-            if ($user === null) {
-                throw ApiException::unauthenticated('Invalid or expired code');
+        // Atomic: consume the verification token and flip email_verified_at in
+        // one transaction so a failure can't burn the token without verifying.
+        DB::transaction(function () use ($data) {
+            if (isset($data['email'], $data['code'])) {
+                $user = User::where('email', strtolower($data['email']))->first();
+                if ($user === null) {
+                    throw ApiException::unauthenticated('Invalid or expired code');
+                }
+                $row = $this->emailTokens->consumeCodeForUser($user->id, 'verify', $data['code']);
+            } else {
+                $row = $this->emailTokens->consume($data['token'], 'verify');
             }
-            $row = $this->emailTokens->consumeCodeForUser($user->id, 'verify', $data['code']);
-        } else {
-            $row = $this->emailTokens->consume($data['token'], 'verify');
-        }
 
-        DB::table('users')->where('id', $row->user_id)->update(['email_verified_at' => now(), 'updated_at' => now()]);
+            DB::table('users')->where('id', $row->user_id)->update(['email_verified_at' => now(), 'updated_at' => now()]);
+        });
 
         return response()->json(['verified' => true]);
     }
@@ -95,26 +99,39 @@ class AuthExtrasController extends ApiController
             'new_password' => ['required_without:password', 'string', 'min:12', 'max:200'],
         ]);
         $password = (string) ($data['password'] ?? $data['new_password']);
-        if (isset($data['email'], $data['code'])) {
-            $user = User::where('email', strtolower($data['email']))->first();
-            if ($user === null) {
-                throw ApiException::unauthenticated('Invalid or expired code');
-            }
-            $row = $this->emailTokens->consumeCodeForUser($user->id, 'reset_password', $data['code']);
-        } else {
-            $row = $this->emailTokens->consume($data['token'], 'reset_password');
+        // Enforce the same password policy as registration / change-password so a
+        // reset can't set an all-letters or all-digits password.
+        if (! preg_match('/[A-Za-z]/', $password) || ! preg_match('/\d/', $password)) {
+            throw ApiException::validation('Password must contain at least one letter and one number');
         }
-        DB::table('users')->where('id', $row->user_id)->update([
-            'password_hash' => $this->passwords->hash($password),
-            'updated_at' => now(),
-        ]);
 
-        // A password reset must lock out any already-stolen sessions: revoke all
-        // of this user's live refresh tokens so old devices can't keep refreshing.
-        DB::table('refresh_tokens')
-            ->where('user_id', $row->user_id)
-            ->whereNull('revoked_at')
-            ->update(['revoked_at' => now()]);
+        // Atomic: consuming the reset code, rewriting the password hash, and
+        // revoking live sessions must all commit together. Without the
+        // transaction a mid-way failure could burn the code or leave stolen
+        // sessions valid after the password changed.
+        DB::transaction(function () use ($data, $password) {
+            if (isset($data['email'], $data['code'])) {
+                $user = User::where('email', strtolower($data['email']))->first();
+                if ($user === null) {
+                    throw ApiException::unauthenticated('Invalid or expired code');
+                }
+                $row = $this->emailTokens->consumeCodeForUser($user->id, 'reset_password', $data['code']);
+            } else {
+                $row = $this->emailTokens->consume($data['token'], 'reset_password');
+            }
+            DB::table('users')->where('id', $row->user_id)->update([
+                'password_hash' => $this->passwords->hash($password),
+                'updated_at' => now(),
+            ]);
+
+            // A password reset must lock out any already-stolen sessions: revoke
+            // all of this user's live refresh tokens so old devices can't keep
+            // refreshing.
+            DB::table('refresh_tokens')
+                ->where('user_id', $row->user_id)
+                ->whereNull('revoked_at')
+                ->update(['revoked_at' => now()]);
+        });
 
         return response()->json(['reset' => true]);
     }

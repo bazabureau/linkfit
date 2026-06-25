@@ -1217,6 +1217,14 @@ class BookingsController extends ApiController
         if ($localStarts < $open || $localEnds > $close) {
             throw ApiException::conflict('Booking is outside venue opening hours');
         }
+        // Data integrity: a booking/hold/quote/reschedule must not be for a slot
+        // that has already fully elapsed. Compared on the booking END (rather than
+        // start) so the slot currently in progress remains bookable — legitimate
+        // clients only ever send future times, so this rejects only stale/abusive
+        // requests without narrowing the contract.
+        if ($starts->addMinutes($duration)->lessThanOrEqualTo(CarbonImmutable::now())) {
+            throw ApiException::conflict('Booking time is in the past');
+        }
     }
 
     private function assertHoldMatches(string $holdId, ?string $userId, string $courtId, CarbonImmutable $starts, int $duration): void

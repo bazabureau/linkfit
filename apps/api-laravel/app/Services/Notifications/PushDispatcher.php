@@ -13,6 +13,16 @@ use Throwable;
 
 class PushDispatcher
 {
+    /**
+     * Hard ceiling on device tokens fanned out per job, and the per-batch chunk
+     * size for synchronous provider I/O. Bounds the network work a single
+     * push:process tick performs for a user with many (often stale) tokens so it
+     * cannot stall the everyMinute schedule (withoutOverlapping would skip ticks).
+     */
+    private const MAX_TOKENS_PER_JOB = 500;
+
+    private const PROVIDER_CHUNK_SIZE = 100;
+
     public function __construct(private FcmSender $fcm)
     {
     }
@@ -119,6 +129,8 @@ class PushDispatcher
             ->where('user_id', $job->user_id)
             ->whereIn('platform', $platforms)
             ->whereNull('revoked_at')
+            ->orderByDesc('last_seen')
+            ->limit(self::MAX_TOKENS_PER_JOB)
             ->get(['token', 'platform']);
 
         if ($tokens->isEmpty()) {
@@ -181,42 +193,51 @@ class PushDispatcher
      */
     private function sendApns(object $job, Collection $tokens): array
     {
-        try {
-            $client = new Client($this->authProvider(), (bool) config('services.apns.production'));
-            $payload = $this->payloadForJob($job);
-            $notifications = $tokens
-                ->map(fn ($token) => (new Notification($payload, (string) $token))->setHighPriority())
-                ->all();
-
-            $client->addNotifications($notifications);
-            $responses = $client->push();
-        } catch (Throwable $e) {
-            return ['sent' => 0, 'failed' => [['platform' => 'ios', 'reason' => $e->getMessage()]], 'transport_error' => true];
-        }
-
         $sent = 0;
         $failed = [];
-        foreach ($responses as $response) {
-            $status = $response->getStatusCode();
-            if ($status === 200) {
-                $sent++;
+        $transportError = false;
+
+        // Chunk so a user with many stale tokens does not push() an unbounded
+        // notification list in a single synchronous round-trip.
+        foreach ($tokens->chunk(self::PROVIDER_CHUNK_SIZE) as $chunk) {
+            try {
+                $client = new Client($this->authProvider(), (bool) config('services.apns.production'));
+                $payload = $this->payloadForJob($job);
+                $notifications = $chunk
+                    ->map(fn ($token) => (new Notification($payload, (string) $token))->setHighPriority())
+                    ->all();
+
+                $client->addNotifications($notifications);
+                $responses = $client->push();
+            } catch (Throwable $e) {
+                $failed[] = ['platform' => 'ios', 'reason' => $e->getMessage()];
+                $transportError = true;
+
                 continue;
             }
 
-            $token = (string) $response->getDeviceToken();
-            $reason = trim($response->getErrorReason().' '.$response->getErrorDescription());
-            $failed[] = [
-                'token_suffix' => substr($token, -8),
-                'status' => $status,
-                'reason' => $reason,
-            ];
+            foreach ($responses as $response) {
+                $status = $response->getStatusCode();
+                if ($status === 200) {
+                    $sent++;
+                    continue;
+                }
 
-            if ($status === 410 || in_array($response->getErrorReason(), ['BadDeviceToken', 'DeviceTokenNotForTopic', 'Unregistered'], true)) {
-                $this->revokeToken($token, $job->user_id);
+                $token = (string) $response->getDeviceToken();
+                $reason = trim($response->getErrorReason().' '.$response->getErrorDescription());
+                $failed[] = [
+                    'token_suffix' => substr($token, -8),
+                    'status' => $status,
+                    'reason' => $reason,
+                ];
+
+                if ($status === 410 || in_array($response->getErrorReason(), ['BadDeviceToken', 'DeviceTokenNotForTopic', 'Unregistered'], true)) {
+                    $this->revokeToken($token, $job->user_id);
+                }
             }
         }
 
-        return ['sent' => $sent, 'failed' => $failed, 'transport_error' => false];
+        return ['sent' => $sent, 'failed' => $failed, 'transport_error' => $transportError];
     }
 
     /**
@@ -290,7 +311,12 @@ class PushDispatcher
     {
         $row = DB::table('users as u')
             ->leftJoin('notification_preferences as np', function ($join) use ($job) {
-                $join->on('np.user_id', '=', 'u.id')->whereRaw('np.type::text = ?', [$job->type]);
+                // CAST(... AS text) is ANSI-portable: it works on Postgres (where
+                // notification_preferences.type is the `notification_type` enum and a
+                // bare `np.type = ?` string bind raises "operator does not exist") and on
+                // SQLite (text column) so the preference/quiet-hours gate is exercised by
+                // the SQLite test suite.
+                $join->on('np.user_id', '=', 'u.id')->whereRaw('CAST(np.type AS text) = ?', [(string) $job->type]);
             })
             ->where('u.id', $job->user_id)
             ->first([
@@ -333,13 +359,56 @@ class PushDispatcher
 
     private function deferJob(string $id, mixed $availableAt): void
     {
+        // A quiet-hours deferral must NOT refund a delivery attempt. Refunding it
+        // (the old GREATEST(attempts - 1, 0)) let a job oscillate back under the
+        // attempts < 5 claim window indefinitely, so quiet hours interleaved with
+        // transient failures could extend a job's life past the intended 5-attempt
+        // cap. We leave `attempts` exactly as claimJobs() set it; deferral is not a
+        // delivery and should ideally be tracked by a separate counter (see notes).
         DB::table('push_notification_jobs')->where('id', $id)->update([
             'status' => 'pending',
             'available_at' => $availableAt,
-            'attempts' => DB::raw('GREATEST(attempts - 1, 0)'),
-            'last_attempt_at' => null,
             'updated_at' => now(),
         ]);
+    }
+
+    /**
+     * Retention: scrub the cleartext push content from terminal jobs so chat
+     * message bodies (set by MessagingController::enqueueNotification) are not
+     * retained indefinitely in the queue table. Once a job is delivered/failed and
+     * older than $days, blank its `body` (NOT NULL → '') and null its `payload`;
+     * the row is kept for audit/metrics but no longer holds message-content PII.
+     *
+     * Intended to be driven by a scheduled `push:prune` command (routes/console.php).
+     *
+     * @return int number of rows scrubbed
+     */
+    public function prune(int $days = 7, int $limit = 1000): int
+    {
+        $days = max($days, 0);
+        $limit = min(max($limit, 1), 5000);
+        $cutoff = now()->subDays($days);
+
+        $ids = DB::table('push_notification_jobs')
+            ->whereIn('status', ['sent', 'failed', 'skipped'])
+            ->where('updated_at', '<=', $cutoff)
+            ->where(fn ($q) => $q->where('body', '!=', '')->orWhereNotNull('payload'))
+            ->orderBy('updated_at')
+            ->limit($limit)
+            ->pluck('id')
+            ->all();
+
+        if ($ids === []) {
+            return 0;
+        }
+
+        return DB::table('push_notification_jobs')
+            ->whereIn('id', $ids)
+            ->update([
+                'body' => '',
+                'payload' => null,
+                'updated_at' => now(),
+            ]);
     }
 
     private function finishJob(string $id, string $status, ?string $error = null, ?array $providerResponse = null): void

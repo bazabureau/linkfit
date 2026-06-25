@@ -63,6 +63,15 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET must be set}
       JWT_ACCESS_TTL_SECONDS: ${JWT_ACCESS_TTL_SECONDS:-900}
       JWT_REFRESH_TTL_DAYS: ${JWT_REFRESH_TTL_DAYS:-30}
+      # The bundled nginx proxies to api/worker over the internal Docker bridge,
+      # so the proxy source IP Laravel sees is a Docker-assigned RFC1918 address,
+      # NOT loopback or a Cloudflare range. Without trusting it, the app ignores
+      # X-Forwarded-Proto (so isSecure() is false → HSTS never emitted) and
+      # mis-attributes every request to the nginx container IP (breaking per-IP
+      # throttling). Default to the private/Docker ranges; override with a
+      # comma-separated CIDR list (e.g. the Cloudflare ranges) when fronting with
+      # an external CDN instead of the bundled nginx.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
       REQUIRE_API_KEY: ${REQUIRE_API_KEY:-false}
       APP_PUBLIC_API_KEYS: ${APP_PUBLIC_API_KEYS:-}
       APP_PUBLIC_API_KEY_HASHES: ${APP_PUBLIC_API_KEY_HASHES:-}
@@ -96,6 +105,15 @@ services:
     expose:
       - "8000"
     # Only reachable via the nginx reverse proxy; not published to host.
+    # Health is checked against the Laravel /up route on the in-container nginx
+    # (port 8000). Uses PHP, not curl: the image ships the php-curl *extension*
+    # but not the curl CLI binary, so a curl-based check would always fail.
+    healthcheck:
+      test: ["CMD-SHELL", "php -r 'exit((@file_get_contents(\"http://127.0.0.1:8000/up\"))===false?1:0);'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # Queue worker — QUEUE_CONNECTION defaults to `database`, so without a worker
   # process nothing drains the jobs table (push notifications, emails, async
@@ -114,6 +132,15 @@ services:
     volumes:
       - uploads:/app/storage/app/public
     command: php artisan queue:work --tries=3 --max-time=3600 --sleep=3
+    # Liveness only: confirm the queue:work process is still running (pgrep is a
+    # busybox applet, no extra package needed). A stuck-but-alive worker is then
+    # restarted by restart: unless-stopped.
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'artisan queue:work' > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   # Scheduler — runs `php artisan schedule:work` so any scheduled console tasks
   # (reminders, cleanup) fire on time without a host crontab.
@@ -130,13 +157,21 @@ services:
     volumes:
       - uploads:/app/storage/app/public
     command: php artisan schedule:work
+    # Liveness only: confirm the schedule:work process is still running.
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'artisan schedule:work' > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   nginx:
     image: nginx:1.27-alpine
     container_name: linkfit-nginx
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     ports:
       - "80:80"
       - "443:443"

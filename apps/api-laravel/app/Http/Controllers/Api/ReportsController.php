@@ -61,18 +61,26 @@ class ReportsController extends ApiController
     public function adminIndex(Request $request): JsonResponse
     {
         $this->requireAdminPermission($request, 'reports');
-        $limit = min(max((int) $request->query('limit', 25), 1), 100);
-        $offset = max((int) $request->query('offset', 0), 0);
-        $status = $request->query('status');
-        $kind = $request->query('target_kind');
-        $reason = $request->query('reason');
-        $term = trim((string) $request->query('q', ''));
+        $filters = $this->validateQuery($request, [
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'offset' => ['nullable', 'integer', 'min:0'],
+            'status' => ['nullable', 'in:pending,reviewed,dismissed'],
+            'target_kind' => ['nullable', 'in:user,game,message,story,feed_event,feed_comment,venue_review,media'],
+            'reason' => ['nullable', 'in:spam,harassment,no_show,fake_profile,inappropriate_content,other'],
+            'q' => ['nullable', 'string', 'max:120'],
+        ]);
+        $limit = min(max((int) ($filters['limit'] ?? 25), 1), 100);
+        $offset = max((int) ($filters['offset'] ?? 0), 0);
+        $status = $filters['status'] ?? null;
+        $kind = $filters['target_kind'] ?? null;
+        $reason = $filters['reason'] ?? null;
+        $term = trim((string) ($filters['q'] ?? ''));
         $query = DB::table('reports')
             ->when($status, fn ($q) => $q->where('status', $status))
             ->when($kind, fn ($q) => $q->where('target_kind', $kind))
             ->when($reason, fn ($q) => $q->where('reason', $reason))
             ->when($term !== '', function ($q) use ($term) {
-                $like = '%'.$term.'%';
+                $like = '%'.addcslashes($term, '%_\\').'%';
                 $q->where(function ($qq) use ($like) {
                     $qq->where('notes', 'ilike', $like)
                         ->orWhereExists(function ($sub) use ($like) {
@@ -109,6 +117,14 @@ class ReportsController extends ApiController
             throw ApiException::notFound('Report not found');
         }
 
+        $recent = DB::table('reports')
+            ->where('target_kind', $row->target_kind)
+            ->where('target_id', $row->target_id)
+            ->orderByDesc('created_at')
+            ->limit(20)
+            ->get();
+        $recentUsers = $this->prefetchReportUsers($recent);
+
         return response()->json([
             ...$this->reportPayload($row, true),
             'same_target_pending_count' => DB::table('reports')
@@ -116,13 +132,8 @@ class ReportsController extends ApiController
                 ->where('target_id', $row->target_id)
                 ->where('status', 'pending')
                 ->count(),
-            'recent_same_target_reports' => DB::table('reports')
-                ->where('target_kind', $row->target_kind)
-                ->where('target_id', $row->target_id)
-                ->orderByDesc('created_at')
-                ->limit(20)
-                ->get()
-                ->map(fn ($report) => $this->reportPayload($report)),
+            'recent_same_target_reports' => $recent
+                ->map(fn ($report) => $this->reportPayload($report, false, $recentUsers)),
             'audit' => DB::table('audit_log as a')
                 ->leftJoin('users as u', 'u.id', '=', 'a.actor_user_id')
                 ->where('a.entity', 'reports')
@@ -153,22 +164,26 @@ class ReportsController extends ApiController
         if ($before === null) {
             throw ApiException::notFound('Report not found');
         }
-        DB::table('reports')->where('id', $id)->update([
-            'status' => $data['status'],
-            'notes' => $data['notes'] ?? null,
-            'reviewed_by_user_id' => $user->id,
-            'reviewed_at' => now(),
-        ]);
-        $row = DB::table('reports')->where('id', $id)->first();
-        if ($row === null) {
-            throw ApiException::notFound('Report not found');
-        }
-        $this->auditWrite((string) $user->id, 'report.review', $id, [
-            'from_status' => $before->status,
-            'to_status' => $data['status'],
-            'target_kind' => $before->target_kind,
-            'target_id' => $before->target_id,
-        ]);
+        $row = DB::transaction(function () use ($id, $data, $user, $before) {
+            DB::table('reports')->where('id', $id)->update([
+                'status' => $data['status'],
+                'notes' => $data['notes'] ?? null,
+                'reviewed_by_user_id' => $user->id,
+                'reviewed_at' => now(),
+            ]);
+            $row = DB::table('reports')->where('id', $id)->first();
+            if ($row === null) {
+                throw ApiException::notFound('Report not found');
+            }
+            $this->auditWrite((string) $user->id, 'report.review', $id, [
+                'from_status' => $before->status,
+                'to_status' => $data['status'],
+                'target_kind' => $before->target_kind,
+                'target_id' => $before->target_id,
+            ]);
+
+            return $row;
+        });
 
         return response()->json($this->reportPayload($row, true));
     }

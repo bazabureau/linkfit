@@ -8,6 +8,7 @@ use App\Services\Membership\MembershipService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class MobileController extends ApiController
 {
@@ -92,7 +93,11 @@ class MobileController extends ApiController
 
         if (isset($map[$first]) && $second !== null) {
             $target = $map[$first];
-            $exists = DB::table($target['table'])->where('id', $second)->exists();
+            // Guard the existence probe: every mapped table keys on a uuid column,
+            // so a non-uuid id would throw a Postgres cast error (500). Treat a
+            // malformed id as simply "not found" while keeping the wire shape.
+            $exists = Str::isUuid($second)
+                && DB::table($target['table'])->where('id', $second)->exists();
 
             return response()->json([
                 'type' => $target['type'],

@@ -6,6 +6,23 @@ import {
   setCookie,
 } from "./cookies";
 
+// In production the API URL must be an explicit https endpoint — fail fast
+// rather than silently shipping cleartext admin JWTs to a non-existent host.
+// Gated on NEXT_PHASE (set by Next ONLY during `next build`) instead of an
+// env-inlined IS_BUILD_PHASE flag: an inlined flag would bake "true" into the
+// runtime bundle and never re-evaluate, which is exactly how a build-phase
+// shortcut can silently disable a runtime check.
+if (
+  process.env.NODE_ENV === "production" &&
+  process.env.NEXT_PHASE !== "phase-production-build" &&
+  (!process.env.NEXT_PUBLIC_API_URL ||
+    !process.env.NEXT_PUBLIC_API_URL.startsWith("https://"))
+) {
+  throw new Error(
+    "NEXT_PUBLIC_API_URL must be an https:// URL in production (e.g. https://api.linkfit.az)",
+  );
+}
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8788";
 

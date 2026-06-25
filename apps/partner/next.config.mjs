@@ -1,4 +1,3 @@
-import { PHASE_PRODUCTION_BUILD } from "next/constants.js";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const isProduction = process.env.NODE_ENV === "production";
@@ -48,17 +47,13 @@ const securityHeaders = [
     : []),
 ];
 
-const buildConfig = (phase) => {
-  const isBuild = phase === PHASE_PRODUCTION_BUILD;
+const buildConfig = () => {
   return {
     basePath: "/owner",
     assetPrefix: "/owner",
     reactStrictMode: true,
     turbopack: {
       root: process.cwd(),
-    },
-    env: {
-      IS_BUILD_PHASE: isBuild ? "true" : "false",
     },
     async headers() {
       return [{ source: "/:path*", headers: securityHeaders }];

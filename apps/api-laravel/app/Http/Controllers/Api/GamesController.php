@@ -239,6 +239,22 @@ class GamesController extends ApiController
                 'joined_at' => $this->iso($p->joined_at),
             ]);
         $payload['participants'] = $participants;
+
+        // Privacy: an invite-only game's full detail (roster, notes, venue) must
+        // not be readable by just anyone who has the id. Only the host, a current
+        // participant, or an invited user may view it; everyone else gets 404.
+        // Public games are unrestricted (the common case — iOS/web unaffected).
+        if ($row->visibility === 'invite') {
+            $canView = $viewerId !== null && (
+                (string) $row->host_user_id === $viewerId
+                || $participants->contains(fn ($p) => (string) $p['user_id'] === $viewerId)
+                || $this->mayJoinInviteOnlyGame($id, $row, $viewerId)
+            );
+            if (! $canView) {
+                throw ApiException::notFound('Game not found');
+            }
+        }
+
         $payload['viewer_can_report_result'] = $viewerId !== null && (
             (string) $row->host_user_id === $viewerId
             || $participants->contains(fn ($p) => (string) $p['user_id'] === $viewerId && (bool) $p['can_report_result'] === true)
@@ -279,11 +295,24 @@ class GamesController extends ApiController
         if ($data === []) {
             throw ApiException::validation('Provide at least one field to update');
         }
+        // A completed game's result + roster are locked in (see leave()/scoring):
+        // editing its schedule or window after the fact would resurface a finished
+        // match in the upcoming feed and desync the recorded result. Reject any
+        // mutation of a completed game (cancel included — it is already terminal).
+        if ($game->status === 'completed') {
+            throw ApiException::conflict('Cannot update a completed game');
+        }
         // Cross-field guard mirroring createGame() / AdminOpsController::updateGame:
         // reject an inverted ELO window before it hits the games CHECK constraint.
         if (($data['skill_min_elo'] ?? null) !== null && ($data['skill_max_elo'] ?? null) !== null
             && $data['skill_min_elo'] > $data['skill_max_elo']) {
             throw ApiException::validation('skill_min_elo must be <= skill_max_elo');
+        }
+        // Rescheduling via update() must obey the same future-date rule as
+        // reschedule()/createGame(): a past starts_at corrupts the agenda /
+        // matchmaking feeds (which filter on starts_at >= now).
+        if (isset($data['starts_at']) && strtotime($data['starts_at']) <= time()) {
+            throw ApiException::validation('starts_at must be in the future');
         }
         if (($data['cancel'] ?? false) === true) {
             DB::table('games')->where('id', $id)->update(['status' => 'cancelled', 'updated_at' => now()]);
@@ -406,7 +435,12 @@ class GamesController extends ApiController
 
     public function reschedule(Request $request, string $id): JsonResponse
     {
-        $this->hostOnly($request, $id);
+        $game = $this->hostOnly($request, $id);
+        // A completed game's result is locked; do not let it be moved back into
+        // the future (which would re-surface a finished match as upcoming).
+        if ($game->status === 'completed') {
+            throw ApiException::conflict('Cannot reschedule a completed game');
+        }
         $data = $this->validateBody($request, [
             'starts_at' => ['required', 'date'],
             'duration_minutes' => ['sometimes', 'integer', 'min:15', 'max:480'],
@@ -423,9 +457,16 @@ class GamesController extends ApiController
     public function noShow(Request $request, string $id, string $uid): JsonResponse
     {
         $this->hostOnly($request, $id);
+        if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $uid) !== 1) {
+            throw ApiException::validation('Invalid participant id');
+        }
+        // Only a CURRENTLY confirmed participant can be flagged a no-show. The
+        // status filter prevents the id from being used to resurrect a player who
+        // already left (cancelled) or to overwrite an existing no_show/played row.
         DB::table('game_participants')
             ->where('game_id', $id)
             ->where('user_id', $uid)
+            ->where('status', 'confirmed')
             ->update(['status' => 'no_show', 'status_changed_at' => now()]);
 
         return $this->showResponse($request, $id);
