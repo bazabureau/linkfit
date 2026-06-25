@@ -31,7 +31,9 @@ class MedicalController extends ApiController
         $values = ['updated_at' => now()];
         foreach (['blood_type', 'allergies', 'conditions', 'medications', 'emergency_contact_name', 'emergency_contact_phone'] as $field) {
             if (array_key_exists($field, $data)) {
-                $values[$field] = $data[$field];
+                // Normalize blank/whitespace-only input to NULL so the "no value"
+                // state is represented consistently (NULL, never an empty string).
+                $values[$field] = trim($data[$field] ?? '') ?: null;
             }
         }
         if (array_key_exists('share_medical_with_host', $data)) {

@@ -83,7 +83,16 @@ class PaymentsController extends ApiController
         }
 
         $sheet = $this->paymentSheet('booking', $id, (int) $booking->total_minor, $booking->currency, ['booking_id' => $id, 'user_id' => $booking->user_id]);
-        DB::table('bookings')->where('id', $id)->update(['external_ref' => $sheet['payment_intent_id'], 'updated_at' => now()]);
+        // Idempotency: only claim external_ref when the booking has none yet. A
+        // client retry (e.g. network timeout) must not overwrite a previously
+        // issued payment intent — that would orphan the first intent and risk a
+        // double-charge. If the atomic guarded update touches no row, an intent
+        // already exists, so reuse it instead of returning the fresh one.
+        $updated = DB::table('bookings')->where('id', $id)->whereNull('external_ref')->update(['external_ref' => $sheet['payment_intent_id'], 'updated_at' => now()]);
+        if (! $updated) {
+            $booking = DB::table('bookings')->where('id', $id)->first();
+            $sheet['payment_intent_id'] = $booking->external_ref;
+        }
         if ($operatorAction) {
             $this->auditWrite($user->id, 'payment.booking_intent', 'bookings', $id, [
                 'booking_user_id' => $booking->user_id,
@@ -165,6 +174,21 @@ class PaymentsController extends ApiController
 
         $playerIds = $this->validatedTournamentPlayerIds($data['player_ids'] ?? [], $user->id, (int) $tournament->squad_size);
         $sheet = $this->paymentSheet('tournament', $tournamentId, (int) $tournament->entry_fee_minor, $tournament->currency, ['tournament_id' => $tournamentId, 'user_id' => $user->id]);
+        // Idempotency: a client retry must not create a second payment intent
+        // for the same captain+tournament. There is no DB unique constraint, so
+        // guard here — if a live (pending/succeeded) intent already exists,
+        // reuse it instead of inserting a duplicate row.
+        $existingPayment = DB::table('tournament_entry_payments')
+            ->where('tournament_id', $tournamentId)
+            ->where('captain_user_id', $user->id)
+            ->whereIn('status', ['pending', 'succeeded'])
+            ->orderByDesc('created_at')
+            ->first();
+        if ($existingPayment !== null) {
+            $sheet['payment_intent_id'] = $existingPayment->payment_intent_id;
+
+            return response()->json($sheet);
+        }
         $paymentId = (string) Str::uuid();
         DB::table('tournament_entry_payments')->insert([
             'id' => $paymentId,
@@ -349,7 +373,10 @@ class PaymentsController extends ApiController
             ->where('b.user_id', $userId)
             ->when($status, fn ($q) => $q->where('b.status', $status))
             ->orderByDesc('b.created_at')
-            ->limit(300)
+            // Safety cap only — was 300, which silently hid the oldest records
+            // (and corrupted the in-memory pagination total + summary totals)
+            // for any user with more than 300 payments.
+            ->limit(10000)
             ->get([
                 'b.id',
                 'b.status',
@@ -386,7 +413,10 @@ class PaymentsController extends ApiController
             ->where('p.captain_user_id', $userId)
             ->when($status, fn ($q) => $q->where('p.status', $status))
             ->orderByDesc('p.created_at')
-            ->limit(300)
+            // Safety cap only — was 300, which silently hid the oldest records
+            // (and corrupted the in-memory pagination total + summary totals)
+            // for any user with more than 300 payments.
+            ->limit(10000)
             ->get([
                 'p.id',
                 'p.tournament_id',

@@ -97,15 +97,20 @@ class MessagingController extends ApiController
             ->whereNull('read_at')
             ->count();
 
-        $invites = DB::table('game_invitations')
+        // One statement (UNION ALL of both COUNTs) so they evaluate against a single
+        // consistent snapshot. Two separate COUNT queries could observe an invitation
+        // change status between them and report a badge count off by one.
+        $gameInvites = DB::table('game_invitations')
+            ->selectRaw('count(*) as cnt')
             ->where('invitee_user_id', $user->id)
-            ->where('status', 'pending')
-            ->count();
-
-        $invites += DB::table('squad_members')
+            ->where('status', 'pending');
+        $squadInvites = DB::table('squad_members')
+            ->selectRaw('count(*) as cnt')
             ->where('user_id', $user->id)
-            ->where('status', 'pending')
-            ->count();
+            ->where('status', 'pending');
+        $invites = (int) DB::query()
+            ->fromSub($gameInvites->unionAll($squadInvites), 'invite_counts')
+            ->sum('cnt');
 
         return response()->json([
             'messages' => $messages,
@@ -697,14 +702,30 @@ class MessagingController extends ApiController
                 ->where('user_id', '!=', $user->id)
                 ->whereNull('left_at')
                 ->pluck('user_id');
+            // In a 1:1 thread, re-check the block at enqueue time: sendMessage()
+            // already validated it, but a block created in that narrow window must
+            // not surface a notification for a thread the recipient can no longer
+            // see. Group threads are shared context and intentionally skip this.
+            $kind = DB::table('conversations')->where('id', $id)->value('kind');
+            $isDirect = $kind === null || $kind === 'direct';
             foreach ($recipients as $recipientId) {
-                $this->enqueueNotification(
-                    (string) $recipientId,
-                    'message_received',
-                    'New message',
-                    $body !== '' ? $body : 'Sent an attachment',
-                    ['conversation_id' => $id, 'sender_user_id' => $user->id],
-                );
+                if ($isDirect && $this->blockExistsBetween((string) $user->id, (string) $recipientId)) {
+                    continue;
+                }
+                // Per-recipient guard so ONE recipient's enqueue failure (deadlock,
+                // transient DB error) can't abort the loop and silently drop the
+                // remaining recipients' notifications.
+                try {
+                    $this->enqueueNotification(
+                        (string) $recipientId,
+                        'message_received',
+                        'New message',
+                        $body !== '' ? $body : 'Sent an attachment',
+                        ['conversation_id' => $id, 'sender_user_id' => $user->id],
+                    );
+                } catch (\Throwable $e) {
+                    report($e);
+                }
             }
         } catch (\Throwable $e) {
             report($e);
@@ -874,28 +895,34 @@ class MessagingController extends ApiController
 
     private function enqueueNotification(string $userId, string $type, string $title, string $body, array $payload = []): void
     {
-        DB::table('notifications')->insert([
-            'id' => (string) Str::uuid(),
-            'user_id' => $userId,
-            'type' => $type,
-            'title' => $title,
-            'body' => $body,
-            'payload' => json_encode($payload),
-            'created_at' => now(),
-        ]);
-        if (Schema::hasTable('push_notification_jobs')) {
-            DB::table('push_notification_jobs')->insert([
+        // Atomic: a partial failure (a deadlock or transient error on the second
+        // insert) must not leave an in-app notification without its matching push
+        // job. Both rows commit or roll back together. The push table stays optional
+        // (absent during a partial migration) so the in-app notification still works.
+        DB::transaction(function () use ($userId, $type, $title, $body, $payload) {
+            DB::table('notifications')->insert([
                 'id' => (string) Str::uuid(),
                 'user_id' => $userId,
                 'type' => $type,
                 'title' => $title,
                 'body' => $body,
                 'payload' => json_encode($payload),
-                'available_at' => now(),
                 'created_at' => now(),
-                'updated_at' => now(),
             ]);
-        }
+            if (Schema::hasTable('push_notification_jobs')) {
+                DB::table('push_notification_jobs')->insert([
+                    'id' => (string) Str::uuid(),
+                    'user_id' => $userId,
+                    'type' => $type,
+                    'title' => $title,
+                    'body' => $body,
+                    'payload' => json_encode($payload),
+                    'available_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        });
     }
 
     private function auditWrite(?string $actorUserId, string $action, string $entity, ?string $entityId = null, array $metadata = []): void

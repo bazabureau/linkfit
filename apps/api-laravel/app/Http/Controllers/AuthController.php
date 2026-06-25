@@ -122,7 +122,10 @@ class AuthController extends Controller
                 DB::table('users')->where('id', $referrer->id)->increment('referral_count');
             });
         } catch (\Throwable $e) {
-            // Best-effort — never fail signup because of a referral hiccup.
+            // Best-effort — never fail signup because of a referral hiccup, but
+            // surface the failure to the exception handler (Sentry) so a lost
+            // referral credit is not silently swallowed with zero audit trail.
+            report($e);
         }
     }
 

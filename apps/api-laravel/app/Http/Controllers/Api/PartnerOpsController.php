@@ -694,7 +694,7 @@ class PartnerOpsController extends ApiController
                 'id' => $id,
                 'game_id' => null,
                 'court_id' => $data['court_id'],
-                'user_id' => $data['user_id'] ?? $user->id,
+                'user_id' => $data['user_id'] ?? null,
                 'starts_at' => $starts,
                 'duration_minutes' => $data['duration_minutes'],
                 'total_minor' => $this->bookingTotalMinor($court, (int) $data['duration_minutes']),
@@ -907,6 +907,21 @@ class PartnerOpsController extends ApiController
             ->whereIn('b.id', $data['ids'])
             ->pluck('b.id')
             ->all();
+        // Validate the refund cap against each booking's own total BEFORE the
+        // bulk write, so an amount that exceeds an individual booking surfaces
+        // as a 400 instead of a DB-constraint 500 partway through the batch.
+        if (($data['refund_amount_minor'] ?? null) !== null && $ids !== []) {
+            $refundAmount = (int) $data['refund_amount_minor'];
+            foreach (DB::table('bookings')->whereIn('id', $ids)->get(['id', 'total_minor']) as $row) {
+                if ($refundAmount > (int) $row->total_minor) {
+                    throw ApiException::validation('Refund amount exceeds booking total', [
+                        'booking_id' => (string) $row->id,
+                        'total_minor' => (int) $row->total_minor,
+                        'refund_amount_minor' => $refundAmount,
+                    ]);
+                }
+            }
+        }
         $updates = ['status' => $data['status'], 'updated_at' => now()];
         if ($data['status'] === 'paid') {
             $updates['paid_at'] = now();

@@ -377,10 +377,27 @@ class GamesController extends ApiController
             if ($count >= $game->capacity) {
                 throw ApiException::conflict('Game is full');
             }
-            DB::table('game_participants')->updateOrInsert(
-                ['game_id' => $id, 'user_id' => $user->id],
-                ['status' => 'confirmed', 'status_changed_at' => now(), 'joined_at' => now()],
-            );
+            // Preserve the original joined_at for a returning participant (joined →
+            // left → rejoined): the roster is ordered by joined_at, so restamping it
+            // would shove re-joiners to the end of the list. Only stamp on insert.
+            $participantExists = DB::table('game_participants')
+                ->where('game_id', $id)
+                ->where('user_id', $user->id)
+                ->exists();
+            if ($participantExists) {
+                DB::table('game_participants')
+                    ->where('game_id', $id)
+                    ->where('user_id', $user->id)
+                    ->update(['status' => 'confirmed', 'status_changed_at' => now()]);
+            } else {
+                DB::table('game_participants')->insert([
+                    'game_id' => $id,
+                    'user_id' => $user->id,
+                    'status' => 'confirmed',
+                    'status_changed_at' => now(),
+                    'joined_at' => now(),
+                ]);
+            }
             $next = DB::table('game_participants')->where('game_id', $id)->where('status', 'confirmed')->count();
             DB::table('games')->where('id', $id)->update(['status' => $next >= $game->capacity ? 'full' : 'open', 'updated_at' => now()]);
         });

@@ -1300,6 +1300,11 @@ class AdminOpsController extends ApiController
         if ($data['status'] === 'refunded') {
             $updates['refund_status'] = $data['refund_status'] ?? 'processed';
             $updates['refunded_at'] = now();
+            // Never leave a refunded booking with a NULL amount: fall back to
+            // each row's own total when the caller did not specify one.
+            if (! array_key_exists('refund_amount_minor', $data) || $data['refund_amount_minor'] === null) {
+                $updates['refund_amount_minor'] = DB::raw('total_minor');
+            }
         }
         if (array_key_exists('payment_method', $data)) {
             $updates['payment_method'] = $data['payment_method'];
@@ -1313,8 +1318,29 @@ class AdminOpsController extends ApiController
             }
         }
 
-        $affected = DB::table('bookings')->whereIn('id', $data['ids'])->update($updates);
-        $this->auditWrite($admin->id, 'booking.bulk_update', 'bookings', null, ['ids' => $data['ids'], 'updates' => $updates, 'affected' => $affected]);
+        $explicitRefundAmount = array_key_exists('refund_amount_minor', $data) && $data['refund_amount_minor'] !== null;
+        $affected = DB::transaction(function () use ($admin, $data, $updates, $explicitRefundAmount): int {
+            // Lock the target rows so the legality checks and the write cannot
+            // interleave with a concurrent state change, and so all rows commit
+            // (or roll back) together.
+            $rows = DB::table('bookings')->whereIn('id', $data['ids'])->lockForUpdate()->get(['id', 'status', 'total_minor']);
+            foreach ($rows as $row) {
+                if (! $this->bookingStatusTransitionAllowed((string) $row->status, $data['status'])) {
+                    throw ApiException::validation("Booking {$row->id} cannot transition from {$row->status} to {$data['status']}.");
+                }
+                if ($explicitRefundAmount && (int) $data['refund_amount_minor'] > (int) $row->total_minor) {
+                    throw ApiException::validation("refund_amount_minor exceeds the booking total for booking {$row->id}.");
+                }
+            }
+            $affected = DB::table('bookings')->whereIn('id', $data['ids'])->update($updates);
+            $auditUpdates = $updates;
+            if (($auditUpdates['refund_amount_minor'] ?? null) instanceof \Illuminate\Database\Query\Expression) {
+                $auditUpdates['refund_amount_minor'] = 'total_minor';
+            }
+            $this->auditWrite($admin->id, 'booking.bulk_update', 'bookings', null, ['ids' => $data['ids'], 'updates' => $auditUpdates, 'affected' => $affected]);
+
+            return $affected;
+        });
 
         return response()->json(['updated' => $affected]);
     }
@@ -1351,29 +1377,32 @@ class AdminOpsController extends ApiController
 
         $id = (string) Str::uuid();
         $status = $data['status'] ?? 'pending_payment';
-        DB::table('bookings')->insert([
-            'id' => $id,
-            'game_id' => null,
-            'court_id' => $data['court_id'],
-            'user_id' => $data['user_id'] ?? $admin->id,
-            'starts_at' => $starts,
-            'duration_minutes' => $duration,
-            'total_minor' => $this->bookingTotalMinor($court, $duration),
-            'currency' => $court->currency,
-            'status' => $status,
-            'source' => 'admin_manual',
-            'payment_method' => $data['payment_method'] ?? 'manual',
-            'payment_note' => $data['payment_note'] ?? null,
-            'customer_name' => $data['customer_name'] ?? null,
-            'customer_email' => $data['customer_email'] ?? null,
-            'created_by_user_id' => $admin->id,
-            'idempotency_key' => 'admin:'.$id,
-            'paid_at' => $status === 'paid' ? now() : null,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        DB::transaction(function () use ($admin, $data, $court, $id, $status, $starts, $duration): void {
+            DB::table('bookings')->insert([
+                'id' => $id,
+                'game_id' => null,
+                'court_id' => $data['court_id'],
+                'user_id' => $data['user_id'] ?? $admin->id,
+                'starts_at' => $starts,
+                'duration_minutes' => $duration,
+                'total_minor' => $this->bookingTotalMinor($court, $duration),
+                'currency' => $court->currency,
+                'status' => $status,
+                'source' => 'admin_manual',
+                'payment_method' => $data['payment_method'] ?? 'manual',
+                'payment_note' => $data['payment_note'] ?? null,
+                'customer_name' => $data['customer_name'] ?? null,
+                'customer_email' => $data['customer_email'] ?? null,
+                'created_by_user_id' => $admin->id,
+                'idempotency_key' => 'admin:'.$id,
+                'paid_at' => $status === 'paid' ? now() : null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $this->auditWrite($admin->id, 'booking.create', 'bookings', $id, ['source' => 'admin_manual']);
+        });
+        // Side effect only after the booking durably commits.
         app(TransactionalMailService::class)->bookingConfirmed($id);
-        $this->auditWrite($admin->id, 'booking.create', 'bookings', $id, ['source' => 'admin_manual']);
 
         return $this->booking($request, $id);
     }
@@ -1434,40 +1463,47 @@ class AdminOpsController extends ApiController
             'refund_amount_minor' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100000000'],
             'refund_note' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ]);
+        if (array_key_exists('status', $data) && ! $this->bookingStatusTransitionAllowed((string) $booking->status, (string) $data['status'])) {
+            throw ApiException::validation("Cannot transition booking from {$booking->status} to {$data['status']}.");
+        }
         $starts = array_key_exists('starts_at', $data) ? CarbonImmutable::parse($data['starts_at']) : CarbonImmutable::parse($booking->starts_at);
         $duration = (int) ($data['duration_minutes'] ?? $booking->duration_minutes);
-        if (array_key_exists('starts_at', $data) || array_key_exists('duration_minutes', $data)) {
-            $this->assertBookingSlotAvailable((string) $booking->court_id, $starts, $starts->addMinutes($duration), $id);
-            $data['starts_at'] = $starts;
-            $data['duration_minutes'] = $duration;
-            $court = DB::table('courts')->where('id', $booking->court_id)->first();
-            if ($court !== null) {
-                $data['total_minor'] = $this->bookingTotalMinor($court, $duration);
+        // Reschedule, status change, notifications and the audit entry all commit
+        // together (or not at all) so a partial failure can't desync state.
+        DB::transaction(function () use ($id, $booking, $admin, $starts, $duration, $data): void {
+            if (array_key_exists('starts_at', $data) || array_key_exists('duration_minutes', $data)) {
+                $this->assertBookingSlotAvailable((string) $booking->court_id, $starts, $starts->addMinutes($duration), $id);
+                $data['starts_at'] = $starts;
+                $data['duration_minutes'] = $duration;
+                $court = DB::table('courts')->where('id', $booking->court_id)->first();
+                if ($court !== null) {
+                    $data['total_minor'] = $this->bookingTotalMinor($court, $duration);
+                }
+                $data['rescheduled_at'] = now();
+                if ($booking->user_id !== null) {
+                    $this->enqueueNotification((string) $booking->user_id, 'system', 'Booking rescheduled', 'Your booking time was updated.', ['booking_id' => $id, 'starts_at' => $starts->toIso8601String()]);
+                }
             }
-            $data['rescheduled_at'] = now();
-            if ($booking->user_id !== null) {
-                $this->enqueueNotification((string) $booking->user_id, 'system', 'Booking rescheduled', 'Your booking time was updated.', ['booking_id' => $id, 'starts_at' => $starts->toIso8601String()]);
+            if (($data['status'] ?? null) === 'paid') {
+                $data['paid_at'] = now();
             }
-        }
-        if (($data['status'] ?? null) === 'paid') {
-            $data['paid_at'] = now();
-        }
-        if (($data['status'] ?? null) === 'cancelled') {
-            $data['cancelled_at'] = now();
-            $data['cancelled_by_user_id'] = $admin->id;
-            if ($booking->user_id !== null) {
-                $this->enqueueNotification((string) $booking->user_id, 'system', 'Booking cancelled', 'Your booking was cancelled.', ['booking_id' => $id]);
+            if (($data['status'] ?? null) === 'cancelled') {
+                $data['cancelled_at'] = now();
+                $data['cancelled_by_user_id'] = $admin->id;
+                if ($booking->user_id !== null) {
+                    $this->enqueueNotification((string) $booking->user_id, 'system', 'Booking cancelled', 'Your booking was cancelled.', ['booking_id' => $id]);
+                }
             }
-        }
-        if (($data['status'] ?? null) === 'refunded') {
-            $data['refund_status'] = $data['refund_status'] ?? 'processed';
-            $data['refunded_at'] = now();
-        }
-        if ($data === []) {
-            throw ApiException::validation('Provide at least one field to update');
-        }
-        DB::table('bookings')->where('id', $id)->update([...$data, 'updated_at' => now()]);
-        $this->auditWrite($admin->id, 'booking.update', 'bookings', $id, $data);
+            if (($data['status'] ?? null) === 'refunded') {
+                $data['refund_status'] = $data['refund_status'] ?? 'processed';
+                $data['refunded_at'] = now();
+            }
+            if ($data === []) {
+                throw ApiException::validation('Provide at least one field to update');
+            }
+            DB::table('bookings')->where('id', $id)->update([...$data, 'updated_at' => now()]);
+            $this->auditWrite($admin->id, 'booking.update', 'bookings', $id, $data);
+        });
 
         return $this->booking($request, $id);
     }
@@ -2874,10 +2910,23 @@ class AdminOpsController extends ApiController
             $updates['status'] = 'refunded';
             $updates['refunded_at'] = now();
         }
-        DB::table('bookings')->where('id', $id)->update($updates);
-        if ($booking->user_id !== null) {
-            $this->enqueueNotification((string) $booking->user_id, 'system', 'Booking refund updated', 'Your booking refund status was updated.', ['booking_id' => $id, 'refund_status' => $refundStatus]);
-        }
+        DB::transaction(function () use ($id, $booking, $updates, $refundStatus): void {
+            // Idempotency guard: if a concurrent request already fully refunded
+            // this booking, reuse that terminal state rather than overwriting it.
+            $current = DB::table('bookings')->where('id', $id)->lockForUpdate()->first();
+            if ($current !== null && $current->status === 'refunded' && $refundStatus === 'processed') {
+                return;
+            }
+            DB::table('bookings')->where('id', $id)->update($updates);
+            if ($booking->user_id !== null) {
+                // A notification failure must not roll back a committed refund.
+                try {
+                    $this->enqueueNotification((string) $booking->user_id, 'system', 'Booking refund updated', 'Your booking refund status was updated.', ['booking_id' => $id, 'refund_status' => $refundStatus]);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
+        });
         app(TransactionalMailService::class)->bookingRefundUpdated($id);
         $this->auditWrite($admin->id, 'booking.refund', 'bookings', $id, $updates);
 
@@ -3451,30 +3500,58 @@ class AdminOpsController extends ApiController
         ]);
     }
 
+    /**
+     * Whitelist of legal booking status transitions. Terminal states
+     * (refunded / cancelled) must never resurrect into an active/revenue state
+     * (which would double-count revenue); non-terminal states may still move
+     * freely. A no-op transition to the same status is always allowed.
+     */
+    private function bookingStatusTransitionAllowed(string $current, string $next): bool
+    {
+        if ($current === $next) {
+            return true;
+        }
+        $allowed = [
+            'pending_payment' => ['partially_paid', 'paid', 'cancelled', 'refunded', 'failed'],
+            'partially_paid' => ['pending_payment', 'paid', 'cancelled', 'refunded', 'failed'],
+            'paid' => ['partially_paid', 'cancelled', 'refunded', 'failed'],
+            'failed' => ['pending_payment', 'partially_paid', 'paid', 'cancelled'],
+            'cancelled' => ['refunded'],
+            'refunded' => [],
+        ];
+
+        return in_array($next, $allowed[$current] ?? [], true);
+    }
+
     private function enqueueNotification(string $userId, string $type, string $title, string $body, array $payload = []): void
     {
-        DB::table('notifications')->insert([
-            'id' => (string) Str::uuid(),
-            'user_id' => $userId,
-            'type' => $type,
-            'title' => $title,
-            'body' => $body,
-            'payload' => json_encode($payload),
-            'created_at' => now(),
-        ]);
-        if (Schema::hasTable('push_notification_jobs')) {
-            DB::table('push_notification_jobs')->insert([
+        // Keep the in-app notification and its push job atomic: if the push job
+        // insert fails (e.g. a constraint violation), the notification row is
+        // rolled back too rather than being left without a matching push.
+        DB::transaction(function () use ($userId, $type, $title, $body, $payload): void {
+            DB::table('notifications')->insert([
                 'id' => (string) Str::uuid(),
                 'user_id' => $userId,
                 'type' => $type,
                 'title' => $title,
                 'body' => $body,
                 'payload' => json_encode($payload),
-                'available_at' => now(),
                 'created_at' => now(),
-                'updated_at' => now(),
             ]);
-        }
+            if (Schema::hasTable('push_notification_jobs')) {
+                DB::table('push_notification_jobs')->insert([
+                    'id' => (string) Str::uuid(),
+                    'user_id' => $userId,
+                    'type' => $type,
+                    'title' => $title,
+                    'body' => $body,
+                    'payload' => json_encode($payload),
+                    'available_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        });
     }
 
     private function auditPayload(object $entry): array

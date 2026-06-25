@@ -210,22 +210,49 @@ class SocialController extends ApiController
             throw ApiException::notFound('User not found');
         }
 
-        $followersCount = (int) DB::table('follows')->where('followed_user_id', $id)->count();
-        $followingCount = (int) DB::table('follows')->where('follower_user_id', $id)->count();
+        // Both follow counts in a single round-trip (two COUNT subqueries)
+        // instead of two separate queries.
+        $counts = DB::query()
+            ->selectSub(DB::table('follows')->selectRaw('count(*)')->where('followed_user_id', $id), 'followers_count')
+            ->selectSub(DB::table('follows')->selectRaw('count(*)')->where('follower_user_id', $id), 'following_count')
+            ->first();
+        $followersCount = (int) ($counts->followers_count ?? 0);
+        $followingCount = (int) ($counts->following_count ?? 0);
         $isFollowedByMe = $viewerId !== null && (string) $viewerId !== (string) $id
             && DB::table('follows')
                 ->where('follower_user_id', $viewerId)
                 ->where('followed_user_id', $id)
                 ->exists();
 
-        // Primary sport stat (best of padel/tennis) for the header ELO/reliability.
-        $primary = DB::table('player_sport_stats as ps')
+        // Fetch all sport stats once; both the header's primary (best padel/tennis)
+        // stat and the full `stats` array below are derived from this single query.
+        // iOS `SportStats` requires `sport_slug` (non-optional) — it lives on the
+        // `sports` table, so it's joined in. Selecting the exact fields the client
+        // decodes (sport_id, sport_slug, elo_rating, games_played, games_won,
+        // reliability_score) also drops the internal columns (last_recalc_at,
+        // updated_at) the client doesn't expect.
+        $stats = DB::table('player_sport_stats as ps')
             ->join('sports as s', 's.id', '=', 'ps.sport_id')
             ->where('ps.user_id', $id)
-            ->whereIn('s.slug', ['padel', 'tennis'])
-            ->orderByDesc('ps.games_played')
-            ->orderByDesc('ps.elo_rating')
-            ->first(['ps.elo_rating', 'ps.reliability_score']);
+            ->get([
+                'ps.sport_id',
+                's.slug as sport_slug',
+                'ps.elo_rating',
+                'ps.games_played',
+                'ps.games_won',
+                'ps.reliability_score',
+            ]);
+
+        // Primary sport stat (best of padel/tennis) for the header ELO/reliability,
+        // derived in PHP (ORDER BY games_played DESC, elo_rating DESC) from the
+        // already-fetched stats instead of issuing a second query. The chained
+        // sortByDesc is stable, so games_played is the primary key and elo_rating
+        // the tie-breaker.
+        $primary = $stats
+            ->whereIn('sport_slug', ['padel', 'tennis'])
+            ->sortByDesc('elo_rating')
+            ->sortByDesc('games_played')
+            ->first();
 
         return response()->json([
             ...$this->publicUser($user),
@@ -234,22 +261,7 @@ class SocialController extends ApiController
             'followers_count' => $followersCount,
             'following_count' => $followingCount,
             'is_followed_by_me' => $isFollowedByMe,
-            // iOS `SportStats` requires `sport_slug` (non-optional) — it lives on
-            // the `sports` table, so join it in. Selecting the exact fields the
-            // client decodes (sport_id, sport_slug, elo_rating, games_played,
-            // games_won, reliability_score) also drops the internal columns
-            // (last_recalc_at, updated_at) the client doesn't expect.
-            'stats' => DB::table('player_sport_stats as ps')
-                ->join('sports as s', 's.id', '=', 'ps.sport_id')
-                ->where('ps.user_id', $id)
-                ->get([
-                    'ps.sport_id',
-                    's.slug as sport_slug',
-                    'ps.elo_rating',
-                    'ps.games_played',
-                    'ps.games_won',
-                    'ps.reliability_score',
-                ]),
+            'stats' => $stats,
         ]);
     }
 
@@ -304,6 +316,12 @@ class SocialController extends ApiController
         $limit = min(max((int) request()->query('limit', 30), 1), 100);
         $offset = max((int) request()->query('offset', 0), 0);
         $viewerId = $this->optionalViewerId($request);
+        // Accept a username or short-id here too (like profile()), and never let a
+        // non-uuid reach Postgres as a bad uuid cast (22P02 → 500).
+        $id = $this->resolveUserId($id);
+        if ($id === null) {
+            throw ApiException::notFound('User not found');
+        }
         $this->assertSocialGraphVisibleToViewer($id, $viewerId);
         $rows = DB::table('follows as f')
             ->join('users as u', 'u.id', '=', 'f.follower_user_id')
@@ -347,6 +365,12 @@ class SocialController extends ApiController
         $limit = min(max((int) request()->query('limit', 30), 1), 100);
         $offset = max((int) request()->query('offset', 0), 0);
         $viewerId = $this->optionalViewerId($request);
+        // Accept a username or short-id here too (like profile()), and never let a
+        // non-uuid reach Postgres as a bad uuid cast (22P02 → 500).
+        $id = $this->resolveUserId($id);
+        if ($id === null) {
+            throw ApiException::notFound('User not found');
+        }
         $this->assertSocialGraphVisibleToViewer($id, $viewerId);
         $rows = DB::table('follows as f')
             ->join('users as u', 'u.id', '=', 'f.followed_user_id')
@@ -603,6 +627,25 @@ class SocialController extends ApiController
         // (no mass enumeration); this only governs direct profile access. Blocked
         // relationships are still enforced by the caller.
         unset($user, $viewerId);
+    }
+
+    /**
+     * Resolve a social-graph route param (a uuid OR a username) to the canonical
+     * user uuid, or null when no live user matches. A bare uuid is returned as-is
+     * (existence is enforced by the caller's visibility check); a username is
+     * looked up. This keeps followers()/following() consistent with profile() and
+     * stops a non-uuid param from hitting Postgres as a bad uuid cast.
+     */
+    private function resolveUserId(string $id): ?string
+    {
+        if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $id)) {
+            return $id;
+        }
+
+        return DB::table('users')
+            ->whereRaw('LOWER(username) = ?', [mb_strtolower($id)])
+            ->whereNull('deleted_at')
+            ->value('id');
     }
 
     private function assertSocialGraphVisibleToViewer(string $profileUserId, ?string $viewerId): void

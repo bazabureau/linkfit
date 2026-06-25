@@ -84,11 +84,16 @@ class SocialPrivacyTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_anonymous_user_cannot_fetch_non_directory_profile(): void
+    public function test_anonymous_user_can_fetch_any_profile_but_not_its_pii(): void
     {
+        // Individual profiles are public — anyone with the link can open any
+        // player (the directory LISTING stays gated for anonymous viewers). PII
+        // (email, home coordinates) is still withheld regardless of viewer.
         $this->getJson('/api/v1/users/11111111-1111-4111-8111-111111111111/profile')
-            ->assertNotFound()
-            ->assertJsonPath('error.code', 'NOT_FOUND');
+            ->assertOk()
+            ->assertJsonPath('id', '11111111-1111-4111-8111-111111111111')
+            ->assertJsonMissingPath('email')
+            ->assertJsonMissingPath('home_lat');
     }
 
     public function test_anonymous_user_can_fetch_public_directory_profile(): void
@@ -111,11 +116,12 @@ class SocialPrivacyTest extends TestCase
             ->assertJsonMissingPath('home_lat');
     }
 
-    public function test_anonymous_user_cannot_fetch_non_directory_social_graph(): void
+    public function test_anonymous_user_can_fetch_a_public_profile_social_graph(): void
     {
+        // Follower/following lists are public too (mirrors the public profile);
+        // only a blocked relationship hides them.
         $this->getJson('/api/v1/users/11111111-1111-4111-8111-111111111111/followers')
-            ->assertNotFound()
-            ->assertJsonPath('error.code', 'NOT_FOUND');
+            ->assertOk();
     }
 
     private function insertUser(string $id, string $username, string $displayName): void

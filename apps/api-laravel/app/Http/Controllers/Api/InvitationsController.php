@@ -177,10 +177,27 @@ class InvitationsController extends ApiController
                 }
             }
             DB::table('game_invitations')->where('id', $inv->id)->update(['status' => 'accepted', 'responded_at' => now()]);
-            DB::table('game_participants')->updateOrInsert(
-                ['game_id' => $inv->game_id, 'user_id' => $user->id],
-                ['status' => 'confirmed', 'joined_at' => now(), 'status_changed_at' => now()],
-            );
+            // Preserve the original joined_at on an existing participant (e.g. a
+            // direct join followed by a later accept, or a duplicate accept) so the
+            // joined_at-ordered roster keeps its sequence; only stamp it on insert.
+            $participantExists = DB::table('game_participants')
+                ->where('game_id', $inv->game_id)
+                ->where('user_id', $user->id)
+                ->exists();
+            if ($participantExists) {
+                DB::table('game_participants')
+                    ->where('game_id', $inv->game_id)
+                    ->where('user_id', $user->id)
+                    ->update(['status' => 'confirmed', 'status_changed_at' => now()]);
+            } else {
+                DB::table('game_participants')->insert([
+                    'game_id' => $inv->game_id,
+                    'user_id' => $user->id,
+                    'status' => 'confirmed',
+                    'joined_at' => now(),
+                    'status_changed_at' => now(),
+                ]);
+            }
             $next = DB::table('game_participants')->where('game_id', $inv->game_id)->where('status', 'confirmed')->count();
             DB::table('games')->where('id', $inv->game_id)->update(['status' => $next >= $game->capacity ? 'full' : 'open', 'updated_at' => now()]);
         });
@@ -221,6 +238,13 @@ class InvitationsController extends ApiController
             ->where('g.id', $r->game_id)
             ->first(['g.*', 's.slug as sport_slug', 'u.display_name as host_display_name', 'v.name as venue_name']);
         $participantsCount ??= DB::table('game_participants')->where('game_id', $r->game_id)->where('status', 'confirmed')->count();
+        // The referenced game can be null if it was deleted in the race window
+        // between fetching invitations and resolving their games (mine()), or
+        // between the accept/decline transaction and this lookup. Fail with a
+        // clean 404 rather than reading properties off null.
+        if ($game === null) {
+            throw ApiException::notFound('Game not found');
+        }
 
         return [
             'id' => $r->id,

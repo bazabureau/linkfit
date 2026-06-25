@@ -100,7 +100,12 @@ class OAuthController extends ApiController
             }
 
             return $decoded;
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            // Returning null keeps the auth behaviour (caller rejects with 401),
+            // but report the exception so a transient outage (e.g. Apple's JWKS
+            // endpoint down) is visible rather than silently swallowed.
+            report($e);
+
             return null;
         }
     }

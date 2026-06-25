@@ -288,6 +288,12 @@ class FeedController extends ApiController
                 ->exists()) {
             throw ApiException::notFound('Feed event not found');
         }
+        // A block in either direction hides the event from out-of-band writes
+        // too — the read feed already filters these actors, so a blocked user
+        // must not be able to like/comment via a direct event_id.
+        if (! $isAuthor && $this->blockExistsBetween($actorUserId, (string) $event->actor_user_id)) {
+            throw ApiException::notFound('Feed event not found');
+        }
     }
 
     private function eventPayload(object $r, ?string $viewerId): array

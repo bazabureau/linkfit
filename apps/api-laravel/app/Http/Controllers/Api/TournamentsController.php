@@ -125,6 +125,7 @@ class TournamentsController extends ApiController
             $mine = DB::table('tournament_entries')
                 ->where('tournament_id', $id)
                 ->where('captain_user_id', $viewerId)
+                ->where('status', '!=', 'withdrawn')
                 ->first();
             $payload['my_entry'] = $mine !== null ? $this->entryPayload($mine) : null;
         } else {
@@ -225,6 +226,12 @@ class TournamentsController extends ApiController
             ->where('tournament_id', $id)
             ->where('captain_user_id', $user->id)
             ->first();
+        // The entry was just written inside the committed transaction above; a
+        // null here means it was removed out-of-band (cascade/concurrent op).
+        // Fail with a clean 500 rather than passing null to entryPayload(object).
+        if ($entry === null) {
+            throw ApiException::internal('Tournament entry not found after registration');
+        }
 
         // Confirmation notification + push for the captain on a fresh entry.
         // Wrapped so an enqueue failure can never fail tournament registration.

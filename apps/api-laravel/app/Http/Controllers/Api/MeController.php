@@ -49,8 +49,13 @@ class MeController extends ApiController
         // photo_url is served verbatim to other users, so a free URL must be https
         // and on an allowlisted host (the validated upload path / a media_asset_id
         // is preferred). A null clears the avatar and skips the host check.
-        if (! empty($data['photo_url'])) {
-            $data['photo_url'] = $this->assertAllowedMediaUrl((string) $data['photo_url']);
+        // Normalize blank/whitespace-only input to null so an empty string can
+        // never be stored and served to other users unvalidated.
+        if (array_key_exists('photo_url', $data)) {
+            $data['photo_url'] = trim((string) $data['photo_url']) ?: null;
+            if ($data['photo_url'] !== null) {
+                $data['photo_url'] = $this->assertAllowedMediaUrl($data['photo_url']);
+            }
         }
 
         $user = $this->authUser($request);
@@ -211,14 +216,19 @@ class MeController extends ApiController
         // to the NEW address — otherwise the account is left unverified with no
         // way to confirm it short of a separate /auth/send-verification call.
         // Best-effort: a mail hiccup must not fail the (already-committed) change.
+        $verificationEmailSent = true;
         try {
             $code = $this->emailTokens->createCode($user->id, 'verify', 10);
             $this->mail->emailVerification($email, $user->display_name ?: 'Linkfit user', $code);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             // Swallow — the user can re-request via POST /auth/send-verification.
+            // Surface the failure to monitoring and tell the client so it can
+            // prompt the user to retry verification later.
+            report($e);
+            $verificationEmailSent = false;
         }
 
-        return response()->json($user->fresh()->toPublicUser());
+        return response()->json($user->fresh()->toPublicUser() + ['verification_email_sent' => $verificationEmailSent]);
     }
 
     public function sessions(Request $request): JsonResponse

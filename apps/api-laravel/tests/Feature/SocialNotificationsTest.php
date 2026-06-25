@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Http\Controllers\Api\FeedController;
 use App\Http\Controllers\Api\SocialController;
 use App\Models\User;
+use App\Support\ApiException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -195,14 +196,21 @@ class SocialNotificationsTest extends TestCase
 
     public function test_blocked_actor_does_not_generate_a_like_notification(): void
     {
-        // AUTHOR blocked ACTOR — a like from ACTOR must NOT notify the author.
+        // AUTHOR blocked ACTOR — the like is rejected outright (consistent with the
+        // read feed already filtering blocked actors), so the author is never
+        // notified and the like never lands.
         DB::table('user_blocks')->insert([
             'blocker_user_id' => self::AUTHOR,
             'blocked_user_id' => self::ACTOR,
             'created_at' => now(),
         ]);
 
-        app(FeedController::class)->like($this->authRequest(self::ACTOR), self::EVENT);
+        try {
+            app(FeedController::class)->like($this->authRequest(self::ACTOR), self::EVENT);
+            $this->fail('Expected the blocked like to be rejected');
+        } catch (ApiException $e) {
+            // expected — a blocked actor cannot interact with the event
+        }
 
         $this->assertSame(0, DB::table('notifications')->count());
     }
@@ -217,7 +225,12 @@ class SocialNotificationsTest extends TestCase
 
         $request = $this->authRequest(self::ACTOR);
         $request->merge(['body' => 'Blocked comment']);
-        app(FeedController::class)->storeComment($request, self::EVENT);
+        try {
+            app(FeedController::class)->storeComment($request, self::EVENT);
+            $this->fail('Expected the blocked comment to be rejected');
+        } catch (ApiException $e) {
+            // expected — a blocked actor cannot interact with the event
+        }
 
         $this->assertSame(0, DB::table('notifications')->count());
     }

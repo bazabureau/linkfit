@@ -434,24 +434,35 @@ class BookingsController extends ApiController
         $this->assertBookingRules($court, $starts, (int) $data['duration_minutes']);
         $id = (string) Str::uuid();
         $expiresAt = now()->addSeconds((int) ($data['ttl_seconds'] ?? 300));
-        DB::transaction(function () use ($id, $data, $user, $starts, $ends, $expiresAt) {
-            $this->lockCourtSlot((string) $data['court_id']);
-            $this->cleanupExpiredHolds();
-            $this->assertCourtAvailable((string) $data['court_id'], $starts, $ends);
-            DB::table('booking_holds')->updateOrInsert(
-                ['user_id' => $user->id, 'idempotency_key' => $data['idempotency_key']],
-                [
-                    'id' => $id,
-                    'court_id' => $data['court_id'],
-                    'starts_at' => $starts,
-                    'duration_minutes' => (int) $data['duration_minutes'],
-                    'expires_at' => $expiresAt,
-                    'source' => $data['source'] ?? 'app',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]
-            );
-        });
+        try {
+            DB::transaction(function () use ($id, $data, $user, $starts, $ends, $expiresAt) {
+                $this->lockCourtSlot((string) $data['court_id']);
+                $this->cleanupExpiredHolds();
+                $this->assertCourtAvailable((string) $data['court_id'], $starts, $ends);
+                DB::table('booking_holds')->updateOrInsert(
+                    ['user_id' => $user->id, 'idempotency_key' => $data['idempotency_key']],
+                    [
+                        'id' => $id,
+                        'court_id' => $data['court_id'],
+                        'starts_at' => $starts,
+                        'duration_minutes' => (int) $data['duration_minutes'],
+                        'expires_at' => $expiresAt,
+                        'source' => $data['source'] ?? 'app',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]
+                );
+            });
+        } catch (QueryException $e) {
+            // Two users racing for the same slot trip the
+            // booking_holds_court_start_unique(court_id, starts_at) index on
+            // INSERT (SQLSTATE 23505). Surface it as a readable 409 conflict
+            // instead of letting the raw DB error bubble up as a 500.
+            if ((string) ($e->errorInfo[0] ?? '') === '23505') {
+                throw ApiException::conflict('Time slot is already held');
+            }
+            throw $e;
+        }
 
         $hold = DB::table('booking_holds as h')
             ->join('courts as c', 'c.id', '=', 'h.court_id')
@@ -692,6 +703,27 @@ class BookingsController extends ApiController
                 's.name as sport_name',
             ]);
         $starts = CarbonImmutable::parse($booking->starts_at);
+        // The service fee has no dedicated column; it is the slice of total_minor
+        // left after the (discounted) court subtotal, so it is reconstructed here
+        // to itemise it on the receipt rather than hiding it inside the total.
+        $subtotalMinor = (int) ($booking->subtotal_minor ?? $booking->total_minor);
+        $discountMinor = (int) ($booking->discount_minor ?? 0);
+        $serviceFeeMinor = max(0, (int) $booking->total_minor - max(0, $subtotalMinor - $discountMinor));
+        $lineItems = [[
+            'description' => 'Court booking',
+            'starts_at' => $starts->toIso8601ZuluString('millisecond'),
+            'ends_at' => $starts->addMinutes((int) $booking->duration_minutes)->toIso8601ZuluString('millisecond'),
+            'duration_minutes' => (int) $booking->duration_minutes,
+            'amount_minor' => $subtotalMinor,
+            'currency' => $booking->currency,
+        ]];
+        if ($serviceFeeMinor > 0) {
+            $lineItems[] = [
+                'description' => 'Service fee',
+                'amount_minor' => $serviceFeeMinor,
+                'currency' => $booking->currency,
+            ];
+        }
 
         return response()->json([
             'receipt_number' => 'LF-'.strtoupper(substr((string) $booking->id, 0, 8)),
@@ -713,17 +745,11 @@ class BookingsController extends ApiController
                 'sport_slug' => $court->sport_slug ?? null,
                 'sport_name' => $court->sport_name ?? null,
             ],
-            'line_items' => [[
-                'description' => 'Court booking',
-                'starts_at' => $starts->toIso8601ZuluString('millisecond'),
-                'ends_at' => $starts->addMinutes((int) $booking->duration_minutes)->toIso8601ZuluString('millisecond'),
-                'duration_minutes' => (int) $booking->duration_minutes,
-                'amount_minor' => (int) ($booking->subtotal_minor ?? $booking->total_minor),
-                'currency' => $booking->currency,
-            ]],
+            'line_items' => $lineItems,
             'totals' => [
-                'subtotal_minor' => (int) ($booking->subtotal_minor ?? $booking->total_minor),
-                'discount_minor' => (int) ($booking->discount_minor ?? 0),
+                'subtotal_minor' => $subtotalMinor,
+                'discount_minor' => $discountMinor,
+                'service_fee_minor' => $serviceFeeMinor,
                 'tax_minor' => 0,
                 'total_minor' => (int) $booking->total_minor,
                 'currency' => $booking->currency,
@@ -832,12 +858,13 @@ class BookingsController extends ApiController
                 'payment_note' => $request->input('payment_note', $booking->payment_note ?? null),
                 'updated_at' => now(),
             ]);
-            // Notify the booker their payment was recorded — mirrors
-            // notifyBookingCreated's fan-out (in-app notification + push). Inside
-            // the transaction so a notification failure rolls the status back
-            // rather than leaving a paid booking with no record sent.
-            $this->notifyBookingPaid($booking);
         });
+        // Notify the booker their payment was recorded — mirrors
+        // notifyBookingCreated's fan-out (in-app notification + push). Sent AFTER
+        // the transaction commits (like create()/cancel()) so a transient
+        // notification failure can't roll back a recorded payment and leave the
+        // booking permanently stuck in pending_payment.
+        $this->notifyBookingPaid($booking);
 
         return $this->show($request, $id);
     }
@@ -885,6 +912,17 @@ class BookingsController extends ApiController
                 $this->assertCourtAvailable((string) $booking->court_id, $starts, $starts->addMinutes($duration), $id);
                 $subtotal = $this->bookingTotalMinor($court, $duration);
                 $discount = min((int) ($booking->discount_minor ?? 0), $subtotal);
+                // Re-validate a minimum-amount promo against the new subtotal: a
+                // reschedule to a cheaper/shorter slot can drop the subtotal below
+                // the promo's min_amount_minor, which would otherwise apply an
+                // unauthorised discount the code no longer qualifies for. Drop the
+                // discount entirely when the threshold is no longer met.
+                if ($discount > 0 && ! empty($booking->promo_code_id) && Schema::hasTable('promo_codes')) {
+                    $minAmount = (int) (DB::table('promo_codes')->where('id', $booking->promo_code_id)->value('min_amount_minor') ?? 0);
+                    if ($subtotal < $minAmount) {
+                        $discount = 0;
+                    }
+                }
                 $updates['subtotal_minor'] = $subtotal;
                 $updates['discount_minor'] = $discount;
                 $updates['total_minor'] = max(0, $subtotal - $discount) + app(LaunchConfig::class)->bookingServiceFeeMinor();

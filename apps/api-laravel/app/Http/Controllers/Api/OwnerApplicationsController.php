@@ -167,6 +167,13 @@ class OwnerApplicationsController extends ApiController
                 'updated_at' => now(),
             ]);
         } else {
+            // Never overwrite an ownership that already belongs to a different
+            // partner — that would orphan the prior owner's venue_id reference
+            // and corrupt the ownership graph. Reassigning to the same applicant
+            // (idempotent re-approval) stays allowed.
+            if (DB::table('venues')->where('id', $venueId)->whereNotNull('owner_user_id')->where('owner_user_id', '!=', $application->user_id)->exists()) {
+                throw ApiException::conflict('Venue is already owned by another partner');
+            }
             DB::table('venues')->where('id', $venueId)->update([
                 'owner_user_id' => $application->user_id,
                 'is_partner' => true,

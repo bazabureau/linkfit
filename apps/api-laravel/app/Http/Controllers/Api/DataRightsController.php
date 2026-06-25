@@ -69,7 +69,15 @@ class DataRightsController extends ApiController
             DB::table('users')->where('id', $user->id)->update(['deleted_at' => null]);
         });
 
-        return response()->json($this->deletionPayload(DB::table('account_deletion_requests')->where('user_id', $user->id)->first()));
+        // Re-read after commit. If a concurrent purge removed the row between the
+        // transaction and this read, first() is null — fail clean instead of
+        // passing null into the non-nullable deletionPayload() and 500-ing.
+        $row = DB::table('account_deletion_requests')->where('user_id', $user->id)->first();
+        if ($row === null) {
+            throw ApiException::internal('Failed to cancel deletion');
+        }
+
+        return response()->json($this->deletionPayload($row));
     }
 
     public function deletionStatus(Request $request): JsonResponse

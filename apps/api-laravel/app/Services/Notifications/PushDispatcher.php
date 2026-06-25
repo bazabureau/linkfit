@@ -165,7 +165,11 @@ class PushDispatcher
             }
         }
 
-        if ($sent > 0) {
+        // A transient transport error (e.g. Firebase 5xx) must NOT be masked by a
+        // later token succeeding — if any token hit a transport error, fall through
+        // to retry so the failed-mid-loop delivery is re-attempted rather than
+        // silently marked 'sent'.
+        if ($sent > 0 && ! $hadTransportError) {
             $this->finishJob($job->id, 'sent', null, ['sent' => $sent, 'failed' => $failed]);
 
             return 'sent';
@@ -322,6 +326,7 @@ class PushDispatcher
             ->first([
                 'u.quiet_hours_start',
                 'u.quiet_hours_end',
+                'u.time_zone',
                 'np.push_enabled',
             ]);
 
@@ -338,7 +343,11 @@ class PushDispatcher
             return ['enabled' => true, 'defer_until' => null];
         }
 
-        $hour = (int) now('UTC')->format('G');
+        // quiet_hours_start/end are user-facing local hour values (0-23), so the
+        // window must be evaluated against the user's own timezone — not UTC —
+        // otherwise the window is shifted by the user's UTC offset.
+        $tz = $row->time_zone ?? 'UTC';
+        $hour = (int) now($tz)->format('G');
         $start = (int) $start;
         $end = (int) $end;
         $inside = $start < $end
@@ -349,8 +358,8 @@ class PushDispatcher
             return ['enabled' => true, 'defer_until' => null];
         }
 
-        $deferUntil = now('UTC')->setTime($end, 0);
-        if ($deferUntil <= now('UTC')) {
+        $deferUntil = now($tz)->setTime($end, 0);
+        if ($deferUntil <= now($tz)) {
             $deferUntil = $deferUntil->addDay();
         }
 

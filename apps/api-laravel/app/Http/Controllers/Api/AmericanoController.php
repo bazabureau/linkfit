@@ -93,8 +93,14 @@ class AmericanoController extends ApiController
         $hasUserId = Schema::hasColumn('americano_teams', 'user_id');
 
         // A solo player can only hold ONE entry in a tournament — guard against
-        // a host double-registering themselves (which would skew the draw).
-        if ($isSolo && $hasUserId) {
+        // a host double-registering themselves (which would skew the draw). The
+        // dedup invariant is keyed on the user_id column, so refuse solo
+        // registration on a schema that predates it rather than silently skip
+        // the check and allow duplicate entries.
+        if ($isSolo) {
+            if (! $hasUserId) {
+                throw ApiException::conflict('Solo registration is unavailable on this tournament');
+            }
             $already = DB::table('americano_teams')
                 ->where('tournament_id', $id)
                 ->where('user_id', $user->id)

@@ -138,7 +138,7 @@ class LessonsController extends ApiController
 
             DB::table('lesson_bookings')->updateOrInsert(
                 ['lesson_id' => $id, 'user_id' => $user->id],
-                ['id' => $existing->id ?? (string) Str::uuid(), 'status' => 'booked', 'updated_at' => now(), 'created_at' => $existing->created_at ?? now()],
+                ['id' => $existing?->id ?? (string) Str::uuid(), 'status' => 'booked', 'updated_at' => now(), 'created_at' => $existing?->created_at ?? now()],
             );
 
             return response()->json([
@@ -392,7 +392,7 @@ class LessonsController extends ApiController
         return DB::table('lesson_bookings as lb')
             ->join('lessons as ll', 'll.id', '=', 'lb.lesson_id')
             ->whereColumn('ll.coach_id', 'co.id')
-            ->whereIn('lb.status', ['attended', 'booked'])
+            ->where('lb.status', 'attended')
             ->selectRaw('count(*)');
     }
 

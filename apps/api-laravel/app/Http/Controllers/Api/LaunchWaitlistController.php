@@ -25,7 +25,7 @@ class LaunchWaitlistController extends ApiController
         $email = mb_strtolower(trim((string) $data['email']));
         $now = now();
         $existing = DB::table('launch_waitlist_entries')->where('email', $email)->first(['id']);
-        $id = $existing->id ?? (string) Str::uuid();
+        $id = $existing?->id ?? (string) Str::uuid();
 
         $payload = [
             'name' => trim((string) $data['name']),
@@ -50,7 +50,10 @@ class LaunchWaitlistController extends ApiController
             try {
                 app(TransactionalMailService::class)->waitlistWelcome($email, $payload['name'], $payload['locale']);
             } catch (\Throwable $e) {
-                // swallowed — TransactionalMailService also logs send failures
+                // swallowed — TransactionalMailService also logs send failures,
+                // but report to the exception handler (Sentry) so a failed welcome
+                // email is not invisible if mail logging is misconfigured.
+                report($e);
             }
         } else {
             DB::table('launch_waitlist_entries')->where('id', $id)->update($payload);

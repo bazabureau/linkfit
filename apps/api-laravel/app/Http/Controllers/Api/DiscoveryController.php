@@ -429,6 +429,23 @@ class DiscoveryController extends ApiController
             ->where('me.user_id', $userId)
             ->whereNull('me.left_at')
             ->whereNotNull('c.last_message_at')
+            // Mirror MessagingController::unreadCounts(): a 1:1 thread with a
+            // blocked counterpart (either direction) is hidden from the inbox, so
+            // it must NOT inflate the badge. Group threads are shared context and
+            // always count.
+            ->where(function ($q) use ($userId) {
+                $q->where('c.kind', 'group')
+                    ->orWhereNotExists(function ($sq) use ($userId) {
+                        $sq->selectRaw('1')
+                            ->from('conversation_participants as other_cp')
+                            ->join('user_blocks as ub', function ($join) use ($userId) {
+                                $join->where(fn ($w) => $w->where('ub.blocker_user_id', $userId)->whereColumn('ub.blocked_user_id', 'other_cp.user_id'))
+                                    ->orWhere(fn ($w) => $w->where('ub.blocked_user_id', $userId)->whereColumn('ub.blocker_user_id', 'other_cp.user_id'));
+                            })
+                            ->whereColumn('other_cp.conversation_id', 'c.id')
+                            ->whereColumn('other_cp.user_id', '!=', 'me.user_id');
+                    });
+            })
             ->where(function ($q) {
                 $q->whereNull('me.last_read_at')
                     ->orWhereColumn('c.last_message_at', '>', 'me.last_read_at');
@@ -549,7 +566,18 @@ class DiscoveryController extends ApiController
     /** Mirrors suggestedFollows() item shape exactly. */
     private function suggestedFollowsData(string $userId): array
     {
+        // Resolve each candidate's primary (best padel/tennis) sport stat so the
+        // card shows a real ELO — consistent with matchmakingPlayers() / players.
+        $primaryStats = DB::table('player_sport_stats as ps')
+            ->join('sports as s', 's.id', '=', 'ps.sport_id')
+            ->whereIn('s.slug', ['padel', 'tennis'])
+            ->selectRaw('distinct on (ps.user_id) ps.user_id, ps.elo_rating as primary_elo')
+            ->orderBy('ps.user_id')
+            ->orderByDesc('ps.games_played')
+            ->orderByDesc('ps.elo_rating');
+
         $rows = DB::table('users as u')
+            ->leftJoinSub($primaryStats, 'primary_stats', 'primary_stats.user_id', '=', 'u.id')
             ->where('u.id', '!=', $userId)
             ->whereNull('u.deleted_at')
             // Suggestions are signed-in-only — surface all real players, not just the curated public set.
@@ -561,7 +589,7 @@ class DiscoveryController extends ApiController
             ->when(true, fn ($q) => $this->whereNotBlocked($q, $userId, 'u.id'))
             ->orderByDesc('u.created_at')
             ->limit(20)
-            ->get();
+            ->get(['u.id', 'u.display_name', 'u.photo_url', 'primary_stats.primary_elo']);
 
         return $rows->map(fn ($u) => [
             'id' => $u->id,
@@ -613,7 +641,19 @@ class DiscoveryController extends ApiController
     public function suggestedFollows(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
+
+        // Resolve each candidate's primary (best padel/tennis) sport stat so the
+        // card shows a real ELO — consistent with matchmakingPlayers() / players.
+        $primaryStats = DB::table('player_sport_stats as ps')
+            ->join('sports as s', 's.id', '=', 'ps.sport_id')
+            ->whereIn('s.slug', ['padel', 'tennis'])
+            ->selectRaw('distinct on (ps.user_id) ps.user_id, ps.elo_rating as primary_elo')
+            ->orderBy('ps.user_id')
+            ->orderByDesc('ps.games_played')
+            ->orderByDesc('ps.elo_rating');
+
         $rows = DB::table('users as u')
+            ->leftJoinSub($primaryStats, 'primary_stats', 'primary_stats.user_id', '=', 'u.id')
             ->where('u.id', '!=', $user->id)
             ->whereNull('u.deleted_at')
             // Suggestions are signed-in-only — surface all real players, not just the curated public set.
@@ -623,13 +663,13 @@ class DiscoveryController extends ApiController
             ->when(true, fn ($q) => $this->whereNotBlocked($q, (string) $user->id, 'u.id'))
             ->orderByDesc('u.created_at')
             ->limit(20)
-            ->get();
+            ->get(['u.id', 'u.display_name', 'u.photo_url', 'primary_stats.primary_elo']);
 
         // iOS `SuggestedFollowItem` (Endpoint+SuggestedFollows.swift) requires an
         // explicit shape — NON-optional user_id/display_name/shared_games_count/reason
-        // — so we cannot reuse publicUser() (it emits `id`, omits the rest). The
-        // `users` table has no `primary_elo` column (ELO lives in
-        // player_sport_stats.elo_rating), so it is emitted as null to satisfy the
+        // — so we cannot reuse publicUser() (it emits `id`, omits the rest). ELO
+        // lives in player_sport_stats.elo_rating (joined above as primary_elo) and
+        // is null when the player has no padel/tennis stat yet, satisfying the
         // Swift `primary_elo: Int?` optional. shared_games_count is a 0 placeholder
         // until the mutual-games join is wired; reason is a non-null string.
         return response()->json(['items' => $rows->map(fn ($u) => [

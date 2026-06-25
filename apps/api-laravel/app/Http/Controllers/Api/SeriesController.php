@@ -141,13 +141,26 @@ class SeriesController extends ApiController
             throw ApiException::notFound('Game series not found');
         }
 
+        // Batch the per-game confirmed-participant count in ONE grouped subquery
+        // joined once (mirrors TournamentsController::entryCountAggregate()),
+        // instead of a correlated SELECT subquery that re-evaluated per game.
         $games = DB::table('games as g')
+            ->leftJoinSub(
+                DB::table('game_participants')
+                    ->where('status', 'confirmed')
+                    ->groupBy('game_id')
+                    ->select('game_id', DB::raw('count(*) as participants_count')),
+                'pc',
+                'pc.game_id',
+                '=',
+                'g.id'
+            )
             ->where('g.series_id', $id)
             ->orderBy('g.occurrence_number')
-            ->selectRaw("
+            ->selectRaw('
                 g.id, g.occurrence_number, g.starts_at, g.status, g.capacity,
-                (select count(*) from game_participants gp where gp.game_id = g.id and gp.status = 'confirmed')::int as participants_count
-            ")
+                coalesce(pc.participants_count, 0) as participants_count
+            ')
             ->get()
             ->map(fn ($g) => [
                 'id' => $g->id,

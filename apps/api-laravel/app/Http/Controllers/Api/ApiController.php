@@ -54,7 +54,12 @@ abstract class ApiController extends Controller
             }
 
             return User::whereKey($userId)->whereNull('deleted_at')->exists() ? $userId : null;
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // Keep the route public (return null instead of a 401), but surface
+            // the JWT failure so invalid/expired/tampered tokens are observable
+            // rather than silently swallowed.
+            report($e);
+
             return null;
         }
     }
@@ -134,8 +139,13 @@ abstract class ApiController extends Controller
         if (is_string($value)) {
             try {
                 return CarbonImmutable::parse($value)->utc()->toIso8601ZuluString('millisecond');
-            } catch (\Throwable) {
-                return $value;
+            } catch (\Throwable $e) {
+                // Surface the bad value (corrupt/malformed date) rather than
+                // silently leaking an unparsed string into an ISO-date field;
+                // return null so the response type stays consistent.
+                report($e);
+
+                return null;
             }
         }
 
