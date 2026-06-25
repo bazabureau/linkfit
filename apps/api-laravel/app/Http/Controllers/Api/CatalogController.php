@@ -41,7 +41,7 @@ class CatalogController extends ApiController
         $base = DB::table('venues as v')
             ->leftJoinSub($this->venueCourtAggregates(), 'agg', 'agg.venue_id', '=', 'v.id')
             ->where(fn ($q) => $q->whereNull('v.status')->orWhere('v.status', 'published'))
-            ->selectRaw('v.id, v.name, v.address, v.lat, v.lng, v.is_partner, v.phone, v.description, v.description_i18n, v.photo_url, v.photo_urls, v.rating_avg, v.rating_count, agg.courts_count, agg.from_price_minor');
+            ->selectRaw('v.id, v.name, v.address, v.lat, v.lng, v.is_partner, v.phone, v.description, v.description_i18n, v.logo_url, v.photo_url, v.photo_urls, v.rating_avg, v.rating_count, agg.courts_count, agg.from_price_minor');
 
         if (! empty($query['sport'])) {
             $base->whereExists(function ($q) use ($query) {
@@ -401,6 +401,7 @@ class CatalogController extends ApiController
                 'v.phone',
                 'v.description',
                 'v.description_i18n',
+                'v.logo_url',
                 'v.photo_url',
                 'v.photo_urls',
                 'v.rating_avg',
@@ -561,6 +562,7 @@ class CatalogController extends ApiController
             'description_i18n' => isset($r->description_i18n) && is_string($r->description_i18n)
                 ? json_decode($r->description_i18n, true)
                 : ($r->description_i18n ?? null),
+            'logo_url' => $r->logo_url ?? null,
             'photo_url' => $r->photo_url ?? null,
             'photo_urls' => $this->pgArray($r->photo_urls ?? null),
             'rating_avg' => $r->rating_avg !== null ? (float) $r->rating_avg : null,
