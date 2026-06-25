@@ -598,9 +598,11 @@ class SocialController extends ApiController
 
     private function assertProfileVisibleToViewer(object $user, ?string $viewerId): void
     {
-        if ($viewerId === null && ! $this->isPublicPlayerDirectoryUser($user)) {
-            throw ApiException::notFound('User not found');
-        }
+        // Individual player profiles are public — anyone with the link can open a
+        // specific player. The directory LISTING stays gated for anonymous viewers
+        // (no mass enumeration); this only governs direct profile access. Blocked
+        // relationships are still enforced by the caller.
+        unset($user, $viewerId);
     }
 
     private function assertSocialGraphVisibleToViewer(string $profileUserId, ?string $viewerId): void
@@ -614,10 +616,8 @@ class SocialController extends ApiController
             throw ApiException::notFound('User not found');
         }
 
-        if ($viewerId === null && ! $this->isPublicPlayerDirectoryUser($user)) {
-            throw ApiException::notFound('User not found');
-        }
-
+        // Profiles (and their follower/following lists) are public — see
+        // assertProfileVisibleToViewer. Only a blocked relationship hides them.
         if ($viewerId !== null && (string) $viewerId !== (string) $profileUserId && $this->blockExistsBetween((string) $viewerId, (string) $profileUserId)) {
             throw ApiException::notFound('User not found');
         }
