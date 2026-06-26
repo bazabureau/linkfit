@@ -75,7 +75,15 @@ class MiscController extends ApiController
 
     public function realtimeSse(Request $request, TokenService $tokens): StreamedResponse|JsonResponse
     {
+        // EventSource cannot set headers, so native clients pass the access token
+        // in the ?token= query. Web clients instead rely on the httpOnly
+        // lf_access cookie (sent automatically with credentials:"include"); the
+        // query token still wins when both are present.
         $token = (string) $request->query('token', '');
+        if ($token === '') {
+            $cookie = $request->cookie('lf_access');
+            $token = is_string($cookie) ? trim($cookie) : '';
+        }
         try {
             $claims = $tokens->verifyAccess($token);
             $user = User::whereNull('deleted_at')->whereNull('suspended_at')->find($claims->sub ?? null);

@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { type AuditEntry, useAudit, useAuditFilters } from "@/lib/admin-audit";
 import { API_BASE_URL, apiHeaders } from "@/lib/api";
-import { ACCESS_TOKEN_COOKIE, getCookie } from "@/lib/cookies";
 import {
   actionDotClass,
   actionPillClass,
@@ -206,7 +205,6 @@ export function AuditTable(): React.JSX.Element {
   const exportCsv = React.useCallback(async () => {
     setExporting(true);
     try {
-      const token = getCookie(ACCESS_TOKEN_COOKIE);
       // Keep the CSV export in sync with the active filter bar — the backend
       // export endpoint honours the same query params as the audit list.
       const params = new URLSearchParams();
@@ -218,7 +216,7 @@ export function AuditTable(): React.JSX.Element {
       const query = params.toString();
       const response = await fetch(
         `${API_BASE_URL}/api/v1/admin/audit/export${query ? `?${query}` : ""}`,
-        { headers: apiHeaders(undefined, token) },
+        { headers: apiHeaders(), credentials: "include" },
       );
       if (!response.ok) throw new Error("Export file could not be generated");
       const blob = await response.blob();

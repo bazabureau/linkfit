@@ -9,8 +9,10 @@ use App\Support\ApiException;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use DateTimeInterface;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpFoundation\Cookie;
 
 abstract class ApiController extends Controller
 {
@@ -40,13 +42,22 @@ abstract class ApiController extends Controller
             return (string) $user->id;
         }
 
+        // Web clients send the access token only in the httpOnly lf_access
+        // cookie (no Authorization header); the Bearer header still wins when
+        // present. Either way a missing/invalid token keeps the route public.
         $header = (string) $request->header('Authorization', '');
-        if (! str_starts_with($header, 'Bearer ')) {
+        if (str_starts_with($header, 'Bearer ')) {
+            $token = substr($header, 7);
+        } else {
+            $cookie = $request->cookie('lf_access');
+            $token = is_string($cookie) ? trim($cookie) : '';
+        }
+        if ($token === '') {
             return null;
         }
 
         try {
-            $claims = app(TokenService::class)->verifyAccess(substr($header, 7));
+            $claims = app(TokenService::class)->verifyAccess($token);
 
             $userId = isset($claims->sub) ? (string) $claims->sub : '';
             if ($userId === '') {
@@ -65,6 +76,38 @@ abstract class ApiController extends Controller
 
             return null;
         }
+    }
+
+    /**
+     * Attach the httpOnly lf_access/lf_refresh cookies to an AuthSession
+     * response (mirrors AuthController::respondSession for the OAuth paths).
+     * The JSON body keeps access_token/refresh_token unchanged — cookies are
+     * purely additive for web clients. API routes don't run EncryptCookies, so
+     * the cookie carries the raw token, matching the shared cookie contract.
+     *
+     * @param  array<string,mixed>  $session
+     */
+    protected function attachSessionCookies(JsonResponse $response, array $session): JsonResponse
+    {
+        $domain = config('auth_tokens.cookie_domain');
+        $secure = (bool) config('auth_tokens.cookie_secure');
+        $accessTtl = (int) config('auth_tokens.access_ttl_seconds', 900);
+        $refreshTtl = (int) config('auth_tokens.refresh_ttl_seconds', 30 * 86400);
+
+        if (! empty($session['access_token'])) {
+            $response->withCookie(new Cookie(
+                'lf_access', (string) $session['access_token'],
+                time() + $accessTtl, '/', $domain, $secure, true, false, Cookie::SAMESITE_LAX
+            ));
+        }
+        if (! empty($session['refresh_token'])) {
+            $response->withCookie(new Cookie(
+                'lf_refresh', (string) $session['refresh_token'],
+                time() + $refreshTtl, '/', $domain, $secure, true, false, Cookie::SAMESITE_LAX
+            ));
+        }
+
+        return $response;
     }
 
     protected function validateBody(Request $request, array $rules): array

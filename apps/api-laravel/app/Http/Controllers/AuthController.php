@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Cookie;
 
 /**
  * /api/v1/auth/* — wire-compatible with the contract the iOS client
@@ -106,7 +107,7 @@ class AuthController extends Controller
         $code = $this->emailTokens->createCode($user->id, 'verify', 10);
         $this->mail->emailVerification($user->email, $user->display_name ?: 'Linkfit user', $code);
 
-        return response()->json($this->tokens->issueSession($user, $request->userAgent()), 201);
+        return $this->respondSession($this->tokens->issueSession($user, $request->userAgent()), 201);
     }
 
     /**
@@ -161,7 +162,7 @@ class AuthController extends Controller
             throw ApiException::unauthenticated('Invalid email or password');
         }
 
-        return response()->json($this->tokens->issueSession($user, $request->userAgent()), 200);
+        return $this->respondSession($this->tokens->issueSession($user, $request->userAgent()), 200);
     }
 
     public function adminLogin(Request $request): JsonResponse
@@ -182,23 +183,47 @@ class AuthController extends Controller
     /** POST /api/v1/auth/refresh → 200 AuthSession */
     public function refresh(Request $request): JsonResponse
     {
+        // Accept the refresh token from the JSON body (mobile/native clients) OR
+        // from the httpOnly lf_refresh cookie (web clients). The body wins when
+        // both are present; the cookie-only case is validated below.
         $data = $this->validate($request, [
-            'refresh_token' => ['required', 'string', 'min:10', 'max:200'],
+            'refresh_token' => ['sometimes', 'string', 'min:10', 'max:200'],
         ]);
 
-        return response()->json($this->tokens->refresh($data['refresh_token'], $request->userAgent()), 200);
+        $refreshToken = $data['refresh_token'] ?? $this->refreshTokenFromCookie($request);
+        if ($refreshToken === null) {
+            throw ApiException::unauthenticated('Missing refresh token');
+        }
+
+        return $this->respondSession($this->tokens->refresh($refreshToken, $request->userAgent()), 200);
     }
 
     /** POST /api/v1/auth/logout → 204 (idempotent) */
     public function logout(Request $request): JsonResponse
     {
+        // Same fallback as refresh(): a cookie-only web client sends no body.
         $data = $this->validate($request, [
-            'refresh_token' => ['required', 'string', 'min:10', 'max:200'],
+            'refresh_token' => ['sometimes', 'string', 'min:10', 'max:200'],
         ]);
 
-        $this->tokens->revoke($data['refresh_token']);
+        $refreshToken = $data['refresh_token'] ?? $this->refreshTokenFromCookie($request);
+        if ($refreshToken !== null) {
+            $this->tokens->revoke($refreshToken);
+        }
 
-        return response()->json(null, 204);
+        // Always clear BOTH auth cookies (idempotent — safe even when the client
+        // only carried a Bearer token). Expired Set-Cookie with the SAME
+        // domain/path is what removes them from the browser.
+        return $this->forgetSessionCookies(response()->json(null, 204));
+    }
+
+    /** Read the refresh token from the httpOnly lf_refresh cookie (web clients). */
+    private function refreshTokenFromCookie(Request $request): ?string
+    {
+        $cookie = $request->cookie('lf_refresh');
+        $cookie = is_string($cookie) ? trim($cookie) : '';
+
+        return $cookie !== '' ? $cookie : null;
     }
 
     /**
@@ -246,7 +271,53 @@ class AuthController extends Controller
             }
         }
 
-        return response()->json($this->tokens->issueSession($user, $request->userAgent()), 200);
+        return $this->respondSession($this->tokens->issueSession($user, $request->userAgent()), 200);
+    }
+
+    /**
+     * Build the AuthSession JSON response and attach the httpOnly auth cookies.
+     *
+     * The JSON body STILL contains access_token/refresh_token unchanged (the
+     * mobile app reads them there); the cookies are purely additive for web
+     * clients that send credentials:"include" and never touch the token in JS.
+     * API routes do NOT run EncryptCookies, so the value travels raw — exactly
+     * what the shared cookie contract requires.
+     *
+     * @param  array<string,mixed>  $session
+     */
+    private function respondSession(array $session, int $status): JsonResponse
+    {
+        $response = response()->json($session, $status);
+
+        $domain = config('auth_tokens.cookie_domain');
+        $secure = (bool) config('auth_tokens.cookie_secure');
+        $accessTtl = (int) config('auth_tokens.access_ttl_seconds', 900);
+        $refreshTtl = (int) config('auth_tokens.refresh_ttl_seconds', 30 * 86400);
+
+        if (! empty($session['access_token'])) {
+            $response->withCookie(new Cookie(
+                'lf_access', (string) $session['access_token'],
+                time() + $accessTtl, '/', $domain, $secure, true, false, Cookie::SAMESITE_LAX
+            ));
+        }
+        if (! empty($session['refresh_token'])) {
+            $response->withCookie(new Cookie(
+                'lf_refresh', (string) $session['refresh_token'],
+                time() + $refreshTtl, '/', $domain, $secure, true, false, Cookie::SAMESITE_LAX
+            ));
+        }
+
+        return $response;
+    }
+
+    /** Queue expired lf_access/lf_refresh cookies (same domain+path) to clear them. */
+    private function forgetSessionCookies(JsonResponse $response): JsonResponse
+    {
+        $domain = config('auth_tokens.cookie_domain');
+
+        return $response
+            ->withoutCookie('lf_access', '/', $domain)
+            ->withoutCookie('lf_refresh', '/', $domain);
     }
 
     private function normalizeUsername(string $username): string

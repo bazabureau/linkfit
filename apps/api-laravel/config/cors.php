@@ -33,5 +33,8 @@ return [
     'allowed_headers' => ['*'],
     'exposed_headers' => ['X-Request-Id'],
     'max_age' => 86400,
-    'supports_credentials' => false,
+    // Web clients send credentials:"include" so the httpOnly lf_access/lf_refresh
+    // cookies travel with every cross-subdomain API call. Origins above are the
+    // explicit 4 Linkfit subdomains (never "*"), so crediting them is safe.
+    'supports_credentials' => true,
 ];

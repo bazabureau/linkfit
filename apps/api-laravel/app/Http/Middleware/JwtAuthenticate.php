@@ -24,11 +24,21 @@ class JwtAuthenticate
 
     public function handle(Request $request, Closure $next)
     {
-        $header = $request->header('Authorization', '');
-        if (! str_starts_with($header, 'Bearer ')) {
-            throw ApiException::unauthenticated('Missing bearer token');
+        $header = (string) $request->header('Authorization', '');
+        if (str_starts_with($header, 'Bearer ')) {
+            // Mobile/native clients (and any caller that sets the header) — the
+            // header always wins when both header and cookie are present.
+            $token = substr($header, 7);
+        } else {
+            // Web clients send no Authorization header — fall back to the
+            // httpOnly lf_access cookie (API routes don't run EncryptCookies, so
+            // the cookie value is the raw access JWT). Empty/absent → 401.
+            $cookie = $request->cookie('lf_access');
+            $token = is_string($cookie) ? trim($cookie) : '';
+            if ($token === '') {
+                throw ApiException::unauthenticated('Missing bearer token');
+            }
         }
-        $token = substr($header, 7);
 
         try {
             $claims = $this->tokens->verifyAccess($token);

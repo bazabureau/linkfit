@@ -13,7 +13,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { api, API_BASE_URL, apiHeaders } from "@/lib/api";
-import { ACCESS_TOKEN_COOKIE, getCookie } from "@/lib/cookies";
 import {
   useAdminBookings,
   useBulkUpdateBookings,
@@ -251,10 +250,9 @@ export default function BookingsPage(): React.JSX.Element {
         from: baseFilterParams.from,
         to: baseFilterParams.to,
       });
-      const token = getCookie(ACCESS_TOKEN_COOKIE);
       const response = await fetch(
         `${API_BASE_URL}/api/v1/admin/bookings/export${qs ? `?${qs}` : ""}`,
-        { headers: apiHeaders(undefined, token) },
+        { headers: apiHeaders(), credentials: "include" },
       );
       if (!response.ok) throw new Error(t("Export faylı yaradılmadı"));
       const blob = await response.blob();

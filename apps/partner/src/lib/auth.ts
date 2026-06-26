@@ -1,9 +1,3 @@
-import {
-  ACCESS_TOKEN_COOKIE,
-  REFRESH_TOKEN_COOKIE,
-  deleteCookie,
-  setCookie,
-} from "./cookies";
 import { APIError, api } from "./api";
 
 export interface AdminUser {
@@ -23,12 +17,14 @@ export interface AdminUser {
 
 export interface AuthSession {
   user: AdminUser;
+  // The API still returns these in the JSON body (mobile clients read them), but
+  // the web panel ignores them: auth rides on the httpOnly `lf_access` /
+  // `lf_refresh` cookies the same response sets via Set-Cookie.
   access_token: string;
   refresh_token: string;
   access_token_expires_in_seconds: number;
 }
 
-const REFRESH_TTL_SECONDS = 60 * 60 * 24; // matches API refresh lifetime
 // Raw browser navigations are not basePath-prefixed by Next.js, so prepend it
 // manually (the panel is served under `/owner`).
 const OWNER_BASE_PATH = process.env.NEXT_PUBLIC_OWNER_BASE_PATH || "/owner";
@@ -40,6 +36,8 @@ export async function loginAdmin(
   // Use the role-gated owner endpoint: the API enforces the `partner` role
   // (and that the account is linked to a venue) server-side, and never issues a
   // session for other accounts. The check below is client-side defense-in-depth.
+  // credentials:"include" (added by `api`) lets the browser store the httpOnly
+  // auth cookies the response sets — no tokens are persisted from JS.
   const session = await api.post<AuthSession>(
     "/api/v1/auth/owner/login",
     { email, password },
@@ -51,20 +49,12 @@ export async function loginAdmin(
   // endpoints (venueId()) reject admin/moderator, so admitting them here just
   // produces a broken dashboard that 403s on every data call.
   if (role !== "partner") {
-    // Drop any tokens the API issued — this account isn't allowed here.
     throw new APIError({
       code: "forbidden_not_partner",
       message: "This account does not have partner access.",
       status: 403,
     });
   }
-
-  setCookie(
-    ACCESS_TOKEN_COOKIE,
-    session.access_token,
-    session.access_token_expires_in_seconds,
-  );
-  setCookie(REFRESH_TOKEN_COOKIE, session.refresh_token, REFRESH_TTL_SECONDS);
 
   return session.user;
 }
@@ -74,27 +64,16 @@ export async function getCurrentUser(): Promise<AdminUser> {
 }
 
 export async function logout(): Promise<void> {
-  // Best-effort revoke; we always clear local cookies regardless.
+  // Best-effort revoke. The API reads the refresh token from the httpOnly
+  // `lf_refresh` cookie (credentials:"include") and clears both auth cookies via
+  // Set-Cookie — we send no token in the body. We redirect regardless of outcome.
   try {
-    const refresh =
-      typeof document !== "undefined"
-        ? document.cookie
-            .split("; ")
-            .find((c) => c.startsWith(`${REFRESH_TOKEN_COOKIE}=`))
-            ?.split("=")[1]
-        : undefined;
-    if (refresh) {
-      await api.post<void>(
-        "/api/v1/auth/logout",
-        { refresh_token: decodeURIComponent(refresh) },
-        { skipRefresh: true },
-      );
-    }
+    await api.post<void>("/api/v1/auth/logout", undefined, {
+      skipRefresh: true,
+    });
   } catch {
-    /* swallow — we still want to wipe cookies and redirect. */
+    /* swallow — we still want to redirect. */
   }
-  deleteCookie(ACCESS_TOKEN_COOKIE);
-  deleteCookie(REFRESH_TOKEN_COOKIE);
   if (typeof window !== "undefined") {
     window.location.assign(`${OWNER_BASE_PATH}/login`);
   }

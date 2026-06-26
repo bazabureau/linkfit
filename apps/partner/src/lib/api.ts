@@ -1,11 +1,3 @@
-import {
-  ACCESS_TOKEN_COOKIE,
-  REFRESH_TOKEN_COOKIE,
-  deleteCookie,
-  getCookie,
-  setCookie,
-} from "./cookies";
-
 // In production the API URL must be an explicit https endpoint — fail fast
 // rather than silently shipping cleartext requests to a non-existent host.
 // Gated on NEXT_PHASE (set by Next ONLY during `next build`) instead of an
@@ -45,9 +37,6 @@ function applyAppKey(headers: Headers): void {
 const OWNER_BASE_PATH = process.env.NEXT_PUBLIC_OWNER_BASE_PATH || "/owner";
 const LOGIN_PATH = `${OWNER_BASE_PATH}/login`;
 
-const ACCESS_TTL_FALLBACK_SECONDS = 60 * 60; // 1h — overwritten by API response.
-const REFRESH_TTL_SECONDS = 60 * 60 * 24; // 1d, matches API refresh lifetime.
-
 export class APIError extends Error {
   public readonly code: string;
   public readonly status: number;
@@ -68,7 +57,12 @@ export class APIError extends Error {
 }
 
 export interface ApiRequestOptions extends RequestInit {
-  /** Skip the automatic Authorization header (e.g. for /auth/login itself). */
+  /**
+   * Mark this as an auth endpoint (e.g. /auth/login). Auth no longer rides on a
+   * JS-attached Authorization header — the httpOnly `lf_access` cookie carries
+   * it automatically — but `skipAuth` still suppresses the 401-refresh retry so
+   * a login/credential check surfaces its own error instead of looping.
+   */
   skipAuth?: boolean;
   /** Skip the 401-refresh retry loop. */
   skipRefresh?: boolean;
@@ -82,12 +76,6 @@ interface RawErrorBody {
     message?: string;
     details?: Record<string, unknown>;
   };
-}
-
-interface RefreshResponse {
-  access_token: string;
-  refresh_token: string;
-  access_token_expires_in_seconds: number;
 }
 
 async function parseResponse<T>(res: Response): Promise<T> {
@@ -123,59 +111,44 @@ async function toAPIError(res: Response): Promise<APIError> {
   });
 }
 
-function buildHeaders(
-  init: ApiRequestOptions,
-  accessToken: string | null,
-): Headers {
+function buildHeaders(init: ApiRequestOptions): Headers {
   const headers = new Headers(init.headers ?? {});
   if (init.json !== undefined && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
-  }
-  if (!init.skipAuth && accessToken && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${accessToken}`);
   }
   if (!headers.has("Accept")) headers.set("Accept", "application/json");
   applyAppKey(headers);
   return headers;
 }
 
-export function apiHeaders(
-  headers?: HeadersInit,
-  accessToken?: string | null,
-): Headers {
+export function apiHeaders(headers?: HeadersInit): Headers {
   const next = new Headers(headers ?? {});
-  if (accessToken && !next.has("Authorization")) {
-    next.set("Authorization", `Bearer ${accessToken}`);
-  }
   if (!next.has("Accept")) next.set("Accept", "application/json");
   applyAppKey(next);
   return next;
 }
 
-let inFlightRefresh: Promise<string | null> | null = null;
+let inFlightRefresh: Promise<boolean> | null = null;
 
-async function refreshAccessToken(): Promise<string | null> {
+/**
+ * Ask the API to mint a fresh access token. The refresh token is read from the
+ * httpOnly `lf_refresh` cookie server-side (credentials:"include"), and the new
+ * `lf_access` / `lf_refresh` cookies come back as httpOnly Set-Cookie headers —
+ * nothing is read or written from JS. Resolves to whether the refresh
+ * succeeded so the caller can retry the original request.
+ */
+async function refreshAccessToken(): Promise<boolean> {
   if (inFlightRefresh) return inFlightRefresh;
   inFlightRefresh = (async () => {
-    const refresh = getCookie(REFRESH_TOKEN_COOKIE);
-    if (!refresh) return null;
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
         method: "POST",
-        headers: apiHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ refresh_token: refresh }),
+        credentials: "include",
+        headers: apiHeaders(),
       });
-      if (!res.ok) return null;
-      const body = (await res.json()) as RefreshResponse;
-      setCookie(
-        ACCESS_TOKEN_COOKIE,
-        body.access_token,
-        body.access_token_expires_in_seconds ?? ACCESS_TTL_FALLBACK_SECONDS,
-      );
-      setCookie(REFRESH_TOKEN_COOKIE, body.refresh_token, REFRESH_TTL_SECONDS);
-      return body.access_token;
+      return res.ok;
     } catch {
-      return null;
+      return false;
     } finally {
       // Reset after a tick so simultaneous callers share the same result.
       setTimeout(() => {
@@ -188,8 +161,8 @@ async function refreshAccessToken(): Promise<string | null> {
 
 function redirectToLogin(): void {
   if (typeof window === "undefined") return;
-  deleteCookie(ACCESS_TOKEN_COOKIE);
-  deleteCookie(REFRESH_TOKEN_COOKIE);
+  // The auth cookies are httpOnly (API-owned) and can't be cleared from JS;
+  // /auth/logout (or their TTL) clears them. We just bounce to the login route.
   if (window.location.pathname !== LOGIN_PATH) {
     window.location.assign(LOGIN_PATH);
   }
@@ -207,21 +180,19 @@ export async function apiFetch<T>(
   const body =
     json !== undefined ? JSON.stringify(json) : (init.body as BodyInit | null | undefined);
 
-  const accessToken = getCookie(ACCESS_TOKEN_COOKIE);
-  const headers = buildHeaders({ ...options, body }, accessToken);
+  const headers = buildHeaders({ ...options, body });
 
-  const doFetch = (token: string | null): Promise<Response> => {
-    const h = new Headers(headers);
-    if (!skipAuth && token) h.set("Authorization", `Bearer ${token}`);
-    return fetch(url, { ...init, headers: h, body });
-  };
+  // credentials:"include" attaches the httpOnly `lf_access` cookie automatically
+  // (same-site to api.linkfit.az); there is no JS-attached Authorization header.
+  const doFetch = (): Promise<Response> =>
+    fetch(url, { ...init, headers, body, credentials: "include" });
 
-  let res = await doFetch(accessToken);
+  let res = await doFetch();
 
   if (res.status === 401 && !skipAuth && !skipRefresh) {
-    const newToken = await refreshAccessToken();
-    if (newToken) {
-      res = await doFetch(newToken);
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      res = await doFetch();
       if (res.status === 401) {
         redirectToLogin();
         throw await toAPIError(res);
@@ -241,9 +212,10 @@ export async function apiFetch<T>(
 
 /**
  * Fetch a binary/blob endpoint (e.g. CSV export) using the same auth flow as
- * apiFetch: it carries the access token + app key header and transparently
- * refreshes + retries once on a 401 so an expired access token does not cause a
- * spurious download failure while the session is still valid.
+ * apiFetch: the httpOnly access cookie rides along via credentials:"include"
+ * plus the X-Linkfit-App-Key header, and it transparently refreshes + retries
+ * once on a 401 so an expired access token does not cause a spurious download
+ * failure while the session is still valid.
  */
 export async function apiBlob(
   path: string,
@@ -257,21 +229,17 @@ export async function apiBlob(
   const body =
     json !== undefined ? JSON.stringify(json) : (init.body as BodyInit | null | undefined);
 
-  const accessToken = getCookie(ACCESS_TOKEN_COOKIE);
-  const headers = buildHeaders({ ...options, body }, accessToken);
+  const headers = buildHeaders({ ...options, body });
 
-  const doFetch = (token: string | null): Promise<Response> => {
-    const h = new Headers(headers);
-    if (!skipAuth && token) h.set("Authorization", `Bearer ${token}`);
-    return fetch(url, { ...init, headers: h, body });
-  };
+  const doFetch = (): Promise<Response> =>
+    fetch(url, { ...init, headers, body, credentials: "include" });
 
-  let res = await doFetch(accessToken);
+  let res = await doFetch();
 
   if (res.status === 401 && !skipAuth && !skipRefresh) {
-    const newToken = await refreshAccessToken();
-    if (newToken) {
-      res = await doFetch(newToken);
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      res = await doFetch();
       if (res.status === 401) {
         redirectToLogin();
         throw await toAPIError(res);

@@ -1,9 +1,3 @@
-import {
-  ACCESS_TOKEN_COOKIE,
-  REFRESH_TOKEN_COOKIE,
-  deleteCookie,
-  setCookie,
-} from "./cookies";
 import { APIError, api } from "./api";
 
 export interface AdminUser {
@@ -23,12 +17,12 @@ export interface AdminUser {
 
 export interface AuthSession {
   user: AdminUser;
+  // The API still returns these in the JSON body for the mobile/Bearer path; the
+  // admin web app ignores them and relies on the httpOnly cookies the API sets.
   access_token: string;
   refresh_token: string;
   access_token_expires_in_seconds: number;
 }
-
-const REFRESH_TTL_SECONDS = 60 * 60 * 24; // matches API refresh lifetime
 
 export async function loginAdmin(
   email: string,
@@ -44,7 +38,10 @@ export async function loginAdmin(
   );
 
   if (!session.user.admin_role) {
-    // Drop any tokens the API issued — this account isn't allowed here.
+    // This account isn't allowed here. The API already set httpOnly cookies on
+    // the login response; the logout call below revokes them server-side so a
+    // non-admin can't linger with a valid session.
+    await logout({ redirect: false });
     throw new APIError({
       code: "forbidden_not_admin",
       message: "This account does not have admin access.",
@@ -52,13 +49,8 @@ export async function loginAdmin(
     });
   }
 
-  setCookie(
-    ACCESS_TOKEN_COOKIE,
-    session.access_token,
-    session.access_token_expires_in_seconds,
-  );
-  setCookie(REFRESH_TOKEN_COOKIE, session.refresh_token, REFRESH_TTL_SECONDS);
-
+  // On success the API has set the httpOnly lf_access / lf_refresh cookies on
+  // the response — there is nothing for JS to store.
   return session.user;
 }
 
@@ -66,29 +58,21 @@ export async function getCurrentUser(): Promise<AdminUser> {
   return api.get<AdminUser>("/api/v1/me");
 }
 
-export async function logout(): Promise<void> {
-  // Best-effort revoke; we always clear local cookies regardless.
+export async function logout(
+  opts: { redirect?: boolean } = {},
+): Promise<void> {
+  const { redirect = true } = opts;
+  // Best-effort server-side revoke. The API reads the refresh token from the
+  // lf_refresh cookie (sent via `credentials: "include"`) and clears the
+  // httpOnly auth cookies on its response — JS cannot clear them itself.
   try {
-    const refresh =
-      typeof document !== "undefined"
-        ? document.cookie
-            .split("; ")
-            .find((c) => c.startsWith(`${REFRESH_TOKEN_COOKIE}=`))
-            ?.split("=")[1]
-        : undefined;
-    if (refresh) {
-      await api.post<void>(
-        "/api/v1/auth/logout",
-        { refresh_token: decodeURIComponent(refresh) },
-        { skipRefresh: true },
-      );
-    }
+    await api.post<void>("/api/v1/auth/logout", undefined, {
+      skipRefresh: true,
+    });
   } catch {
-    /* swallow — we still want to wipe cookies and redirect. */
+    /* swallow — we still want to redirect. */
   }
-  deleteCookie(ACCESS_TOKEN_COOKIE);
-  deleteCookie(REFRESH_TOKEN_COOKIE);
-  if (typeof window !== "undefined") {
+  if (redirect && typeof window !== "undefined") {
     window.location.assign("/login");
   }
 }

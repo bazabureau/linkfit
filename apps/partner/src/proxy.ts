@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const ACCESS_TOKEN_COOKIE = "lf_admin_access";
+// Shared httpOnly access cookie (API-set, Domain=".linkfit.az"), readable here
+// because it is sent same-site to this panel. Was the partner-specific
+// "lf_admin_access" name before the shared-cookie migration.
+const ACCESS_TOKEN_COOKIE = "lf_access";
 const PUBLIC_PATHS = ["/login"];
 
 export function proxy(req: NextRequest): NextResponse {

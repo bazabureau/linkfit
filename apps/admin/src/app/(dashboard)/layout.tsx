@@ -4,7 +4,10 @@ import { redirect } from "next/navigation";
 
 import { Providers } from "@/components/Providers";
 import { Shell } from "@/components/Shell";
-import { ACCESS_TOKEN_COOKIE } from "@/lib/cookies";
+
+// Shared httpOnly access cookie set by the API. Read server-side here (the
+// browser cannot) as defense-in-depth on top of the edge proxy gate.
+const ACCESS_TOKEN_COOKIE = "lf_access";
 
 export default async function DashboardLayout({
   children,

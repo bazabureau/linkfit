@@ -40,7 +40,9 @@ class OAuthController extends ApiController
 
         // validGooglePayload already required email_verified to be truthy, so the
         // email is provider-verified and safe to link an existing account by.
-        return response()->json($this->sessionForOAuth('google_sub', (string) $payload['sub'], (string) $payload['email'], (string) ($payload['name'] ?? explode('@', (string) $payload['email'])[0]), true));
+        $session = $this->sessionForOAuth('google_sub', (string) $payload['sub'], (string) $payload['email'], (string) ($payload['name'] ?? explode('@', (string) $payload['email'])[0]), true);
+
+        return $this->attachSessionCookies(response()->json($session), $session);
     }
 
     public function apple(Request $request): JsonResponse
@@ -70,7 +72,9 @@ class OAuthController extends ApiController
 
         $name = trim(((string) ($data['name']['first'] ?? '')).' '.((string) ($data['name']['last'] ?? '')));
 
-        return response()->json($this->sessionForOAuth('apple_sub', (string) $claims['sub'], (string) $claims['email'], $name !== '' ? $name : explode('@', (string) $claims['email'])[0], $emailVerified));
+        $session = $this->sessionForOAuth('apple_sub', (string) $claims['sub'], (string) $claims['email'], $name !== '' ? $name : explode('@', (string) $claims['email'])[0], $emailVerified);
+
+        return $this->attachSessionCookies(response()->json($session), $session);
     }
 
     /**

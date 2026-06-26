@@ -8,7 +8,6 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { api, API_BASE_URL, apiFetch, APIError, apiHeaders } from "./api";
-import { ACCESS_TOKEN_COOKIE, getCookie } from "./cookies";
 
 // ---------- Types ----------
 
@@ -481,13 +480,13 @@ export async function uploadVenueImage(file: File): Promise<string> {
       status: 413,
     });
   }
-  const accessToken = getCookie(ACCESS_TOKEN_COOKIE);
   const form = new FormData();
   form.append("file", file);
   const res = await fetch(`${API_BASE_URL}/api/v1/messages/upload-image`, {
     method: "POST",
-    headers: apiHeaders(undefined, accessToken),
+    headers: apiHeaders(),
     body: form,
+    credentials: "include",
   });
   if (!res.ok) {
     let message = "Image upload failed";

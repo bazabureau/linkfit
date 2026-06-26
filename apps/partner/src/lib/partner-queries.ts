@@ -9,7 +9,6 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { api, apiFetch, API_BASE_URL, APIError, apiHeaders } from "./api";
-import { ACCESS_TOKEN_COOKIE, getCookie } from "./cookies";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -791,12 +790,15 @@ export async function uploadVenueImage(file: File): Promise<string> {
       status: 413,
     });
   }
-  const accessToken = getCookie(ACCESS_TOKEN_COOKIE);
   const form = new FormData();
   form.append("file", file);
+  // Auth rides on the httpOnly access cookie via credentials:"include"; we send
+  // no Authorization header. apiHeaders() omits Content-Type so the browser sets
+  // the multipart boundary for the FormData body.
   const res = await fetch(`${API_BASE_URL}/api/v1/messages/upload-image`, {
     method: "POST",
-    headers: apiHeaders(undefined, accessToken),
+    credentials: "include",
+    headers: apiHeaders(),
     body: form,
   });
   if (!res.ok) {
