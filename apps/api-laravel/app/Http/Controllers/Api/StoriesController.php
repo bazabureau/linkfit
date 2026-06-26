@@ -173,9 +173,15 @@ class StoriesController extends ApiController
         if ($this->blockExistsBetween((string) $user->id, (string) $story->user_id)) {
             throw ApiException::forbidden('Cannot view this story');
         }
-        $inserted = DB::table('story_views')->insertOrIgnore(['story_id' => $id, 'viewer_user_id' => $user->id, 'viewed_at' => now()]);
-        if ($inserted) {
-            DB::table('stories')->where('id', $id)->increment('view_count');
+        // The author's own view is never recorded (store() documents this and the
+        // feed's has_unviewed/viewed_by_me rely on it): recording it would
+        // inflate view_count and list the author in their own viewers. Stay a
+        // no-op {ok:true} so the client contract is unchanged.
+        if ((string) $user->id !== (string) $story->user_id) {
+            $inserted = DB::table('story_views')->insertOrIgnore(['story_id' => $id, 'viewer_user_id' => $user->id, 'viewed_at' => now()]);
+            if ($inserted) {
+                DB::table('stories')->where('id', $id)->increment('view_count');
+            }
         }
 
         return response()->json(['ok' => true]);

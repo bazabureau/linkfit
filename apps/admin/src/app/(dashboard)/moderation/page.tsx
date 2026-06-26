@@ -24,6 +24,17 @@ import {
 const dt = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString("az-AZ", { day: "2-digit", month: "short", year: "2-digit" }) : "—";
 
+/**
+ * Format an average rating safely. The backend computes this via Postgres
+ * `AVG()`, which serializes as a numeric *string* (e.g. "4.3333"), not a
+ * number — calling `.toFixed` on it directly throws. Coerce + guard NaN.
+ */
+function formatAvgRating(value: number | string | null | undefined): string {
+  if (value == null) return "—";
+  const n = Number(value);
+  return Number.isNaN(n) ? "—" : n.toFixed(1);
+}
+
 export default function ModerationPage(): React.JSX.Element {
   const { t } = useI18n();
   const [tab, setTab] = React.useState<"applications" | "reviews">("applications");
@@ -245,7 +256,7 @@ function ReviewsTab(): React.JSX.Element {
         </label>
         {summary && (
           <div className="ml-auto flex flex-wrap gap-2">
-            <Badge variant="info">★ {summary.avg_rating != null ? summary.avg_rating.toFixed(1) : "—"}</Badge>
+            <Badge variant="info">★ {formatAvgRating(summary.avg_rating)}</Badge>
             <Badge variant="success">{t("Active")}: {summary.active_count}</Badge>
             <Badge variant="danger">{t("Removed")}: {summary.removed_count}</Badge>
           </div>

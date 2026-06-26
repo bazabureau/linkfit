@@ -25,7 +25,10 @@ class LessonsController extends ApiController
             'sport' => ['nullable', 'string', 'max:80'],
             'venue_id' => ['nullable', 'uuid'],
             'kind' => ['nullable', 'in:group,private'],
-            'date' => ['nullable', 'regex:/^\d{4}-\d{2}-\d{2}$/'],
+            // date_format (not a loose regex) rejects format-valid-but-impossible
+            // dates (e.g. 2026-13-45) that would otherwise reach Postgres'
+            // `starts_at::date = ?` cast and surface as a 500 instead of a 422.
+            'date' => ['nullable', 'date_format:Y-m-d'],
             'level' => ['nullable', 'string', 'max:80'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
             'offset' => ['nullable', 'integer', 'min:0'],
@@ -55,7 +58,9 @@ class LessonsController extends ApiController
             $query->whereRaw('l.starts_at::date = ?', [$date]);
         }
 
-        $rows = $query->orderBy('l.starts_at')->offset($offset)->limit($limit + 1)->get();
+        // Tie-break on l.id so lessons sharing a starts_at page deterministically
+        // (without it, offset pagination can duplicate/skip rows across pages).
+        $rows = $query->orderBy('l.starts_at')->orderBy('l.id')->offset($offset)->limit($limit + 1)->get();
         $hasMore = $rows->count() > $limit;
         $items = $rows->take($limit);
 
@@ -295,6 +300,7 @@ class LessonsController extends ApiController
             ->where('l.status', 'scheduled')
             ->where('l.starts_at', '>=', now())
             ->orderBy('l.starts_at')
+            ->orderBy('l.id')
             ->limit(50)
             ->get();
         $bookedIds = $this->bookedLessonIds($viewerId, $upcoming->pluck('id')->all());

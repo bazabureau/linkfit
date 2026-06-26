@@ -46,7 +46,7 @@ class AuthExtrasController extends ApiController
         // one transaction so a failure can't burn the token without verifying.
         DB::transaction(function () use ($data) {
             if (isset($data['email'], $data['code'])) {
-                $user = User::where('email', strtolower($data['email']))->first();
+                $user = User::whereNull('deleted_at')->where('email', mb_strtolower(trim($data['email'])))->first();
                 if ($user === null) {
                     throw ApiException::unauthenticated('Invalid or expired code');
                 }
@@ -64,7 +64,7 @@ class AuthExtrasController extends ApiController
     public function requestPasswordReset(Request $request): JsonResponse
     {
         $data = $this->validateBody($request, ['email' => ['required', 'email']]);
-        $user = User::where('email', strtolower($data['email']))->first();
+        $user = User::whereNull('deleted_at')->where('email', mb_strtolower(trim($data['email'])))->first();
         if ($user !== null) {
             $code = $this->emailTokens->createCode($user->id, 'reset_password', 10);
             $this->mail->passwordReset($user->email, $user->display_name ?: 'Linkfit user', $code);
@@ -79,7 +79,7 @@ class AuthExtrasController extends ApiController
             'email' => ['required', 'email'],
             'code' => ['required', 'string', 'regex:/^\d{6}$/'],
         ]);
-        $user = User::where('email', strtolower($data['email']))->first();
+        $user = User::whereNull('deleted_at')->where('email', mb_strtolower(trim($data['email'])))->first();
         if ($user === null) {
             throw ApiException::unauthenticated('Invalid or expired code');
         }
@@ -111,7 +111,7 @@ class AuthExtrasController extends ApiController
         // sessions valid after the password changed.
         DB::transaction(function () use ($data, $password) {
             if (isset($data['email'], $data['code'])) {
-                $user = User::where('email', strtolower($data['email']))->first();
+                $user = User::whereNull('deleted_at')->where('email', mb_strtolower(trim($data['email'])))->first();
                 if ($user === null) {
                     throw ApiException::unauthenticated('Invalid or expired code');
                 }

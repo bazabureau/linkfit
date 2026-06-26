@@ -53,7 +53,7 @@ class ReportsController extends ApiController
         $users = $this->prefetchReportUsers($reports);
 
         return response()->json([
-            'reports' => $reports->map(fn ($r) => $this->reportPayload($r, false, $users))->values(),
+            'reports' => $reports->map(fn ($r) => $this->reportPayload($r, false, $users, true))->values(),
             'next_cursor' => null,
         ]);
     }
@@ -112,6 +112,11 @@ class ReportsController extends ApiController
     public function adminShow(Request $request, string $id): JsonResponse
     {
         $this->requireAdminPermission($request, 'reports');
+        // id is a uuid column; reject a non-uuid cleanly (404) before it reaches
+        // Postgres and surfaces as a 500 from a failed uuid cast.
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Report not found');
+        }
         $row = DB::table('reports')->where('id', $id)->first();
         if ($row === null) {
             throw ApiException::notFound('Report not found');
@@ -156,6 +161,10 @@ class ReportsController extends ApiController
     public function adminUpdate(Request $request, string $id): JsonResponse
     {
         $user = $this->requireAdminPermission($request, 'reports');
+        // id is a uuid column; reject a non-uuid cleanly (404) before Postgres.
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Report not found');
+        }
         $data = $this->validateBody($request, [
             'status' => ['required', 'in:reviewed,dismissed'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:4000'],
@@ -190,9 +199,24 @@ class ReportsController extends ApiController
 
     /**
      * @param  array<string,object>|null  $users  prefetched users map for list callers
+     * @param  bool  $redactReviewerPii  when true (user-facing me/reports), strip the
+     *                                    reviewing moderator's email/admin_role/deletion
+     *                                    state — keeping the object shape — so a reporter
+     *                                    never sees staff PII.
      */
-    private function reportPayload(object $r, bool $includeTarget = false, ?array $users = null): array
+    private function reportPayload(object $r, bool $includeTarget = false, ?array $users = null, bool $redactReviewerPii = false): array
     {
+        $reviewedBy = $r->reviewed_by_user_id ? $this->userSummary($r->reviewed_by_user_id, $users) : null;
+        if ($redactReviewerPii && $reviewedBy !== null) {
+            $reviewedBy = [
+                'id' => $reviewedBy['id'],
+                'email' => null,
+                'display_name' => $reviewedBy['display_name'],
+                'photo_url' => $reviewedBy['photo_url'],
+                'admin_role' => null,
+                'deleted_at' => null,
+            ];
+        }
         $payload = [
             'id' => $r->id,
             'reporter_user_id' => $r->reporter_user_id,
@@ -203,7 +227,7 @@ class ReportsController extends ApiController
             'status' => $r->status,
             'notes' => $r->notes,
             'reviewed_by_user_id' => $r->reviewed_by_user_id,
-            'reviewed_by' => $r->reviewed_by_user_id ? $this->userSummary($r->reviewed_by_user_id, $users) : null,
+            'reviewed_by' => $reviewedBy,
             'reviewed_at' => $this->iso($r->reviewed_at),
             'created_at' => $this->iso($r->created_at),
         ];

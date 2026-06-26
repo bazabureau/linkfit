@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { LifeBuoy, Loader2, Send } from "lucide-react";
+import { LifeBuoy, Loader2, RefreshCw, Send } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +48,7 @@ export default function SupportPage(): React.JSX.Element {
   const [filters, setFilters] = React.useState<{ status?: TicketStatus; priority?: TicketPriority; q: string }>({ q: "" });
   const [openId, setOpenId] = React.useState<string | null>(null);
 
-  const { data, isLoading } = useSupportTickets({
+  const { data, isLoading, isError, refetch } = useSupportTickets({
     status: filters.status,
     priority: filters.priority,
     q: filters.q || undefined,
@@ -117,6 +117,16 @@ export default function SupportPage(): React.JSX.Element {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={7} className="py-10 text-center text-foregroundMuted">{t("Yüklənir")}…</TableCell></TableRow>
+            ) : isError ? (
+              <TableRow>
+                <TableCell colSpan={7} className="py-10 text-center">
+                  <p className="text-sm text-danger">{t("Yenidən yoxlayın")}</p>
+                  <Button variant="secondary" size="sm" className="mt-3" onClick={() => void refetch()}>
+                    <RefreshCw className="h-4 w-4" />
+                    {t("Retry")}
+                  </Button>
+                </TableCell>
+              </TableRow>
             ) : tickets.length === 0 ? (
               <TableRow><TableCell colSpan={7} className="py-10 text-center text-foregroundMuted">{t("No tickets")}</TableCell></TableRow>
             ) : (
@@ -149,7 +159,7 @@ export default function SupportPage(): React.JSX.Element {
 function TicketDialog({ id, onClose }: { id: string; onClose: () => void }): React.JSX.Element {
   const { t } = useI18n();
   const toast = useToast();
-  const { data: ticket, isLoading } = useSupportTicket(id);
+  const { data: ticket, isLoading, isError, refetch } = useSupportTicket(id);
   const update = useUpdateSupportTicket();
   const addMessage = useAddTicketMessage();
   const [reply, setReply] = React.useState("");
@@ -185,8 +195,16 @@ function TicketDialog({ id, onClose }: { id: string; onClose: () => void }): Rea
         <DialogHeader>
           <DialogTitle>{ticket?.subject ?? t("Ticket")}</DialogTitle>
         </DialogHeader>
-        {isLoading || !ticket ? (
+        {isLoading ? (
           <div className="py-10 text-center text-foregroundMuted">{t("Yüklənir")}…</div>
+        ) : isError || !ticket ? (
+          <div className="flex flex-col items-center gap-3 py-10 text-center">
+            <p className="text-sm text-danger">{t("Yenidən yoxlayın")}</p>
+            <Button variant="secondary" size="sm" onClick={() => void refetch()}>
+              <RefreshCw className="h-4 w-4" />
+              {t("Retry")}
+            </Button>
+          </div>
         ) : (
           <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
             <div className="grid grid-cols-2 gap-3">

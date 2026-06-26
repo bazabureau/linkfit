@@ -201,11 +201,13 @@ export default function CourtsPage(): React.JSX.Element {
 
     try {
       if (editingCourt) {
+        // Backend `updateCourt` only accepts name/hourly_price_minor/currency/
+        // status/photo_* — `sport_id` is NOT a valid update field and would be
+        // silently dropped, so we never send it (sport is fixed after creation).
         await updateMut.mutateAsync({
           id: editingCourt.id,
           data: {
             name,
-            sport_id: sportId,
             hourly_price_minor: priceMinor,
           },
         });
@@ -473,7 +475,8 @@ export default function CourtsPage(): React.JSX.Element {
               id="court-sport"
               value={sportId}
               onChange={(e) => setSportId(e.target.value)}
-              className="flex h-10 w-full cursor-pointer rounded-lg border border-border bg-surfaceElevated px-3 py-2 text-sm text-foreground focus-visible:border-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+              disabled={Boolean(editingCourt)}
+              className="flex h-10 w-full cursor-pointer rounded-lg border border-border bg-surfaceElevated px-3 py-2 text-sm text-foreground focus-visible:border-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 disabled:cursor-not-allowed disabled:opacity-60"
               required
             >
               <option value="">İdman növünü seçin...</option>
@@ -483,6 +486,11 @@ export default function CourtsPage(): React.JSX.Element {
                 </option>
               ))}
             </select>
+            {editingCourt ? (
+              <p className="text-[10px] italic text-foregroundMuted/80">
+                İdman növü kort yaradıldıqdan sonra dəyişdirilə bilməz.
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-1.5">

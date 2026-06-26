@@ -240,6 +240,10 @@ export default function TournamentsPage(): React.JSX.Element {
       toast.error("Tarix xətası", "Bitmə tarixi başlama tarixindən sonra olmalıdır.");
       return;
     }
+    if (regDeadline && new Date(regDeadline) > new Date(startsAt)) {
+      toast.error("Tarix xətası", "Qeydiyyatın son tarixi başlama tarixindən gec ola bilməz.");
+      return;
+    }
     const feeMinor = Math.round((parseFloat(entryFee) || 0) * 100);
     try {
       await createMut.mutateAsync({
@@ -637,6 +641,21 @@ function TournamentDetailDialog({
     },
   });
 
+  // Wires PATCH /partner/tournaments/{id} so the partner can advance the
+  // lifecycle (announced → registration_open → … → completed). Cancellation
+  // keeps its dedicated confirm flow, so it is excluded from this selector.
+  const updateMut = useMutation({
+    mutationFn: (status: TournamentStatus) =>
+      api.patch<Tournament & { entries: TournamentEntry[] }>(
+        `/api/v1/partner/tournaments/${tournamentId}`,
+        { status },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: tournamentKeys.detail(tournamentId ?? "none") });
+      qc.invalidateQueries({ queryKey: ["partner", "tournaments"] });
+    },
+  });
+
   const handleEntry = async (entry: TournamentEntry, status: EntryStatus): Promise<void> => {
     try {
       await entryMut.mutateAsync({ entryId: entry.id, status });
@@ -644,6 +663,17 @@ function TournamentDetailDialog({
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       toast.error("Əməliyyat uğursuz", message || "Komandanı yeniləmək mümkün olmadı.");
+    }
+  };
+
+  const handleStatusChange = async (next: TournamentStatus): Promise<void> => {
+    if (!data || next === data.status) return;
+    try {
+      await updateMut.mutateAsync(next);
+      toast.success("Status yeniləndi", STATUS_LABEL[next]);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error("Əməliyyat uğursuz", message || "Statusu yeniləmək mümkün olmadı.");
     }
   };
 
@@ -680,6 +710,29 @@ function TournamentDetailDialog({
               {money(data.entry_fee_minor, data.currency)}
             </span>
           </div>
+
+          {/* Status lifecycle control (wires PATCH /partner/tournaments/{id}) */}
+          {data.status !== "cancelled" && (
+            <div className="flex items-center gap-2.5 rounded-xl border border-border bg-surfaceElevated/40 p-3">
+              <label htmlFor="t-status-edit" className="shrink-0 text-xs font-semibold text-foregroundMuted">
+                Statusu dəyiş
+              </label>
+              <select
+                id="t-status-edit"
+                value={data.status}
+                disabled={updateMut.isPending}
+                onChange={(e) => handleStatusChange(e.target.value as TournamentStatus)}
+                className="h-9 flex-1 rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent/60 disabled:opacity-60"
+              >
+                {STATUS_OPTIONS.filter((s) => s !== "cancelled").map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </option>
+                ))}
+              </select>
+              {updateMut.isPending && <RefreshCw className="h-3.5 w-3.5 animate-spin text-accent" />}
+            </div>
+          )}
 
           {/* Meta grid */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -69,6 +69,7 @@ export default function TournamentsPage(): React.JSX.Element {
   const {
     data,
     isLoading,
+    isError,
     isFetching,
     isFetchingNextPage,
     fetchNextPage,
@@ -189,13 +190,27 @@ export default function TournamentsPage(): React.JSX.Element {
           ) : null}
         </div>
 
-        <TournamentsTable
-          tournaments={tournaments}
-          loading={isLoading}
-          actions={{ onOpen: openDrawer, onCancel: (item) => setConfirmCancel(item) }}
-        />
+        {isError ? (
+          <div className="flex flex-col items-center justify-center gap-3 px-6 py-20 text-center">
+            <h3 className="font-display text-base font-bold text-danger">
+              {t("Turnirlər yüklənmədi")}
+            </h3>
+            <p className="max-w-xs text-sm text-foregroundMuted">
+              {t("API bağlantısını və admin sessiyasını yoxlayın.")}
+            </p>
+            <Button variant="secondary" size="sm" onClick={() => void refetch()}>
+              {t("Yenidən cəhd et")}
+            </Button>
+          </div>
+        ) : (
+          <TournamentsTable
+            tournaments={tournaments}
+            loading={isLoading}
+            actions={{ onOpen: openDrawer, onCancel: (item) => setConfirmCancel(item) }}
+          />
+        )}
 
-        {hasNextPage ? (
+        {!isError && hasNextPage ? (
           <div className="flex justify-center border-t border-border px-5 py-3">
             <Button
               variant="secondary"

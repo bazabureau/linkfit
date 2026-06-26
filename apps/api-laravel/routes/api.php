@@ -137,8 +137,8 @@ Route::prefix('api/v1')->group(function () {
         Route::patch('me', [MeController::class, 'update']);
         Route::post('me/avatar', [MeController::class, 'avatar'])->middleware('throttle:30,1');
         Route::delete('me/avatar', [MeController::class, 'deleteAvatar']);
-        Route::post('me/change-password', [MeController::class, 'changePassword']);
-        Route::post('me/change-email', [MeController::class, 'changeEmail']);
+        Route::post('me/change-password', [MeController::class, 'changePassword'])->middleware('throttle:5,1');
+        Route::post('me/change-email', [MeController::class, 'changeEmail'])->middleware('throttle:5,1');
         Route::delete('me', [DataRightsController::class, 'requestDeletion']);
         Route::get('me/sessions', [MeController::class, 'sessions']);
         Route::delete('me/sessions/{id}', [MeController::class, 'deleteSession']);

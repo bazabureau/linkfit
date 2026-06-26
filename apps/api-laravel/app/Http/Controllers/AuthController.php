@@ -8,6 +8,7 @@ use App\Services\Auth\PasswordService;
 use App\Services\Auth\TokenService;
 use App\Services\Mail\TransactionalMailService;
 use App\Support\ApiException;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -38,7 +39,7 @@ class AuthController extends Controller
             'password_confirmation' => ['sometimes', 'string', 'same:password'],
             'display_name' => ['required', 'string', 'max:80'],
             'username' => ['sometimes', 'nullable', 'string', 'min:3', 'max:40', 'regex:/^[a-zA-Z0-9._]+$/'],
-            'birth_date' => ['nullable', 'string', 'regex:/^\d{4}-\d{2}-\d{2}$/'],
+            'birth_date' => ['nullable', 'string', 'regex:/^\d{4}-\d{2}-\d{2}$/', 'date_format:Y-m-d'],
             'ref' => ['nullable', 'string', 'max:16'],
             'accepted_terms' => ['sometimes', 'boolean'],
         ]);
@@ -81,7 +82,21 @@ class AuthController extends Controller
         if (! empty($data['accepted_terms'])) {
             $user->terms_accepted_at = now();
         }
-        $user->save();
+        try {
+            $user->save();
+        } catch (QueryException $e) {
+            // A concurrent sign-up won the race between the existence pre-checks
+            // above and this insert. The DB's unique constraints are the final
+            // guard — re-map the violation to the same 409 those checks return
+            // instead of leaking a 500.
+            if (User::where('email', $email)->exists()) {
+                throw ApiException::conflict('Email is already registered');
+            }
+            if (User::where('username', $username)->exists()) {
+                throw ApiException::conflict('Username is already taken');
+            }
+            throw $e;
+        }
         // Record the referral when the sign-up carries a referral code (from a
         // linkfit.az/r/{code} share link). Best-effort: a bad/duplicate code must
         // never block registration.

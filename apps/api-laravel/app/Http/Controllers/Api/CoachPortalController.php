@@ -114,28 +114,33 @@ class CoachPortalController extends ApiController
         if ($kind === 'private' && $capacity !== 1) {
             throw ApiException::validation('Private lessons must have capacity 1');
         }
-        $this->assertNoCoachOverlap((string) $coach->id, $data['starts_at'], (int) $data['duration_minutes']);
         $id = (string) Str::uuid();
-        DB::table('lessons')->insert([
-            'id' => $id,
-            'coach_id' => $coach->id,
-            'venue_id' => $coach->venue_id,
-            'court_id' => $data['court_id'] ?? null,
-            'sport_id' => $sportId,
-            'title' => $data['title'],
-            'description' => $data['description'] ?? null,
-            'kind' => $kind,
-            'level_label' => $data['level_label'] ?? null,
-            'starts_at' => $data['starts_at'],
-            'duration_minutes' => $data['duration_minutes'],
-            'capacity' => $capacity,
-            'price_minor' => $data['price_minor'] ?? $coach->hourly_rate_minor,
-            'currency' => $data['currency'] ?? $coach->currency ?? 'AZN',
-            'status' => 'scheduled',
-            'created_by' => $user->id,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        // Overlap check + insert run in one transaction with the coach's existing
+        // rows locked (lockForUpdate) so two concurrent creates for the same coach
+        // cannot both pass the check and produce overlapping lessons (TOCTOU race).
+        DB::transaction(function () use ($id, $coach, $data, $kind, $capacity, $sportId, $user): void {
+            $this->assertNoCoachOverlap((string) $coach->id, $data['starts_at'], (int) $data['duration_minutes'], null, true);
+            DB::table('lessons')->insert([
+                'id' => $id,
+                'coach_id' => $coach->id,
+                'venue_id' => $coach->venue_id,
+                'court_id' => $data['court_id'] ?? null,
+                'sport_id' => $sportId,
+                'title' => $data['title'],
+                'description' => $data['description'] ?? null,
+                'kind' => $kind,
+                'level_label' => $data['level_label'] ?? null,
+                'starts_at' => $data['starts_at'],
+                'duration_minutes' => $data['duration_minutes'],
+                'capacity' => $capacity,
+                'price_minor' => $data['price_minor'] ?? $coach->hourly_rate_minor,
+                'currency' => $data['currency'] ?? $coach->currency ?? 'AZN',
+                'status' => 'scheduled',
+                'created_by' => $user->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
 
         return response()->json($this->lessonPayload($this->lessonQuery($coach->id)->where('l.id', $id)->first()), 201);
     }
@@ -298,7 +303,7 @@ class CoachPortalController extends ApiController
      * check is DB-dialect agnostic. Two windows [s1,e1) and [s2,e2) overlap iff
      * s1 < e2 && s2 < e1.
      */
-    private function assertNoCoachOverlap(string $coachId, string $startsAt, int $durationMinutes, ?string $ignoreLessonId = null): void
+    private function assertNoCoachOverlap(string $coachId, string $startsAt, int $durationMinutes, ?string $ignoreLessonId = null, bool $lockRows = false): void
     {
         $newStart = strtotime($startsAt);
         $newEnd = $newStart + $durationMinutes * 60;
@@ -306,6 +311,7 @@ class CoachPortalController extends ApiController
             ->where('coach_id', $coachId)
             ->where('status', '!=', 'cancelled')
             ->when($ignoreLessonId !== null, fn ($q) => $q->where('id', '!=', $ignoreLessonId))
+            ->when($lockRows, fn ($q) => $q->lockForUpdate())
             ->get(['starts_at', 'duration_minutes']);
         foreach ($existing as $row) {
             $s = strtotime((string) $row->starts_at);

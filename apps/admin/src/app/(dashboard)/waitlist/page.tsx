@@ -32,7 +32,7 @@ export default function WaitlistPage(): React.JSX.Element {
   const toast = useToast();
   const [status, setStatus] = React.useState<WaitlistStatus | "">("");
   const [date, setDate] = React.useState("");
-  const { data, isLoading, isFetching, refetch } = useWaitlist({
+  const { data, isLoading, isError, isFetching, refetch } = useWaitlist({
     status: status || undefined,
     date: date || undefined,
   });
@@ -88,7 +88,17 @@ export default function WaitlistPage(): React.JSX.Element {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {isError ? (
+              <TableRow>
+                <TableCell colSpan={5} className="py-10 text-center">
+                  <p className="text-sm font-semibold text-danger">{t("Could not load waitlist")}</p>
+                  <Button variant="secondary" size="sm" onClick={() => void refetch()} className="mt-3">
+                    <RefreshCw className="h-4 w-4" />
+                    {t("Retry")}
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ) : isLoading ? (
               <TableRow><TableCell colSpan={5} className="py-10 text-center text-foregroundMuted">{t("Yüklənir")}…</TableCell></TableRow>
             ) : items.length === 0 ? (
               <TableRow><TableCell colSpan={5} className="py-10 text-center text-foregroundMuted">{t("No waitlist entries")}</TableCell></TableRow>

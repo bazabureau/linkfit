@@ -386,7 +386,9 @@ class VenueReviewsController extends ApiController
             ->when($venueId, fn ($q) => $q->where('r.venue_id', $venueId))
             ->when($rating !== null && $rating !== '', fn ($q) => $q->where('r.rating', (int) $rating))
             ->when($term !== '', function ($q) use ($term) {
-                $like = '%'.$term.'%';
+                // Escape LIKE wildcards so a literal `%`/`_` in the search term is
+                // matched literally instead of acting as a wildcard.
+                $like = '%'.addcslashes($term, '%_\\').'%';
                 $q->where(function ($qq) use ($like) {
                     $qq->where('r.body', 'ilike', $like)
                         ->orWhere('u.display_name', 'ilike', $like)

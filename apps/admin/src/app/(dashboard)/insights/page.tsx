@@ -14,7 +14,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Activity, Building2, RefreshCw, TrendingUp, Users } from "lucide-react";
+import { Activity, AlertTriangle, Building2, RefreshCw, TrendingUp, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -46,10 +46,10 @@ function mergeGrowth(g: GrowthResponse): { date: string; users: number; games: n
     if (!map.has(key)) map.set(key, { date: key, users: 0, games: 0, bookings: 0, revenue: 0 });
     return map.get(key)!;
   };
-  g.new_users.forEach((p: GrowthCountPoint) => { ensure(p.date).users = p.count; });
-  g.new_games.forEach((p: GrowthCountPoint) => { ensure(p.date).games = p.count; });
-  g.new_bookings.forEach((p: GrowthCountPoint) => { ensure(p.date).bookings = p.count; });
-  g.revenue.forEach((p) => { ensure(p.date).revenue = Math.round(p.amount_minor / 100); });
+  (g.new_users ?? []).forEach((p: GrowthCountPoint) => { ensure(p.date).users = p.count; });
+  (g.new_games ?? []).forEach((p: GrowthCountPoint) => { ensure(p.date).games = p.count; });
+  (g.new_bookings ?? []).forEach((p: GrowthCountPoint) => { ensure(p.date).bookings = p.count; });
+  (g.revenue ?? []).forEach((p) => { ensure(p.date).revenue = Math.round(p.amount_minor / 100); });
   return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
@@ -70,6 +70,7 @@ export default function InsightsPage(): React.JSX.Element {
     void funnel.refetch();
   };
   const fetching = growth.isFetching || clubs.isFetching || engagement.isFetching || funnel.isFetching;
+  const anyError = growth.isError || clubs.isError || engagement.isError || funnel.isError;
 
   const series = growth.data ? mergeGrowth(growth.data) : [];
   const cur = clubs.data?.currency ?? "AZN";
@@ -92,6 +93,23 @@ export default function InsightsPage(): React.JSX.Element {
           {t("Refresh")}
         </Button>
       </div>
+
+      {anyError ? (
+        <div className="flex flex-col gap-3 rounded-2xl border border-danger/40 bg-danger/5 px-4 py-4 shadow-card sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-danger/10 text-danger">
+              <AlertTriangle className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="font-medium text-foreground">{t("Failed to load analytics")}</p>
+              <p className="text-sm text-foregroundMuted">{t("Check your connection and try again.")}</p>
+            </div>
+          </div>
+          <Button variant="secondary" size="sm" onClick={refetchAll} disabled={fetching} className="w-full sm:w-auto">
+            {t("Retry")}
+          </Button>
+        </div>
+      ) : null}
 
       {/* Growth */}
       <section className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
@@ -154,8 +172,10 @@ export default function InsightsPage(): React.JSX.Element {
             <Activity className="h-4 w-4 text-accent" />
             {t("Activation funnel")}
           </h2>
-          {funnel.isLoading || !funnel.data ? (
+          {funnel.isLoading ? (
             <div className="h-40 animate-pulse rounded-xl bg-surfaceElevated" />
+          ) : !funnel.data ? (
+            <p className="py-12 text-center text-sm text-foregroundMuted">{t("No data")}</p>
           ) : (
             <FunnelBars
               registered={funnel.data.registered}
@@ -174,8 +194,10 @@ export default function InsightsPage(): React.JSX.Element {
             <TrendingUp className="h-4 w-4 text-accent" />
             {t("Engagement (30d)")}
           </h2>
-          {engagement.isLoading || !engagement.data ? (
+          {engagement.isLoading ? (
             <div className="h-40 animate-pulse rounded-xl bg-surfaceElevated" />
+          ) : !engagement.data ? (
+            <p className="py-12 text-center text-sm text-foregroundMuted">{t("No data")}</p>
           ) : (
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
               <Stat label={t("Games created")} value={engagement.data.games_created_30d} />

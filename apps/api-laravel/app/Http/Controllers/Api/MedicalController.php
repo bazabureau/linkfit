@@ -37,7 +37,11 @@ class MedicalController extends ApiController
             }
         }
         if (array_key_exists('share_medical_with_host', $data)) {
-            $values['share_medical_with_host'] = $data['share_medical_with_host'];
+            // Normalize to a strict boolean before persisting: the `boolean`
+            // rule validates the input but validated() returns it un-cast, so a
+            // string-y "0"/"false" would otherwise be stored as the wrong value
+            // (and could silently flip the host-sharing opt-in on).
+            $values['share_medical_with_host'] = filter_var($data['share_medical_with_host'], FILTER_VALIDATE_BOOLEAN);
         }
 
         DB::table('medical_profiles')->updateOrInsert(['user_id' => $user->id], $values);

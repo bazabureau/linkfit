@@ -31,9 +31,12 @@ const dt = (iso: string | null) =>
     : "—";
 
 function statusOf(a: Announcement): { label: string; variant: "success" | "info" | "neutral" } {
-  if (a.is_scheduled) return { label: "Scheduled", variant: "info" };
-  if (a.is_expired) return { label: "Expired", variant: "neutral" };
-  return { label: "Active", variant: "success" };
+  // Use the lowercase status keys ("scheduled"/"expired"/"active") — these are the
+  // ones present in the az/en/ru i18n dictionaries (and match the status filter
+  // dropdown), so the badge localises instead of leaking English under RU/EN.
+  if (a.is_scheduled) return { label: "scheduled", variant: "info" };
+  if (a.is_expired) return { label: "expired", variant: "neutral" };
+  return { label: "active", variant: "success" };
 }
 
 export default function AnnouncementsPage(): React.JSX.Element {

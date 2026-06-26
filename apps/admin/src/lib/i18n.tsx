@@ -958,6 +958,17 @@ const OPS_EN: Record<string, string> = {
 Object.assign(RU, OPS_RU);
 Object.assign(EN, OPS_EN);
 
+// App-wide AZ-source chrome that leaked under RU/EN (used by toasts/loading
+// states across multiple ops pages). Kept as an isolated, additive block.
+Object.assign(RU, {
+  "Alınmadı": "Не удалось",
+  "Yüklənir": "Загрузка",
+});
+Object.assign(EN, {
+  "Alınmadı": "Failed",
+  "Yüklənir": "Loading",
+});
+
 const DICTIONARIES: Record<AdminLanguage, Record<string, string>> = {
   az: {},
   ru: RU,

@@ -195,7 +195,19 @@ class PromoCodesController extends ApiController
                 throw ApiException::validation('Promo code already exists');
             }
         }
-        if (($data['discount_type'] ?? null) === 'percent' && (int) ($data['discount_value'] ?? 0) > 100) {
+        // Percent discounts cannot exceed 100. On a partial update either field may
+        // be omitted, so resolve the EFFECTIVE type/value against the stored row —
+        // otherwise flipping discount_type to "percent" (or raising discount_value)
+        // alone would slip an out-of-range percent past this guard and yield a
+        // 100%-off code.
+        $discountType = $data['discount_type'] ?? null;
+        $discountValue = $data['discount_value'] ?? null;
+        if (! $creating && ($discountType === null || $discountValue === null)) {
+            $current = DB::table('promo_codes')->where('id', $request->route('id'))->first(['discount_type', 'discount_value']);
+            $discountType ??= $current->discount_type ?? null;
+            $discountValue ??= isset($current->discount_value) ? (int) $current->discount_value : null;
+        }
+        if ($discountType === 'percent' && (int) $discountValue > 100) {
             throw ApiException::validation('Percent discount cannot exceed 100');
         }
         if (! empty($data['starts_at'])) {

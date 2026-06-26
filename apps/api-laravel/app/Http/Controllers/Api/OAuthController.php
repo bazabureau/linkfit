@@ -21,7 +21,18 @@ class OAuthController extends ApiController
     public function google(Request $request): JsonResponse
     {
         $data = $this->validateBody($request, ['id_token' => ['required', 'string', 'min:8', 'max:8192']]);
-        $payload = Http::asForm()->get('https://oauth2.googleapis.com/tokeninfo', ['id_token' => $data['id_token']])->json();
+
+        // Bound the external call (no timeout = a hung Google endpoint hangs the
+        // request) and fail CLOSED on any network/transport error: a transient
+        // outage must reject with 401, never bubble up as a 500.
+        try {
+            $payload = Http::asForm()->timeout(8)
+                ->get('https://oauth2.googleapis.com/tokeninfo', ['id_token' => $data['id_token']])
+                ->json();
+        } catch (Throwable $e) {
+            report($e);
+            $payload = null;
+        }
 
         if (! is_array($payload) || ! $this->validGooglePayload($payload)) {
             return $this->unauth($request, 'Invalid Google token');

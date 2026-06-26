@@ -1,0 +1,273 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Http\Controllers\Api\SupportController;
+use App\Models\User;
+use App\Support\ApiException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use Tests\TestCase;
+
+/**
+ * Support-ticket hardening: ownership scoping (IDOR) on show/messages/close,
+ * validation, anonymous public intake, and the admin-update tightening
+ * (assignee must exist; reopening clears a stale resolved_at). Exercises
+ * {@see SupportController} directly against an in-memory schema.
+ */
+class SupportHardeningTest extends TestCase
+{
+    private const USER_A = '00000000-0000-4000-8000-0000000c0001';
+
+    private const USER_B = '00000000-0000-4000-8000-0000000c0002';
+
+    private const ADMIN = '00000000-0000-4000-8000-0000000c0003';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('database.default', 'sqlite');
+        config()->set('database.connections.sqlite.database', ':memory:');
+        DB::purge('sqlite');
+        DB::reconnect('sqlite');
+
+        Schema::create('users', function ($table): void {
+            $table->string('id')->primary();
+            $table->string('email')->nullable();
+            $table->string('display_name')->nullable();
+            $table->string('photo_url')->nullable();
+            $table->string('admin_role')->nullable();
+            $table->text('staff_permissions')->nullable();
+            $table->string('venue_id')->nullable();
+            $table->timestamp('created_at')->nullable();
+            $table->timestamp('updated_at')->nullable();
+            $table->timestamp('deleted_at')->nullable();
+        });
+        Schema::create('support_tickets', function ($table): void {
+            $table->string('id')->primary();
+            $table->string('user_id')->nullable();
+            $table->string('category')->default('general');
+            $table->string('subject');
+            $table->text('message');
+            $table->string('status')->default('open');
+            $table->string('priority')->default('normal');
+            $table->string('related_kind')->nullable();
+            $table->string('related_id')->nullable();
+            $table->string('assigned_to_user_id')->nullable();
+            $table->text('resolution_note')->nullable();
+            $table->timestamp('resolved_at')->nullable();
+            $table->timestamps();
+        });
+        Schema::create('support_ticket_messages', function ($table): void {
+            $table->string('id')->primary();
+            $table->string('ticket_id');
+            $table->string('author_user_id');
+            $table->string('author_role')->default('user');
+            $table->text('body');
+            $table->timestamps();
+        });
+        Schema::create('audit_log', function ($table): void {
+            $table->string('id')->primary();
+            $table->string('actor_user_id')->nullable();
+            $table->string('action');
+            $table->string('entity');
+            $table->string('entity_id')->nullable();
+            $table->text('metadata')->nullable();
+            $table->timestamp('created_at')->nullable();
+        });
+
+        DB::table('users')->insert([
+            ['id' => self::USER_A, 'email' => 'a@example.com', 'display_name' => 'Player A', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => self::USER_B, 'email' => 'b@example.com', 'display_name' => 'Player B', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => self::ADMIN, 'email' => 'admin@example.com', 'display_name' => 'Admin', 'admin_role' => 'admin', 'created_at' => now(), 'updated_at' => now()],
+        ]);
+    }
+
+    protected function tearDown(): void
+    {
+        foreach (['audit_log', 'support_ticket_messages', 'support_tickets', 'users'] as $table) {
+            Schema::dropIfExists($table);
+        }
+
+        parent::tearDown();
+    }
+
+    private function controller(): SupportController
+    {
+        return new SupportController;
+    }
+
+    private function request(string $method, array $params, ?string $authUserId): Request
+    {
+        $request = Request::create('/api/v1/support', $method, $params);
+        if ($authUserId !== null) {
+            $request->attributes->set('auth_user', User::findOrFail($authUserId));
+        }
+
+        return $request;
+    }
+
+    private function createTicket(string $userId, string $subject = 'Need help'): string
+    {
+        return $this->controller()->create(
+            $this->request('POST', ['subject' => $subject, 'message' => 'Something is broken'], $userId),
+            )->getData(true)['id'];
+    }
+
+    public function test_create_returns_201_and_persists_open_ticket(): void
+    {
+        $response = $this->controller()->create(
+            $this->request('POST', ['subject' => 'Help me', 'message' => 'My booking failed'], self::USER_A),
+        );
+
+        $this->assertSame(201, $response->getStatusCode());
+        $body = $response->getData(true);
+        $this->assertSame(self::USER_A, $body['user_id']);
+        $this->assertSame('open', $body['status']);
+        $this->assertSame('general', $body['category']);
+        $this->assertSame('normal', $body['priority']);
+        $this->assertSame(0, $body['messages_count']);
+        $this->assertSame(1, DB::table('support_tickets')->where('user_id', self::USER_A)->count());
+    }
+
+    public function test_create_validation_rejects_missing_subject(): void
+    {
+        try {
+            $this->controller()->create($this->request('POST', ['message' => 'No subject here'], self::USER_A));
+            $this->fail('Expected a 422 for a missing subject.');
+        } catch (ApiException $e) {
+            $this->assertSame(422, $e->getStatusCode());
+        }
+        $this->assertSame(0, DB::table('support_tickets')->count());
+    }
+
+    public function test_public_create_is_anonymous_and_embeds_contact(): void
+    {
+        $response = $this->controller()->publicCreate($this->request('POST', [
+            'name' => 'Jane Doe',
+            'email' => 'JANE@Example.com',
+            'phone' => '+994500000000',
+            'subject' => 'Partnership',
+            'message' => 'I want to list my venue',
+        ], null));
+
+        $this->assertSame(201, $response->getStatusCode());
+        $row = DB::table('support_tickets')->first();
+        $this->assertNull($row->user_id);
+        $this->assertStringContainsString('jane@example.com', $row->message);
+        $this->assertStringContainsString('Jane Doe', $row->message);
+    }
+
+    public function test_show_is_forbidden_for_non_owner_non_staff(): void
+    {
+        $ticketId = $this->createTicket(self::USER_A);
+        try {
+            $this->controller()->show($this->request('GET', [], self::USER_B), $ticketId);
+            $this->fail('Expected a 403 when viewing another user\'s ticket.');
+        } catch (ApiException $e) {
+            $this->assertSame(403, $e->getStatusCode());
+        }
+    }
+
+    public function test_show_allows_owner(): void
+    {
+        $ticketId = $this->createTicket(self::USER_A);
+        $body = $this->controller()->show($this->request('GET', [], self::USER_A), $ticketId)->getData(true);
+        $this->assertSame($ticketId, $body['id']);
+        $this->assertArrayHasKey('messages', $body);
+    }
+
+    public function test_show_404_for_unknown_ticket(): void
+    {
+        try {
+            $this->controller()->show($this->request('GET', [], self::USER_A), (string) Str::uuid());
+            $this->fail('Expected a 404 for an unknown ticket.');
+        } catch (ApiException $e) {
+            $this->assertSame(404, $e->getStatusCode());
+        }
+    }
+
+    public function test_add_message_forbidden_for_other_user(): void
+    {
+        $ticketId = $this->createTicket(self::USER_A);
+        try {
+            $this->controller()->addMessage($this->request('POST', ['body' => 'sneaky'], self::USER_B), $ticketId);
+            $this->fail('Expected a 403 when messaging another user\'s ticket.');
+        } catch (ApiException $e) {
+            $this->assertSame(403, $e->getStatusCode());
+        }
+        $this->assertSame(0, DB::table('support_ticket_messages')->count());
+    }
+
+    public function test_owner_add_message_keeps_open_and_records_message(): void
+    {
+        $ticketId = $this->createTicket(self::USER_A);
+        $response = $this->controller()->addMessage($this->request('POST', ['body' => 'Any update?'], self::USER_A), $ticketId);
+
+        $this->assertSame(201, $response->getStatusCode());
+        $this->assertSame('open', DB::table('support_tickets')->where('id', $ticketId)->value('status'));
+        $this->assertSame(1, DB::table('support_ticket_messages')->where('ticket_id', $ticketId)->count());
+        $this->assertSame('user', DB::table('support_ticket_messages')->where('ticket_id', $ticketId)->value('author_role'));
+    }
+
+    public function test_close_by_owner_sets_closed_and_resolved_at(): void
+    {
+        $ticketId = $this->createTicket(self::USER_A);
+        $response = $this->controller()->close($this->request('POST', [], self::USER_A), $ticketId);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $row = DB::table('support_tickets')->where('id', $ticketId)->first();
+        $this->assertSame('closed', $row->status);
+        $this->assertNotNull($row->resolved_at);
+    }
+
+    public function test_admin_update_rejects_unknown_assignee(): void
+    {
+        $ticketId = $this->createTicket(self::USER_A);
+        try {
+            $this->controller()->adminUpdate(
+                $this->request('PATCH', ['assigned_to_user_id' => (string) Str::uuid()], self::ADMIN),
+                $ticketId,
+            );
+            $this->fail('Expected a 422 when assigning to a non-existent user.');
+        } catch (ApiException $e) {
+            $this->assertSame(422, $e->getStatusCode());
+        }
+    }
+
+    public function test_admin_update_reopen_clears_resolved_at(): void
+    {
+        $ticketId = $this->createTicket(self::USER_A);
+
+        $this->controller()->adminUpdate($this->request('PATCH', ['status' => 'resolved'], self::ADMIN), $ticketId);
+        $this->assertNotNull(DB::table('support_tickets')->where('id', $ticketId)->value('resolved_at'));
+
+        $this->controller()->adminUpdate($this->request('PATCH', ['status' => 'open'], self::ADMIN), $ticketId);
+        $this->assertNull(DB::table('support_tickets')->where('id', $ticketId)->value('resolved_at'));
+    }
+
+    public function test_admin_index_requires_operations_permission(): void
+    {
+        try {
+            $this->controller()->adminIndex($this->request('GET', [], self::USER_A));
+            $this->fail('Expected a 403 for a non-admin hitting the admin index.');
+        } catch (ApiException $e) {
+            $this->assertSame(403, $e->getStatusCode());
+        }
+    }
+
+    public function test_mine_only_returns_callers_tickets(): void
+    {
+        $this->createTicket(self::USER_A);
+        $this->createTicket(self::USER_B);
+
+        $body = $this->controller()->mine($this->request('GET', [], self::USER_A))->getData(true);
+
+        $this->assertCount(1, $body['items']);
+        $this->assertSame(self::USER_A, $body['items'][0]['user_id']);
+        $this->assertSame(1, $body['pagination']['total']);
+    }
+}

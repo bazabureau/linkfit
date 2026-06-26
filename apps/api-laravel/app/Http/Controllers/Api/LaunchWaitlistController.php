@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Services\Mail\TransactionalMailService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -41,10 +42,27 @@ class LaunchWaitlistController extends ApiController
         ];
 
         if ($existing === null) {
-            DB::table('launch_waitlist_entries')->insert(array_merge($payload, [
-                'id' => $id,
-                'created_at' => $now,
-            ]));
+            try {
+                DB::table('launch_waitlist_entries')->insert(array_merge($payload, [
+                    'id' => $id,
+                    'created_at' => $now,
+                ]));
+            } catch (QueryException $e) {
+                // A concurrent request for the same (unique) email raced us to the
+                // INSERT. Fall back to the existing-entry path instead of returning
+                // a 500: update the row and respond 200, skipping the welcome email
+                // (the request that won the race already sends it). 23505 = Postgres
+                // unique_violation, 23000 = MySQL/SQLite integrity-constraint class.
+                $sqlState = (string) ($e->errorInfo[0] ?? '');
+                if ($sqlState !== '23505' && $sqlState !== '23000') {
+                    throw $e;
+                }
+                $row = DB::table('launch_waitlist_entries')->where('email', $email)->first(['id']);
+                $id = (string) ($row->id ?? $id);
+                DB::table('launch_waitlist_entries')->where('email', $email)->update($payload);
+
+                return response()->json(['ok' => true, 'id' => $id], 200);
+            }
             // Auto welcome email on first signup only (not on duplicate re-submit).
             // Best-effort: a mail failure must never break the signup response.
             try {

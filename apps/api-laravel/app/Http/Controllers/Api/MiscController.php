@@ -35,13 +35,20 @@ class MiscController extends ApiController
         if (Schema::hasTable('launch_analytics_events')) {
             $rows = [];
             foreach ($data['events'] as $event) {
+                // `source` is derived from caller-supplied properties (never directly
+                // validated) and lands in a varchar(40) column. Cap it and reject
+                // non-scalar values so a long/array source can't 500 this public,
+                // unauthenticated ingestion endpoint (Postgres 22001 / array-to-string).
+                $source = $event['properties']['source'] ?? 'web';
+                $source = is_scalar($source) ? mb_substr((string) $source, 0, 40) : 'web';
+
                 $rows[] = [
                     'id' => (string) Str::uuid(),
                     'event' => (string) $event['event'],
                     'distinct_id' => $event['distinct_id'] ?? null,
                     'user_id' => null,
                     'properties' => json_encode($event['properties'] ?? []),
-                    'source' => (string) ($event['properties']['source'] ?? 'web'),
+                    'source' => $source,
                     'ip_hash' => $request->ip() ? hash('sha256', $request->ip().(string) config('app.key')) : null,
                     'occurred_at' => $this->parseAnalyticsTime($event['ts'] ?? null),
                     'created_at' => now(),

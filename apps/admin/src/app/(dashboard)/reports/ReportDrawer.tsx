@@ -18,16 +18,18 @@ import { Textarea } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { formatDateTime } from "@/lib/date-format";
 import { useI18n } from "@/lib/i18n";
-import { useReviewReport, type AdminReport } from "@/lib/admin-reports";
+import { useReviewReport } from "@/lib/admin-reports";
 import {
   REPORT_STATUS_AZ,
   TargetIcon,
   formatRelative,
   reasonLabel,
+  reporterLabel,
   statusDotClass,
   statusPillClass,
   targetHref,
   targetLabel,
+  type AdminReportRow,
 } from "./lib";
 
 function Row({
@@ -59,7 +61,7 @@ export function ReportDrawer({
   open,
   onClose,
 }: {
-  report: AdminReport | null;
+  report: AdminReportRow | null;
   open: boolean;
   onClose: () => void;
 }): React.JSX.Element | null {
@@ -200,7 +202,12 @@ export function ReportDrawer({
               </div>
             </Row>
             <Row icon={User} label={t("Şikayətçi")}>
-              <span className="break-all font-mono text-xs">{report.reporter_user_id}</span>
+              <div>
+                <div>{reporterLabel(report)}</div>
+                <div className="break-all font-mono text-[11px] text-foregroundMuted">
+                  {report.reporter?.email ?? report.reporter_user_id}
+                </div>
+              </div>
             </Row>
             <Row icon={Hash} label={t("Şikayət ID")}>
               <span className="break-all font-mono text-xs">{report.id}</span>

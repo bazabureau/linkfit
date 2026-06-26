@@ -40,7 +40,7 @@ class MatchController extends ApiController
             'ratings.*.outcome' => ['required', 'in:win,loss,draw'],
             'ratings.*.behavior_ok' => ['required', 'boolean'],
         ]);
-        $game = DB::table('games')->where('id', $id)->first();
+        $game = DB::table('games')->where('id', $id)->whereNull('deleted_at')->first();
         if ($game === null) {
             throw ApiException::notFound('Game not found');
         }
@@ -63,7 +63,7 @@ class MatchController extends ApiController
         $recorded = 0;
         $skipped = 0;
         foreach ($data['ratings'] as $rating) {
-            if ($rating['rated_user_id'] === $user->id || ! in_array($rating['rated_user_id'], $participantIds, true)) {
+            if ($rating['rated_user_id'] === (string) $user->id || ! in_array($rating['rated_user_id'], $participantIds, true)) {
                 $skipped++;
 
                 continue;
@@ -94,7 +94,9 @@ class MatchController extends ApiController
         $this->requireResultWriteAccess($game, $id, (string) $user->id);
         $data = $this->validateBody($request, [
             'team_a_user_ids' => ['required', 'array', 'min:1', 'max:4'],
+            'team_a_user_ids.*' => ['uuid'],
             'team_b_user_ids' => ['required', 'array', 'min:1', 'max:4'],
+            'team_b_user_ids.*' => ['uuid'],
         ]);
         $this->assertValidTeams($id, $data['team_a_user_ids'], $data['team_b_user_ids']);
         // A completed match's stats + ELO have already been applied. Resetting it

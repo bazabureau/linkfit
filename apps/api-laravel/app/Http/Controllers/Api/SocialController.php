@@ -49,9 +49,12 @@ class SocialController extends ApiController
 
     public function search(Request $request): JsonResponse
     {
+        // Bound the raw query length (defensive — avoids an unbounded ILIKE
+        // pattern) BEFORE escaping, so truncation can't split an escape sequence.
+        $raw = mb_substr((string) $request->query('q', ''), 0, 80);
         // Escape LIKE wildcards so a `%`/`_` in the query can't broaden the match
         // (pattern-injection / enumeration) — they become literals.
-        $q = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], (string) $request->query('q', ''));
+        $q = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $raw);
         $type = $request->query('type');
         $limit = min(max((int) $request->query('limit', 20), 1), 50);
         $viewerId = $this->optionalViewerId($request);
@@ -268,6 +271,14 @@ class SocialController extends ApiController
     public function follow(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        // Accept a uuid or username (mirrors profile()); resolving BEFORE the
+        // self-check also stops a self-follow slipping through via the username,
+        // and keeps a non-uuid param from hitting Postgres as a bad uuid cast
+        // (22P02 → 500) instead of a clean 404.
+        $id = $this->resolveUserId($id);
+        if ($id === null) {
+            throw ApiException::notFound('User not found');
+        }
         if ((string) $id === (string) $user->id) {
             throw ApiException::validation('You cannot follow yourself');
         }
@@ -303,10 +314,16 @@ class SocialController extends ApiController
 
     public function unfollow(Request $request, string $id): JsonResponse
     {
-        DB::table('follows')
-            ->where('follower_user_id', $this->authUser($request)->id)
-            ->where('followed_user_id', $id)
-            ->delete();
+        $user = $this->authUser($request);
+        // Resolve a uuid/username; an unresolvable target is an idempotent no-op
+        // and a non-uuid never reaches Postgres as a bad uuid cast (22P02 → 500).
+        $id = $this->resolveUserId($id);
+        if ($id !== null) {
+            DB::table('follows')
+                ->where('follower_user_id', $user->id)
+                ->where('followed_user_id', $id)
+                ->delete();
+        }
 
         return response()->json(null, 204);
     }
@@ -349,13 +366,21 @@ class SocialController extends ApiController
 
     public function removeFollower(Request $request, string $id, string $followerId): JsonResponse
     {
-        if ($this->authUser($request)->id !== $id) {
+        $user = $this->authUser($request);
+        // Only the profile owner may prune their own followers. Resolve the owner
+        // param (uuid/username) and compare as strings; a non-uuid never reaches
+        // Postgres as a bad uuid cast (22P02 → 500).
+        $id = $this->resolveUserId($id);
+        if ($id === null || (string) $user->id !== (string) $id) {
             throw ApiException::forbidden('Only the profile owner can remove followers');
         }
-        DB::table('follows')
-            ->where('follower_user_id', $followerId)
-            ->where('followed_user_id', $id)
-            ->delete();
+        $followerId = $this->resolveUserId($followerId);
+        if ($followerId !== null) {
+            DB::table('follows')
+                ->where('follower_user_id', $followerId)
+                ->where('followed_user_id', $id)
+                ->delete();
+        }
 
         return response()->json(null, 204);
     }
@@ -399,7 +424,14 @@ class SocialController extends ApiController
     public function block(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
-        if ((string) $user->id === $id) {
+        // Resolve a uuid/username before the self-check (so a self-block can't slip
+        // through via the username) and to keep a non-uuid from hitting Postgres as
+        // a bad uuid cast (22P02 → 500) instead of a clean 404.
+        $id = $this->resolveUserId($id);
+        if ($id === null) {
+            throw ApiException::notFound('User not found');
+        }
+        if ((string) $user->id === (string) $id) {
             throw ApiException::validation('You cannot block yourself');
         }
         if (! DB::table('users')->where('id', $id)->whereNull('deleted_at')->exists()) {
@@ -438,10 +470,16 @@ class SocialController extends ApiController
 
     public function unblock(Request $request, string $id): JsonResponse
     {
-        DB::table('user_blocks')
-            ->where('blocker_user_id', $this->authUser($request)->id)
-            ->where('blocked_user_id', $id)
-            ->delete();
+        $user = $this->authUser($request);
+        // Resolve a uuid/username; an unresolvable target is an idempotent no-op
+        // and a non-uuid never reaches Postgres as a bad uuid cast (22P02 → 500).
+        $id = $this->resolveUserId($id);
+        if ($id !== null) {
+            DB::table('user_blocks')
+                ->where('blocker_user_id', $user->id)
+                ->where('blocked_user_id', $id)
+                ->delete();
+        }
 
         return response()->json(null, 204);
     }
@@ -453,6 +491,9 @@ class SocialController extends ApiController
                 ->join('users as u', 'u.id', '=', 'b.blocked_user_id')
                 ->where('b.blocker_user_id', $this->authUser($request)->id)
                 ->orderByDesc('b.created_at')
+                // Bound the result — a user's block list is never realistically
+                // this large, but an unbounded fetch must not be possible.
+                ->limit(500)
                 ->get(['u.id', 'u.display_name', 'u.photo_url', 'b.created_at as blocked_at'])
                 ->map(fn ($u) => [
                     'user_id' => $u->id,

@@ -110,7 +110,7 @@ export default function BookingsPage(): React.JSX.Element {
     [baseFilterParams, page],
   );
 
-  const { data: bookingsData, isFetching, isLoading, refetch } = useAdminBookings(params);
+  const { data: bookingsData, isFetching, isLoading, isError, refetch } = useAdminBookings(params);
   const bookings = React.useMemo(() => bookingsData?.results ?? [], [bookingsData]);
 
   // Stat cards summarise the *whole* filtered set (up to the backend's 100 cap),
@@ -396,22 +396,33 @@ export default function BookingsPage(): React.JSX.Element {
           ) : null}
         </div>
 
-        <BookingsTable
-          bookings={bookings}
-          loading={isLoading}
-          selectedIds={selectedIds}
-          onToggle={(id, checked) =>
-            setSelectedIds((current) =>
-              checked ? [...current, id] : current.filter((x) => x !== id),
-            )
-          }
-          onToggleAll={(checked) =>
-            setSelectedIds(checked ? bookings.map((b) => b.id) : [])
-          }
-          actions={rowActions}
-        />
+        {isError && !isLoading ? (
+          <div className="flex flex-col items-center justify-center gap-3 px-6 py-20 text-center">
+            <p className="text-sm font-semibold text-danger">{t("Rezervasiyalar yüklənmədi")}</p>
+            <p className="max-w-xs text-sm text-foregroundMuted">{t("Yenidən yoxlayın")}</p>
+            <Button variant="secondary" size="sm" onClick={() => void refetch()}>
+              <RefreshCw className="h-4 w-4" />
+              {t("Yenilə")}
+            </Button>
+          </div>
+        ) : (
+          <>
+            <BookingsTable
+              bookings={bookings}
+              loading={isLoading}
+              selectedIds={selectedIds}
+              onToggle={(id, checked) =>
+                setSelectedIds((current) =>
+                  checked ? [...current, id] : current.filter((x) => x !== id),
+                )
+              }
+              onToggleAll={(checked) =>
+                setSelectedIds(checked ? bookings.map((b) => b.id) : [])
+              }
+              actions={rowActions}
+            />
 
-        {totalCount > PAGE_SIZE ? (
+            {totalCount > PAGE_SIZE ? (
           <div className="flex flex-col items-center justify-between gap-3 border-t border-border px-5 py-3 sm:flex-row">
             <p className="text-sm text-foregroundMuted">
               {t("Səhifə")}{" "}
@@ -438,7 +449,9 @@ export default function BookingsPage(): React.JSX.Element {
               </Button>
             </div>
           </div>
-        ) : null}
+            ) : null}
+          </>
+        )}
       </div>
 
       {/* Detail slide-over */}

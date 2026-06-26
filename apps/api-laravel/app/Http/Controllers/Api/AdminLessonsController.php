@@ -239,8 +239,14 @@ class AdminLessonsController extends ApiController
         $this->assertVenue($data['venue_id']);
         $this->assertCoach($data['coach_id']);
         $this->assertSport($data['sport_id']);
+        if (! empty($data['court_id'])) {
+            $this->assertCourt((string) $data['court_id'], $data['venue_id']);
+        }
         if (strtotime($data['starts_at']) <= time()) {
             throw ApiException::validation('starts_at must be in the future');
+        }
+        if (isset($data['level_min_elo'], $data['level_max_elo']) && $data['level_min_elo'] !== null && $data['level_max_elo'] !== null && $data['level_min_elo'] > $data['level_max_elo']) {
+            throw ApiException::validation('level_min_elo cannot exceed level_max_elo');
         }
         $this->assertNoCoachOverlap($data['coach_id'], $data['starts_at'], (int) $data['duration_minutes']);
 
@@ -304,6 +310,10 @@ class AdminLessonsController extends ApiController
         }
         if (isset($data['sport_id'])) {
             $this->assertSport($data['sport_id']);
+        }
+        if (! empty($data['court_id'])) {
+            $effectiveVenue = (string) ($data['venue_id'] ?? DB::table('lessons')->where('id', $id)->value('venue_id'));
+            $this->assertCourt((string) $data['court_id'], $effectiveVenue);
         }
         // A lesson can't be rescheduled into the past, must keep min<=max ELO, and
         // must not double-book the coach. For overlap, resolve effective
@@ -407,6 +417,18 @@ class AdminLessonsController extends ApiController
     {
         if (! DB::table('coaches')->where('id', $coachId)->exists()) {
             throw ApiException::notFound('Coach not found');
+        }
+    }
+
+    /**
+     * A lesson's optional court must exist and belong to the lesson's venue.
+     * Without this an unknown court_id hits the courts FK (a raw 500) and a court
+     * from another venue would be silently accepted (cross-venue data integrity).
+     */
+    private function assertCourt(string $courtId, string $venueId): void
+    {
+        if (! DB::table('courts')->where('id', $courtId)->where('venue_id', $venueId)->exists()) {
+            throw ApiException::validation('Unknown court_id for this venue');
         }
     }
 

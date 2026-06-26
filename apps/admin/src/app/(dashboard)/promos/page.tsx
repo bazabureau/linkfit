@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Loader2, Pencil, Plus, Tag, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Plus, RefreshCw, Tag, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +43,7 @@ export default function PromosPage(): React.JSX.Element {
   const [q, setQ] = React.useState("");
   const [status, setStatus] = React.useState<PromoStatus | undefined>(undefined);
   const [dialog, setDialog] = React.useState<{ open: boolean; promo?: PromoCode }>({ open: false });
-  const { data, isLoading } = usePromoCodes({ q: q || undefined, status });
+  const { data, isLoading, isError, refetch } = usePromoCodes({ q: q || undefined, status });
   const del = useDeletePromoCode();
   const toast = useToast();
   const promos = data?.items ?? [];
@@ -92,6 +92,16 @@ export default function PromosPage(): React.JSX.Element {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={6} className="py-10 text-center text-foregroundMuted">{t("Yüklənir")}…</TableCell></TableRow>
+            ) : isError ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-10 text-center">
+                  <p className="text-sm text-danger">{t("Yenidən yoxlayın")}</p>
+                  <Button variant="secondary" size="sm" className="mt-3" onClick={() => void refetch()}>
+                    <RefreshCw className="h-4 w-4" />
+                    {t("Retry")}
+                  </Button>
+                </TableCell>
+              </TableRow>
             ) : promos.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="py-10 text-center text-foregroundMuted">{t("No promo codes")}</TableCell></TableRow>
             ) : (

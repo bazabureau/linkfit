@@ -285,7 +285,17 @@ class PaymentsController extends ApiController
 
     private function uuidArray(array $ids)
     {
-        $playerArray = '{'.implode(',', array_map(fn ($uid) => '"'.str_replace('"', '\"', $uid).'"', $ids)).'}';
+        // Defense-in-depth: this fragment is interpolated into a raw ::uuid[]
+        // literal, so it must NEVER carry attacker-controlled text. Callers
+        // already enforce the `uuid` rule + an existence check, but re-assert
+        // here so a future caller can't open a SQL-injection hole. A valid UUID
+        // is hex+dashes only, so the quoted literal is always inert.
+        foreach ($ids as $uid) {
+            if (! Str::isUuid((string) $uid)) {
+                throw ApiException::validation('One or more players do not exist');
+            }
+        }
+        $playerArray = '{'.implode(',', array_map(fn ($uid) => '"'.$uid.'"', $ids)).'}';
 
         return DB::raw("'".$playerArray."'::uuid[]");
     }

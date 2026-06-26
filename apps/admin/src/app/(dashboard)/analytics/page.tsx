@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
   Activity,
+  AlertTriangle,
   Building2,
   CalendarCheck2,
   CreditCard,
@@ -80,6 +81,32 @@ export default function AnalyticsPage(): React.JSX.Element {
           {t("Refresh")}
         </Button>
       </div>
+
+      {overview.isError ? (
+        <div className="flex flex-col gap-3 rounded-2xl border border-danger/40 bg-danger/5 px-4 py-4 shadow-card sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-danger/10 text-danger">
+              <AlertTriangle className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="font-medium text-foreground">{t("Failed to load analytics")}</p>
+              <p className="text-sm text-foregroundMuted">{t("Check your connection and try again.")}</p>
+            </div>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              void overview.refetch();
+              void revenue.refetch();
+            }}
+            disabled={overview.isFetching}
+            className="w-full sm:w-auto"
+          >
+            {t("Retry")}
+          </Button>
+        </div>
+      ) : null}
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map((k) => (
@@ -172,6 +199,17 @@ export default function AnalyticsPage(): React.JSX.Element {
             {revenue.isLoading ? (
               <TableRow>
                 <TableCell colSpan={3} className="py-10 text-center text-foregroundMuted">{t("Yüklənir")}…</TableCell>
+              </TableRow>
+            ) : revenue.isError ? (
+              <TableRow>
+                <TableCell colSpan={3} className="py-10 text-center">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <p className="text-sm text-foregroundMuted">{t("Failed to load analytics")}</p>
+                    <Button variant="secondary" size="sm" onClick={() => void revenue.refetch()} disabled={revenue.isFetching}>
+                      {t("Retry")}
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ) : (revenue.data?.by_venue.length ?? 0) === 0 ? (
               <TableRow>

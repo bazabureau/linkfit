@@ -26,7 +26,7 @@ function expiresInLabel(iso: string, now: number): string {
 export default function BookingHoldsPage(): React.JSX.Element {
   const { t } = useI18n();
   const [includeExpired, setIncludeExpired] = React.useState(false);
-  const { data, isLoading, isFetching, refetch } = useBookingHolds({ include_expired: includeExpired, limit: 100 });
+  const { data, isLoading, isError, isFetching, refetch } = useBookingHolds({ include_expired: includeExpired, limit: 100 });
   const items = data?.items ?? [];
 
   // Tick every second so the expiry countdown stays live.
@@ -81,7 +81,17 @@ export default function BookingHoldsPage(): React.JSX.Element {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {isError ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-10 text-center">
+                  <p className="text-sm font-semibold text-danger">{t("Could not load booking holds")}</p>
+                  <Button variant="secondary" size="sm" onClick={() => void refetch()} className="mt-3">
+                    <RefreshCw className="h-4 w-4" />
+                    {t("Retry")}
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ) : isLoading ? (
               <TableRow><TableCell colSpan={6} className="py-10 text-center text-foregroundMuted">{t("Yüklənir")}…</TableCell></TableRow>
             ) : items.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="py-10 text-center text-foregroundMuted">{t("No active holds")}</TableCell></TableRow>

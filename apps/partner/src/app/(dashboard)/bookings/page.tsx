@@ -236,10 +236,13 @@ export default function ReservationsPage(): React.JSX.Element {
   // Query Bookings based on selected Tab
   const bookingsParams = useMemo(() => {
     if (viewTab === "list") {
+      // The backend bookings endpoint only honors `from`/`to` (status/court/q
+      // are ignored server-side — see usePartnerBookings), so we send just the
+      // date window here and apply status/court/search filtering client-side
+      // below. Keeping those out of the params also keeps the React Query key
+      // stable across filter changes, avoiding a redundant refetch per
+      // keystroke in the search box.
       return {
-        status: status !== "all" ? status : undefined,
-        court_id: selectedCourtId !== "all" ? selectedCourtId : undefined,
-        q: q.trim() || undefined,
         from: from ? new Date(from + "T00:00:00").toISOString() : undefined,
         to: to ? new Date(to + "T23:59:59").toISOString() : undefined,
         limit: 200,
@@ -254,22 +257,38 @@ export default function ReservationsPage(): React.JSX.Element {
         limit: 100,
       };
     }
-  }, [viewTab, status, selectedCourtId, q, from, to, schedulerDate]);
+  }, [viewTab, from, to, schedulerDate]);
 
   const { data: bookingsData, isLoading, isFetching, isError, refetch } =
     usePartnerBookings(bookingsParams);
   const bookingsRaw = useMemo(() => bookingsData?.results ?? [], [bookingsData]);
 
-  // Dynamic filter for matchmaking view on the frontend
+  // Client-side filtering. The matchmaking (singles/doubles) filter applies to
+  // both views; the status / court / search filters are list-view only because
+  // the backend ignores those query params (see usePartnerBookings) and the
+  // calendar grid is meant to show the full day across every court.
   const bookings = useMemo(() => {
+    const needle = q.trim().toLowerCase();
     return bookingsRaw.filter((b) => {
-      if (matchmakingFilter === "all") return true;
-      const doubles = isDoublesBooking(b);
-      if (matchmakingFilter === "doubles") return doubles;
-      // "singles" view: anything not explicitly tagged doubles.
-      return !doubles;
+      if (matchmakingFilter !== "all") {
+        const doubles = isDoublesBooking(b);
+        if (matchmakingFilter === "doubles" && !doubles) return false;
+        if (matchmakingFilter === "singles" && doubles) return false;
+      }
+      if (viewTab === "list") {
+        if (status !== "all" && b.status !== status) return false;
+        if (selectedCourtId !== "all" && b.court_id !== selectedCourtId) {
+          return false;
+        }
+        if (needle) {
+          const name = getBookerName(b).toLowerCase();
+          const email = getBookerEmail(b).toLowerCase();
+          if (!name.includes(needle) && !email.includes(needle)) return false;
+        }
+      }
+      return true;
     });
-  }, [bookingsRaw, matchmakingFilter]);
+  }, [bookingsRaw, matchmakingFilter, viewTab, status, selectedCourtId, q]);
 
   // Reset to first page whenever the filtered result set changes.
   React.useEffect(() => {

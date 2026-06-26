@@ -267,6 +267,12 @@ class BookingsController extends ApiController
         $starts = CarbonImmutable::parse($data['starts_at']);
         $ends = $starts->addMinutes((int) $data['duration_minutes']);
         $this->assertBookingRules($court, $starts, (int) $data['duration_minutes']);
+        if (! empty($data['game_id'])) {
+            // Authorisation: a booking may only be attached to a game the actor is
+            // part of. Without this a client could link its booking to an
+            // arbitrary/other user's game_id (IDOR / data-integrity).
+            $this->assertGameBookable((string) $data['game_id'], (string) $user->id);
+        }
         $holdId = $data['hold_id'] ?? null;
         if ($holdId !== null) {
             $this->assertHoldMatches((string) $holdId, (string) $user->id, (string) $data['court_id'], $starts, (int) $data['duration_minutes']);
@@ -557,6 +563,11 @@ class BookingsController extends ApiController
         ]);
         $now = now();
         $rows = $this->bookingsQuery($user->id, $query)->orderByDesc('b.starts_at')
+            // Bound the result set (mirrors exportMine's cap): this endpoint has no
+            // pagination, so an unbounded ->get() would grow without limit for a
+            // power user. 1000 most-recent bookings comfortably covers any real
+            // account while preventing an unbounded query.
+            ->limit(1000)
             ->get(['b.*', 'c.name as court_name', 'v.id as venue_id', 'v.name as venue_name']);
         [$splitsByBooking, $promoByBooking] = $this->prefetchBookingRelations($rows);
         $upcoming = $rows->filter(fn ($b) => CarbonImmutable::parse($b->starts_at)->greaterThanOrEqualTo($now)
@@ -780,6 +791,17 @@ class BookingsController extends ApiController
         }
         if ($booking->user_id !== $user->id) {
             throw ApiException::forbidden('Forbidden');
+        }
+        // Idempotent: re-cancelling an already-cancelled booking is a no-op. This
+        // also prevents the refund_status wipe below — re-running the update for a
+        // booking that is not pending/paid would reset refund_status to null and
+        // overwrite an existing refund record, and re-fire the cancellation
+        // notification + waitlist promotion.
+        if ($booking->status === 'cancelled') {
+            return $this->show($request, $id);
+        }
+        if (in_array($booking->status, ['refunded', 'failed'], true)) {
+            throw ApiException::conflict('Booking cannot be cancelled');
         }
         $court = DB::table('courts as c')->join('venues as v', 'v.id', '=', 'c.venue_id')->where('c.id', $booking->court_id)->first(['v.cancellation_window_minutes']);
         $window = max(0, (int) ($court->cancellation_window_minutes ?? 120));
@@ -1267,6 +1289,31 @@ class BookingsController extends ApiController
         // requests without narrowing the contract.
         if ($starts->addMinutes($duration)->lessThanOrEqualTo(CarbonImmutable::now())) {
             throw ApiException::conflict('Booking time is in the past');
+        }
+    }
+
+    /**
+     * A booking may only reference a game the actor is part of: the host or a
+     * roster participant. Blocks linking a booking to an arbitrary/other user's
+     * game_id (IDOR / data-integrity). Skipped when the games table is absent
+     * (minimal test schemas) so unrelated behaviour is unchanged.
+     */
+    private function assertGameBookable(string $gameId, string $userId): void
+    {
+        if (! Schema::hasTable('games')) {
+            return;
+        }
+        $game = DB::table('games')->where('id', $gameId)->first(['id', 'host_user_id']);
+        if ($game === null) {
+            throw ApiException::validation('Unknown game_id');
+        }
+        if ((string) $game->host_user_id === $userId) {
+            return;
+        }
+        $isParticipant = Schema::hasTable('game_participants')
+            && DB::table('game_participants')->where('game_id', $gameId)->where('user_id', $userId)->exists();
+        if (! $isParticipant) {
+            throw ApiException::forbidden('You cannot book for this game');
         }
     }
 

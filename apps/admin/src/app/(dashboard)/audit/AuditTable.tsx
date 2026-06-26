@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { type AuditEntry, useAudit } from "@/lib/admin-audit";
+import { type AuditEntry, useAudit, useAuditFilters } from "@/lib/admin-audit";
 import { API_BASE_URL, apiHeaders } from "@/lib/api";
 import { ACCESS_TOKEN_COOKIE, getCookie } from "@/lib/cookies";
 import {
@@ -169,6 +169,7 @@ function AuditRow({ entry }: { entry: AuditEntry }): React.JSX.Element {
 
 export function AuditTable(): React.JSX.Element {
   const toast = useToast();
+  const filters = useAuditFilters();
   const {
     data,
     isLoading,
@@ -206,9 +207,19 @@ export function AuditTable(): React.JSX.Element {
     setExporting(true);
     try {
       const token = getCookie(ACCESS_TOKEN_COOKIE);
-      const response = await fetch(`${API_BASE_URL}/api/v1/admin/audit/export`, {
-        headers: apiHeaders(undefined, token),
-      });
+      // Keep the CSV export in sync with the active filter bar — the backend
+      // export endpoint honours the same query params as the audit list.
+      const params = new URLSearchParams();
+      if (filters.action) params.set("action", filters.action);
+      if (filters.entity) params.set("entity", filters.entity);
+      if (filters.actor_user_id) params.set("actor_user_id", filters.actor_user_id);
+      if (filters.from) params.set("from", filters.from);
+      if (filters.to) params.set("to", filters.to);
+      const query = params.toString();
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/admin/audit/export${query ? `?${query}` : ""}`,
+        { headers: apiHeaders(undefined, token) },
+      );
       if (!response.ok) throw new Error("Export file could not be generated");
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -226,7 +237,7 @@ export function AuditTable(): React.JSX.Element {
     } finally {
       setExporting(false);
     }
-  }, [toast]);
+  }, [toast, filters]);
 
   const triggerNext = React.useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) void fetchNextPage();

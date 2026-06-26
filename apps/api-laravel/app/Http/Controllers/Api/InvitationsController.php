@@ -19,7 +19,9 @@ class InvitationsController extends ApiController
         $user = $this->authUser($request);
         $data = $this->validateBody($request, ['invitee_user_id' => ['required', 'uuid', 'exists:users,id,deleted_at,NULL']]);
         $game = DB::table('games')->where('id', $id)->first();
-        if ($game === null) {
+        // A soft-deleted game is not invitable — match accept()'s deleted-game
+        // guard so a host can't mint phantom invites (+ pushes) for a dead game.
+        if ($game === null || $game->deleted_at !== null) {
             throw ApiException::notFound('Game not found');
         }
         if ($game->host_user_id !== $user->id) {
@@ -33,7 +35,12 @@ class InvitationsController extends ApiController
         }
 
         $inviteId = (string) Str::uuid();
-        DB::table('game_invitations')->insertOrIgnore([
+        // Only a freshly created pending invite should fire a notification. The
+        // partial unique index (game_id, invitee_user_id WHERE status='pending')
+        // makes insertOrIgnore a no-op on a re-invite of an already-pending
+        // invitee; re-notifying on every retry would be a push-spam vector
+        // (mirrors batch()'s `if ($inserted)` guard).
+        $inserted = DB::table('game_invitations')->insertOrIgnore([
             'id' => $inviteId,
             'game_id' => $id,
             'inviter_user_id' => $user->id,
@@ -41,7 +48,9 @@ class InvitationsController extends ApiController
             'status' => 'pending',
             'created_at' => now(),
         ]);
-        $this->enqueueNotification($data['invitee_user_id'], 'tournament_invite', 'Game invite', 'You were invited to a game.', ['kind' => 'game_invite', 'game_id' => $id, 'inviter_user_id' => $user->id]);
+        if ($inserted) {
+            $this->enqueueNotification($data['invitee_user_id'], 'tournament_invite', 'Game invite', 'You were invited to a game.', ['kind' => 'game_invite', 'game_id' => $id, 'inviter_user_id' => $user->id]);
+        }
 
         return response()->json($this->payload(DB::table('game_invitations')->where('game_id', $id)->where('invitee_user_id', $data['invitee_user_id'])->where('status', 'pending')->first()), 201);
     }
@@ -58,7 +67,8 @@ class InvitationsController extends ApiController
             'user_ids.*' => ['uuid', 'exists:users,id,deleted_at,NULL'],
         ]);
         $game = DB::table('games')->where('id', $id)->first();
-        if ($game === null) {
+        // A soft-deleted game is not invitable (mirrors create()).
+        if ($game === null || $game->deleted_at !== null) {
             throw ApiException::notFound('Game not found');
         }
         if ($game->host_user_id !== $user->id) {

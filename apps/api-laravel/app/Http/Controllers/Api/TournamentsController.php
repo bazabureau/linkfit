@@ -372,7 +372,12 @@ class TournamentsController extends ApiController
             throw ApiException::validation('Captain cannot be listed as a player');
         }
         if ($playerIds !== []) {
-            $existingUsers = DB::table('users')->whereIn('id', $playerIds)->count();
+            // Exclude soft-deleted accounts (mirrors optionalViewerId's deleted_at
+            // gate) so a withdrawn/ghost user can't be rostered into a squad.
+            $existingUsers = DB::table('users')
+                ->whereIn('id', $playerIds)
+                ->whereNull('deleted_at')
+                ->count();
             if ($existingUsers !== count($playerIds)) {
                 throw ApiException::validation('One or more players do not exist');
             }
@@ -419,8 +424,8 @@ class TournamentsController extends ApiController
             'captain_user_id' => $e->captain_user_id,
             // iOS TournamentEntry: captain_display_name + player_names are required
             // (live on the users table, not tournament_entries).
-            'captain_display_name' => $captain->display_name ?? '',
-            'captain_photo_url' => $captain->photo_url ?? null,
+            'captain_display_name' => $captain?->display_name ?? '',
+            'captain_photo_url' => $captain?->photo_url ?? null,
             'squad_name' => $e->squad_name,
             'player_ids' => $playerIds,
             'player_names' => $playerNames,

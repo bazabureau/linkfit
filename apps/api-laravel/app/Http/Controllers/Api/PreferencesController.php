@@ -126,7 +126,16 @@ class PreferencesController extends ApiController
         // actually sends one (otherwise the digest toggle would crash).
         $update = ['daily_digest_enabled' => $data['enabled'], 'updated_at' => now()];
         if (! empty($data['time_zone'])) {
-            $update['time_zone'] = $data['time_zone'];
+            // Only persist a parseable zone — an unparseable value would corrupt
+            // the NOT NULL users.time_zone column that the digest cron feeds into
+            // `new DateTimeZone()`. Accepts any value PHP can parse (IANA names /
+            // offsets), so currently-valid clients are unaffected.
+            try {
+                new \DateTimeZone((string) $data['time_zone']);
+                $update['time_zone'] = $data['time_zone'];
+            } catch (\Throwable $e) {
+                throw \App\Support\ApiException::validation('Invalid time_zone');
+            }
         }
         DB::table('users')->where('id', $this->authUser($request)->id)->update($update);
 

@@ -14,7 +14,14 @@ class RequestId
 {
     public function handle(Request $request, Closure $next)
     {
-        $id = $request->header('X-Request-Id') ?: (string) Str::uuid();
+        // Only honour a well-formed inbound id (safe token, bounded length).
+        // Anything else is replaced with a fresh UUID so a client cannot inject
+        // control characters into logs or the reflected response header via
+        // X-Request-Id (log/header splitting).
+        $inbound = (string) $request->header('X-Request-Id', '');
+        $id = preg_match('/^[A-Za-z0-9._-]{1,128}$/', $inbound) === 1
+            ? $inbound
+            : (string) Str::uuid();
         $request->attributes->set('request_id', $id);
 
         $response = $next($request);

@@ -17,6 +17,7 @@ import { Card } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
+import { api } from "@/lib/api";
 import {
   usePartnerAccount,
   useUpdatePartnerAccount,
@@ -32,6 +33,7 @@ export default function AccountPage(): React.JSX.Element {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     if (account) setDisplayName(account.display_name);
@@ -68,11 +70,17 @@ export default function AccountPage(): React.JSX.Element {
       toast.error("Xəta", "Yeni şifrə təsdiqi uyğun gəlmir.");
       return;
     }
+    setChangingPassword(true);
     try {
-      await updateMut.mutateAsync({
-        current_password: currentPassword,
-        password: newPassword,
-      });
+      // Call the endpoint directly with skipRefresh so a 401 ("Current password
+      // is invalid") surfaces as an error toast instead of triggering the shared
+      // client's refresh+logout flow, which would otherwise sign the partner out
+      // on a simple wrong-password attempt.
+      await api.patch(
+        "/api/v1/partner/account",
+        { current_password: currentPassword, password: newPassword },
+        { skipRefresh: true },
+      );
       toast.success("Şifrə dəyişdirildi", "Şifrəniz uğurla yeniləndi.");
       setCurrentPassword("");
       setNewPassword("");
@@ -80,6 +88,8 @@ export default function AccountPage(): React.JSX.Element {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       toast.error("Əməliyyat baş tutmadı", message || "Şifrəni dəyişmək mümkün olmadı.");
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -254,10 +264,10 @@ export default function AccountPage(): React.JSX.Element {
           <div className="flex justify-end">
             <Button
               type="submit"
-              disabled={updateMut.isPending}
+              disabled={changingPassword}
               className="gap-2"
             >
-              {updateMut.isPending ? (
+              {changingPassword ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <KeyRound className="h-4 w-4" />

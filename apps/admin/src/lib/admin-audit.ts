@@ -6,7 +6,8 @@ import { api } from "@/lib/api";
 
 export type AuditEntry = {
   id: string;
-  actor_user_id: string;
+  // null for system-generated entries (no acting admin).
+  actor_user_id: string | null;
   actor_display_name?: string | null;
   action: string;
   entity: string;

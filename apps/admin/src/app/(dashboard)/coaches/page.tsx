@@ -265,7 +265,7 @@ function CoachDialog({ coach, onClose }: { coach?: AdminCoach; onClose: () => vo
         toast.success(editing ? t("Məşqçi yeniləndi") : t("Məşqçi yaradıldı"));
         onClose();
       },
-      onError: () => toast.error(t("Alınmadı")),
+      onError: (err: Error) => toast.error(t("Alınmadı"), err.message),
     };
     if (editing && coach) update.mutate({ id: coach.id, data }, opts);
     else create.mutate(data, opts);
@@ -376,10 +376,23 @@ function LessonDialog({ lesson, onClose }: { lesson?: AdminLesson; onClose: () =
         toast.success(editing ? t("Dərs yeniləndi") : t("Dərs yaradıldı"));
         onClose();
       },
-      onError: () => toast.error(t("Alınmadı")),
+      onError: (err: Error) => toast.error(t("Alınmadı"), err.message),
     };
-    if (editing && lesson) update.mutate({ id: lesson.id, data: { ...base, status: form.status } }, opts);
-    else create.mutate(base, opts);
+    if (editing && lesson) {
+      // Only resend starts_at when the admin actually changed it. The API rejects
+      // a past starts_at ("must be in the future"), so always-sending the original
+      // time would block edits to already-started lessons (e.g. marking one
+      // completed/cancelled) and could shift the stored time across timezones.
+      const initialStarts = lesson.starts_at ? lesson.starts_at.slice(0, 16) : "";
+      const { starts_at, ...rest } = base;
+      const data =
+        form.starts_at === initialStarts
+          ? { ...rest, status: form.status }
+          : { ...rest, starts_at, status: form.status };
+      update.mutate({ id: lesson.id, data }, opts);
+    } else {
+      create.mutate(base, opts);
+    }
   }
 
   return (

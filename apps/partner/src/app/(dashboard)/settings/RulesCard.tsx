@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarCog, Loader2, Save, Clock } from "lucide-react";
+import { CalendarCog, Loader2, Save, Clock, AlertCircle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
@@ -32,7 +32,7 @@ const EMPTY: RulesForm = {
  */
 export function RulesCard({ step }: { step: number }): React.JSX.Element {
   const toast = useToast();
-  const { data: rules, isLoading } = usePartnerRules();
+  const { data: rules, isLoading, isError, refetch, isFetching } = usePartnerRules();
   const updateMut = useUpdatePartnerRules();
 
   const [form, setForm] = useState<RulesForm>(EMPTY);
@@ -103,6 +103,30 @@ export function RulesCard({ step }: { step: number }): React.JSX.Element {
     >
       {isLoading ? (
         <div className="h-40 animate-pulse rounded-xl bg-surfaceElevated/60" />
+      ) : isError ? (
+        <div className="flex flex-col items-center justify-center gap-4 py-10 text-center">
+          <div className="grid h-14 w-14 place-items-center rounded-2xl bg-danger/10 ring-1 ring-danger/15">
+            <AlertCircle className="h-6 w-6 text-danger" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-foreground">
+              Qaydalar yüklənmədi
+            </h3>
+            <p className="mx-auto max-w-sm text-sm text-foregroundMuted">
+              Rezervasiya qaydalarını almaq mümkün olmadı. Yenidən cəhd edin.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="gap-2"
+          >
+            <RotateCcw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+            Yenidən cəhd et
+          </Button>
+        </div>
       ) : (
         <form onSubmit={handleSave} className="space-y-5">
           <div className="grid gap-5 sm:grid-cols-2">

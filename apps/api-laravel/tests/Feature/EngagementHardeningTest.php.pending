@@ -1,0 +1,471 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Http\Controllers\Api\EngagementController;
+use App\Models\User;
+use App\Support\ApiException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use Tests\TestCase;
+
+/**
+ * Hardening for the engagement surface (leaderboards / achievements /
+ * announcements). Drives EngagementController directly with synthetic Requests
+ * (auth_user attribute set where the route is authed) over an in-memory sqlite
+ * schema — mirroring SocialHardeningTest. Covers happy paths plus the authz,
+ * validation and pagination guards the controller enforces.
+ */
+class EngagementHardeningTest extends TestCase
+{
+    private const ALICE = '00000000-0000-4000-8000-000000000a01';
+
+    private const BOB = '00000000-0000-4000-8000-000000000a02';
+
+    private const ADMIN = '00000000-0000-4000-8000-000000000a03';
+
+    private const VIEWER = '00000000-0000-4000-8000-000000000a04';
+
+    private const PADEL = '00000000-0000-4000-8000-0000000000s1';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('database.default', 'sqlite');
+        config()->set('database.connections.sqlite.database', ':memory:');
+        config()->set('broadcasting.default', 'log');
+        DB::purge('sqlite');
+        DB::reconnect('sqlite');
+
+        Schema::create('users', function ($table): void {
+            $table->string('id')->primary();
+            $table->string('username')->nullable();
+            $table->string('display_name')->nullable();
+            $table->string('photo_url')->nullable();
+            $table->boolean('is_verified')->default(false);
+            $table->boolean('is_vip')->default(false);
+            $table->string('vip_badge_label')->nullable();
+            $table->boolean('is_ambassador')->default(false);
+            $table->string('admin_role')->nullable();
+            $table->string('email')->nullable();
+            $table->timestamp('deleted_at')->nullable();
+        });
+        Schema::create('sports', function ($table): void {
+            $table->string('id')->primary();
+            $table->string('slug');
+        });
+        Schema::create('player_sport_stats', function ($table): void {
+            $table->string('user_id');
+            $table->string('sport_id');
+            $table->integer('elo_rating')->default(1200);
+            $table->integer('games_played')->default(0);
+            $table->integer('games_won')->default(0);
+            $table->integer('reliability_score')->nullable();
+            $table->primary(['user_id', 'sport_id']);
+        });
+        Schema::create('achievements', function ($table): void {
+            $table->string('id')->primary();
+            $table->string('slug');
+            $table->string('name');
+            $table->text('description');
+            $table->string('icon_name');
+            $table->timestamp('created_at')->nullable();
+        });
+        Schema::create('user_achievements', function ($table): void {
+            $table->string('user_id');
+            $table->string('achievement_slug');
+            $table->timestamp('unlocked_at')->nullable();
+            $table->primary(['user_id', 'achievement_slug']);
+        });
+        Schema::create('user_blocks', function ($table): void {
+            $table->string('blocker_user_id');
+            $table->string('blocked_user_id');
+            $table->timestamp('created_at')->nullable();
+        });
+        Schema::create('announcements', function ($table): void {
+            $table->string('id')->primary();
+            $table->string('title_az');
+            $table->string('title_en');
+            $table->string('title_ru');
+            $table->text('body_az')->nullable();
+            $table->text('body_en')->nullable();
+            $table->text('body_ru')->nullable();
+            $table->string('cta_label_az')->nullable();
+            $table->string('cta_label_en')->nullable();
+            $table->string('cta_label_ru')->nullable();
+            $table->string('cta_url')->nullable();
+            $table->timestamp('starts_at')->nullable();
+            $table->timestamp('ends_at')->nullable();
+            $table->string('audience')->default('all');
+            $table->integer('priority')->default(100);
+            $table->timestamp('created_at')->nullable();
+            $table->string('created_by_user_id')->nullable();
+        });
+        Schema::create('user_dismissed_announcements', function ($table): void {
+            $table->string('user_id');
+            $table->string('announcement_id');
+            $table->timestamp('dismissed_at')->nullable();
+            $table->primary(['user_id', 'announcement_id']);
+        });
+        Schema::create('audit_log', function ($table): void {
+            $table->string('id')->primary();
+            $table->string('actor_user_id')->nullable();
+            $table->string('action');
+            $table->string('entity');
+            $table->string('entity_id')->nullable();
+            $table->text('metadata')->nullable();
+            $table->timestamp('created_at')->nullable();
+        });
+
+        DB::table('sports')->insert(['id' => self::PADEL, 'slug' => 'padel']);
+        DB::table('users')->insert([
+            ['id' => self::ALICE, 'username' => 'alice', 'display_name' => 'Alice'],
+            ['id' => self::BOB, 'username' => 'bob', 'display_name' => 'Bob'],
+            ['id' => self::ADMIN, 'username' => 'admin', 'display_name' => 'Admin', 'admin_role' => 'admin', 'email' => 'admin@example.test'],
+            ['id' => self::VIEWER, 'username' => 'viewer', 'display_name' => 'Viewer'],
+        ]);
+    }
+
+    protected function tearDown(): void
+    {
+        foreach ([
+            'audit_log', 'user_dismissed_announcements', 'announcements', 'user_blocks',
+            'user_achievements', 'achievements', 'player_sport_stats', 'sports', 'users',
+        ] as $table) {
+            Schema::dropIfExists($table);
+        }
+
+        parent::tearDown();
+    }
+
+    // ---- leaderboards --------------------------------------------------
+
+    public function test_leaderboards_authed_ranks_by_elo_with_win_rate(): void
+    {
+        $this->seedStats(self::ALICE, elo: 1500, played: 10, won: 6);
+        $this->seedStats(self::BOB, elo: 1400, played: 4, won: 1);
+
+        $data = app(EngagementController::class)
+            ->leaderboards($this->reqGet('/api/v1/rankings', ['sort' => 'elo'], self::VIEWER))
+            ->getData(true);
+
+        $this->assertSame(2, $data['total_count']);
+        $this->assertCount(2, $data['items']);
+        $this->assertSame(self::ALICE, $data['items'][0]['user_id']);
+        $this->assertSame(1, $data['items'][0]['rank']);
+        $this->assertSame(0.6, $data['items'][0]['win_rate']);
+        $this->assertSame(self::BOB, $data['items'][1]['user_id']);
+        $this->assertSame(2, $data['items'][1]['rank']);
+    }
+
+    public function test_leaderboards_excludes_staff_accounts(): void
+    {
+        $this->seedStats(self::ALICE, elo: 1500, played: 1, won: 1);
+        $this->seedStats(self::ADMIN, elo: 3000, played: 1, won: 1);
+
+        $data = app(EngagementController::class)
+            ->leaderboards($this->reqGet('/api/v1/rankings', [], self::VIEWER))
+            ->getData(true);
+
+        $ids = array_column($data['items'], 'user_id');
+        $this->assertContains(self::ALICE, $ids);
+        $this->assertNotContains(self::ADMIN, $ids, 'Staff accounts must never appear on the public leaderboard.');
+    }
+
+    public function test_leaderboards_anonymous_sees_only_public_directory(): void
+    {
+        // Promote BOB into the curated public directory; ALICE stays private.
+        DB::table('users')->where('id', self::BOB)->update(['username' => 'kamran-namazov']);
+        $this->seedStats(self::ALICE, elo: 1500, played: 1, won: 1);
+        $this->seedStats(self::BOB, elo: 1400, played: 1, won: 1);
+
+        $data = app(EngagementController::class)
+            ->leaderboards($this->reqGet('/api/v1/rankings'))
+            ->getData(true);
+
+        $ids = array_column($data['items'], 'user_id');
+        $this->assertSame([self::BOB], $ids, 'Anonymous viewers only see the curated public directory.');
+    }
+
+    public function test_leaderboards_search_escapes_like_wildcards(): void
+    {
+        $this->seedStats(self::ALICE, elo: 1500, played: 1, won: 1);
+        $this->seedStats(self::BOB, elo: 1400, played: 1, won: 1);
+
+        // A bare `%` must be treated literally (matches nobody), not as a
+        // match-all wildcard.
+        $data = app(EngagementController::class)
+            ->leaderboards($this->reqGet('/api/v1/rankings', ['q' => '%'], self::VIEWER))
+            ->getData(true);
+
+        $this->assertSame(0, $data['total_count']);
+    }
+
+    public function test_leaderboards_rejects_invalid_sort(): void
+    {
+        $this->assertThrowsStatus(422, fn () => app(EngagementController::class)
+            ->leaderboards($this->reqGet('/api/v1/rankings', ['sort' => 'bogus'], self::VIEWER)));
+    }
+
+    // ---- achievements --------------------------------------------------
+
+    public function test_achievements_returns_catalog_with_unlocked_flags(): void
+    {
+        DB::table('achievements')->insert([
+            ['id' => Str::uuid()->toString(), 'slug' => 'first_game', 'name' => 'First Game', 'description' => 'd', 'icon_name' => 'i', 'created_at' => now()->subDay()],
+            ['id' => Str::uuid()->toString(), 'slug' => 'ten_games', 'name' => 'Ten', 'description' => 'd', 'icon_name' => 'i', 'created_at' => now()],
+        ]);
+        DB::table('user_achievements')->insert([
+            'user_id' => self::ALICE, 'achievement_slug' => 'first_game', 'unlocked_at' => now(),
+        ]);
+
+        $data = app(EngagementController::class)
+            ->achievements($this->reqGet('/api/v1/users/x/achievements', [], self::ALICE), self::ALICE)
+            ->getData(true);
+
+        $this->assertSame(2, $data['total_count']);
+        $this->assertSame(1, $data['unlocked_count']);
+        $byslug = collect($data['items'])->keyBy('slug');
+        $this->assertTrue($byslug['first_game']['unlocked']);
+        $this->assertNotNull($byslug['first_game']['unlocked_at']);
+        $this->assertFalse($byslug['ten_games']['unlocked']);
+        $this->assertNull($byslug['ten_games']['unlocked_at']);
+    }
+
+    public function test_achievements_hidden_when_blocked_either_direction(): void
+    {
+        DB::table('user_blocks')->insert([
+            'blocker_user_id' => self::BOB, 'blocked_user_id' => self::VIEWER, 'created_at' => now(),
+        ]);
+
+        $this->assertThrowsStatus(404, fn () => app(EngagementController::class)
+            ->achievements($this->reqGet('/api/v1/users/x/achievements', [], self::VIEWER), self::BOB));
+    }
+
+    public function test_achievements_anonymous_blocked_for_private_user(): void
+    {
+        // ALICE is not in the public directory and viewer is anonymous.
+        $this->assertThrowsStatus(404, fn () => app(EngagementController::class)
+            ->achievements($this->reqGet('/api/v1/users/x/achievements'), self::ALICE));
+    }
+
+    // ---- announcements (consumer) --------------------------------------
+
+    public function test_announcements_returns_active_then_excludes_dismissed(): void
+    {
+        $id = $this->seedAnnouncement();
+
+        $first = app(EngagementController::class)
+            ->announcements($this->reqGet('/api/v1/me/announcements', [], self::ALICE))
+            ->getData(true);
+        $this->assertNotNull($first['announcement']);
+        $this->assertSame($id, $first['announcement']['id']);
+
+        app(EngagementController::class)
+            ->dismissAnnouncement($this->reqPost('/api/v1/me/announcements/'.$id.'/dismiss', [], self::ALICE), $id);
+
+        $second = app(EngagementController::class)
+            ->announcements($this->reqGet('/api/v1/me/announcements', [], self::ALICE))
+            ->getData(true);
+        $this->assertNull($second['announcement']);
+    }
+
+    public function test_dismiss_unknown_or_garbage_id_is_not_found(): void
+    {
+        $this->assertThrowsStatus(404, fn () => app(EngagementController::class)
+            ->dismissAnnouncement($this->reqPost('/api/v1/me/announcements/x/dismiss', [], self::ALICE), Str::uuid()->toString()));
+        $this->assertThrowsStatus(404, fn () => app(EngagementController::class)
+            ->dismissAnnouncement($this->reqPost('/api/v1/me/announcements/x/dismiss', [], self::ALICE), 'not-a-uuid'));
+        $this->assertSame(0, DB::table('user_dismissed_announcements')->count());
+    }
+
+    public function test_dismiss_is_idempotent(): void
+    {
+        $id = $this->seedAnnouncement();
+
+        app(EngagementController::class)->dismissAnnouncement($this->reqPost('/x', [], self::ALICE), $id);
+        app(EngagementController::class)->dismissAnnouncement($this->reqPost('/x', [], self::ALICE), $id);
+
+        $this->assertSame(1, DB::table('user_dismissed_announcements')
+            ->where('user_id', self::ALICE)->where('announcement_id', $id)->count());
+    }
+
+    // ---- announcements (admin) -----------------------------------------
+
+    public function test_create_announcement_requires_admin(): void
+    {
+        $this->assertThrowsStatus(403, fn () => app(EngagementController::class)
+            ->createAnnouncement($this->reqPost('/api/v1/admin/announcements', $this->createPayload(), self::ALICE)));
+    }
+
+    public function test_create_announcement_happy_path_writes_audit(): void
+    {
+        $response = app(EngagementController::class)
+            ->createAnnouncement($this->reqPost('/api/v1/admin/announcements', $this->createPayload(), self::ADMIN));
+
+        $this->assertSame(201, $response->getStatusCode());
+        $body = $response->getData(true);
+        $this->assertNotEmpty($body['id']);
+        $this->assertSame('Salam', $body['title_az']);
+        $this->assertSame(1, DB::table('announcements')->count());
+        $this->assertSame(1, DB::table('audit_log')->where('action', 'announcement.create')->count());
+    }
+
+    public function test_create_announcement_allows_deeplink_and_null_cta(): void
+    {
+        $ok = app(EngagementController::class)
+            ->createAnnouncement($this->reqPost('/x', $this->createPayload(['cta_url' => 'linkfit://game/1']), self::ADMIN));
+        $this->assertSame(201, $ok->getStatusCode());
+
+        $noCta = app(EngagementController::class)
+            ->createAnnouncement($this->reqPost('/x', $this->createPayload(['cta_url' => null]), self::ADMIN));
+        $this->assertSame(201, $noCta->getStatusCode());
+    }
+
+    public function test_create_announcement_rejects_dangerous_cta_url(): void
+    {
+        $this->assertThrowsStatus(422, fn () => app(EngagementController::class)
+            ->createAnnouncement($this->reqPost('/x', $this->createPayload(['cta_url' => 'javascript:alert(1)']), self::ADMIN)));
+        $this->assertThrowsStatus(422, fn () => app(EngagementController::class)
+            ->createAnnouncement($this->reqPost('/x', $this->createPayload(['cta_url' => '//evil.example']), self::ADMIN)));
+        $this->assertSame(0, DB::table('announcements')->count());
+    }
+
+    public function test_create_announcement_rejects_inverted_window(): void
+    {
+        $payload = $this->createPayload([
+            'starts_at' => now()->addDay()->toIso8601String(),
+            'ends_at' => now()->toIso8601String(),
+        ]);
+        $this->assertThrowsStatus(422, fn () => app(EngagementController::class)
+            ->createAnnouncement($this->reqPost('/x', $payload, self::ADMIN)));
+    }
+
+    public function test_admin_list_requires_admin(): void
+    {
+        $this->assertThrowsStatus(403, fn () => app(EngagementController::class)
+            ->adminAnnouncements($this->reqGet('/api/v1/admin/announcements', [], self::ALICE)));
+    }
+
+    public function test_update_announcement_rejects_inverted_window(): void
+    {
+        $id = $this->seedAnnouncement();
+        $this->assertThrowsStatus(422, fn () => app(EngagementController::class)
+            ->updateAnnouncement($this->reqPatch('/x', [
+                'starts_at' => now()->addDay()->toIso8601String(),
+                'ends_at' => now()->toIso8601String(),
+            ], self::ADMIN), $id));
+    }
+
+    public function test_update_announcement_rejects_dangerous_cta_url(): void
+    {
+        $id = $this->seedAnnouncement();
+        $this->assertThrowsStatus(422, fn () => app(EngagementController::class)
+            ->updateAnnouncement($this->reqPatch('/x', ['cta_url' => 'javascript:evil()'], self::ADMIN), $id));
+    }
+
+    public function test_delete_announcement_requires_admin_and_removes_row(): void
+    {
+        $id = $this->seedAnnouncement();
+
+        $this->assertThrowsStatus(403, fn () => app(EngagementController::class)
+            ->deleteAnnouncement($this->reqPost('/x', [], self::ALICE), $id));
+        $this->assertSame(1, DB::table('announcements')->count());
+
+        $response = app(EngagementController::class)
+            ->deleteAnnouncement($this->reqPost('/x', [], self::ADMIN), $id);
+        $this->assertTrue($response->getData(true)['ok']);
+        $this->assertSame(0, DB::table('announcements')->count());
+    }
+
+    // ---- helpers -------------------------------------------------------
+
+    private function seedStats(string $userId, int $elo, int $played, int $won): void
+    {
+        DB::table('player_sport_stats')->insert([
+            'user_id' => $userId,
+            'sport_id' => self::PADEL,
+            'elo_rating' => $elo,
+            'games_played' => $played,
+            'games_won' => $won,
+            'reliability_score' => 100,
+        ]);
+    }
+
+    private function seedAnnouncement(): string
+    {
+        $id = Str::uuid()->toString();
+        DB::table('announcements')->insert([
+            'id' => $id,
+            'title_az' => 'Salam', 'title_en' => 'Hi', 'title_ru' => 'Privet',
+            'starts_at' => now()->subHour(),
+            'ends_at' => null,
+            'audience' => 'all',
+            'priority' => 100,
+            'created_at' => now(),
+            'created_by_user_id' => self::ADMIN,
+        ]);
+
+        return $id;
+    }
+
+    private function createPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'title_az' => 'Salam',
+            'title_en' => 'Hi',
+            'title_ru' => 'Privet',
+        ], $overrides);
+    }
+
+    private function reqGet(string $uri, array $query = [], ?string $authUserId = null): Request
+    {
+        return $this->request('GET', $uri, $query, $authUserId);
+    }
+
+    private function reqPost(string $uri, array $body = [], ?string $authUserId = null): Request
+    {
+        return $this->request('POST', $uri, $body, $authUserId);
+    }
+
+    private function reqPatch(string $uri, array $body = [], ?string $authUserId = null): Request
+    {
+        return $this->request('PATCH', $uri, $body, $authUserId);
+    }
+
+    private function request(string $method, string $uri, array $params, ?string $authUserId): Request
+    {
+        $request = Request::create($uri, $method, $params);
+        if ($authUserId !== null) {
+            $request->attributes->set('auth_user', $this->actingUser($authUserId));
+        }
+
+        return $request;
+    }
+
+    private function actingUser(string $id): User
+    {
+        $row = DB::table('users')->where('id', $id)->first();
+        $user = new User;
+        $user->forceFill([
+            'id' => $id,
+            'display_name' => $row->display_name ?? 'User',
+            'admin_role' => $row->admin_role ?? null,
+        ]);
+
+        return $user;
+    }
+
+    private function assertThrowsStatus(int $status, callable $fn): void
+    {
+        try {
+            $fn();
+            $this->fail("Expected an ApiException with status {$status}");
+        } catch (ApiException $e) {
+            $this->assertSame($status, $e->getStatusCode());
+        }
+    }
+}

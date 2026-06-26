@@ -144,6 +144,13 @@ export default function ReviewsPage(): React.JSX.Element {
     if (ratingFilter !== "all") usp.set("rating", ratingFilter);
     if (debouncedQ.trim()) usp.set("q", debouncedQ.trim());
     usp.set("limit", "100");
+    // Ask the API to include hidden reviews so the partner can see and restore
+    // ones they previously hid (the list renders removed entries inline with a
+    // "Bərpa et" action). The partner index currently ignores this flag — see
+    // VenueReviewsController::reviewListPayload, which gates include_removed to
+    // admins — so until the backend honours it for partners the restore path
+    // stays unreachable. Sending it now keeps the client correct once it does.
+    usp.set("include_removed", "true");
     const s = usp.toString();
     return s ? `?${s}` : "";
   }, [ratingFilter, debouncedQ]);

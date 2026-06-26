@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bell, Check, Loader2, MailPlus, Send, Trash2 } from "lucide-react";
+import { Bell, Check, Loader2, MailPlus, RefreshCw, Send, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,7 +52,7 @@ export default function NotificationsPage(): React.JSX.Element {
   const [read, setRead] = React.useState<"" | "true" | "false">("");
   const [composeOpen, setComposeOpen] = React.useState(false);
 
-  const { data, isLoading } = useAdminNotifications({
+  const { data, isLoading, isError, refetch } = useAdminNotifications({
     q: q || undefined,
     type: type || undefined,
     severity: severity || undefined,
@@ -120,6 +120,16 @@ export default function NotificationsPage(): React.JSX.Element {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={6} className="py-10 text-center text-foregroundMuted">{t("Yüklənir")}…</TableCell></TableRow>
+            ) : isError ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-10 text-center">
+                  <p className="text-sm text-danger">{t("Yenidən yoxlayın")}</p>
+                  <Button variant="secondary" size="sm" className="mt-3" onClick={() => void refetch()}>
+                    <RefreshCw className="h-4 w-4" />
+                    {t("Retry")}
+                  </Button>
+                </TableCell>
+              </TableRow>
             ) : items.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="py-10 text-center text-foregroundMuted">{t("No notifications")}</TableCell></TableRow>
             ) : (

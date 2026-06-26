@@ -46,13 +46,19 @@ class MobileController extends ApiController
         $user = $this->authUser($request);
         $membership = app(MembershipService::class);
 
+        // Clamp the caller-supplied locale to the supported set. It is only used
+        // to filter announcement audiences; an array/unbounded value would
+        // otherwise trip an array-to-string cast — fall back to the default.
+        $locale = $request->query('locale', 'az');
+        $locale = is_string($locale) && in_array($locale, ['az', 'en', 'ru'], true) ? $locale : 'az';
+
         return response()->json([
             'me' => $user->toPublicUser(),
             'config' => $this->mobileConfig(),
             'access' => $this->accessPayload((string) $user->id, $membership),
             'unread_counts' => $this->unreadCounts((string) $user->id),
             'notification_preferences' => $this->notificationPreferences((string) $user->id),
-            'announcement' => $this->announcement((string) $user->id, (string) $request->query('locale', 'az')),
+            'announcement' => $this->announcement((string) $user->id, $locale),
             'server_time' => now()->toIso8601ZuluString('millisecond'),
         ]);
     }

@@ -575,6 +575,14 @@ class PartnerOpsController extends ApiController
                 $updates[$field] = $data[$field];
             }
         }
+        // A refund can never exceed what was paid (DB CHECK bookings_refund_le_total);
+        // surface an over-refund as a 422 instead of a constraint-violation 500.
+        if (array_key_exists('refund_amount_minor', $updates) && $updates['refund_amount_minor'] !== null && (int) $updates['refund_amount_minor'] > (int) $booking->total_minor) {
+            throw ApiException::validation('Refund amount exceeds booking total', [
+                'total_minor' => (int) $booking->total_minor,
+                'refund_amount_minor' => (int) $updates['refund_amount_minor'],
+            ]);
+        }
         DB::transaction(function () use ($booking, $updates): void {
             DB::table('bookings')->where('id', $booking->id)->update($updates);
             if ($booking->user_id !== null) {
@@ -604,6 +612,14 @@ class PartnerOpsController extends ApiController
             'refund_note' => $data['refund_note'] ?? null,
             'updated_at' => now(),
         ];
+        // A refund can never exceed what was paid (DB CHECK bookings_refund_le_total);
+        // surface an over-refund as a 422 instead of a constraint-violation 500.
+        if ($updates['refund_amount_minor'] !== null && (int) $updates['refund_amount_minor'] > (int) $booking->total_minor) {
+            throw ApiException::validation('Refund amount exceeds booking total', [
+                'total_minor' => (int) $booking->total_minor,
+                'refund_amount_minor' => (int) $updates['refund_amount_minor'],
+            ]);
+        }
         if ($refundStatus === 'processed') {
             $updates['status'] = 'refunded';
             $updates['refunded_at'] = now();
@@ -876,6 +892,18 @@ class PartnerOpsController extends ApiController
         if (($data['status'] ?? null) === 'refunded') {
             $data['refund_status'] = $data['refund_status'] ?? 'processed';
             $data['refunded_at'] = now();
+        }
+        // A refund can never exceed what was paid (DB CHECK bookings_refund_le_total),
+        // compared against the post-update total when the booking is being rescheduled.
+        // Surface an over-refund as a 422 instead of a constraint-violation 500.
+        if (array_key_exists('refund_amount_minor', $data) && $data['refund_amount_minor'] !== null) {
+            $effectiveTotal = (int) ($data['total_minor'] ?? $booking->total_minor);
+            if ((int) $data['refund_amount_minor'] > $effectiveTotal) {
+                throw ApiException::validation('Refund amount exceeds booking total', [
+                    'total_minor' => $effectiveTotal,
+                    'refund_amount_minor' => (int) $data['refund_amount_minor'],
+                ]);
+            }
         }
 
         DB::table('bookings')->where('id', $booking->id)->update([...$data, 'updated_at' => now()]);

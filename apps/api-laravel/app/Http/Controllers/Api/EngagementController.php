@@ -187,6 +187,11 @@ class EngagementController extends ApiController
 
         $rows = $rowsQuery
             ->orderBy('u.display_name')
+            // Final, fully-deterministic tiebreaker on the (user_id, sport)
+            // composite PK so offset pagination can't duplicate/skip rows when
+            // the sort columns + display_name collide across two players.
+            ->orderBy('p.user_id')
+            ->orderBy('s.slug')
             ->offset($offset)
             ->limit($limit)
             ->get([
@@ -309,7 +314,11 @@ class EngagementController extends ApiController
             'cta_label_az' => ['nullable', 'string', 'max:80'],
             'cta_label_en' => ['nullable', 'string', 'max:80'],
             'cta_label_ru' => ['nullable', 'string', 'max:80'],
-            'cta_url' => ['nullable', 'string', 'max:2048'],
+            // Banners reach every user; a CTA must be an external http(s) link or
+            // the `linkfit://` deep-link scheme (the only documented values).
+            // Reject javascript:/data:/protocol-relative payloads (stored XSS on
+            // web). An empty string is tolerated as "no CTA" for client parity.
+            'cta_url' => ['nullable', 'string', 'max:2048', 'regex:#^($|https?://|linkfit://)#i'],
             'starts_at' => ['nullable', 'date'],
             'ends_at' => ['nullable', 'date'],
             'audience' => ['nullable', 'in:all,az,en,ru'],
@@ -350,7 +359,10 @@ class EngagementController extends ApiController
             $base->where('a.audience', $query['audience']);
         }
         if (! empty($query['q'])) {
-            $needle = '%'.mb_strtolower($query['q']).'%';
+            // Escape LIKE wildcards so a literal `%`/`_`/`\` in the admin search
+            // term matches itself instead of acting as a wildcard (parity with
+            // the leaderboards search escaping).
+            $needle = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_strtolower($query['q'])).'%';
             $base->where(function ($q) use ($needle) {
                 $q->whereRaw('LOWER(a.title_az) LIKE ?', [$needle])
                     ->orWhereRaw('LOWER(a.title_en) LIKE ?', [$needle])
@@ -418,7 +430,8 @@ class EngagementController extends ApiController
             'cta_label_az' => ['sometimes', 'nullable', 'string', 'max:80'],
             'cta_label_en' => ['sometimes', 'nullable', 'string', 'max:80'],
             'cta_label_ru' => ['sometimes', 'nullable', 'string', 'max:80'],
-            'cta_url' => ['sometimes', 'nullable', 'string', 'max:2048'],
+            // Same safe-scheme guard as create (block stored-XSS CTA payloads).
+            'cta_url' => ['sometimes', 'nullable', 'string', 'max:2048', 'regex:#^($|https?://|linkfit://)#i'],
             'starts_at' => ['sometimes', 'nullable', 'date'],
             'ends_at' => ['sometimes', 'nullable', 'date'],
             'audience' => ['sometimes', 'required', 'in:all,az,en,ru'],

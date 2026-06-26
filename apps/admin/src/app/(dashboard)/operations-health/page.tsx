@@ -60,14 +60,35 @@ export default function OperationsHealthPage(): React.JSX.Element {
         </div>
       </div>
 
-      {isLoading || !data ? (
+      {isLoading ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-44 animate-pulse rounded-2xl border border-border bg-surfaceElevated" />
           ))}
         </div>
-      ) : (
+      ) : data ? (
         <HealthContent data={data} />
+      ) : (
+        <div className="flex flex-col gap-3 rounded-2xl border border-danger/40 bg-danger/5 px-4 py-4 shadow-card sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-danger/10 text-danger">
+              <AlertTriangle className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="font-medium text-foreground">{t("Failed to load operations health")}</p>
+              <p className="text-sm text-foregroundMuted">{t("Check your connection and try again.")}</p>
+            </div>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="w-full sm:w-auto"
+          >
+            {t("Retry")}
+          </Button>
+        </div>
       )}
     </div>
   );

@@ -12,9 +12,44 @@ import {
   User,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import type { ReportStatus, ReportTargetKind } from "@/lib/admin-reports";
+import type { AdminReport, ReportStatus, ReportTargetKind } from "@/lib/admin-reports";
 
 export const PAGE_SIZE = 25;
+
+// ─── Backend payload extras ─────────────────────────────────────────────────────
+
+/**
+ * User summary the backend embeds inside each report row. The Laravel
+ * `ReportsController::reportPayload` always returns `reporter` (and `reviewed_by`
+ * once a report is actioned), but the shared `AdminReport` type omits them.
+ */
+export interface ReportUserRef {
+  id: string;
+  display_name: string | null;
+  email: string | null;
+  photo_url: string | null;
+  admin_role?: string | null;
+}
+
+/**
+ * Report row as actually returned by `GET /admin/reports`. The extras are
+ * optional, so a plain `AdminReport` remains assignable to this type — surfacing
+ * the embedded `reporter` instead of a raw UUID without a shared-type change.
+ */
+export type AdminReportRow = AdminReport & {
+  reporter?: ReportUserRef | null;
+  reviewed_by?: ReportUserRef | null;
+  reviewed_at?: string | null;
+};
+
+/** Human label for the reporter; falls back to a short UUID. */
+export function reporterLabel(report: AdminReportRow): string {
+  return (
+    report.reporter?.display_name ||
+    report.reporter?.email ||
+    shortId(report.reporter_user_id)
+  );
+}
 
 // ─── Status presentation ──────────────────────────────────────────────────────
 
@@ -120,8 +155,9 @@ export function TargetIcon({
 
 export function targetHref(kind: string, id: string): string {
   switch (kind) {
-    case "user":
-      return `/users/${id}`;
+    // NOTE: there is no `/users/[id]` detail route — the users page is a
+    // list + drawer with no deep-linkable URL — so a `user` target must NOT
+    // be rendered as a link (it would 404). Callers fall back to plain text.
     case "game":
       return `/games/${id}`;
     case "venue":

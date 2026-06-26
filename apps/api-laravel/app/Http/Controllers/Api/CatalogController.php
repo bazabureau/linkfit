@@ -102,9 +102,17 @@ class CatalogController extends ApiController
 
     public function venue(string $id): JsonResponse
     {
+        // A short hex prefix is a valid lookup form; anything else must be a full
+        // UUID. Reject other shapes up front so a malformed id resolves to a clean
+        // 404 instead of a Postgres uuid-cast 500.
+        $isPrefix = preg_match('/^[0-9a-f]{8}$/i', $id) === 1;
+        if (! $isPrefix && ! $this->isUuid($id)) {
+            throw ApiException::notFound('Venue not found');
+        }
+
         $venue = DB::table('venues')
             ->when(
-                preg_match('/^[0-9a-f]{8}$/i', $id) === 1,
+                $isPrefix,
                 fn ($q) => $q->whereRaw('id::text ilike ?', [$id.'%']),
                 fn ($q) => $q->where('id', $id),
             )
@@ -221,11 +229,16 @@ class CatalogController extends ApiController
 
     public function court(string $id): JsonResponse
     {
+        $isPrefix = preg_match('/^[0-9a-f]{8}$/i', $id) === 1;
+        if (! $isPrefix && ! $this->isUuid($id)) {
+            throw ApiException::notFound('Court not found');
+        }
+
         $court = DB::table('courts as c')
             ->join('venues as v', 'v.id', '=', 'c.venue_id')
             ->join('sports as s', 's.id', '=', 'c.sport_id')
             ->when(
-                preg_match('/^[0-9a-f]{8}$/i', $id) === 1,
+                $isPrefix,
                 fn ($q) => $q->whereRaw('c.id::text ilike ?', [$id.'%']),
                 fn ($q) => $q->where('c.id', $id),
             )
@@ -258,9 +271,18 @@ class CatalogController extends ApiController
     public function venueAvailability(Request $request, string $id): JsonResponse
     {
         $query = $this->validateQuery($request, [
-            'date' => ['required', 'regex:/^\d{4}-\d{2}-\d{2}$/'],
+            // date_format (not a loose regex) so an impossible calendar date like
+            // 2026-13-45 is rejected with a 422 here instead of blowing up later
+            // in CarbonImmutable::parse() with an unhandled 500.
+            'date' => ['required', 'date_format:Y-m-d'],
             'sport' => ['nullable', 'string', 'max:80'],
         ]);
+
+        // Reject a malformed id up front so it 404s cleanly rather than hitting a
+        // Postgres uuid-cast 500 on the lookup below.
+        if (! $this->isUuid($id)) {
+            throw ApiException::notFound('Venue not found');
+        }
 
         // Match every other public catalog read (venue/venues/court/courts):
         // only PUBLISHED venues are exposed. Without this filter a draft/hidden
@@ -439,7 +461,15 @@ class CatalogController extends ApiController
     public function saveVenue(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
-        $venue = DB::table('venues')->where('id', $id)->first();
+        if (! $this->isUuid($id)) {
+            throw ApiException::notFound('Venue not found');
+        }
+        // Only published venues are publicly visible; saving must honour the same
+        // scope so a draft/suspended venue's details can't be probed/leaked here.
+        $venue = DB::table('venues')
+            ->where('id', $id)
+            ->where(fn ($q) => $q->whereNull('status')->orWhere('status', 'published'))
+            ->first();
         if (! $venue) {
             throw ApiException::notFound('Venue not found');
         }
@@ -459,6 +489,11 @@ class CatalogController extends ApiController
     public function unsaveVenue(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        // Idempotent unsave: a non-uuid id can never match a stored row, and on
+        // Postgres the delete would 500 on the uuid cast — short-circuit to ok.
+        if (! $this->isUuid($id)) {
+            return response()->json(['ok' => true]);
+        }
         DB::table('user_saved_venues')
             ->where('user_id', $user->id)
             ->where('venue_id', $id)
@@ -514,11 +549,18 @@ class CatalogController extends ApiController
     public function saveCourt(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        if (! $this->isUuid($id)) {
+            throw ApiException::notFound('Court not found');
+        }
+        // Mirror the public court() read scope (published venue + active court) so
+        // a court that isn't publicly visible can't be probed/leaked via save.
         $court = DB::table('courts as c')
             ->join('venues as v', 'v.id', '=', 'c.venue_id')
             ->join('sports as s', 's.id', '=', 'c.sport_id')
             ->where('c.id', $id)
             ->whereIn('s.slug', ['padel', 'tennis'])
+            ->where(fn ($q) => $q->whereNull('v.status')->orWhere('v.status', 'published'))
+            ->where(fn ($q) => $q->whereNull('c.status')->orWhere('c.status', 'active'))
             ->first([
                 'c.id',
                 'c.venue_id',
@@ -553,12 +595,27 @@ class CatalogController extends ApiController
     public function unsaveCourt(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        // Idempotent unsave (see unsaveVenue): non-uuid can't match a stored row
+        // and would 500 on the Postgres uuid cast — short-circuit to ok.
+        if (! $this->isUuid($id)) {
+            return response()->json(['ok' => true]);
+        }
         DB::table('user_saved_courts')
             ->where('user_id', $user->id)
             ->where('court_id', $id)
             ->delete();
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Canonical UUID shape check. Used to reject malformed path ids before they
+     * reach a Postgres uuid column (which would raise a 22P02 cast 500) and to
+     * keep idempotent unsave deletes from erroring on garbage input.
+     */
+    private function isUuid(string $id): bool
+    {
+        return preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $id) === 1;
     }
 
     private function venuePayload(object $r): array

@@ -10,6 +10,7 @@ import {
   useUpdateVenuePartner,
   useVenuePartners,
   type PartnerAccount,
+  type UpdateVenuePartnerPayload,
 } from "@/lib/admin-venues";
 import { APIError } from "@/lib/api";
 import {
@@ -78,15 +79,19 @@ export function PartnersPanel({ venueId }: { venueId: string }): React.JSX.Eleme
 
   function handleSubmit(values: PartnerAccountSubmit): void {
     if (editing) {
+      // `email` is editable in the dialog and accepted by the backend
+      // `updatePartnerAccount` route — include it so an edited address is
+      // actually persisted instead of being silently dropped. (The shared
+      // `UpdateVenuePartnerPayload` does not declare `email`, so widen it
+      // locally to keep this self-contained and type-safe.)
+      const data: UpdateVenuePartnerPayload & { email?: string } = {
+        email: values.email,
+        display_name: values.display_name,
+        staff_title: values.staff_title ?? null,
+        ...(values.password ? { password: values.password } : {}),
+      };
       updatePartner.mutate(
-        {
-          userId: editing.id,
-          data: {
-            display_name: values.display_name,
-            staff_title: values.staff_title ?? null,
-            ...(values.password ? { password: values.password } : {}),
-          },
-        },
+        { userId: editing.id, data },
         {
           onSuccess: () => {
             toast.success("Tərəfdaş hesabı yeniləndi", values.email);

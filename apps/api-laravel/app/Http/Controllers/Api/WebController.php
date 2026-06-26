@@ -281,9 +281,18 @@ class WebController extends ApiController
     public function checkout(Request $request, string $courtId): JsonResponse
     {
         $query = $this->validateQuery($request, [
-            'date' => ['nullable', 'regex:/^\d{4}-\d{2}-\d{2}$/'],
+            // date_format (not a loose regex) so an impossible calendar date like
+            // 2026-13-45 is rejected with a clean 422 instead of 500-ing when it
+            // is later parsed by openingHoursForDate(). Mirrors CatalogController.
+            'date' => ['nullable', 'date_format:Y-m-d'],
         ]);
         $date = $query['date'] ?? now('Asia/Baku')->format('Y-m-d');
+        // Guard the path id so a malformed value never reaches the Postgres uuid
+        // column below (which would raise a 22P02 cast 500); return a clean 404
+        // exactly as a non-existent court would. Mirrors CatalogController.
+        if (! $this->isUuid($courtId)) {
+            throw ApiException::notFound('Court not found');
+        }
         $court = DB::table('courts as c')
             ->join('venues as v', 'v.id', '=', 'c.venue_id')
             ->join('sports as s', 's.id', '=', 'c.sport_id')
@@ -378,6 +387,15 @@ class WebController extends ApiController
             'open' => is_array($rule) ? ($rule['open'] ?? '07:00') : '07:00',
             'close' => is_array($rule) ? ($rule['close'] ?? '23:00') : '23:00',
         ];
+    }
+
+    /**
+     * Strict full-UUID check so a malformed path id never reaches a Postgres
+     * uuid column (which would raise a 22P02 cast 500). Mirrors CatalogController.
+     */
+    private function isUuid(string $id): bool
+    {
+        return preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $id) === 1;
     }
 
     private function jsonPayload(mixed $value): array

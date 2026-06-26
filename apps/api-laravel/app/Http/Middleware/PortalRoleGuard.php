@@ -27,7 +27,13 @@ class PortalRoleGuard
             throw ApiException::forbidden('Partner access required');
         }
 
-        if (str_starts_with($path, 'api/v1/owner/') && $role !== 'partner' && ! in_array($role, ['admin', 'moderator'], true)) {
+        // `owner/applications` is the CONSUMER flow for applying to become a
+        // venue owner — any authenticated user must reach it (and read their own
+        // status). It is the only `owner/*` API surface; the portal itself uses
+        // `partner/*`. Admin review lives under `admin/owner-applications/*`.
+        if (str_starts_with($path, 'api/v1/owner/')
+            && ! str_starts_with($path, 'api/v1/owner/applications')
+            && $role !== 'partner' && ! in_array($role, ['admin', 'moderator'], true)) {
             throw ApiException::forbidden('Owner access required');
         }
 

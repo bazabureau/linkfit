@@ -1,0 +1,371 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Http\Controllers\Api\TournamentsController;
+use App\Models\User;
+use App\Support\ApiException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Tests\TestCase;
+
+/**
+ * Hardening coverage for TournamentsController enter / withdraw / withdrawMine /
+ * show. Mirrors TournamentWaiverGateTest's sqlite-in-memory, direct-controller
+ * harness. Verifies the squad-registration race/capacity guards, the squad
+ * validation rules, the ownership (IDOR) check on withdraw, and that a
+ * soft-deleted account cannot be rostered into a squad.
+ */
+class TournamentsHardeningTest extends TestCase
+{
+    private const CAPTAIN = '00000000-0000-4000-8000-000000000001';
+
+    private const OTHER = '00000000-0000-4000-8000-000000000002';
+
+    private const PLAYER = '00000000-0000-4000-8000-000000000003';
+
+    private const DELETED = '00000000-0000-4000-8000-000000000004';
+
+    private const GHOST = '00000000-0000-4000-8000-0000000000ff';
+
+    private const SPORT = '44444444-4444-4444-8444-444444444444';
+
+    private const TOURNAMENT = '11111111-1111-4111-8111-111111111111';
+
+    private TournamentsController $controller;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('database.default', 'sqlite');
+        config()->set('database.connections.sqlite.database', ':memory:');
+        DB::purge('sqlite');
+        DB::reconnect('sqlite');
+
+        Schema::create('users', function ($table): void {
+            $table->string('id')->primary();
+            $table->string('display_name')->nullable();
+            $table->string('photo_url')->nullable();
+            $table->timestamp('deleted_at')->nullable();
+            $table->timestamp('created_at')->nullable();
+        });
+
+        Schema::create('sports', function ($table): void {
+            $table->string('id')->primary();
+            $table->string('slug');
+        });
+
+        Schema::create('tournaments', function ($table): void {
+            $table->string('id')->primary();
+            $table->string('name');
+            $table->string('description')->nullable();
+            $table->string('sport_id');
+            $table->string('venue_id')->nullable();
+            $table->timestamp('starts_at')->nullable();
+            $table->timestamp('ends_at')->nullable();
+            $table->timestamp('registration_deadline')->nullable();
+            $table->integer('max_squads')->default(8);
+            $table->integer('squad_size')->default(2);
+            $table->integer('entry_fee_minor')->default(0);
+            $table->string('currency')->default('AZN');
+            $table->string('status')->default('registration_open');
+            $table->boolean('requires_waiver')->default(false);
+            $table->timestamp('created_at')->nullable();
+        });
+
+        Schema::create('tournament_entries', function ($table): void {
+            $table->string('id')->primary();
+            $table->string('tournament_id');
+            $table->string('captain_user_id');
+            $table->string('squad_name');
+            $table->text('player_ids')->nullable();
+            $table->string('status')->default('pending');
+            $table->timestamp('created_at')->nullable();
+        });
+
+        Schema::create('tournament_waivers', function ($table): void {
+            $table->string('tournament_id');
+            $table->string('user_id');
+            $table->timestamp('signed_at')->nullable();
+        });
+
+        Schema::create('audit_log', function ($table): void {
+            $table->string('id')->primary();
+            $table->string('actor_user_id')->nullable();
+            $table->string('action');
+            $table->string('entity');
+            $table->string('entity_id')->nullable();
+            $table->text('metadata')->nullable();
+            $table->timestamp('created_at')->nullable();
+        });
+
+        Schema::create('notifications', function ($table): void {
+            $table->string('id')->primary();
+            $table->string('user_id');
+            $table->string('type');
+            $table->string('title');
+            $table->text('body')->nullable();
+            $table->text('payload')->nullable();
+            $table->timestamp('created_at')->nullable();
+        });
+
+        DB::table('users')->insert([
+            ['id' => self::CAPTAIN, 'display_name' => 'Captain', 'created_at' => now()],
+            ['id' => self::OTHER, 'display_name' => 'Other', 'created_at' => now()],
+            ['id' => self::PLAYER, 'display_name' => 'Player Two', 'created_at' => now()],
+            ['id' => self::DELETED, 'display_name' => 'Ghost', 'deleted_at' => now(), 'created_at' => now()],
+        ]);
+        DB::table('sports')->insert(['id' => self::SPORT, 'slug' => 'padel']);
+
+        $this->controller = app(TournamentsController::class);
+    }
+
+    protected function tearDown(): void
+    {
+        Schema::dropIfExists('notifications');
+        Schema::dropIfExists('audit_log');
+        Schema::dropIfExists('tournament_waivers');
+        Schema::dropIfExists('tournament_entries');
+        Schema::dropIfExists('tournaments');
+        Schema::dropIfExists('sports');
+        Schema::dropIfExists('users');
+
+        parent::tearDown();
+    }
+
+    public function test_enter_solo_creates_pending_entry(): void
+    {
+        $this->seedTournament();
+
+        $response = $this->controller->enter($this->requestFor(self::CAPTAIN), self::TOURNAMENT);
+        $payload = $response->getData(true);
+
+        $this->assertSame(201, $response->getStatusCode());
+        $this->assertSame(self::CAPTAIN, $payload['captain_user_id']);
+        $this->assertSame('pending', $payload['status']);
+        $this->assertSame('Captain', $payload['captain_display_name']);
+        $this->assertSame([], $payload['player_ids']);
+        $this->assertSame(1, DB::table('tournament_entries')->where('tournament_id', self::TOURNAMENT)->count());
+    }
+
+    public function test_enter_with_valid_player_lists_player_names(): void
+    {
+        $this->seedTournament();
+
+        $response = $this->controller->enter(
+            $this->requestFor(self::CAPTAIN, ['player_ids' => [self::PLAYER]]),
+            self::TOURNAMENT,
+        );
+        $payload = $response->getData(true);
+
+        $this->assertSame(201, $response->getStatusCode());
+        $this->assertSame([self::PLAYER], $payload['player_ids']);
+        $this->assertSame(['Player Two'], $payload['player_names']);
+    }
+
+    public function test_enter_rejects_nonexistent_player(): void
+    {
+        $this->seedTournament();
+
+        $this->assertEnterFails(
+            ['player_ids' => [self::GHOST]],
+            422,
+            'One or more players do not exist',
+        );
+    }
+
+    public function test_enter_rejects_soft_deleted_player(): void
+    {
+        // The DELETED account exists in the row store but has deleted_at set —
+        // it must be treated as non-existent for squad rostering.
+        $this->seedTournament();
+
+        $this->assertEnterFails(
+            ['player_ids' => [self::DELETED]],
+            422,
+            'One or more players do not exist',
+        );
+        $this->assertSame(0, DB::table('tournament_entries')->where('tournament_id', self::TOURNAMENT)->count());
+    }
+
+    public function test_enter_rejects_captain_listed_as_player(): void
+    {
+        $this->seedTournament();
+
+        $this->assertEnterFails(
+            ['player_ids' => [self::CAPTAIN]],
+            422,
+            'Captain cannot be listed as a player',
+        );
+    }
+
+    public function test_enter_rejects_squad_over_size(): void
+    {
+        // squad_size 2 → at most 1 additional player; two players overflow.
+        $this->seedTournament();
+
+        $this->assertEnterFails(
+            ['player_ids' => [self::PLAYER, self::OTHER]],
+            422,
+            'Squad exceeds tournament size',
+        );
+    }
+
+    public function test_enter_blocked_when_tournament_full(): void
+    {
+        $this->seedTournament(['max_squads' => 1]);
+        DB::table('tournament_entries')->insert([
+            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'tournament_id' => self::TOURNAMENT,
+            'captain_user_id' => self::OTHER,
+            'squad_name' => 'Rivals',
+            'player_ids' => null,
+            'status' => 'pending',
+            'created_at' => now(),
+        ]);
+
+        $this->assertEnterFails([], 409, 'Tournament is full', self::CAPTAIN);
+        $this->assertSame(1, DB::table('tournament_entries')->where('tournament_id', self::TOURNAMENT)->count());
+    }
+
+    public function test_enter_blocked_when_registration_closed(): void
+    {
+        $this->seedTournament(['status' => 'closed']);
+
+        $this->assertEnterFails([], 409, 'Tournament registration is closed');
+    }
+
+    public function test_withdraw_by_non_captain_is_rejected(): void
+    {
+        $this->seedTournament();
+        $entryId = $this->seedEntry(self::CAPTAIN);
+
+        try {
+            $this->controller->withdraw($this->requestFor(self::OTHER), self::TOURNAMENT, $entryId);
+            $this->fail('Expected a non-captain withdraw to be rejected.');
+        } catch (ApiException $e) {
+            $this->assertSame(404, $e->getStatusCode());
+        }
+
+        // The entry must be untouched — no IDOR withdrawal by a stranger.
+        $this->assertSame('pending', DB::table('tournament_entries')->where('id', $entryId)->value('status'));
+    }
+
+    public function test_withdraw_by_captain_marks_withdrawn(): void
+    {
+        $this->seedTournament();
+        $entryId = $this->seedEntry(self::CAPTAIN);
+
+        $response = $this->controller->withdraw($this->requestFor(self::CAPTAIN), self::TOURNAMENT, $entryId);
+
+        $this->assertSame(204, $response->getStatusCode());
+        $this->assertSame('withdrawn', DB::table('tournament_entries')->where('id', $entryId)->value('status'));
+    }
+
+    public function test_withdraw_mine_resolves_active_entry(): void
+    {
+        $this->seedTournament();
+        $entryId = $this->seedEntry(self::CAPTAIN);
+
+        $response = $this->controller->withdrawMine($this->requestFor(self::CAPTAIN), self::TOURNAMENT);
+
+        $this->assertSame(204, $response->getStatusCode());
+        $this->assertSame('withdrawn', DB::table('tournament_entries')->where('id', $entryId)->value('status'));
+    }
+
+    public function test_withdraw_mine_without_active_entry_is_404(): void
+    {
+        $this->seedTournament();
+
+        try {
+            $this->controller->withdrawMine($this->requestFor(self::CAPTAIN), self::TOURNAMENT);
+            $this->fail('Expected a 404 when the caller has no active entry.');
+        } catch (ApiException $e) {
+            $this->assertSame(404, $e->getStatusCode());
+        }
+    }
+
+    public function test_show_returns_entries_and_guest_cannot_register_when_closed(): void
+    {
+        $this->seedTournament(['status' => 'closed']);
+        $this->seedEntry(self::CAPTAIN);
+
+        // Guest viewer (no auth_user, no Bearer) → public show path.
+        $request = Request::create('/api/v1/tournaments/'.self::TOURNAMENT, 'GET');
+        $payload = $this->controller->show($request, self::TOURNAMENT)->getData(true);
+
+        $this->assertFalse($payload['can_register']);
+        $this->assertSame('Tournament registration is closed', $payload['registration_blocked_reason']);
+        $this->assertNull($payload['my_entry']);
+        $this->assertCount(1, $payload['entries']);
+        $this->assertSame('Captain', $payload['entries'][0]['captain_display_name']);
+    }
+
+    public function test_show_missing_tournament_is_404(): void
+    {
+        try {
+            $this->controller->show(Request::create('/x', 'GET'), self::TOURNAMENT);
+            $this->fail('Expected a 404 for an unknown tournament.');
+        } catch (ApiException $e) {
+            $this->assertSame(404, $e->getStatusCode());
+        }
+    }
+
+    private function assertEnterFails(array $body, int $status, string $message, string $actor = self::CAPTAIN): void
+    {
+        try {
+            $this->controller->enter($this->requestFor($actor, $body), self::TOURNAMENT);
+            $this->fail("Expected enter() to fail with {$status} {$message}.");
+        } catch (ApiException $e) {
+            $this->assertSame($status, $e->getStatusCode());
+            $this->assertSame($message, $e->getMessage());
+        }
+    }
+
+    private function seedTournament(array $overrides = []): void
+    {
+        DB::table('tournaments')->insert(array_merge([
+            'id' => self::TOURNAMENT,
+            'name' => 'Padel Open',
+            'sport_id' => self::SPORT,
+            'starts_at' => now()->addDays(7),
+            'ends_at' => now()->addDays(8),
+            'registration_deadline' => now()->addDays(5),
+            'max_squads' => 8,
+            'squad_size' => 2,
+            'entry_fee_minor' => 0,
+            'currency' => 'AZN',
+            'status' => 'registration_open',
+            'requires_waiver' => false,
+            'created_at' => now(),
+        ], $overrides));
+    }
+
+    private function seedEntry(string $captainId): string
+    {
+        $id = (string) \Illuminate\Support\Str::uuid();
+        DB::table('tournament_entries')->insert([
+            'id' => $id,
+            'tournament_id' => self::TOURNAMENT,
+            'captain_user_id' => $captainId,
+            'squad_name' => 'Squad '.substr($id, 0, 4),
+            'player_ids' => null,
+            'status' => 'pending',
+            'created_at' => now(),
+        ]);
+
+        return $id;
+    }
+
+    private function requestFor(string $userId, array $body = []): Request
+    {
+        $request = Request::create('/api/v1/test', 'POST', $body);
+        $user = new User;
+        $user->forceFill(['id' => $userId, 'display_name' => $userId === self::CAPTAIN ? 'Captain' : 'User']);
+        $request->attributes->set('auth_user', $user);
+
+        return $request;
+    }
+}

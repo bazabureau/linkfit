@@ -29,6 +29,7 @@ export type ReportsResponse = {
 
 export type ReportsFilter = {
   status?: ReportStatus | "all";
+  q?: string;
   limit?: number;
   offset?: number;
 };
@@ -43,6 +44,9 @@ export function useReports(filter: ReportsFilter) {
       const params = new URLSearchParams();
       if (filter.status && filter.status !== "all") {
         params.set("status", filter.status);
+      }
+      if (filter.q && filter.q.trim()) {
+        params.set("q", filter.q.trim());
       }
       params.set("limit", String(filter.limit ?? 25));
       params.set("offset", String(filter.offset ?? 0));

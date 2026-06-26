@@ -101,10 +101,20 @@ class PartnerLessonsController extends ApiController
     {
         $venueId = $this->venueId($request);
         $this->ownedCoach($venueId, $id);
-        // Deactivate (preserve history + linked lessons) rather than hard-delete.
-        DB::table('coaches')->where('id', $id)->update(['is_active' => false, 'updated_at' => now()]);
-        DB::table('lessons')->where('coach_id', $id)->where('status', 'scheduled')
-            ->where('starts_at', '>=', now())->update(['status' => 'cancelled', 'updated_at' => now()]);
+        // Deactivate (preserve history + linked lessons) rather than hard-delete,
+        // cancel the coach's future scheduled lessons, and release every booked
+        // player on those lessons so they are not left enrolled in a cancelled
+        // lesson. All atomic so an enrolment is never orphaned mid-way.
+        DB::transaction(function () use ($id): void {
+            DB::table('coaches')->where('id', $id)->update(['is_active' => false, 'updated_at' => now()]);
+            $lessonIds = DB::table('lessons')->where('coach_id', $id)->where('status', 'scheduled')
+                ->where('starts_at', '>=', now())->pluck('id')->all();
+            if ($lessonIds !== []) {
+                DB::table('lessons')->whereIn('id', $lessonIds)->update(['status' => 'cancelled', 'updated_at' => now()]);
+                DB::table('lesson_bookings')->whereIn('lesson_id', $lessonIds)->where('status', 'booked')
+                    ->update(['status' => 'cancelled', 'updated_at' => now()]);
+            }
+        });
 
         return response()->json(null, 204);
     }
@@ -151,34 +161,43 @@ class PartnerLessonsController extends ApiController
         if (strtotime($data['starts_at']) <= time()) {
             throw ApiException::validation('starts_at must be in the future');
         }
-        $this->assertNoCoachOverlap($data['coach_id'], $data['starts_at'], (int) $data['duration_minutes']);
+        if (isset($data['level_min_elo'], $data['level_max_elo']) && $data['level_min_elo'] !== null && $data['level_max_elo'] !== null && $data['level_min_elo'] > $data['level_max_elo']) {
+            throw ApiException::validation('level_min_elo cannot exceed level_max_elo');
+        }
 
         $kind = $data['kind'] ?? 'group';
         $capacity = isset($data['capacity']) ? (int) $data['capacity'] : ($kind === 'private' ? 1 : 4);
 
         $id = (string) Str::uuid();
-        DB::table('lessons')->insert([
-            'id' => $id,
-            'coach_id' => $data['coach_id'],
-            'venue_id' => $venueId,
-            'court_id' => $data['court_id'] ?? null,
-            'sport_id' => $data['sport_id'],
-            'title' => $data['title'],
-            'description' => $data['description'] ?? null,
-            'kind' => $kind,
-            'level_label' => $data['level_label'] ?? null,
-            'level_min_elo' => $data['level_min_elo'] ?? null,
-            'level_max_elo' => $data['level_max_elo'] ?? null,
-            'starts_at' => $data['starts_at'],
-            'duration_minutes' => $data['duration_minutes'],
-            'capacity' => $capacity,
-            'price_minor' => $data['price_minor'] ?? null,
-            'currency' => $data['currency'] ?? 'AZN',
-            'status' => 'scheduled',
-            'created_by' => $user->id,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        // Serialise concurrent creates for the same coach: lock the coach row, then
+        // re-check the overlap and insert inside one transaction so two requests
+        // cannot both pass the overlap check and double-book the coach.
+        DB::transaction(function () use ($data, $venueId, $user, $id, $kind, $capacity): void {
+            DB::table('coaches')->where('id', $data['coach_id'])->lockForUpdate()->first();
+            $this->assertNoCoachOverlap($data['coach_id'], $data['starts_at'], (int) $data['duration_minutes']);
+            DB::table('lessons')->insert([
+                'id' => $id,
+                'coach_id' => $data['coach_id'],
+                'venue_id' => $venueId,
+                'court_id' => $data['court_id'] ?? null,
+                'sport_id' => $data['sport_id'],
+                'title' => $data['title'],
+                'description' => $data['description'] ?? null,
+                'kind' => $kind,
+                'level_label' => $data['level_label'] ?? null,
+                'level_min_elo' => $data['level_min_elo'] ?? null,
+                'level_max_elo' => $data['level_max_elo'] ?? null,
+                'starts_at' => $data['starts_at'],
+                'duration_minutes' => $data['duration_minutes'],
+                'capacity' => $capacity,
+                'price_minor' => $data['price_minor'] ?? null,
+                'currency' => $data['currency'] ?? 'AZN',
+                'status' => 'scheduled',
+                'created_by' => $user->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
 
         return $this->showLesson($venueId, $id, 201);
     }
@@ -217,23 +236,35 @@ class PartnerLessonsController extends ApiController
         if (isset($data['level_min_elo'], $data['level_max_elo']) && $data['level_min_elo'] !== null && $data['level_max_elo'] !== null && $data['level_min_elo'] > $data['level_max_elo']) {
             throw ApiException::validation('level_min_elo cannot exceed level_max_elo');
         }
-        if (isset($data['starts_at']) || isset($data['coach_id']) || isset($data['duration_minutes'])) {
-            $current = DB::table('lessons')->where('id', $id)->first(['coach_id', 'starts_at', 'duration_minutes']);
-            $this->assertNoCoachOverlap(
-                (string) ($data['coach_id'] ?? $current->coach_id),
-                (string) ($data['starts_at'] ?? $current->starts_at),
-                (int) ($data['duration_minutes'] ?? $current->duration_minutes),
-                $id,
-            );
-        }
         $update = array_intersect_key($data, array_flip([
             'coach_id', 'court_id', 'title', 'description', 'kind', 'level_label', 'level_min_elo',
             'level_max_elo', 'starts_at', 'duration_minutes', 'capacity', 'price_minor', 'currency', 'status',
         ]));
-        if ($update !== []) {
-            $update['updated_at'] = now();
-            DB::table('lessons')->where('id', $id)->update($update);
-        }
+        // Lock the (effective) coach, re-check overlap, apply the update and — when
+        // the lesson is being cancelled — release every booked player, all in one
+        // transaction. This guards the coach double-book race and keeps enrolments
+        // from being stranded on a now-cancelled lesson.
+        DB::transaction(function () use ($id, $data, $update): void {
+            if (isset($data['starts_at']) || isset($data['coach_id']) || isset($data['duration_minutes'])) {
+                $current = DB::table('lessons')->where('id', $id)->first(['coach_id', 'starts_at', 'duration_minutes']);
+                $coachId = (string) ($data['coach_id'] ?? $current->coach_id);
+                DB::table('coaches')->where('id', $coachId)->lockForUpdate()->first();
+                $this->assertNoCoachOverlap(
+                    $coachId,
+                    (string) ($data['starts_at'] ?? $current->starts_at),
+                    (int) ($data['duration_minutes'] ?? $current->duration_minutes),
+                    $id,
+                );
+            }
+            if ($update !== []) {
+                $update['updated_at'] = now();
+                DB::table('lessons')->where('id', $id)->update($update);
+            }
+            if (($data['status'] ?? null) === 'cancelled') {
+                DB::table('lesson_bookings')->where('lesson_id', $id)->where('status', 'booked')
+                    ->update(['status' => 'cancelled', 'updated_at' => now()]);
+            }
+        });
 
         return $this->showLesson($venueId, $id);
     }

@@ -426,12 +426,29 @@ class GamesController extends ApiController
             throw ApiException::conflict('Cannot leave a game whose match is in progress or completed');
         }
 
-        DB::table('game_participants')
+        // Only an actual confirmed participant may leave. Without this guard a
+        // non-participant (or someone who already left) would unconditionally
+        // flip a 'full' game back to 'open' and spam the host with a bogus
+        // "Player left" notification. Repeat-leaves are a no-op (idempotent),
+        // non-participants are rejected.
+        $participant = DB::table('game_participants')
             ->where('game_id', $id)
             ->where('user_id', $user->id)
-            ->update(['status' => 'cancelled', 'status_changed_at' => now()]);
-        DB::table('games')->where('id', $id)->where('status', 'full')->update(['status' => 'open', 'updated_at' => now()]);
-        $this->enqueueNotification((string) $game->host_user_id, 'game_cancelled', 'Player left', 'A player left your game.', ['game_id' => $id, 'user_id' => $user->id]);
+            ->first();
+        if ($participant === null) {
+            throw ApiException::conflict('You are not a participant of this game');
+        }
+        if ($participant->status === 'confirmed') {
+            DB::transaction(function () use ($id, $user) {
+                DB::table('game_participants')
+                    ->where('game_id', $id)
+                    ->where('user_id', $user->id)
+                    ->where('status', 'confirmed')
+                    ->update(['status' => 'cancelled', 'status_changed_at' => now()]);
+                DB::table('games')->where('id', $id)->where('status', 'full')->update(['status' => 'open', 'updated_at' => now()]);
+            });
+            $this->enqueueNotification((string) $game->host_user_id, 'game_cancelled', 'Player left', 'A player left your game.', ['game_id' => $id, 'user_id' => $user->id]);
+        }
 
         return $this->showResponse($request, $id);
     }
@@ -439,6 +456,12 @@ class GamesController extends ApiController
     public function cancel(Request $request, string $id): JsonResponse
     {
         $game = $this->hostOnly($request, $id);
+        // A completed game is terminal: its result + roster are locked in
+        // match_scores. Flipping it to 'cancelled' would desync the recorded
+        // result (mirrors the guard in update()/reschedule()).
+        if ($game->status === 'completed') {
+            throw ApiException::conflict('Cannot cancel a completed game');
+        }
         DB::table('games')->where('id', $id)->update(['status' => 'cancelled', 'updated_at' => now()]);
         $participants = DB::table('game_participants')->where('game_id', $id)->where('status', 'confirmed')->pluck('user_id');
         foreach ($participants as $userId) {

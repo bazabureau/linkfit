@@ -9,10 +9,12 @@ import {
   TargetIcon,
   formatRelative,
   reasonLabel,
+  reporterLabel,
   shortId,
   statusDotClass,
   statusPillClass,
   targetLabel,
+  type AdminReportRow,
 } from "./lib";
 
 export interface ReportRowActions {
@@ -86,7 +88,7 @@ export function ReportsTable({
   filterLabel,
   actions,
 }: {
-  reports: AdminReport[];
+  reports: AdminReportRow[];
   loading: boolean;
   filterLabel: string;
   actions: ReportRowActions;
@@ -160,8 +162,11 @@ export function ReportsTable({
 
                   {/* Reporter */}
                   <td className="px-4 py-3 align-middle">
-                    <span className="font-mono text-xs text-foregroundMuted">
-                      {shortId(report.reporter_user_id)}
+                    <span
+                      className="text-sm text-foreground"
+                      title={report.reporter?.email ?? report.reporter_user_id}
+                    >
+                      {reporterLabel(report)}
                     </span>
                   </td>
 

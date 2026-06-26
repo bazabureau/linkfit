@@ -402,6 +402,13 @@ class MessagingController extends ApiController
     public function thread(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        // conversation_id/conversations.id are uuid columns; a malformed route
+        // value would raise a Postgres invalid-text-representation error (a
+        // generic 500). Reject it as a clean 403 (same as a non-participant)
+        // before any query. Mirrors markNotificationRead / removeParticipant.
+        if (! Str::isUuid($id)) {
+            throw ApiException::forbidden('Conversation not available');
+        }
         $participant = DB::table('conversation_participants')->where('conversation_id', $id)->where('user_id', $user->id)->whereNull('left_at')->exists();
         if (! $participant) {
             throw ApiException::forbidden('Conversation not available');
@@ -571,6 +578,11 @@ class MessagingController extends ApiController
     public function leave(Request $request, string $id): JsonResponse
     {
         $userId = (string) $this->authUser($request)->id;
+        // Leaving is a no-op scoped to the caller's own row; a malformed (non-uuid)
+        // conversation id would 500 on the uuid column, so treat it as a 204 no-op.
+        if (! Str::isUuid($id)) {
+            return response()->json(null, 204);
+        }
         DB::table('conversation_participants')
             ->where('conversation_id', $id)
             ->where('user_id', $userId)
@@ -584,6 +596,11 @@ class MessagingController extends ApiController
     public function sendMessage(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        // Guard the uuid route value before it reaches the uuid conversation_id
+        // column (a malformed id would 500 on Postgres). Treat as not-available.
+        if (! Str::isUuid($id)) {
+            throw ApiException::forbidden('Conversation not available');
+        }
         if (! DB::table('conversation_participants')->where('conversation_id', $id)->where('user_id', $user->id)->whereNull('left_at')->exists()) {
             throw ApiException::forbidden('Conversation not available');
         }
@@ -737,6 +754,11 @@ class MessagingController extends ApiController
     public function markConversationRead(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        // uuid guard before the uuid conversation_id column (avoids a 500 on a
+        // malformed route value); a non-uuid id is simply not available.
+        if (! Str::isUuid($id)) {
+            throw ApiException::forbidden('Conversation not available');
+        }
         if (! DB::table('conversation_participants')->where('conversation_id', $id)->where('user_id', $user->id)->whereNull('left_at')->exists()) {
             throw ApiException::forbidden('Conversation not available');
         }
@@ -753,6 +775,11 @@ class MessagingController extends ApiController
     public function typing(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        // uuid guard before the uuid conversation_id column (avoids a 500 on a
+        // malformed route value); a non-uuid id is simply not available.
+        if (! Str::isUuid($id)) {
+            throw ApiException::forbidden('Conversation not available');
+        }
         if (! DB::table('conversation_participants')->where('conversation_id', $id)->where('user_id', $user->id)->whereNull('left_at')->exists()) {
             throw ApiException::forbidden('Conversation not available');
         }
@@ -869,6 +896,12 @@ class MessagingController extends ApiController
 
     private function groupConversationForParticipant(string $id, string $userId): object
     {
+        // Guard the uuid route value before the uuid id/conversation_id columns
+        // (a malformed id would 500 on Postgres). Covers participants /
+        // addParticipant / removeParticipant. Mirrors the notification-id guards.
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Group conversation not found');
+        }
         $conversation = DB::table('conversations')->where('id', $id)->where('kind', 'group')->first();
         if ($conversation === null) {
             throw ApiException::notFound('Group conversation not found');

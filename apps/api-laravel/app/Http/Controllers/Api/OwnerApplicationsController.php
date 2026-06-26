@@ -48,31 +48,35 @@ class OwnerApplicationsController extends ApiController
         if (! empty($data['venue_id']) && ! DB::table('venues')->where('id', $data['venue_id'])->exists()) {
             throw ApiException::notFound('Venue not found');
         }
-        $hasPending = DB::table('owner_applications')
-            ->where('user_id', $user->id)
-            ->where('status', 'pending')
-            ->exists();
-        if ($hasPending) {
-            throw ApiException::conflict('You already have a pending owner application');
-        }
-
         $id = (string) Str::uuid();
-        DB::table('owner_applications')->insert([
-            'id' => $id,
-            'user_id' => $user->id,
-            'venue_id' => $data['venue_id'] ?? null,
-            'venue_name' => trim($data['venue_name']),
-            'venue_address' => trim($data['venue_address']),
-            'lat' => $data['lat'] ?? null,
-            'lng' => $data['lng'] ?? null,
-            'contact_name' => trim($data['contact_name']),
-            'contact_phone' => $data['contact_phone'] ?? null,
-            'contact_email' => mb_strtolower(trim($data['contact_email'])),
-            'message' => $data['message'] ?? null,
-            'status' => 'pending',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        DB::transaction(function () use ($user, $data, $id): void {
+            // Lock the applicant row so two concurrent submissions can't both
+            // pass the pending check and create duplicate pending applications.
+            DB::table('users')->where('id', $user->id)->lockForUpdate()->first();
+            $hasPending = DB::table('owner_applications')
+                ->where('user_id', $user->id)
+                ->where('status', 'pending')
+                ->exists();
+            if ($hasPending) {
+                throw ApiException::conflict('You already have a pending owner application');
+            }
+            DB::table('owner_applications')->insert([
+                'id' => $id,
+                'user_id' => $user->id,
+                'venue_id' => $data['venue_id'] ?? null,
+                'venue_name' => trim($data['venue_name']),
+                'venue_address' => trim($data['venue_address']),
+                'lat' => $data['lat'] ?? null,
+                'lng' => $data['lng'] ?? null,
+                'contact_name' => trim($data['contact_name']),
+                'contact_phone' => $data['contact_phone'] ?? null,
+                'contact_email' => mb_strtolower(trim($data['contact_email'])),
+                'message' => $data['message'] ?? null,
+                'status' => 'pending',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
 
         return response()->json($this->applicationPayload($this->applicationRow($id), true), 201);
     }
@@ -91,7 +95,7 @@ class OwnerApplicationsController extends ApiController
             $base->where('a.status', $query['status']);
         }
         if (! empty($query['q'])) {
-            $needle = '%'.mb_strtolower($query['q']).'%';
+            $needle = '%'.addcslashes(mb_strtolower($query['q']), '%_\\').'%';
             $base->where(function ($q) use ($needle) {
                 $q->whereRaw('LOWER(a.venue_name) LIKE ?', [$needle])
                     ->orWhereRaw('LOWER(a.venue_address) LIKE ?', [$needle])
@@ -145,66 +149,78 @@ class OwnerApplicationsController extends ApiController
         if ($venueId !== null && ($admin->admin_role ?? null) !== 'admin') {
             throw ApiException::forbidden('Only admins can assign an existing venue to an applicant');
         }
-        if ($venueId === null) {
-            if ($application->lat === null || $application->lng === null) {
-                throw ApiException::validation('lat and lng are required to create a new venue');
-            }
-            $venueId = (string) Str::uuid();
-            DB::table('venues')->insert([
-                'id' => $venueId,
-                'name' => $application->venue_name,
-                'address' => $application->venue_address,
-                'lat' => $application->lat,
-                'lng' => $application->lng,
-                'owner_user_id' => $application->user_id,
-                'is_partner' => true,
-                'phone' => $application->contact_phone,
-                'description' => $application->message,
-                'status' => $data['status'] ?? 'draft',
-                'approved_at' => now(),
-                'approved_by_user_id' => $admin->id,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        } else {
-            // Never overwrite an ownership that already belongs to a different
-            // partner — that would orphan the prior owner's venue_id reference
-            // and corrupt the ownership graph. Reassigning to the same applicant
-            // (idempotent re-approval) stays allowed.
-            if (DB::table('venues')->where('id', $venueId)->whereNotNull('owner_user_id')->where('owner_user_id', '!=', $application->user_id)->exists()) {
-                throw ApiException::conflict('Venue is already owned by another partner');
-            }
-            DB::table('venues')->where('id', $venueId)->update([
-                'owner_user_id' => $application->user_id,
-                'is_partner' => true,
-                'status' => $data['status'] ?? 'published',
-                'approved_at' => now(),
-                'approved_by_user_id' => $admin->id,
-                'updated_at' => now(),
-            ]);
+        if ($venueId === null && ($application->lat === null || $application->lng === null)) {
+            throw ApiException::validation('lat and lng are required to create a new venue');
         }
 
-        DB::table('users')->where('id', $application->user_id)->update([
-            'admin_role' => 'partner',
-            'venue_id' => $venueId,
-            'staff_title' => 'Venue owner',
-            'staff_permissions' => json_encode($this->defaultOwnerPermissions()),
-            'updated_at' => now(),
-        ]);
-        DB::table('owner_applications')->where('id', $id)->update([
-            'venue_id' => $venueId,
-            'status' => 'approved',
-            'reviewed_by_user_id' => $admin->id,
-            'reviewed_at' => now(),
-            'review_note' => $data['review_note'] ?? null,
-            'updated_at' => now(),
-        ]);
-        $this->auditWrite($admin->id, 'owner_application.approve', 'owner_applications', $id, [
-            'user_id' => $application->user_id,
-            'venue_id' => $venueId,
-            'created_new_venue' => ($data['venue_id'] ?? $application->venue_id) === null,
-            'status' => $data['status'] ?? null,
-        ]);
+        // All four writes (venue, user, application, audit) are wrapped in one
+        // transaction so a mid-way failure can't leave a half-promoted partner.
+        // The application row is re-loaded under a lock and re-checked so two
+        // concurrent approvals can't both create a venue / double-promote.
+        DB::transaction(function () use ($id, $admin, $application, $data, $venueId): void {
+            $locked = DB::table('owner_applications')->where('id', $id)->lockForUpdate()->first();
+            if (! $locked || $locked->status !== 'pending') {
+                throw ApiException::conflict('Application is already reviewed');
+            }
+            $createdNewVenue = $venueId === null;
+            if ($venueId === null) {
+                $venueId = (string) Str::uuid();
+                DB::table('venues')->insert([
+                    'id' => $venueId,
+                    'name' => $application->venue_name,
+                    'address' => $application->venue_address,
+                    'lat' => $application->lat,
+                    'lng' => $application->lng,
+                    'owner_user_id' => $application->user_id,
+                    'is_partner' => true,
+                    'phone' => $application->contact_phone,
+                    'description' => $application->message,
+                    'status' => $data['status'] ?? 'draft',
+                    'approved_at' => now(),
+                    'approved_by_user_id' => $admin->id,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } else {
+                // Never overwrite an ownership that already belongs to a different
+                // partner — that would orphan the prior owner's venue_id reference
+                // and corrupt the ownership graph. Reassigning to the same applicant
+                // (idempotent re-approval) stays allowed.
+                if (DB::table('venues')->where('id', $venueId)->whereNotNull('owner_user_id')->where('owner_user_id', '!=', $application->user_id)->exists()) {
+                    throw ApiException::conflict('Venue is already owned by another partner');
+                }
+                DB::table('venues')->where('id', $venueId)->update([
+                    'owner_user_id' => $application->user_id,
+                    'is_partner' => true,
+                    'status' => $data['status'] ?? 'published',
+                    'approved_at' => now(),
+                    'approved_by_user_id' => $admin->id,
+                    'updated_at' => now(),
+                ]);
+            }
+
+            DB::table('users')->where('id', $application->user_id)->update([
+                'admin_role' => 'partner',
+                'venue_id' => $venueId,
+                'staff_title' => 'Venue owner',
+                'staff_permissions' => json_encode($this->defaultOwnerPermissions()),
+                'updated_at' => now(),
+            ]);
+            DB::table('owner_applications')->where('id', $id)->update([
+                'venue_id' => $venueId,
+                'status' => 'approved',
+                'reviewed_by_user_id' => $admin->id,
+                'reviewed_at' => now(),
+                'review_note' => $data['review_note'] ?? null,
+                'updated_at' => now(),
+            ]);
+            $this->auditWrite($admin->id, 'owner_application.approve', 'owner_applications', $id, [
+                'user_id' => $application->user_id,
+                'venue_id' => $venueId,
+                'created_new_venue' => $createdNewVenue,
+                'status' => $data['status'] ?? null,
+            ]);
+        });
 
         return response()->json($this->applicationPayload($this->applicationRow($id), true));
     }
@@ -219,17 +235,25 @@ class OwnerApplicationsController extends ApiController
         $data = $this->validateBody($request, [
             'review_note' => ['sometimes', 'nullable', 'string', 'max:4000'],
         ]);
-        DB::table('owner_applications')->where('id', $id)->update([
-            'status' => 'rejected',
-            'reviewed_by_user_id' => $admin->id,
-            'reviewed_at' => now(),
-            'review_note' => $data['review_note'] ?? null,
-            'updated_at' => now(),
-        ]);
-        $this->auditWrite($admin->id, 'owner_application.reject', 'owner_applications', $id, [
-            'user_id' => $application->user_id,
-            'venue_id' => $application->venue_id,
-        ]);
+        DB::transaction(function () use ($id, $admin, $application, $data): void {
+            // Re-load under a lock and re-check so a reject can't race a concurrent
+            // approve (which would otherwise create a venue and still mark rejected).
+            $locked = DB::table('owner_applications')->where('id', $id)->lockForUpdate()->first();
+            if (! $locked || $locked->status !== 'pending') {
+                throw ApiException::conflict('Application is already reviewed');
+            }
+            DB::table('owner_applications')->where('id', $id)->update([
+                'status' => 'rejected',
+                'reviewed_by_user_id' => $admin->id,
+                'reviewed_at' => now(),
+                'review_note' => $data['review_note'] ?? null,
+                'updated_at' => now(),
+            ]);
+            $this->auditWrite($admin->id, 'owner_application.reject', 'owner_applications', $id, [
+                'user_id' => $application->user_id,
+                'venue_id' => $application->venue_id,
+            ]);
+        });
 
         return response()->json($this->applicationPayload($this->applicationRow($id), true));
     }

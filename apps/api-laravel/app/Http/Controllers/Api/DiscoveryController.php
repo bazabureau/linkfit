@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Http\Controllers\Api\Concerns\FiltersPublicPlayerDirectory;
 use App\Services\Membership\MembershipService;
+use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +14,15 @@ class DiscoveryController extends ApiController
 {
     use FiltersBlockedUsers;
     use FiltersPublicPlayerDirectory;
+
+    /**
+     * Canonical daily-challenge codes — single source of truth for both the
+     * seed (challenges) and the completion check (checkChallenge), so an
+     * arbitrary `{code}` path segment can't silently no-op against the DB.
+     *
+     * @var list<string>
+     */
+    private const CHALLENGE_CODES = ['follow_one', 'join_a_game', 'comment_on_feed'];
 
     public function agenda(Request $request): JsonResponse
     {
@@ -838,7 +848,7 @@ class DiscoveryController extends ApiController
     {
         $user = $this->authUser($request);
         $today = now()->toDateString();
-        $codes = ['follow_one', 'join_a_game', 'comment_on_feed'];
+        $codes = self::CHALLENGE_CODES;
         foreach ($codes as $code) {
             DB::table('user_challenges')->updateOrInsert(
                 ['user_id' => $user->id, 'challenge_code' => $code, 'date' => $today],
@@ -852,6 +862,14 @@ class DiscoveryController extends ApiController
     public function checkChallenge(Request $request, string $code): JsonResponse
     {
         $user = $this->authUser($request);
+        // Reject an unknown `{code}` rather than silently running a 0-row UPDATE
+        // and returning ok:true. Valid clients only ever submit a code surfaced
+        // by challenges(), so this never breaks a legitimate request.
+        if (! in_array($code, self::CHALLENGE_CODES, true)) {
+            throw ApiException::validation('Unknown challenge code', [
+                'issues' => ['code' => ['The selected challenge code is invalid.']],
+            ]);
+        }
         $today = now()->toDateString();
         DB::table('user_challenges')
             ->where('user_id', $user->id)
@@ -866,21 +884,6 @@ class DiscoveryController extends ApiController
             'ok' => true,
             'items' => DB::table('user_challenges')->where('user_id', $user->id)->where('date', $today)->get(),
         ]);
-    }
-
-    private function publicUser(object $u): array
-    {
-        return [
-            'id' => $u->id,
-            'email' => $u->email,
-            'display_name' => $u->display_name,
-            'photo_url' => $u->photo_url,
-            'home_lat' => $u->home_lat !== null ? (float) $u->home_lat : null,
-            'home_lng' => $u->home_lng !== null ? (float) $u->home_lng : null,
-            'created_at' => $this->iso($u->created_at),
-            'email_verified_at' => $this->iso($u->email_verified_at ?? null),
-            'admin_role' => $u->admin_role ?? null,
-        ];
     }
 
     private function bookingActivity(string $userId)

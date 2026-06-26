@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
 use App\Support\ApiException;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,9 +17,9 @@ class WaitlistController extends ApiController
 
     /**
      * Cap on concurrent ACTIVE/NOTIFIED waitlist entries per user. The create
-     * route ({@see create}) is not rate-limited at the route layer, so this
-     * bounds abuse / unbounded table growth while staying well above any
-     * realistic legitimate use.
+     * route ({@see create}) is throttled (throttle:write-action), but that only
+     * bounds request rate — this caps the standing table footprint a single user
+     * can accumulate over time, while staying well above realistic legitimate use.
      */
     private const MAX_ACTIVE_WAITLIST_ENTRIES = 50;
 
@@ -80,10 +81,10 @@ class WaitlistController extends ApiController
                 'updated_at' => now(),
             ]);
         } else {
-            // Abuse / unbounded-growth guard: this write route is not throttled,
-            // so cap how many ACTIVE/NOTIFIED waitlist entries a single user may
-            // hold at once. Reactivating an existing entry (above) is exempt so a
-            // legitimate re-join is never blocked.
+            // Unbounded-growth guard: cap how many ACTIVE/NOTIFIED waitlist entries
+            // a single user may hold at once (the route throttle bounds rate, not
+            // standing footprint). Reactivating an existing entry (above) is exempt
+            // so a legitimate re-join is never blocked.
             $activeCount = DB::table('booking_waitlist_entries')
                 ->where('user_id', $user->id)
                 ->whereIn('status', ['active', 'notified'])
@@ -91,16 +92,34 @@ class WaitlistController extends ApiController
             if ($activeCount >= self::MAX_ACTIVE_WAITLIST_ENTRIES) {
                 throw ApiException::conflict('You have reached the maximum number of active waitlist entries');
             }
-            DB::table('booking_waitlist_entries')->insert([
-                'id' => (string) Str::uuid(),
-                'user_id' => $user->id,
-                'court_id' => $courtId,
-                'starts_at' => $starts,
-                'duration_minutes' => (int) $data['duration_minutes'],
-                'status' => 'active',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            try {
+                DB::table('booking_waitlist_entries')->insert([
+                    'id' => (string) Str::uuid(),
+                    'user_id' => $user->id,
+                    'court_id' => $courtId,
+                    'starts_at' => $starts,
+                    'duration_minutes' => (int) $data['duration_minutes'],
+                    'status' => 'active',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } catch (QueryException $e) {
+                // Concurrent double-join: the pre-check above is a fast path only,
+                // so two simultaneous requests can both miss $existing and race to
+                // insert. The unique (user_id, court_id, starts_at, duration_minutes)
+                // index is the real guard — the loser collides; translate that into
+                // an idempotent reactivation of the now-existing row instead of a 500.
+                if (! $this->isUniqueViolation($e)) {
+                    throw $e;
+                }
+                DB::table('booking_waitlist_entries')
+                    ->where('user_id', $user->id)
+                    ->where('court_id', $courtId)
+                    ->where('starts_at', $starts)
+                    ->where('duration_minutes', (int) $data['duration_minutes'])
+                    ->update(['status' => 'active', 'cancelled_at' => null, 'updated_at' => now()]);
+                $existing = true;
+            }
         }
 
         $entry = $this->baseQuery()
@@ -339,6 +358,17 @@ class WaitlistController extends ApiController
         }
 
         return $base;
+    }
+
+    /**
+     * Detect a unique/primary-key constraint violation across drivers.
+     * Postgres reports SQLSTATE 23505; SQLite/MySQL report the generic 23000.
+     */
+    private function isUniqueViolation(QueryException $e): bool
+    {
+        $sqlState = (string) ($e->errorInfo[0] ?? $e->getCode());
+
+        return in_array($sqlState, ['23505', '23000'], true);
     }
 
     private function auditWrite(?string $actorUserId, string $action, string $entity, ?string $entityId = null, array $metadata = []): void

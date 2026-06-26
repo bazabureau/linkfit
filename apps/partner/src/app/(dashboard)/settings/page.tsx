@@ -18,6 +18,7 @@ import {
   Smartphone,
   Check,
   RotateCcw,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -65,7 +66,13 @@ const EMPTY_FORM: FormState = {
 export default function SettingsPage(): React.JSX.Element {
   const toast = useToast();
   const qc = useQueryClient();
-  const { data: venue, isLoading: isQueryLoading } = usePartnerVenue();
+  const {
+    data: venue,
+    isLoading: isQueryLoading,
+    isError,
+    refetch,
+    isFetching,
+  } = usePartnerVenue();
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   // Snapshot of the last saved/loaded values — used to detect unsaved changes.
@@ -80,12 +87,19 @@ export default function SettingsPage(): React.JSX.Element {
   // Sync form + snapshot when the query resolves.
   useEffect(() => {
     if (venue) {
+      // The partner venue endpoint persists the cover image as `photo_urls`
+      // (array) — see handleSave below — so the saved cover must be read back
+      // from there (falling back to the legacy single `photo_url`). Reading
+      // only `photo_url` made an uploaded cover revert on refetch even though
+      // it was actually saved.
+      const coverFromArray = (venue as { photo_urls?: string[] | null })
+        .photo_urls?.[0];
       const next: FormState = {
         name: venue.name,
         description: venue.description ?? "",
-        address: venue.address,
+        address: venue.address ?? "",
         phone: venue.phone ?? "",
-        photoUrl: venue.photo_url ?? "",
+        photoUrl: coverFromArray ?? venue.photo_url ?? "",
       };
       setForm(next);
       setSaved(next);
@@ -143,6 +157,35 @@ export default function SettingsPage(): React.JSX.Element {
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="h-[30rem] animate-pulse rounded-2xl bg-surface lg:col-span-2" />
           <div className="h-[30rem] animate-pulse rounded-2xl bg-surface" />
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="max-w-5xl">
+        <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-danger/30 bg-danger/[0.06] py-20 text-center">
+          <div className="grid h-16 w-16 place-items-center rounded-2xl bg-danger/10 ring-1 ring-danger/15">
+            <AlertCircle className="h-7 w-7 text-danger" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="font-display text-base font-bold text-foreground">
+              Məkan məlumatı yüklənmədi
+            </h3>
+            <p className="mx-auto max-w-sm text-sm text-foregroundMuted">
+              Məkan məlumatlarınızı almaq mümkün olmadı. Yenidən cəhd edin.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="gap-2"
+          >
+            <RotateCcw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+            Yenidən cəhd et
+          </Button>
         </div>
       </div>
     );

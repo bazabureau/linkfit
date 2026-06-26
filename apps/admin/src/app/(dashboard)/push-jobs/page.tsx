@@ -37,7 +37,7 @@ export default function PushJobsPage(): React.JSX.Element {
   const { t } = useI18n();
   const toast = useToast();
   const [status, setStatus] = React.useState<PushJobStatus | "">("");
-  const { data, isLoading, isFetching, refetch } = usePushJobs({ status: status || undefined, limit: 100 });
+  const { data, isLoading, isError, isFetching, refetch } = usePushJobs({ status: status || undefined, limit: 100 });
   const retry = useRetryPushJob();
   const cancel = useCancelPushJob();
   const items = data?.items ?? [];
@@ -105,6 +105,16 @@ export default function PushJobsPage(): React.JSX.Element {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={7} className="py-10 text-center text-foregroundMuted">{t("Yüklənir")}…</TableCell></TableRow>
+            ) : isError ? (
+              <TableRow>
+                <TableCell colSpan={7} className="py-10 text-center">
+                  <p className="text-sm text-danger">{t("Yenidən yoxlayın")}</p>
+                  <Button variant="secondary" size="sm" className="mt-3" onClick={() => void refetch()}>
+                    <RefreshCw className="h-4 w-4" />
+                    {t("Retry")}
+                  </Button>
+                </TableCell>
+              </TableRow>
             ) : items.length === 0 ? (
               <TableRow><TableCell colSpan={7} className="py-10 text-center text-foregroundMuted">{t("No push jobs")}</TableCell></TableRow>
             ) : (

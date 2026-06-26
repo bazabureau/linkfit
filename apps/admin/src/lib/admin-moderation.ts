@@ -272,7 +272,8 @@ export interface VenueReviewsResponse {
   items: VenueReview[];
   total: number;
   summary: {
-    avg_rating: number | null;
+    // Postgres AVG comes back as a numeric STRING over the wire, not a number.
+    avg_rating: number | string | null;
     active_count: number;
     removed_count: number;
   };

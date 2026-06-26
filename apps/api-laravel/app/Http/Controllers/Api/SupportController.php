@@ -219,7 +219,7 @@ class SupportController extends ApiController
         $data = $this->validateBody($request, [
             'status' => ['sometimes', 'required', 'in:open,pending,resolved,closed'],
             'priority' => ['sometimes', 'required', 'in:low,normal,high,urgent'],
-            'assigned_to_user_id' => ['sometimes', 'nullable', 'uuid'],
+            'assigned_to_user_id' => ['sometimes', 'nullable', 'uuid', 'exists:users,id'],
             'resolution_note' => ['sometimes', 'nullable', 'string', 'max:4000'],
         ]);
         if ($data === []) {
@@ -228,6 +228,10 @@ class SupportController extends ApiController
         $updates = [...$data, 'updated_at' => now()];
         if (($data['status'] ?? null) === 'resolved' || ($data['status'] ?? null) === 'closed') {
             $updates['resolved_at'] = now();
+        } elseif (($data['status'] ?? null) === 'open' || ($data['status'] ?? null) === 'pending') {
+            // Reopening a previously resolved/closed ticket clears the stale
+            // resolved_at so the response timestamps stay consistent.
+            $updates['resolved_at'] = null;
         }
         if (array_key_exists('assigned_to_user_id', $data) && $data['assigned_to_user_id'] === null) {
             $updates['assigned_to_user_id'] = null;

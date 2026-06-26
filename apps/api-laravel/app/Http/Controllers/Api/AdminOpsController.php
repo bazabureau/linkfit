@@ -662,6 +662,7 @@ class AdminOpsController extends ApiController
     {
         $admin = $this->authUser($request);
         $this->staff($request, 'users');
+        $this->assertCanDisableUser($admin, $id);
         $data = $this->validateBody($request, [
             'reason' => ['required', 'string', 'min:2', 'max:2000'],
         ]);
@@ -835,6 +836,10 @@ class AdminOpsController extends ApiController
     {
         $admin = $this->authUser($request);
         $this->staff($request, 'users');
+        $this->assertCanDisableUser($admin, $id);
+        if (! DB::table('users')->where('id', $id)->exists()) {
+            throw ApiException::notFound('User not found');
+        }
         DB::table('users')->where('id', $id)->update(['deleted_at' => now(), 'updated_at' => now()]);
         $this->auditWrite($admin->id, 'user.soft_delete', 'users', $id);
 
@@ -845,6 +850,9 @@ class AdminOpsController extends ApiController
     {
         $admin = $this->authUser($request);
         $this->staff($request, 'users');
+        if (! DB::table('users')->where('id', $id)->exists()) {
+            throw ApiException::notFound('User not found');
+        }
         DB::table('users')->where('id', $id)->update(['deleted_at' => null, 'updated_at' => now()]);
         $this->auditWrite($admin->id, 'user.restore', 'users', $id);
 
@@ -1155,23 +1163,26 @@ class AdminOpsController extends ApiController
             ->when($to, fn ($q) => $q->where('b.starts_at', '<=', $to))
             ->when($venueId, fn ($q) => $q->where('v.id', $venueId))
             ->orderBy('b.starts_at')
+            ->limit(50000)
             ->get(['b.id', 'b.starts_at', 'b.duration_minutes', 'b.status', 'b.total_minor', 'b.currency', 'b.payment_method', 'b.customer_name', 'b.customer_email', 'v.name as venue_name', 'c.name as court_name', 'u.display_name as booker_display_name', 'u.email as booker_email']);
         $csv = "id,starts_at,duration_minutes,venue,court,status,payment_method,total_minor,currency,booker,booker_email,customer_name,customer_email\n";
         foreach ($rows as $row) {
+            // Every user-controlled string column is run through csvSafe() so a
+            // value like "=cmd|..." can't be evaluated as a formula in Excel.
             $csv .= implode(',', [
                 $row->id,
                 $row->starts_at,
                 $row->duration_minutes,
-                '"'.str_replace('"', '""', (string) $row->venue_name).'"',
-                '"'.str_replace('"', '""', (string) $row->court_name).'"',
+                '"'.str_replace('"', '""', $this->csvSafe($row->venue_name)).'"',
+                '"'.str_replace('"', '""', $this->csvSafe($row->court_name)).'"',
                 $row->status,
                 $row->payment_method,
                 $row->total_minor,
                 $row->currency,
-                '"'.str_replace('"', '""', (string) $row->booker_display_name).'"',
-                $row->booker_email,
-                '"'.str_replace('"', '""', (string) $row->customer_name).'"',
-                $row->customer_email,
+                '"'.str_replace('"', '""', $this->csvSafe($row->booker_display_name)).'"',
+                '"'.str_replace('"', '""', $this->csvSafe($row->booker_email)).'"',
+                '"'.str_replace('"', '""', $this->csvSafe($row->customer_name)).'"',
+                '"'.str_replace('"', '""', $this->csvSafe($row->customer_email)).'"',
             ])."\n";
         }
 
@@ -1235,8 +1246,8 @@ class AdminOpsController extends ApiController
                 $csv .= implode(',', [
                     $row->id,
                     $row->starts_at,
-                    '"'.str_replace('"', '""', (string) $row->venue_name).'"',
-                    '"'.str_replace('"', '""', (string) $row->court_name).'"',
+                    '"'.str_replace('"', '""', $this->csvSafe($row->venue_name)).'"',
+                    '"'.str_replace('"', '""', $this->csvSafe($row->court_name)).'"',
                     $row->status,
                     $row->payment_method,
                     $row->total_minor,
@@ -1373,11 +1384,15 @@ class AdminOpsController extends ApiController
         $starts = CarbonImmutable::parse($data['starts_at']);
         $duration = (int) $data['duration_minutes'];
         $this->assertVenueRules($court, $starts, $duration);
-        $this->assertBookingSlotAvailable((string) $data['court_id'], $starts, $starts->addMinutes($duration));
 
         $id = (string) Str::uuid();
         $status = $data['status'] ?? 'pending_payment';
         DB::transaction(function () use ($admin, $data, $court, $id, $status, $starts, $duration): void {
+            // Serialize concurrent manual bookings for the same court: hold a row
+            // lock and re-check availability inside the transaction so two admins
+            // can't pass the pre-check and both insert the same slot.
+            DB::table('courts')->where('id', $data['court_id'])->lockForUpdate()->first(['id']);
+            $this->assertBookingSlotAvailable((string) $data['court_id'], $starts, $starts->addMinutes($duration));
             DB::table('bookings')->insert([
                 'id' => $id,
                 'game_id' => null,
@@ -2589,9 +2604,14 @@ class AdminOpsController extends ApiController
         if ($user === null) {
             throw ApiException::notFound('User not found');
         }
+        // Never leak the credential hash or OAuth subject identifiers when
+        // spreading the raw row into the moderation payload — these are secrets
+        // and account-linking handles, not display data.
+        $safeUser = (array) $user;
+        unset($safeUser['password_hash'], $safeUser['google_sub'], $safeUser['apple_sub']);
 
         return response()->json([
-            ...((array) $user),
+            ...$safeUser,
             'games_played_total' => DB::table('game_participants')->where('user_id', $id)->count(),
             'games_hosted_total' => DB::table('games')->where('host_user_id', $id)->count(),
             'reports_filed_count' => DB::table('reports')->where('reporter_user_id', $id)->count(),
@@ -2608,6 +2628,7 @@ class AdminOpsController extends ApiController
         if (! DB::table('users')->where('id', $id)->exists()) {
             throw ApiException::notFound('User not found');
         }
+        $this->assertCanDisableUser($admin, $id);
         DB::table('users')->where('id', $id)->update(['deleted_at' => now(), 'updated_at' => now()]);
         $this->auditWrite($admin->id, 'user.deactivate', 'users', $id);
 
@@ -3811,6 +3832,27 @@ class AdminOpsController extends ApiController
     {
         if (! preg_match('/[A-Za-z]/', $password) || ! preg_match('/\d/', $password)) {
             throw ApiException::validation('Password must contain a letter and a digit');
+        }
+    }
+
+    /**
+     * Guard the destructive user-state endpoints (suspend / soft-delete /
+     * deactivate). A moderator may hold the grantable "users" permission, but
+     * only a full admin may disable an admin or moderator — otherwise a
+     * moderator could lock every admin out of the console. Self-targeting is
+     * always refused so an actor can't lock themselves out.
+     */
+    private function assertCanDisableUser(object $actor, string $targetId): void
+    {
+        if ((string) $actor->id === $targetId) {
+            throw ApiException::conflict('You cannot disable your own account');
+        }
+        if ($actor->admin_role === 'admin') {
+            return;
+        }
+        $target = DB::table('users')->where('id', $targetId)->first(['admin_role']);
+        if ($target !== null && in_array($target->admin_role, ['admin', 'moderator'], true)) {
+            throw ApiException::forbidden('Only an admin can disable a staff account');
         }
     }
 

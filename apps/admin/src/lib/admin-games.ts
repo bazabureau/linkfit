@@ -72,7 +72,13 @@ export const AdminGameAuditEntrySchema = z.object({
   actor_user_id: z.string().uuid().nullable(),
   actor_display_name: z.string().nullable(),
   action: z.string(),
-  metadata: z.record(z.unknown()),
+  // Backend `auditWrite` stores empty metadata as json_encode([]) -> JSON `[]`,
+  // which z.record() rejects (would crash the whole game-detail parse). Coerce
+  // any non-object (array/null) value to {}.
+  metadata: z.preprocess(
+    (v) => (v && typeof v === "object" && !Array.isArray(v) ? v : {}),
+    z.record(z.unknown()),
+  ),
   created_at: z.string(),
 });
 export type AdminGameAuditEntry = z.infer<typeof AdminGameAuditEntrySchema>;

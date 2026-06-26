@@ -42,7 +42,16 @@ class DataRightsController extends ApiController
                 ->update(['revoked_at' => now()]);
         });
 
-        return response()->json($this->deletionPayload(DB::table('account_deletion_requests')->where('user_id', $user->id)->first()), 202);
+        // Re-read after commit. If a concurrent purge removed the row in the
+        // window, first() is null — fail clean instead of passing null into the
+        // non-nullable deletionPayload() and surfacing a raw TypeError 500
+        // (mirrors the same guard in cancelDeletion()).
+        $row = DB::table('account_deletion_requests')->where('user_id', $user->id)->first();
+        if ($row === null) {
+            throw ApiException::internal('Failed to schedule account deletion');
+        }
+
+        return response()->json($this->deletionPayload($row), 202);
     }
 
     public function cancelDeletion(Request $request): JsonResponse
@@ -115,7 +124,15 @@ class DataRightsController extends ApiController
             'created_at' => now(),
         ]);
 
-        return response()->json($this->exportPayload(DB::table('data_export_requests')->where('id', $id)->first()));
+        // Read back the row we just inserted. A null here can only mean a
+        // concurrent purge removed it — fail clean rather than 500-ing on a
+        // TypeError from passing null into the non-nullable exportPayload().
+        $row = DB::table('data_export_requests')->where('id', $id)->first();
+        if ($row === null) {
+            throw ApiException::internal('Failed to create export request');
+        }
+
+        return response()->json($this->exportPayload($row));
     }
 
     public function latestExport(Request $request): JsonResponse

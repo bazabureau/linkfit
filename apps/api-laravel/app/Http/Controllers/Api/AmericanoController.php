@@ -11,6 +11,14 @@ use Illuminate\Support\Str;
 
 class AmericanoController extends ApiController
 {
+    /**
+     * Upper bound on entries per tournament. A single round-robin draw is
+     * O(n^2) in matches, so an unbounded roster would let a host generate a
+     * pathological bracket (and a giant `start()` insert). 64 is far above any
+     * real americano field, so no legitimate client request is rejected.
+     */
+    private const MAX_TEAMS = 64;
+
     public function store(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
@@ -125,7 +133,39 @@ class AmericanoController extends ApiController
             // entries are not owned by a single user, so user_id stays null.
             $row['user_id'] = $isSolo ? $user->id : null;
         }
-        DB::table('americano_teams')->insert($row);
+
+        DB::transaction(function () use ($id, $isSolo, $user, $row): void {
+            // Lock the tournament row and re-read its status inside the
+            // transaction. The pre-transaction checks above can race a
+            // concurrent start() (or a second add) — without this locked
+            // re-check an entry could be appended after the bracket is drawn,
+            // leaving that team with no matches. (Mirrors start()/score().)
+            $locked = DB::table('americano_tournaments')->where('id', $id)->lockForUpdate()->first(['status']);
+            if ($locked === null || $locked->status !== 'open') {
+                throw ApiException::conflict('Teams can only be added while the tournament is open');
+            }
+
+            // Re-assert the solo single-entry invariant under the lock so two
+            // concurrent registrations for the same player cannot both insert.
+            if ($isSolo && isset($row['user_id'])) {
+                $already = DB::table('americano_teams')
+                    ->where('tournament_id', $id)
+                    ->where('user_id', $row['user_id'])
+                    ->exists();
+                if ($already) {
+                    throw ApiException::conflict('You already have an entry in this tournament');
+                }
+            }
+
+            // Bound the roster size (see MAX_TEAMS) — counted under the lock so
+            // concurrent adds cannot overshoot the cap.
+            $existing = (int) DB::table('americano_teams')->where('tournament_id', $id)->count();
+            if ($existing >= self::MAX_TEAMS) {
+                throw ApiException::conflict('This tournament has reached the maximum number of entries');
+            }
+
+            DB::table('americano_teams')->insert($row);
+        });
 
         return response()->json(DB::table('americano_teams')->where('id', $teamId)->first(), 201);
     }

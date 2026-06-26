@@ -9,6 +9,12 @@ use Illuminate\Support\Facades\DB;
  * /broadcasting/auth route (see bootstrap/app.php withBroadcasting).
  */
 Broadcast::channel('conversation.{conversationId}', function ($user, string $conversationId) {
+    // Fail closed: the JWT middleware guarantees a user, but never authorize a
+    // private channel for an unresolved/null actor.
+    if ($user === null) {
+        return false;
+    }
+
     return DB::table('conversation_participants')
         ->where('conversation_id', $conversationId)
         ->where('user_id', $user->id)
@@ -17,5 +23,5 @@ Broadcast::channel('conversation.{conversationId}', function ($user, string $con
 });
 
 Broadcast::channel('user.{userId}', function ($user, string $userId) {
-    return (string) $user->id === $userId;
+    return $user !== null && (string) $user->id === $userId;
 });

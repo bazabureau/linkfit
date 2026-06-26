@@ -92,6 +92,16 @@ class MediaController extends ApiController
                 throw ApiException::validation('Invalid image file');
             }
             [$width, $height] = $info;
+            // Decompression-bomb guard: getimagesize() reports the declared
+            // dimensions cheaply from the header, but compressedImage() below
+            // calls imagecreatefromstring() which allocates ~4 bytes per pixel
+            // for the full source bitmap. A tiny (<=8MB) file can still declare
+            // enormous dimensions and OOM the PHP-FPM worker. Any genuine photo
+            // at this pixel count would already exceed the 8MB image cap above,
+            // so legitimate uploads are never narrowed.
+            if ($width < 1 || $height < 1 || ($width * $height) > 100000000) {
+                throw ApiException::validation('Image dimensions are too large');
+            }
             $extension = $mime === 'image/png' ? 'png' : ($mime === 'image/webp' ? 'webp' : 'jpg');
             [$contents, $width, $height] = $this->compressedImage($file->getRealPath(), $mime, $width, $height);
         }

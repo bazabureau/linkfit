@@ -46,6 +46,12 @@ class MeController extends ApiController
         if (array_key_exists('home_lat', $data) xor array_key_exists('home_lng', $data)) {
             throw ApiException::validation('home_lat and home_lng must be provided together');
         }
+        // `min:1` counts characters, so a whitespace-only string passes and would
+        // store a blank display_name that is then served to every other user.
+        // Reject it (the value itself is left unmutated for valid names).
+        if (array_key_exists('display_name', $data) && trim((string) $data['display_name']) === '') {
+            throw ApiException::validation('display_name cannot be blank');
+        }
         // photo_url is served verbatim to other users, so a free URL must be https
         // and on an allowlisted host (the validated upload path / a media_asset_id
         // is preferred). A null clears the avatar and skips the host check.

@@ -51,12 +51,22 @@ class FeedController extends ApiController
             ->where(function ($q) use ($viewerId) {
                 $q->where('f.visibility', 'public');
                 if ($viewerId !== null) {
+                    // The actor always sees their own events (any visibility).
                     $q->orWhere('f.actor_user_id', $viewerId)
-                        ->orWhereExists(function ($sq) use ($viewerId) {
-                            $sq->selectRaw('1')
-                                ->from('follows')
-                                ->whereColumn('followed_user_id', 'f.actor_user_id')
-                                ->where('follower_user_id', $viewerId);
+                        // A follower sees a followed user's `followers`-tier
+                        // events ONLY — never their `private` (author-only)
+                        // events. The follows-exists must therefore be scoped to
+                        // visibility='followers', mirroring the write-side guard
+                        // in assertEventInteractable(); otherwise a private event
+                        // leaks to anyone who follows the author.
+                        ->orWhere(function ($s) use ($viewerId) {
+                            $s->where('f.visibility', 'followers')
+                                ->whereExists(function ($sq) use ($viewerId) {
+                                    $sq->selectRaw('1')
+                                        ->from('follows')
+                                        ->whereColumn('followed_user_id', 'f.actor_user_id')
+                                        ->where('follower_user_id', $viewerId);
+                                });
                         });
                 }
             })
@@ -154,13 +164,26 @@ class FeedController extends ApiController
     {
         $limit = min(max((int) $request->query('limit', 50), 1), 100);
         $viewerId = $this->optionalViewerId($request);
-        // A `private` event is author-only; never leak its comment thread (even
-        // an empty one) to anyone but the author. Other tiers keep their
-        // existing read behaviour. A missing event yields an empty thread below.
+        // A `private` event is author-only; a `followers` event is the author +
+        // their followers. Never leak the comment thread (even an empty one) of a
+        // restricted event to someone the read feed (index) would never surface
+        // it to — this mirrors the write-side guard in assertEventInteractable().
+        // A missing event yields an empty thread below.
         $event = DB::table('feed_events')->where('id', $eventId)->first(['actor_user_id', 'visibility']);
-        if ($event !== null && (string) $event->visibility === 'private'
-            && ($viewerId === null || $viewerId !== (string) $event->actor_user_id)) {
-            throw ApiException::notFound('Feed event not found');
+        if ($event !== null) {
+            $visibility = (string) $event->visibility;
+            $isAuthor = $viewerId !== null && $viewerId === (string) $event->actor_user_id;
+            if (! $isAuthor && $visibility === 'private') {
+                throw ApiException::notFound('Feed event not found');
+            }
+            if (! $isAuthor && $visibility === 'followers'
+                && ($viewerId === null
+                    || ! DB::table('follows')
+                        ->where('follower_user_id', $viewerId)
+                        ->where('followed_user_id', $event->actor_user_id)
+                        ->exists())) {
+                throw ApiException::notFound('Feed event not found');
+            }
         }
         // Keyset pagination: the previously-emitted next_cursor was never read,
         // so callers could never page past the first screen. Consume it here via
@@ -202,6 +225,12 @@ class FeedController extends ApiController
         $data = $this->validateBody($request, [
             'body' => ['required', 'string', 'min:1', 'max:500'],
         ]);
+        // `min:1` only counts raw length; a whitespace-only body would be stored
+        // as an empty string. Reject it (matches StoriesController::reply()).
+        $body = trim($data['body']);
+        if ($body === '') {
+            throw ApiException::validation('Comment body cannot be empty');
+        }
         $event = DB::table('feed_events')->where('id', $eventId)->first(['id', 'actor_user_id', 'visibility']);
         if ($event === null) {
             throw ApiException::notFound('Feed event not found');
@@ -213,7 +242,7 @@ class FeedController extends ApiController
             'id' => $id,
             'event_id' => $eventId,
             'user_id' => $user->id,
-            'body' => trim($data['body']),
+            'body' => $body,
             'created_at' => now(),
         ]);
 
