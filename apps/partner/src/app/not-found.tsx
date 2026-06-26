@@ -1,16 +1,36 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+import { ArrowLeft, Compass } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+export const metadata: Metadata = {
+  title: "Səhifə tapılmadı · LinkFit",
+};
 
 export default function NotFound() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
-      <h2 className="text-2xl font-bold mb-2">404 - Page Not Found</h2>
-      <p className="text-muted-foreground mb-4">The page you are looking for does not exist.</p>
-      <Link
-        href="/"
-        className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-      >
-        Go Back Home
-      </Link>
-    </div>
+    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-6 text-center">
+      <div className="grid h-16 w-16 place-items-center rounded-2xl bg-accent/10 text-accent ring-1 ring-accent/20">
+        <Compass className="h-8 w-8" />
+      </div>
+      <div className="space-y-2">
+        <p className="font-display text-sm font-semibold text-accent tabular-nums">
+          404
+        </p>
+        <h1 className="font-display text-2xl font-bold text-foreground">
+          Səhifə tapılmadı
+        </h1>
+        <p className="mx-auto max-w-sm text-sm leading-relaxed text-foregroundMuted">
+          Axtardığınız səhifə mövcud deyil və ya köçürülüb. Ümumi baxış panelinə
+          qayıda bilərsiniz.
+        </p>
+      </div>
+      <Button asChild className="gap-2">
+        <Link href="/">
+          <ArrowLeft className="h-4 w-4" />
+          Ümumi Baxışa Qayıt
+        </Link>
+      </Button>
+    </main>
   );
 }

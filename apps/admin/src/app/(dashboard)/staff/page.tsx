@@ -91,13 +91,14 @@ export default function StaffPage(): React.JSX.Element {
                     <TableCell className="text-foregroundMuted">{dt(account.created_at)}</TableCell>
                     <TableCell className="text-right">
                       <div className="inline-flex gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => setDialog({ open: true, account })}>
+                        <Button variant="ghost" size="sm" aria-label={t("Redaktə et")} onClick={() => setDialog({ open: true, account })}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                         {account.deleted_at ? (
                           <Button
                             variant="ghost"
                             size="sm"
+                            aria-label={t("Bərpa et")}
                             onClick={() =>
                               update.mutate(
                                 { id: account.id, data: { restore: true } },
@@ -111,6 +112,7 @@ export default function StaffPage(): React.JSX.Element {
                           <Button
                             variant="ghost"
                             size="sm"
+                            aria-label={t("Sil")}
                             onClick={() =>
                               del.mutate(account.id, {
                                 onSuccess: () => toast.success(t("Staff account removed")),

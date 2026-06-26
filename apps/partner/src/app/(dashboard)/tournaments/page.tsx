@@ -335,9 +335,14 @@ export default function TournamentsPage(): React.JSX.Element {
 
       {/* Filter toolbar */}
       <div className="rounded-2xl border border-border bg-surface p-2 shadow-card">
-        <div className="flex flex-wrap items-center gap-1">
+        <div
+          className="flex flex-wrap items-center gap-1"
+          role="group"
+          aria-label="Status filtri"
+        >
           <button
             type="button"
+            aria-pressed={statusFilter === "all"}
             onClick={() => setStatusFilter("all")}
             className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
               statusFilter === "all"
@@ -353,6 +358,7 @@ export default function TournamentsPage(): React.JSX.Element {
               <button
                 key={s}
                 type="button"
+                aria-pressed={active}
                 onClick={() => setStatusFilter(s)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                   active

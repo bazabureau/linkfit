@@ -131,11 +131,12 @@ function CoachesTab({ onEdit }: { onEdit: (c: AdminCoach) => void }): React.JSX.
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="inline-flex gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(c)}><Pencil className="h-3.5 w-3.5" /></Button>
+                    <Button variant="ghost" size="sm" aria-label={t("Redaktə et")} onClick={() => onEdit(c)}><Pencil className="h-3.5 w-3.5" /></Button>
                     {c.is_active && (
                       <Button
                         variant="ghost"
                         size="sm"
+                        aria-label={t("Deaktiv et")}
                         onClick={() =>
                           del.mutate(c.id, {
                             onSuccess: () => toast.success(t("Məşqçi deaktiv edildi")),
@@ -199,11 +200,12 @@ function LessonsTab({ onEdit }: { onEdit: (l: AdminLesson) => void }): React.JSX
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="inline-flex gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(l)}><Pencil className="h-3.5 w-3.5" /></Button>
+                    <Button variant="ghost" size="sm" aria-label={t("Redaktə et")} onClick={() => onEdit(l)}><Pencil className="h-3.5 w-3.5" /></Button>
                     {l.status === "scheduled" && (
                       <Button
                         variant="ghost"
                         size="sm"
+                        aria-label={t("Ləğv")}
                         onClick={() =>
                           del.mutate(l.id, {
                             onSuccess: () => toast.success(t("Dərs ləğv edildi")),

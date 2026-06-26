@@ -138,9 +138,13 @@ export function RevenueChart({
             {buckets.map((b, i) => {
               const h = max > 0 ? (b.paidMinor / max) * 100 : 0;
               const isActive = hover === i;
+              const barLabel = `${b.label}: ${fmtMoney(b.paidMinor, currency)}`;
               return (
                 <div
                   key={b.key}
+                  role="img"
+                  aria-label={barLabel}
+                  title={barLabel}
                   className="group relative flex h-full flex-1 cursor-pointer items-end"
                   onMouseEnter={() => setHover(i)}
                   onMouseLeave={() => setHover(null)}

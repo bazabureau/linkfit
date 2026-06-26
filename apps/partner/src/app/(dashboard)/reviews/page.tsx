@@ -307,6 +307,8 @@ export default function ReviewsPage(): React.JSX.Element {
                 <button
                   key={starVal}
                   type="button"
+                  aria-pressed={ratingFilter === String(starVal)}
+                  aria-label={`${starVal} ulduzlu rəylər: ${count}`}
                   onClick={() =>
                     setRatingFilter(
                       ratingFilter === String(starVal) ? "all" : String(starVal),
@@ -347,11 +349,17 @@ export default function ReviewsPage(): React.JSX.Element {
             className="pl-9"
           />
         </div>
-        <div className="flex items-center gap-1 rounded-lg border border-border bg-surfaceElevated p-1">
+        <div
+          className="flex items-center gap-1 rounded-lg border border-border bg-surfaceElevated p-1"
+          role="group"
+          aria-label="Reytinq filtri"
+        >
           {RATING_OPTIONS.map((opt) => (
             <button
               key={opt}
               type="button"
+              aria-pressed={ratingFilter === opt}
+              aria-label={opt === "all" ? "Bütün reytinqlər" : `${opt} ulduz`}
               onClick={() => setRatingFilter(opt)}
               className={`flex items-center gap-0.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                 ratingFilter === opt

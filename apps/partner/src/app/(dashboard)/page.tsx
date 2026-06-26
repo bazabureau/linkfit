@@ -238,7 +238,7 @@ export default function PartnerOverviewPage(): React.JSX.Element {
 
       {/* ─── Error banner ────────────────────────────────────────────────── */}
       {statsError ? (
-        <div className="flex items-center justify-between gap-4 rounded-2xl border border-danger/30 bg-danger/[0.07] p-5">
+        <div className="flex flex-col items-start gap-4 rounded-2xl border border-danger/30 bg-danger/[0.07] p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-danger/15 text-danger">
               <XCircle className="h-5 w-5" />
@@ -252,7 +252,16 @@ export default function PartnerOverviewPage(): React.JSX.Element {
               </p>
             </div>
           </div>
-          <Button variant="secondary" size="sm" onClick={handleRefresh}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={statsFetching}
+            className="shrink-0 gap-1.5 self-start sm:self-auto"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${statsFetching ? "animate-spin" : ""}`}
+            />
             Yenidən Cəhd Et
           </Button>
         </div>

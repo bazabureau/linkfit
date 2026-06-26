@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, Loader2, ShieldAlert, Star, Undo2, X } from "lucide-react";
+import { Check, Loader2, RefreshCw, ShieldAlert, Star, Undo2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -79,7 +79,7 @@ function ApplicationsTab(): React.JSX.Element {
   const [status, setStatus] = React.useState<OwnerAppStatus | undefined>(undefined);
   const [q, setQ] = React.useState("");
   const [review, setReview] = React.useState<{ app: OwnerApplication; mode: "approve" | "reject" } | null>(null);
-  const { data, isLoading } = useOwnerApplications({ status, q: q || undefined });
+  const { data, isLoading, isError, refetch } = useOwnerApplications({ status, q: q || undefined });
   const apps = data?.items ?? [];
 
   return (
@@ -113,6 +113,16 @@ function ApplicationsTab(): React.JSX.Element {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={6} className="py-10 text-center text-foregroundMuted">{t("Yüklənir")}…</TableCell></TableRow>
+            ) : isError ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-10 text-center">
+                  <p className="text-sm font-semibold text-danger">{t("Could not load data")}</p>
+                  <Button variant="secondary" size="sm" className="mt-3" onClick={() => void refetch()}>
+                    <RefreshCw className="h-4 w-4" />
+                    {t("Retry")}
+                  </Button>
+                </TableCell>
+              </TableRow>
             ) : apps.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="py-10 text-center text-foregroundMuted">{t("No applications")}</TableCell></TableRow>
             ) : (
@@ -228,7 +238,7 @@ function ReviewsTab(): React.JSX.Element {
   const [q, setQ] = React.useState("");
   const [rating, setRating] = React.useState<number | undefined>(undefined);
   const [includeRemoved, setIncludeRemoved] = React.useState(true);
-  const { data, isLoading } = useVenueReviews({
+  const { data, isLoading, isError, refetch } = useVenueReviews({
     q: q || undefined,
     rating,
     include_removed: includeRemoved,
@@ -278,6 +288,16 @@ function ReviewsTab(): React.JSX.Element {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={6} className="py-10 text-center text-foregroundMuted">{t("Yüklənir")}…</TableCell></TableRow>
+            ) : isError ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-10 text-center">
+                  <p className="text-sm font-semibold text-danger">{t("Could not load data")}</p>
+                  <Button variant="secondary" size="sm" className="mt-3" onClick={() => void refetch()}>
+                    <RefreshCw className="h-4 w-4" />
+                    {t("Retry")}
+                  </Button>
+                </TableCell>
+              </TableRow>
             ) : reviews.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="py-10 text-center text-foregroundMuted">{t("No reviews")}</TableCell></TableRow>
             ) : (

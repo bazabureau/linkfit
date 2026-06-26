@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ClipboardList, Download, Loader2, ShieldOff } from "lucide-react";
+import { ClipboardList, Download, Loader2, RefreshCw, ShieldOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,7 +61,7 @@ export default function DataRightsPage(): React.JSX.Element {
 function DeletionsTab(): React.JSX.Element {
   const { t } = useI18n();
   const toast = useToast();
-  const { data: deletions = [], isLoading } = useDeletionRequests();
+  const { data: deletions = [], isLoading, isError, refetch } = useDeletionRequests();
   const cancel = useCancelDeletion();
 
   return (
@@ -79,6 +79,16 @@ function DeletionsTab(): React.JSX.Element {
         <TableBody>
           {isLoading ? (
             <TableRow><TableCell colSpan={5} className="py-10 text-center text-foregroundMuted">{t("Yüklənir")}…</TableCell></TableRow>
+          ) : isError ? (
+            <TableRow>
+              <TableCell colSpan={5} className="py-10 text-center">
+                <p className="text-sm font-semibold text-danger">{t("Could not load data")}</p>
+                <Button variant="secondary" size="sm" className="mt-3" onClick={() => void refetch()}>
+                  <RefreshCw className="h-4 w-4" />
+                  {t("Retry")}
+                </Button>
+              </TableCell>
+            </TableRow>
           ) : deletions.length === 0 ? (
             <TableRow><TableCell colSpan={5} className="py-10 text-center text-foregroundMuted">{t("No scheduled deletions")}</TableCell></TableRow>
           ) : (
@@ -117,7 +127,7 @@ function DeletionsTab(): React.JSX.Element {
 
 function ExportsTab(): React.JSX.Element {
   const { t } = useI18n();
-  const { data: exports = [], isLoading } = useExportRequests();
+  const { data: exports = [], isLoading, isError, refetch } = useExportRequests();
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
@@ -134,6 +144,16 @@ function ExportsTab(): React.JSX.Element {
         <TableBody>
           {isLoading ? (
             <TableRow><TableCell colSpan={5} className="py-10 text-center text-foregroundMuted">{t("Yüklənir")}…</TableCell></TableRow>
+          ) : isError ? (
+            <TableRow>
+              <TableCell colSpan={5} className="py-10 text-center">
+                <p className="text-sm font-semibold text-danger">{t("Could not load data")}</p>
+                <Button variant="secondary" size="sm" className="mt-3" onClick={() => void refetch()}>
+                  <RefreshCw className="h-4 w-4" />
+                  {t("Retry")}
+                </Button>
+              </TableCell>
+            </TableRow>
           ) : exports.length === 0 ? (
             <TableRow><TableCell colSpan={5} className="py-10 text-center text-foregroundMuted">{t("No export requests")}</TableCell></TableRow>
           ) : (

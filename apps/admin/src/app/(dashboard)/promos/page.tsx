@@ -120,13 +120,14 @@ export default function PromosPage(): React.JSX.Element {
                   <TableCell><Badge variant={statusVariant(promo.status)}>{t(promo.status)}</Badge></TableCell>
                   <TableCell className="text-right">
                     <div className="inline-flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => setDialog({ open: true, promo })}>
+                      <Button variant="ghost" size="sm" aria-label={t("Redaktə et")} onClick={() => setDialog({ open: true, promo })}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       {promo.status !== "archived" && (
                         <Button
                           variant="ghost"
                           size="sm"
+                          aria-label={t("Arxivləşdir")}
                           onClick={() =>
                             del.mutate(promo.id, {
                               onSuccess: () => toast.success(t("Promo code archived")),
