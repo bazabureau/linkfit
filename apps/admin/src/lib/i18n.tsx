@@ -1234,21 +1234,59 @@ function readInitialLanguage(): AdminLanguage {
   return stored === "ru" || stored === "en" || stored === "az" ? stored : "az";
 }
 
-export function I18nProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
-  const [language, setLanguageState] = React.useState<AdminLanguage>("az");
-  const originalTextRef = React.useRef<WeakMap<Text, string>>(new WeakMap());
+// ─── Language as an external store ──────────────────────────────────────────
+// Reading the persisted language through useSyncExternalStore (instead of a
+// setState inside a mount effect) keeps SSR/hydration consistent — the server
+// and the first client render both report "az", then React re-renders with the
+// stored value — while avoiding the cascading-render lint warning that a
+// mount-time setState triggers (react-hooks/set-state-in-effect).
+let currentLanguage: AdminLanguage | null = null;
+const languageListeners = new Set<() => void>();
 
-  React.useEffect(() => {
-    const initial = readInitialLanguage();
-    setLanguageState(initial);
-    document.documentElement.lang = initial;
-  }, []);
+function getLanguageSnapshot(): AdminLanguage {
+  if (currentLanguage === null) {
+    currentLanguage = readInitialLanguage();
+  }
+  return currentLanguage;
+}
 
-  const setLanguage = React.useCallback((next: AdminLanguage) => {
-    setLanguageState(next);
+function getServerLanguageSnapshot(): AdminLanguage {
+  return "az";
+}
+
+function subscribeLanguage(listener: () => void): () => void {
+  languageListeners.add(listener);
+  return () => {
+    languageListeners.delete(listener);
+  };
+}
+
+function writeLanguage(next: AdminLanguage): void {
+  currentLanguage = next;
+  if (typeof window !== "undefined") {
     window.localStorage.setItem(STORAGE_KEY, next);
     document.documentElement.lang = next;
+  }
+  languageListeners.forEach((listener) => listener());
+}
+
+export function I18nProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
+  const language = React.useSyncExternalStore(
+    subscribeLanguage,
+    getLanguageSnapshot,
+    getServerLanguageSnapshot,
+  );
+  const originalTextRef = React.useRef<WeakMap<Text, string>>(new WeakMap());
+
+  const setLanguage = React.useCallback((next: AdminLanguage) => {
+    writeLanguage(next);
   }, []);
+
+  // Keep <html lang> in sync with the active language. This also covers the
+  // initial hydration pass, where writeLanguage has not run yet.
+  React.useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   const t = React.useCallback(
     (text: string) => DICTIONARIES[language][text] ?? text,
@@ -1274,7 +1312,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }): React
 
     const translateTextNode = (node: Text) => {
       const parent = node.parentElement;
-      if (!parent || skipTags.has(parent.tagName)) return;
+      if (!parent || skipTags.has(parent.tagName) || parent.isContentEditable) {
+        return;
+      }
       const current = node.nodeValue ?? "";
       if (!current.trim()) return;
       const original = originals.get(node) ?? current;
@@ -1283,7 +1323,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }): React
       const trailing = current.match(/\s*$/)?.[0] ?? "";
       const normalized = original.trim();
       const translated = dictionary[normalized] ?? normalized;
-      node.nodeValue = `${leading}${translated}${trailing}`;
+      const next = `${leading}${translated}${trailing}`;
+      // Only write when the value actually changes, so a React-controlled node
+      // is never touched needlessly.
+      if (node.nodeValue !== next) {
+        node.nodeValue = next;
+      }
     };
 
     const translateRoot = (root: ParentNode) => {
@@ -1296,13 +1341,21 @@ export function I18nProvider({ children }: { children: React.ReactNode }): React
     };
 
     translateRoot(document.body);
+    // Observe the whole document body, not just the React root: Radix dialogs,
+    // toasts and other portals mount their content as siblings of the root, so a
+    // narrower scope would miss them. Only childList/subtree is watched — never
+    // characterData — so our own nodeValue writes cannot re-trigger the observer.
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         mutation.addedNodes.forEach((node) => {
-          if (node.nodeType === Node.TEXT_NODE) {
-            translateTextNode(node as Text);
-          } else if (node.nodeType === Node.ELEMENT_NODE) {
-            translateRoot(node as Element);
+          try {
+            if (node.nodeType === Node.TEXT_NODE) {
+              translateTextNode(node as Text);
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+              translateRoot(node as Element);
+            }
+          } catch {
+            // A single detached/invalid node must not abort the rest of the batch.
           }
         });
       }

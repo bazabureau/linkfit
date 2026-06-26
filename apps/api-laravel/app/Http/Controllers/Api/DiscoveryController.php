@@ -9,6 +9,7 @@ use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DiscoveryController extends ApiController
 {
@@ -24,6 +25,51 @@ class DiscoveryController extends ApiController
      */
     private const CHALLENGE_CODES = ['follow_one', 'join_a_game', 'comment_on_feed'];
 
+    /**
+     * `bookings` columns that are internal-only / PII and must NEVER reach the
+     * app or web clients — staff free-text notes, payment-processor references
+     * and the dedup key. Everything else on the table is safe agenda data
+     * (id/court/venue/time/status/amounts) and stays exposed by default.
+     *
+     * @var list<string>
+     */
+    private const BOOKING_INTERNAL_COLUMNS = [
+        'payment_note',
+        'refund_note',
+        'internal_note',
+        'cancellation_reason',
+        'external_ref',
+        'idempotency_key',
+    ];
+
+    /**
+     * Safe `bookings` column list for client payloads: every actual column on
+     * the table minus {@see self::BOOKING_INTERNAL_COLUMNS}. Resolved from the
+     * live schema (not a hard-coded list) so it is correct on both the pgsql
+     * production table and the slim sqlite test table, and so any future column
+     * is exposed by default unless explicitly added to the denylist.
+     *
+     * @param  string  $alias  optional table alias to prefix (e.g. 'b'); '' → bare names.
+     * @return list<string>
+     */
+    private function safeBookingColumns(string $alias = ''): array
+    {
+        $columns = array_values(array_filter(
+            Schema::getColumnListing('bookings'),
+            fn ($column) => ! in_array($column, self::BOOKING_INTERNAL_COLUMNS, true)
+        ));
+
+        $prefix = $alias === '' ? '' : $alias.'.';
+
+        // Defensive: never emit an empty SELECT list (which is invalid SQL). If
+        // schema introspection returns nothing, fall back to the prior `*` shape.
+        if ($columns === []) {
+            return [$prefix.'*'];
+        }
+
+        return array_map(fn ($column) => $prefix.$column, $columns);
+    }
+
     public function agenda(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
@@ -37,8 +83,13 @@ class DiscoveryController extends ApiController
             ->orderBy('g.starts_at')
             ->limit(50)
             ->get(['g.id', 'g.starts_at', 'g.status', 's.slug as sport_slug']);
-        // Keep every legacy `bookings.*` column (existing consumers may read
-        // any of them) and add joined court/venue names for the new `items[]`.
+        // Expose every normal `bookings` column (existing consumers may read any
+        // of them) EXCEPT the internal/PII denylist, plus joined court/venue
+        // names for the new `items[]`. The select is resolved from the live
+        // schema so internal staff notes / payment refs never leak here.
+        $bookingSelect = $this->safeBookingColumns('b');
+        $bookingSelect[] = 'c.name as court_name';
+        $bookingSelect[] = 'v.name as venue_name';
         $bookings = DB::table('bookings as b')
             ->leftJoin('courts as c', 'c.id', '=', 'b.court_id')
             ->leftJoin('venues as v', 'v.id', '=', 'c.venue_id')
@@ -46,7 +97,7 @@ class DiscoveryController extends ApiController
             ->where('b.starts_at', '>=', now()->subDay())
             ->orderBy('b.starts_at')
             ->limit(50)
-            ->get(['b.*', 'c.name as court_name', 'v.name as venue_name']);
+            ->get($bookingSelect);
 
         // Flat, normalized agenda list for clients that read a single ordered
         // stream (e.g. the mobile "Up next" card). The legacy `games`/`bookings`
@@ -507,7 +558,9 @@ class DiscoveryController extends ApiController
             ->where('starts_at', '>=', now()->subDay())
             ->orderBy('starts_at')
             ->limit(50)
-            ->get()
+            // Same internal/PII exclusion as agenda() — /me/home must not leak
+            // staff notes / payment refs either.
+            ->get($this->safeBookingColumns())
             ->map(function ($b) {
                 foreach (['starts_at', 'ends_at', 'created_at', 'cancelled_at', 'paid_at'] as $f) {
                     if (isset($b->{$f})) {

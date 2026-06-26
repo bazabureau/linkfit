@@ -430,17 +430,51 @@ class MessagingController extends ApiController
             throw ApiException::notFound('Conversation not found');
         }
 
-        // Keep the most RECENT 500 messages, not the oldest. The client renders
-        // ascending by created_at, so we take the newest window (DESC + limit)
-        // then re-sort ascending — otherwise a thread past 500 messages would
-        // pin to its oldest 500 and hide every recent message. Tie-break on id
-        // so same-timestamp rows window deterministically.
-        $messages = DB::table('messages')
+        // Backward-compatible windowing + keyset pagination. With NO query params
+        // this behaves EXACTLY as before: the most RECENT 500 messages, re-sorted
+        // ascending (the client renders ascending by created_at). Two optional
+        // params let the client page OLDER history without changing old clients:
+        //   - `limit` (clamped 1..100, default 50 once paging is in play) caps the
+        //     window; when NEITHER `before` NOR `limit` is supplied we keep the
+        //     legacy 500 default so the current app is untouched.
+        //   - `before` is an opaque keyset cursor ({ts,id}); when present we return
+        //     up to `limit` messages strictly OLDER than it.
+        // We always take the newest window (DESC + limit) then re-sort ascending,
+        // and over-fetch one row to learn whether OLDER history still remains.
+        $query = $this->validateQuery($request, [
+            'before' => ['nullable', 'string', 'max:500'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+        $before = $this->decodeCursor($query['before'] ?? null);
+        $beforePresent = isset($query['before']) && $query['before'] !== '';
+        $limitGiven = isset($query['limit']);
+        $limit = (! $beforePresent && ! $limitGiven)
+            ? 500
+            : max(1, min(100, (int) ($query['limit'] ?? 50)));
+
+        $window = DB::table('messages')
             ->where('conversation_id', $id)
+            // Keyset: only rows strictly OLDER than the cursor, i.e.
+            // (created_at,id) < (ts,id). Tie-break on id so same-timestamp rows
+            // page deterministically (mirrors the DESC,id windowing below).
+            ->when($before !== null, fn ($q) => $q->where(function ($w) use ($before) {
+                $w->where('created_at', '<', $before['ts'])
+                    ->orWhere(fn ($x) => $x->where('created_at', $before['ts'])->where('id', '<', $before['id']));
+            }))
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->limit(500)
-            ->get()
+            ->limit($limit + 1)
+            ->get();
+
+        // Over-fetched one extra row: more than $limit means OLDER history remains.
+        $hasOlder = $window->count() > $limit;
+        $windowRows = $window->take($limit)->values();
+        // After DESC ordering the LAST row of the window is its OLDEST; its cursor
+        // is what the client passes back as `before` to load the next-older page.
+        // Null when no older history remains. Purely additive — old clients ignore it.
+        $nextCursor = $hasOlder ? $this->encodeCursor($windowRows->last(), 'created_at') : null;
+
+        $messages = $windowRows
             ->sortBy('created_at')
             ->values()
             ->map(fn ($m) => $this->messagePayload($m));
@@ -466,6 +500,7 @@ class MessagingController extends ApiController
                 'other_is_online' => false,
                 'other_last_read_at' => null,
                 'messages' => $messages,
+                'next_cursor' => $nextCursor,
             ]);
         }
 
@@ -492,6 +527,7 @@ class MessagingController extends ApiController
             'other_is_online' => $this->isOnline($other->last_seen_at),
             'other_last_read_at' => $this->iso($other->last_read_at),
             'messages' => $messages,
+            'next_cursor' => $nextCursor,
         ]);
     }
 

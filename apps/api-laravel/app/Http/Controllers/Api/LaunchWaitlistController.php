@@ -36,7 +36,9 @@ class LaunchWaitlistController extends ApiController
             'locale' => $data['locale'] ?? 'az',
             'source' => $data['source'] ?? 'web_waitlist',
             'message' => isset($data['message']) && trim((string) $data['message']) !== '' ? trim((string) $data['message']) : null,
-            'ip_address' => $request->ip(),
+            // Store a salted hash of the IP (never the raw address) — matches the
+            // analytics convention so the value is correlatable but not PII.
+            'ip_address' => $request->ip() ? hash('sha256', $request->ip().(string) config('app.key')) : null,
             'user_agent' => substr((string) $request->userAgent(), 0, 512),
             'updated_at' => $now,
         ];
