@@ -215,7 +215,7 @@ class MessagingController extends ApiController
                         ->orWhere(fn ($x) => $x->where('c.last_message_at', $cursor['ts'])->where('c.id', '<', $cursor['id']));
                 }
             }))
-            ->orderByDesc('c.last_message_at')
+            ->orderByRaw('c.last_message_at DESC NULLS LAST')
             ->orderByDesc('c.id')
             ->limit($limit + 1)
             ->get([
@@ -243,11 +243,11 @@ class MessagingController extends ApiController
                 ->orderBy('conversation_id')
                 ->orderByDesc('created_at')
                 ->distinct('conversation_id')
-                ->get(['conversation_id', 'body', 'attachment_url', 'attachment_type', 'created_at'])
+                ->get(['conversation_id', 'sender_user_id', 'body', 'attachment_url', 'attachment_type', 'created_at'])
                 ->keyBy('conversation_id');
 
         return response()->json([
-            'items' => $pageRows->map(function ($r) use ($lastMessages) {
+            'items' => $pageRows->map(function ($r) use ($lastMessages, $user) {
                 $last = $lastMessages->get($r->id);
                 // A group thread has no single counterpart; surface the group title
                 // (and placeholder other_* fields the client ignores for groups)
@@ -266,7 +266,14 @@ class MessagingController extends ApiController
                     'last_message_attachment_url' => $last->attachment_url ?? null,
                     'last_message_attachment_type' => $last->attachment_type ?? null,
                     'last_message_at' => $this->iso($r->last_message_at),
-                    'unread' => $last !== null && ($r->last_read_at === null || $last->created_at > $r->last_read_at),
+                    'last_message_sender_id' => $last->sender_user_id ?? null,
+                    'last_message_mine' => $last !== null
+                        && (string) $last->sender_user_id === (string) $user->id,
+                    // Unread only when the OTHER side sent the last message AND I
+                    // haven't read past it — my own last message is never "unread".
+                    'unread' => $last !== null
+                        && (string) $last->sender_user_id !== (string) $user->id
+                        && ($r->last_read_at === null || $last->created_at > $r->last_read_at),
                 ];
             })->values(),
             'next_cursor' => $hasMore ? $this->encodeCursor($pageRows->last(), 'last_message_at') : null,
