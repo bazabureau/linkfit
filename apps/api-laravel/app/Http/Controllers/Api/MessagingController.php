@@ -242,6 +242,10 @@ class MessagingController extends ApiController
                 ->whereIn('conversation_id', $conversationIds)
                 ->orderBy('conversation_id')
                 ->orderByDesc('created_at')
+                // Tie-break on id so same-millisecond rows pick the SAME "last"
+                // message the thread endpoint does (it also orders by id DESC).
+                // Without it the inbox preview can disagree with the open thread.
+                ->orderByDesc('id')
                 ->distinct('conversation_id')
                 ->get(['conversation_id', 'sender_user_id', 'body', 'attachment_url', 'attachment_type', 'created_at'])
                 ->keyBy('conversation_id');
@@ -703,6 +707,24 @@ class MessagingController extends ApiController
             }
             throw $e;
         }
+
+        // The sender has, by definition, seen the whole thread — advance their
+        // own last_read_at so a just-sent message never inflates THEIR unread
+        // badge. unreadCounts() (and its DiscoveryController/MobileController
+        // mirrors) flag unread purely on last_message_at > last_read_at, with no
+        // "is the last message mine?" guard like the inbox list has; without this
+        // the badge would tick up on the sender's own outbound message. Wrapped so
+        // a failure here can never fail an already-persisted send.
+        try {
+            DB::table('conversation_participants')
+                ->where('conversation_id', $id)
+                ->where('user_id', $user->id)
+                ->whereNull('left_at')
+                ->update(['last_read_at' => now()]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         $row = DB::table('messages')->where('id', $messageId)->first();
         $payload = $this->messagePayload($row);
 
@@ -775,6 +797,20 @@ class MessagingController extends ApiController
             ->where('user_id', $user->id)
             ->whereNull('left_at')
             ->update(['last_read_at' => now()]);
+
+        // Multi-device read sync: clearing unread on one device should clear the
+        // inbox badge on the reader's OTHER devices too. Fan out ONLY to the
+        // reader (the peer's unread is unaffected by my read, and their open
+        // thread already refreshes via polling), so a busy group thread doesn't
+        // push a refresh to every member on each read. Guarded + caught so a
+        // broadcasting outage can never fail the mark-read (chat also polls).
+        if ($this->broadcastingEnabled()) {
+            try {
+                broadcast(new ConversationUpdated($id, [(string) $user->id], 'conversation_read'));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
 
         return response()->json(null, 204);
     }
@@ -873,19 +909,6 @@ class MessagingController extends ApiController
             'read_at' => $this->iso($n->read_at),
             'created_at' => $this->iso($n->created_at),
         ];
-    }
-
-    /**
-     * Resolve a message idempotency key from the request body, then the
-     * Idempotency-Key header (where the mobile client sends it). Returns null
-     * when absent or too short — message sends are idempotent only when a key is
-     * supplied; a keyless send is a normal (non-deduplicated) insert.
-     */
-    private function resolveMessageIdempotencyKey(Request $request, ?string $bodyKey): ?string
-    {
-        $key = trim($bodyKey ?: (string) ($request->header('Idempotency-Key') ?? ''));
-
-        return strlen($key) >= 8 ? mb_substr($key, 0, 200) : null;
     }
 
     private function messagePayload(object $m): array
