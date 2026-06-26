@@ -36,19 +36,26 @@ class ReminderDispatcher
 
         $sent = 0;
         foreach ($rows as $row) {
-            $inserted = DB::table('game_reminders_sent')->insertOrIgnore([
-                'game_id' => $row->game_id,
-                'user_id' => $row->user_id,
-                'sent_at' => now(),
-            ]);
-            if ($inserted > 0) {
+            // Tracking row + enqueue share one transaction so an enqueue failure
+            // rolls back the `game_reminders_sent` marker; otherwise the reminder
+            // is recorded as sent but silently dropped, never to be retried.
+            $sent += DB::transaction(function () use ($row, $windowMinutes) {
+                $inserted = DB::table('game_reminders_sent')->insertOrIgnore([
+                    'game_id' => $row->game_id,
+                    'user_id' => $row->user_id,
+                    'sent_at' => now(),
+                ]);
+                if ($inserted <= 0) {
+                    return 0;
+                }
                 $this->enqueueNotification((string) $row->user_id, 'game_reminder', 'Game reminder', 'Your game starts soon.', [
                     'game_id' => $row->game_id,
                     'starts_at' => $row->starts_at,
                     'window_minutes' => $windowMinutes,
                 ]);
-                $sent++;
-            }
+
+                return 1;
+            });
         }
 
         return $sent;
@@ -69,20 +76,27 @@ class ReminderDispatcher
 
         $sent = 0;
         foreach ($rows as $row) {
-            $inserted = DB::table('booking_reminders_sent')->insertOrIgnore([
-                'booking_id' => $row->booking_id,
-                'user_id' => $row->user_id,
-                'sent_at' => now(),
-            ]);
-            if ($inserted > 0) {
+            // Tracking row + enqueue share one transaction so an enqueue failure
+            // rolls back the `booking_reminders_sent` marker; otherwise the
+            // reminder is recorded as sent but silently dropped, never retried.
+            $sent += DB::transaction(function () use ($row, $windowMinutes) {
+                $inserted = DB::table('booking_reminders_sent')->insertOrIgnore([
+                    'booking_id' => $row->booking_id,
+                    'user_id' => $row->user_id,
+                    'sent_at' => now(),
+                ]);
+                if ($inserted <= 0) {
+                    return 0;
+                }
                 $this->enqueueNotification((string) $row->user_id, 'system', 'Booking reminder', 'Your court booking starts soon.', [
                     'kind' => 'booking_reminder',
                     'booking_id' => $row->booking_id,
                     'starts_at' => $row->starts_at,
                     'window_minutes' => $windowMinutes,
                 ]);
-                $sent++;
-            }
+
+                return 1;
+            });
         }
 
         return $sent;

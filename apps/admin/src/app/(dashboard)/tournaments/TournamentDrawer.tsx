@@ -110,6 +110,7 @@ export function TournamentDrawer({
       <aside
         role="dialog"
         aria-modal="true"
+        aria-labelledby="tournament-drawer-title"
         className={`absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-background shadow-lift transition-transform duration-300 ease-out sm:max-w-lg ${
           shown ? "translate-x-0" : "translate-x-full"
         }`}
@@ -121,7 +122,10 @@ export function TournamentDrawer({
               <Trophy className="h-5 w-5" />
             </span>
             <div className="min-w-0">
-              <h2 className="truncate font-display text-base font-bold text-foreground">
+              <h2
+                id="tournament-drawer-title"
+                className="truncate font-display text-base font-bold text-foreground"
+              >
                 {tournament.name}
               </h2>
               <div className="mt-1 flex items-center gap-2">

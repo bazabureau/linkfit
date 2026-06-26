@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ShieldCheck,
   User as UserIcon,
@@ -35,8 +35,12 @@ export default function AccountPage(): React.JSX.Element {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
 
+  const initialised = useRef(false);
   useEffect(() => {
-    if (account) setDisplayName(account.display_name);
+    if (account && !initialised.current) {
+      initialised.current = true;
+      setDisplayName(account.display_name);
+    }
   }, [account]);
 
   const nameDirty = account ? displayName.trim() !== account.display_name : false;

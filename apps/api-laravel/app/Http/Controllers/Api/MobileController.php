@@ -519,6 +519,24 @@ class MobileController extends ApiController
             ->where('me.user_id', $userId)
             ->whereNull('me.left_at')
             ->whereNotNull('c.last_message_at')
+            // Mirror MessagingController::unreadCounts(): a 1:1 thread with a
+            // blocked counterpart (either direction) is hidden from the inbox, so
+            // it must NOT inflate the bootstrap badge — otherwise the badge points
+            // at a thread the user can't see. Group threads are shared context and
+            // always count.
+            ->where(function ($q) use ($userId) {
+                $q->where('c.kind', 'group')
+                    ->orWhereNotExists(function ($sq) use ($userId) {
+                        $sq->selectRaw('1')
+                            ->from('conversation_participants as other_cp')
+                            ->join('user_blocks as ub', function ($join) use ($userId) {
+                                $join->where(fn ($w) => $w->where('ub.blocker_user_id', $userId)->whereColumn('ub.blocked_user_id', 'other_cp.user_id'))
+                                    ->orWhere(fn ($w) => $w->where('ub.blocked_user_id', $userId)->whereColumn('ub.blocker_user_id', 'other_cp.user_id'));
+                            })
+                            ->whereColumn('other_cp.conversation_id', 'c.id')
+                            ->whereColumn('other_cp.user_id', '!=', 'me.user_id');
+                    });
+            })
             ->where(fn ($q) => $q->whereNull('me.last_read_at')->orWhereColumn('c.last_message_at', '>', 'me.last_read_at'))
             ->count();
 

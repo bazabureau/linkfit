@@ -128,6 +128,7 @@ export function BookingDetailDrawer({
       <aside
         role="dialog"
         aria-modal="true"
+        aria-labelledby="booking-drawer-title"
         className={`absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-background shadow-lift transition-transform duration-300 ease-out sm:max-w-lg ${
           shown ? "translate-x-0" : "translate-x-full"
         }`}
@@ -139,7 +140,10 @@ export function BookingDetailDrawer({
               {initials(customerName(current))}
             </span>
             <div className="min-w-0">
-              <h2 className="truncate font-display text-base font-bold text-foreground">
+              <h2
+                id="booking-drawer-title"
+                className="truncate font-display text-base font-bold text-foreground"
+              >
                 {customerName(current)}
               </h2>
               <div className="mt-1 flex items-center gap-2">

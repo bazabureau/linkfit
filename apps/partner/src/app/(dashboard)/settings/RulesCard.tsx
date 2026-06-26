@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarCog, Loader2, Save, Clock, AlertCircle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -38,8 +38,12 @@ export function RulesCard({ step }: { step: number }): React.JSX.Element {
   const [form, setForm] = useState<RulesForm>(EMPTY);
   const [saved, setSaved] = useState<RulesForm>(EMPTY);
 
+  // Seed the form + snapshot once, on the first rules load. Gated by a ref so a
+  // later background refetch can't overwrite edits the user is making.
+  const initialised = useRef(false);
   useEffect(() => {
-    if (rules) {
+    if (rules && !initialised.current) {
+      initialised.current = true;
       const next: RulesForm = {
         bookingSlotMinutes: String(rules.booking_slot_minutes),
         minBookingMinutes: String(rules.min_booking_minutes),

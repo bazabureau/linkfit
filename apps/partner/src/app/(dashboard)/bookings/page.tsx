@@ -290,10 +290,16 @@ export default function ReservationsPage(): React.JSX.Element {
     });
   }, [bookingsRaw, matchmakingFilter, viewTab, status, selectedCourtId, q]);
 
-  // Reset to first page whenever the filtered result set changes.
-  React.useEffect(() => {
+  // Reset to first page whenever the active filters change. We adjust state
+  // during render — React's recommended pattern for "reset state on change" —
+  // instead of inside an effect, which avoids the cascading-render warning of
+  // calling setState in useEffect (see react.dev "You Might Not Need an Effect").
+  const filterKey = `${q}|${status}|${selectedCourtId}|${from}|${to}|${matchmakingFilter}|${viewTab}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (prevFilterKey !== filterKey) {
+    setPrevFilterKey(filterKey);
     setPage(0);
-  }, [q, status, selectedCourtId, from, to, matchmakingFilter, viewTab]);
+  }
 
   const pageCount = Math.max(1, Math.ceil(bookings.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -913,8 +919,16 @@ export default function ReservationsPage(): React.JSX.Element {
                                 className="w-1/4 border-r border-border p-2 align-middle last:border-r-0"
                               >
                                 <div
+                                  role="button"
+                                  tabIndex={0}
                                   onClick={() => setDetail(activeBooking)}
-                                  className={`cursor-pointer rounded-xl border p-2.5 transition-premium hover:shadow-lift hover:-translate-y-px ${meta.soft}`}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" || e.key === " ") {
+                                      e.preventDefault();
+                                      setDetail(activeBooking);
+                                    }
+                                  }}
+                                  className={`cursor-pointer rounded-xl border p-2.5 transition-premium hover:shadow-lift hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 ${meta.soft}`}
                                 >
                                   {startsInThisCell ? (
                                     <div className="flex flex-col gap-1.5">
@@ -971,20 +985,29 @@ export default function ReservationsPage(): React.JSX.Element {
                               String(hour).padStart(2, "0") +
                               ":00:00",
                           );
+                          const openCreate = (): void => {
+                            setCreateSlot({
+                              courtId: court.id,
+                              courtName: court.name,
+                              startsAt: cellStart,
+                              hourlyPriceMinor: court.hourly_price_minor,
+                              currency: court.currency,
+                            });
+                            setIsCreateOpen(true);
+                          };
                           return (
                             <td
                               key={court.id}
-                              onClick={() => {
-                                setCreateSlot({
-                                  courtId: court.id,
-                                  courtName: court.name,
-                                  startsAt: cellStart,
-                                  hourlyPriceMinor: court.hourly_price_minor,
-                                  currency: court.currency,
-                                });
-                                setIsCreateOpen(true);
+                              role="button"
+                              tabIndex={0}
+                              onClick={openCreate}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  openCreate();
+                                }
                               }}
-                              className="group cursor-pointer select-none border-r border-border p-3 text-center transition-premium last:border-r-0 hover:bg-accent/5"
+                              className="group cursor-pointer select-none border-r border-border p-3 text-center transition-premium last:border-r-0 hover:bg-accent/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/70"
                             >
                               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-foregroundMuted opacity-25 transition-all group-hover:text-accent group-hover:opacity-100">
                                 <Plus className="h-3 w-3" />

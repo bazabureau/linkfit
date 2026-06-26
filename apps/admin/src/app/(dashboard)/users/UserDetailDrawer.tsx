@@ -138,6 +138,7 @@ export function UserDetailDrawer({
       <aside
         role="dialog"
         aria-modal="true"
+        aria-labelledby="user-drawer-title"
         className={`absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-background shadow-lift transition-transform duration-300 ease-out sm:max-w-lg ${
           shown ? "translate-x-0" : "translate-x-full"
         }`}
@@ -149,7 +150,10 @@ export function UserDetailDrawer({
           <div className="flex min-w-0 items-center gap-3">
             <Avatar name={current.display_name} vip={current.is_vip} size="lg" />
             <div className="min-w-0">
-              <h2 className="truncate font-display text-base font-bold text-foreground">
+              <h2
+                id="user-drawer-title"
+                className="truncate font-display text-base font-bold text-foreground"
+              >
                 {current.display_name || t("Adsız istifadəçi")}
               </h2>
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">

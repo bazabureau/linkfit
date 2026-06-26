@@ -85,11 +85,11 @@ export function BookingDrawer({
   const open = booking !== null;
 
   // Keep the last booking around during the slide-out animation so content
-  // doesn't flash empty as it closes.
+  // doesn't flash empty as it closes. Captured by adjusting state during
+  // render (the supported alternative to an effect) so there is no extra
+  // cascading re-render.
   const [shown, setShown] = React.useState<Booking | null>(booking);
-  React.useEffect(() => {
-    if (booking) setShown(booking);
-  }, [booking]);
+  if (booking && booking !== shown) setShown(booking);
 
   React.useEffect(() => {
     function onKey(e: KeyboardEvent): void {
@@ -139,6 +139,7 @@ export function BookingDrawer({
       <aside
         role="dialog"
         aria-modal="true"
+        aria-label="Rezervasiya Detalları"
         className={`absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-border bg-surface shadow-lift transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           open ? "translate-x-0" : "translate-x-full"
         }`}

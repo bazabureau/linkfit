@@ -181,32 +181,35 @@ export default function BookingsPage(): React.JSX.Element {
     setFilters((current) => ({ ...current, ...patch }));
   }
 
-  function openDrawer(booking: Booking) {
+  const openDrawer = React.useCallback((booking: Booking) => {
     setDrawerBooking(booking);
     setDrawerOpen(true);
-  }
+  }, []);
 
-  function openDialog(mode: DialogMode, booking?: Booking) {
+  const openDialog = React.useCallback((mode: DialogMode, booking?: Booking) => {
     setActiveBooking(booking ?? null);
     setDialogMode(mode);
-  }
+  }, []);
 
   function closeDialog() {
     setDialogMode(null);
     setActiveBooking(null);
   }
 
-  async function runBookingAction(label: string, action: () => Promise<unknown>) {
-    try {
-      await action();
-      toast.success(label);
-    } catch (error) {
-      toast.error(
-        t("Əməliyyat alınmadı"),
-        error instanceof Error ? error.message : t("Yenidən yoxlayın"),
-      );
-    }
-  }
+  const runBookingAction = React.useCallback(
+    async (label: string, action: () => Promise<unknown>) => {
+      try {
+        await action();
+        toast.success(label);
+      } catch (error) {
+        toast.error(
+          t("Əməliyyat alınmadı"),
+          error instanceof Error ? error.message : t("Yenidən yoxlayın"),
+        );
+      }
+    },
+    [toast, t],
+  );
 
   // Quick row + drawer actions (shared).
   const rowActions = React.useMemo(
@@ -225,8 +228,7 @@ export default function BookingsPage(): React.JSX.Element {
       onClearNoShow: (b: Booking) =>
         runBookingAction(t("No-show silindi"), () => clearNoShow.mutateAsync({ id: b.id })),
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [markPaid, checkIn, undoCheckIn, markNoShow, clearNoShow, t],
+    [openDrawer, runBookingAction, markPaid, checkIn, undoCheckIn, markNoShow, clearNoShow, t],
   );
 
   const drawerActions = React.useMemo(
@@ -236,7 +238,7 @@ export default function BookingsPage(): React.JSX.Element {
       onCancel: (b: Booking) => openDialog("cancel", b),
       onRefund: (b: Booking) => openDialog("refund", b),
     }),
-    [rowActions],
+    [rowActions, openDialog],
   );
 
   async function exportCsv() {

@@ -33,7 +33,7 @@ export function proxy(req: NextRequest): NextResponse {
   if (!token) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("from", pathname);
+    url.searchParams.set("from", pathname + req.nextUrl.search + req.nextUrl.hash);
     return NextResponse.redirect(url);
   }
 

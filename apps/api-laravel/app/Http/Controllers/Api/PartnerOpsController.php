@@ -150,6 +150,10 @@ class PartnerOpsController extends ApiController
             throw ApiException::notFound('Court not found');
         }
 
+        // Redact booker PII for staff narrowed below the bookings permission,
+        // mirroring today(): court() itself is reachable without 'bookings'.
+        $canSeeBookings = $this->canPermission($request, 'bookings');
+
         return response()->json([
             ...$this->courtPayload($court),
             'upcoming_bookings_count' => DB::table('bookings')->where('court_id', $id)->where('starts_at', '>=', now())->whereNotIn('status', ['cancelled', 'refunded', 'failed'])->count(),
@@ -160,11 +164,17 @@ class PartnerOpsController extends ApiController
                 ->orderByDesc('b.starts_at')
                 ->limit(20)
                 ->get(['b.*', 'u.display_name as booker_display_name', 'u.email as booker_email'])
-                ->map(fn ($booking) => $this->bookingPayload((object) [
-                    ...((array) $booking),
-                    'court_name' => $court->name,
-                    'venue_id' => $court->venue_id,
-                ])),
+                ->map(function ($booking) use ($court, $canSeeBookings) {
+                    if (! $canSeeBookings) {
+                        $booking->booker_email = null;
+                    }
+
+                    return $this->bookingPayload((object) [
+                        ...((array) $booking),
+                        'court_name' => $court->name,
+                        'venue_id' => $court->venue_id,
+                    ]);
+                }),
         ]);
     }
 
@@ -557,6 +567,16 @@ class PartnerOpsController extends ApiController
         $this->requirePermission($request, 'bookings');
         $user = $this->authUser($request);
         $booking = $this->bookingForVenue($request, $id);
+        // Idempotent: re-cancelling an already-cancelled booking is a no-op so it
+        // neither overwrites the original cancelled_at nor re-fires the
+        // cancellation notification + email. Terminal refund/failed states
+        // cannot be cancelled.
+        if ($booking->status === 'cancelled') {
+            return response()->json($this->bookingPayload($booking));
+        }
+        if (in_array($booking->status, ['refunded', 'failed'], true)) {
+            throw ApiException::conflict('Booking cannot be cancelled');
+        }
         $data = $this->validateBody($request, [
             'reason' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'refund_status' => ['sometimes', 'nullable', 'in:pending_manual_review,approved,processed,rejected,not_required'],
@@ -640,6 +660,16 @@ class PartnerOpsController extends ApiController
     {
         $this->requirePermission($request, 'bookings');
         $booking = $this->bookingForVenue($request, $id);
+        // Already paid → idempotent no-op so re-marking neither rewrites paid_at
+        // nor re-runs the audit write. Terminal/invalid states (cancelled,
+        // refunded, failed) must NOT be resurrectable to paid — reject with a
+        // conflict to keep the ledger consistent.
+        if ($booking->status === 'paid') {
+            return response()->json($this->bookingPayload($booking));
+        }
+        if (! in_array($booking->status, ['pending_payment', 'partially_paid'], true)) {
+            throw ApiException::conflict('Booking cannot be marked paid from its current status');
+        }
         $data = $this->validateBody($request, [
             'payment_method' => ['sometimes', 'nullable', 'in:cash,bank_transfer,manual,onsite'],
             'payment_note' => ['sometimes', 'nullable', 'string', 'max:1000'],
@@ -871,45 +901,53 @@ class PartnerOpsController extends ApiController
             ->first(['c.*', 'v.opening_hours', 'v.booking_slot_minutes', 'v.min_booking_minutes', 'v.max_booking_minutes']);
         $starts = array_key_exists('starts_at', $data) ? CarbonImmutable::parse($data['starts_at']) : CarbonImmutable::parse($booking->starts_at);
         $duration = (int) ($data['duration_minutes'] ?? $booking->duration_minutes);
-        if (array_key_exists('starts_at', $data) || array_key_exists('duration_minutes', $data)) {
-            $this->assertVenueRules($court, $starts, $duration);
-            $this->assertCourtAvailable((string) $booking->court_id, $starts, $starts->addMinutes($duration), $id);
-            $data['starts_at'] = $starts;
-            $data['duration_minutes'] = $duration;
-            $data['total_minor'] = $this->bookingTotalMinor($court, $duration);
-            $data['rescheduled_at'] = now();
-            if ($booking->user_id !== null) {
-                $this->enqueueNotification((string) $booking->user_id, 'system', 'Booking rescheduled', 'Your booking time was updated by the venue.', ['booking_id' => $booking->id, 'starts_at' => $starts->toIso8601String()]);
+        // The reschedule availability check, status changes, the over-refund
+        // guard and the write all commit together (or not at all). When the slot
+        // moves, lock the court row BEFORE assertCourtAvailable so concurrent
+        // reschedules serialise and can't both pass the availability check and
+        // double-book the same slot (mirrors BookingsController / AdminOpsController).
+        DB::transaction(function () use ($data, $booking, $starts, $duration, $court, $id, $request): void {
+            if (array_key_exists('starts_at', $data) || array_key_exists('duration_minutes', $data)) {
+                $this->assertVenueRules($court, $starts, $duration);
+                DB::table('courts')->where('id', $booking->court_id)->lockForUpdate()->first();
+                $this->assertCourtAvailable((string) $booking->court_id, $starts, $starts->addMinutes($duration), $id);
+                $data['starts_at'] = $starts;
+                $data['duration_minutes'] = $duration;
+                $data['total_minor'] = $this->bookingTotalMinor($court, $duration);
+                $data['rescheduled_at'] = now();
+                if ($booking->user_id !== null) {
+                    $this->enqueueNotification((string) $booking->user_id, 'system', 'Booking rescheduled', 'Your booking time was updated by the venue.', ['booking_id' => $booking->id, 'starts_at' => $starts->toIso8601String()]);
+                }
             }
-        }
-        if (($data['status'] ?? null) === 'paid') {
-            $data['paid_at'] = now();
-        }
-        if (($data['status'] ?? null) === 'cancelled') {
-            $data['cancelled_at'] = now();
-            $data['cancelled_by_user_id'] = $this->authUser($request)->id;
-        }
-        if (($data['status'] ?? null) === 'refunded') {
-            $data['refund_status'] = $data['refund_status'] ?? 'processed';
-            $data['refunded_at'] = now();
-        }
-        // A refund can never exceed what was paid (DB CHECK bookings_refund_le_total),
-        // compared against the post-update total when the booking is being rescheduled.
-        // Surface an over-refund as a 422 instead of a constraint-violation 500.
-        if (array_key_exists('refund_amount_minor', $data) && $data['refund_amount_minor'] !== null) {
-            $effectiveTotal = (int) ($data['total_minor'] ?? $booking->total_minor);
-            if ((int) $data['refund_amount_minor'] > $effectiveTotal) {
-                throw ApiException::validation('Refund amount exceeds booking total', [
-                    'total_minor' => $effectiveTotal,
-                    'refund_amount_minor' => (int) $data['refund_amount_minor'],
-                ]);
+            if (($data['status'] ?? null) === 'paid') {
+                $data['paid_at'] = now();
             }
-        }
+            if (($data['status'] ?? null) === 'cancelled') {
+                $data['cancelled_at'] = now();
+                $data['cancelled_by_user_id'] = $this->authUser($request)->id;
+            }
+            if (($data['status'] ?? null) === 'refunded') {
+                $data['refund_status'] = $data['refund_status'] ?? 'processed';
+                $data['refunded_at'] = now();
+            }
+            // A refund can never exceed what was paid (DB CHECK bookings_refund_le_total),
+            // compared against the post-update total when the booking is being rescheduled.
+            // Surface an over-refund as a 422 instead of a constraint-violation 500.
+            if (array_key_exists('refund_amount_minor', $data) && $data['refund_amount_minor'] !== null) {
+                $effectiveTotal = (int) ($data['total_minor'] ?? $booking->total_minor);
+                if ((int) $data['refund_amount_minor'] > $effectiveTotal) {
+                    throw ApiException::validation('Refund amount exceeds booking total', [
+                        'total_minor' => $effectiveTotal,
+                        'refund_amount_minor' => (int) $data['refund_amount_minor'],
+                    ]);
+                }
+            }
 
-        DB::table('bookings')->where('id', $booking->id)->update([...$data, 'updated_at' => now()]);
-        $this->auditWrite($this->authUser($request)->id, 'partner.booking.update', 'bookings', (string) $booking->id, [
-            'fields' => array_keys($data),
-        ]);
+            DB::table('bookings')->where('id', $booking->id)->update([...$data, 'updated_at' => now()]);
+            $this->auditWrite($this->authUser($request)->id, 'partner.booking.update', 'bookings', (string) $booking->id, [
+                'fields' => array_keys($data),
+            ]);
+        });
 
         return response()->json($this->bookingPayload($this->bookingForVenue($request, $id)));
     }

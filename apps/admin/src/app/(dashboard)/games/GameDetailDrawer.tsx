@@ -136,6 +136,7 @@ export function GameDetailDrawer({
       <aside
         role="dialog"
         aria-modal="true"
+        aria-labelledby="game-drawer-title"
         className={`absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-background shadow-lift transition-transform duration-300 ease-out sm:max-w-lg ${
           shown ? "translate-x-0" : "translate-x-full"
         }`}
@@ -147,7 +148,10 @@ export function GameDetailDrawer({
               {sportIcon(current.sport_slug)}
             </span>
             <div className="min-w-0">
-              <h2 className="truncate font-display text-base font-bold capitalize text-foreground">
+              <h2
+                id="game-drawer-title"
+                className="truncate font-display text-base font-bold capitalize text-foreground"
+              >
                 {t(sportLabel(current.sport_slug))} {t("oyunu")}
               </h2>
               <div className="mt-1 flex items-center gap-2">

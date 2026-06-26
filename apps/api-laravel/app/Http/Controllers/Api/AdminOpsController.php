@@ -527,6 +527,12 @@ class AdminOpsController extends ApiController
         if ($updated === 0) {
             throw ApiException::notFound('Staff account not found');
         }
+        if (isset($data['password'])) {
+            // A forced password reset must lock out any already-stolen sessions:
+            // revoke the staff member's live refresh tokens so old devices can't
+            // keep refreshing with the old credential family (mirrors resetPassword()).
+            DB::table('refresh_tokens')->where('user_id', $id)->whereNull('revoked_at')->update(['revoked_at' => now()]);
+        }
         $this->auditWrite($admin->id, 'admin.staff.update', 'users', $id, array_keys($updates));
 
         return response()->json($this->staffAccountById($id));
@@ -1487,6 +1493,10 @@ class AdminOpsController extends ApiController
         // together (or not at all) so a partial failure can't desync state.
         DB::transaction(function () use ($id, $booking, $admin, $starts, $duration, $data): void {
             if (array_key_exists('starts_at', $data) || array_key_exists('duration_minutes', $data)) {
+                // Lock the court row BEFORE the availability check so concurrent
+                // reschedules serialise and can't both pass and double-book the
+                // same slot (mirrors BookingsController's parent-row lock).
+                DB::table('courts')->where('id', $booking->court_id)->lockForUpdate()->first();
                 $this->assertBookingSlotAvailable((string) $booking->court_id, $starts, $starts->addMinutes($duration), $id);
                 $data['starts_at'] = $starts;
                 $data['duration_minutes'] = $duration;
@@ -1712,8 +1722,12 @@ class AdminOpsController extends ApiController
             $targetRole === 'partners',
         );
         if ($notifications !== []) {
-            DB::table('notifications')->insert($notifications);
-            DB::table('push_notification_jobs')->insert($jobs);
+            DB::transaction(function () use ($notifications, $jobs) {
+                DB::table('notifications')->insert($notifications);
+                if (Schema::hasTable('push_notification_jobs')) {
+                    DB::table('push_notification_jobs')->insert($jobs);
+                }
+            });
         }
         $this->auditWrite($admin->id, 'admin.alert.create', 'notifications', null, [
             'severity' => $severity,
@@ -2558,8 +2572,18 @@ class AdminOpsController extends ApiController
     public function markPaid(Request $request, string $id): JsonResponse
     {
         $this->staffOrBookingPartner($request, $id);
-        if (! DB::table('bookings')->where('id', $id)->exists()) {
+        $booking = DB::table('bookings')->where('id', $id)->first();
+        if ($booking === null) {
             throw ApiException::notFound('Booking not found');
+        }
+        // Already paid → idempotent no-op. Terminal/invalid states (cancelled,
+        // refunded, failed) must NOT be resurrectable to paid — reject with a
+        // conflict to keep the ledger consistent.
+        if ($booking->status === 'paid') {
+            return response()->json(['ok' => true]);
+        }
+        if (! in_array($booking->status, ['pending_payment', 'partially_paid'], true)) {
+            throw ApiException::conflict('Booking cannot be marked paid from its current status');
         }
         DB::table('bookings')->where('id', $id)->update(['status' => 'paid', 'paid_at' => now(), 'updated_at' => now()]);
         $this->auditWrite($this->authUser($request)->id, 'booking.mark_paid', 'bookings', $id);
@@ -2772,6 +2796,7 @@ class AdminOpsController extends ApiController
         $this->staff($request, 'push_jobs');
         DB::table('push_notification_jobs')->where('id', $id)->update([
             'status' => 'pending',
+            'attempts' => 0,
             'available_at' => now(),
             'error' => null,
             'provider_response' => null,
@@ -2885,6 +2910,16 @@ class AdminOpsController extends ApiController
             'refund_note' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ]);
         $booking = DB::table('bookings')->where('id', $id)->first();
+        // Idempotent: re-cancelling an already-cancelled booking is a no-op so it
+        // neither overwrites the original cancelled_at nor re-fires the
+        // cancellation notification + email. Terminal refund/failed states
+        // cannot be cancelled.
+        if ($booking !== null && $booking->status === 'cancelled') {
+            return response()->json($this->bookingPayload($this->bookingRow($id)));
+        }
+        if ($booking !== null && in_array($booking->status, ['refunded', 'failed'], true)) {
+            throw ApiException::conflict('Booking cannot be cancelled');
+        }
         $updates = [
             'status' => 'cancelled',
             'cancelled_at' => now(),

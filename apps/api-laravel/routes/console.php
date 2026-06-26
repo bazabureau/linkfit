@@ -86,6 +86,50 @@ Artisan::command('ops:cleanup-media {--days=7} {--limit=500} {--dry-run}', funct
     $this->line('dry_run: '.($dryRun ? '1' : ''));
 })->purpose('Prune storage files for media assets already soft-deleted');
 
+Artisan::command('push:prune {--days=7} {--limit=1000}', function () {
+    $scrubbed = app(PushDispatcher::class)->prune((int) $this->option('days'), (int) $this->option('limit'));
+    $this->line('scrubbed: '.$scrubbed);
+})->purpose('Scrub cleartext content from terminal push notification jobs (PII retention)');
+
+Artisan::command('notifications:prune {--days=30} {--limit=1000}', function () {
+    // PII retention: NULL/blank the cleartext chat-message content retained on
+    // message_received notifications past the window. notifications.body is NOT
+    // NULL (→ '') and notifications.payload is NOT NULL jsonb DEFAULT '{}' (→
+    // '{}'), so the row stays for unread/badge accounting but no longer holds the
+    // message text. Bounded UPDATE only — no schema change.
+    $days = max((int) $this->option('days'), 0);
+    $limit = min(max((int) $this->option('limit'), 1), 5000);
+    $cutoff = now()->subDays($days);
+
+    // CAST(payload AS text) keeps the "already blanked?" guard portable: on
+    // Postgres a bare `payload <> '{}'` text bind raises "operator does not exist:
+    // jsonb <> text" (same gotcha PushDispatcher::pushPolicy works around), while
+    // the cast compares the rendered jsonb on Postgres and the raw text on SQLite.
+    $ids = DB::table('notifications')
+        ->where('type', 'message_received')
+        ->where('created_at', '<=', $cutoff)
+        ->where(fn ($q) => $q->where('body', '!=', '')->orWhereRaw('CAST(payload AS text) <> ?', ['{}']))
+        ->orderBy('created_at')
+        ->limit($limit)
+        ->pluck('id')
+        ->all();
+
+    if ($ids === []) {
+        $this->line('scrubbed: 0');
+
+        return;
+    }
+
+    $scrubbed = DB::table('notifications')
+        ->whereIn('id', $ids)
+        ->update([
+            'body' => '',
+            'payload' => '{}',
+        ]);
+
+    $this->line('scrubbed: '.$scrubbed);
+})->purpose('Scrub message_received notification body/payload past the retention window (PII)');
+
 Schedule::command('push:process --limit=100')
     ->everyMinute()
     ->withoutOverlapping(5);
@@ -100,6 +144,14 @@ Schedule::command('ops:release-expired-booking-holds')
 
 Schedule::command('ops:cleanup-media --days=7 --limit=500')
     ->dailyAt('03:20')
+    ->withoutOverlapping(60);
+
+Schedule::command('push:prune --days=7 --limit=1000')
+    ->dailyAt('03:30')
+    ->withoutOverlapping(60);
+
+Schedule::command('notifications:prune --days=30 --limit=1000')
+    ->dailyAt('03:40')
     ->withoutOverlapping(60);
 
 Artisan::command('feed:fanout', function () {

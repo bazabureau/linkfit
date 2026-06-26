@@ -511,13 +511,15 @@ class MessagingController extends ApiController
                 ->where('cp.conversation_id', $id)
                 ->whereNull('cp.left_at')
                 ->orderBy('u.display_name')
-                ->get(['cp.user_id', 'u.display_name', 'u.photo_url', 'cp.last_read_at'])
+                ->get(['cp.user_id', 'u.display_name', 'u.photo_url'])
                 ->map(fn ($p) => [
                     'user_id' => $p->user_id,
                     'display_name' => $p->display_name,
                     'photo_url' => $p->photo_url,
                     'is_owner' => $p->user_id === $ownerId,
-                    'joined_at' => $this->iso($p->last_read_at),
+                    // No joined_at column exists on conversation_participants; do not
+                    // leak each member's last_read_at (read-receipt timing) here.
+                    'joined_at' => null,
                 ]),
         ]);
     }
@@ -540,6 +542,35 @@ class MessagingController extends ApiController
         // group thread (which grants read of the full history). Either-direction block.
         if ($this->blockExistsBetween((string) $user->id, (string) $data['user_id'])) {
             throw ApiException::forbidden('Cannot add this user');
+        }
+        // A group thread is bound to a specific game / tournament; its valid roster
+        // is that game's participants (or that tournament's entrants), not an
+        // arbitrary account. Mirror openGroupConversation()'s membership gate for
+        // the TARGET user so an owner/admin cannot pull a non-member into the
+        // thread — being added grants read of the entire history. A group thread
+        // not bound to a game/tournament keeps its prior (roster-free) behaviour.
+        if ($conversation->game_id !== null) {
+            $isGroupMember = (string) DB::table('games')->where('id', $conversation->game_id)->value('host_user_id') === (string) $data['user_id']
+                || DB::table('game_participants')
+                    ->where('game_id', $conversation->game_id)
+                    ->where('user_id', $data['user_id'])
+                    ->where('status', '<>', 'cancelled')
+                    ->exists();
+            if (! $isGroupMember) {
+                throw ApiException::forbidden('User is not a member of this group');
+            }
+        } elseif ($conversation->tournament_id !== null) {
+            $isGroupMember = DB::table('tournament_entries')
+                ->where('tournament_id', $conversation->tournament_id)
+                ->where('status', '<>', 'withdrawn')
+                ->where(function ($q) use ($data) {
+                    $q->where('captain_user_id', $data['user_id'])
+                        ->orWhereRaw('?::uuid = ANY(player_ids)', [$data['user_id']]);
+                })
+                ->exists();
+            if (! $isGroupMember) {
+                throw ApiException::forbidden('User is not a member of this group');
+            }
         }
         $added = DB::table('conversation_participants')->updateOrInsert(
             ['conversation_id' => $id, 'user_id' => $data['user_id']],

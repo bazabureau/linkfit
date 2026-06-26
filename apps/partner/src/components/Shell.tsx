@@ -90,16 +90,15 @@ function initialsFor(name: string | undefined): string {
 
 export function Shell({ children }: { children: React.ReactNode }): React.JSX.Element {
   const pathname = usePathname() ?? "/";
-  const [mobileOpen, setMobileOpen] = React.useState(false);
+  // Track the pathname at which the drawer was opened rather than a bare
+  // boolean. The drawer is open only while still on that path, so navigating
+  // away closes it implicitly — no navigation effect required.
+  const [mobileOpenAt, setMobileOpenAt] = React.useState<string | null>(null);
+  const mobileOpen = mobileOpenAt === pathname;
   const { data: user } = useQuery<AdminUser>({
     queryKey: ["me"],
     queryFn: getCurrentUser,
   });
-
-  // Close the mobile drawer whenever navigation changes.
-  React.useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -112,19 +111,19 @@ export function Shell({ children }: { children: React.ReactNode }): React.JSX.El
             type="button"
             aria-label="Menyunu bağla"
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setMobileOpen(false)}
+            onClick={() => setMobileOpenAt(null)}
           />
           <Sidebar
             pathname={pathname}
             user={user}
             className="relative z-10 flex w-72 max-w-[82%] shadow-lift"
-            onClose={() => setMobileOpen(false)}
+            onClose={() => setMobileOpenAt(null)}
           />
         </div>
       ) : null}
 
       <div className="flex-1 flex flex-col min-w-0">
-        <TopBar user={user} onMenu={() => setMobileOpen(true)} />
+        <TopBar user={user} onMenu={() => setMobileOpenAt(pathname)} />
         <main className="flex-1 p-6 md:p-8">{children}</main>
       </div>
     </div>

@@ -75,6 +75,19 @@ export function VenueRulesPanel({
     readDays(venue.opening_hours),
   );
 
+  // Re-sync the form when the venue prop changes (e.g. after a save the parent
+  // re-renders with a freshly fetched, server-normalized venue). Mirrors
+  // VenueForm's reset-on-`initial` effect so the panel never drifts from the
+  // saved state. React Query's data is reference-stable across renders, so this
+  // only fires on an actual data change.
+  React.useEffect(() => {
+    setSlot(String(venue.booking_slot_minutes ?? 30));
+    setMin(String(venue.min_booking_minutes ?? 60));
+    setMax(String(venue.max_booking_minutes ?? 120));
+    setCancelWindow(String(venue.cancellation_window_minutes ?? 120));
+    setDays(readDays(venue.opening_hours));
+  }, [venue]);
+
   function patchDay(key: string, patch: Partial<DayHours>): void {
     setDays((current) => ({
       ...current,

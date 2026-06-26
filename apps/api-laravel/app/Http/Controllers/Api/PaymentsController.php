@@ -177,40 +177,48 @@ class PaymentsController extends ApiController
         // Idempotency: a client retry must not create a second payment intent
         // for the same captain+tournament. There is no DB unique constraint, so
         // guard here — if a live (pending/succeeded) intent already exists,
-        // reuse it instead of inserting a duplicate row.
-        $existingPayment = DB::table('tournament_entry_payments')
-            ->where('tournament_id', $tournamentId)
-            ->where('captain_user_id', $user->id)
-            ->whereIn('status', ['pending', 'succeeded'])
-            ->orderByDesc('created_at')
-            ->first();
-        if ($existingPayment !== null) {
-            $sheet['payment_intent_id'] = $existingPayment->payment_intent_id;
+        // reuse it instead of inserting a duplicate row. Run the check+insert in
+        // a transaction and lock the parent tournament row first (it always
+        // exists — tournamentRow() 404s otherwise — mirroring the parent-row
+        // lock used for court bookings) so two concurrent requests for the same
+        // captain serialise instead of both passing the check and inserting.
+        return DB::transaction(function () use ($tournamentId, $user, $data, $tournament, $playerIds, $sheet) {
+            DB::table('tournaments')->where('id', $tournamentId)->lockForUpdate()->first();
+            $existingPayment = DB::table('tournament_entry_payments')
+                ->where('tournament_id', $tournamentId)
+                ->where('captain_user_id', $user->id)
+                ->whereIn('status', ['pending', 'succeeded'])
+                ->orderByDesc('created_at')
+                ->lockForUpdate()
+                ->first();
+            if ($existingPayment !== null) {
+                $sheet['payment_intent_id'] = $existingPayment->payment_intent_id;
+
+                return response()->json($sheet);
+            }
+            $paymentId = (string) Str::uuid();
+            DB::table('tournament_entry_payments')->insert([
+                'id' => $paymentId,
+                'tournament_id' => $tournamentId,
+                'captain_user_id' => $user->id,
+                'payment_intent_id' => $sheet['payment_intent_id'],
+                'amount_minor' => (int) $tournament->entry_fee_minor,
+                'currency' => $tournament->currency,
+                'squad_name' => $data['squad_name'],
+                'player_ids' => $this->uuidArray($playerIds),
+                'status' => 'pending',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $this->auditWrite($user->id, 'payment.tournament_intent', 'tournament_entry_payments', $paymentId, [
+                'tournament_id' => $tournamentId,
+                'amount_minor' => (int) $tournament->entry_fee_minor,
+                'currency' => $tournament->currency,
+                'player_count' => count($playerIds) + 1,
+            ]);
 
             return response()->json($sheet);
-        }
-        $paymentId = (string) Str::uuid();
-        DB::table('tournament_entry_payments')->insert([
-            'id' => $paymentId,
-            'tournament_id' => $tournamentId,
-            'captain_user_id' => $user->id,
-            'payment_intent_id' => $sheet['payment_intent_id'],
-            'amount_minor' => (int) $tournament->entry_fee_minor,
-            'currency' => $tournament->currency,
-            'squad_name' => $data['squad_name'],
-            'player_ids' => $this->uuidArray($playerIds),
-            'status' => 'pending',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        $this->auditWrite($user->id, 'payment.tournament_intent', 'tournament_entry_payments', $paymentId, [
-            'tournament_id' => $tournamentId,
-            'amount_minor' => (int) $tournament->entry_fee_minor,
-            'currency' => $tournament->currency,
-            'player_count' => count($playerIds) + 1,
-        ]);
-
-        return response()->json($sheet);
+        });
     }
 
     private function tournamentRow(string $id): object

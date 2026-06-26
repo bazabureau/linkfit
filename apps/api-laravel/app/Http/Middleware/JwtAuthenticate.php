@@ -36,7 +36,16 @@ class JwtAuthenticate
             throw ApiException::unauthenticated('Invalid or expired token');
         }
 
-        $user = User::whereNull('deleted_at')->find($claims->sub ?? null);
+        // A logout revokes the refresh token but the access token stays
+        // cryptographically valid until its `exp`. Honour the short-TTL
+        // denylist keyed on the session family (`sid`) so logged-out tokens
+        // stop working immediately.
+        $sid = isset($claims->sid) ? (string) $claims->sid : '';
+        if ($sid !== '' && $this->tokens->isFamilyDenylisted($sid)) {
+            throw ApiException::unauthenticated('Session has been logged out');
+        }
+
+        $user = User::whereNull('deleted_at')->whereNull('suspended_at')->find($claims->sub ?? null);
         if ($user === null) {
             throw ApiException::unauthenticated('Account not found');
         }

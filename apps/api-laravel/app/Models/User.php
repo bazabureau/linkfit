@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -13,15 +14,35 @@ use Illuminate\Database\Eloquent\Model;
  */
 class User extends Model
 {
+    use HasFactory;
     use HasUuids;
 
     protected $table = 'users';
 
     public $timestamps = true;
 
-    protected $guarded = ['id'];
+    /**
+     * Only user-writeable columns are mass-assignable. Admin/privilege
+     * columns (admin_role, is_vip, is_verified, is_ambassador, suspension_*,
+     * venue_id, vip_*) are intentionally omitted so they can never be set
+     * via fill()/create(). Production writes use explicit property
+     * assignment + save(), which is unaffected by this whitelist.
+     */
+    protected $fillable = [
+        'email',
+        'phone',
+        'username',
+        'display_name',
+        'photo_url',
+        'home_lat',
+        'home_lng',
+        'password_hash',
+        'birth_date',
+        'terms_accepted_at',
+        'email_verified_at',
+    ];
 
-    protected $hidden = ['password_hash', 'email_hash'];
+    protected $hidden = ['password_hash'];
 
     protected $casts = [
         'home_lat' => 'float',

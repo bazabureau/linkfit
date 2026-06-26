@@ -78,12 +78,15 @@ class MiscController extends ApiController
         $token = (string) $request->query('token', '');
         try {
             $claims = $tokens->verifyAccess($token);
-            $user = User::whereNull('deleted_at')->find($claims->sub ?? null);
+            $user = User::whereNull('deleted_at')->whereNull('suspended_at')->find($claims->sub ?? null);
         } catch (Throwable) {
             throw ApiException::unauthenticated('Invalid or expired token');
         }
         if ($user === null) {
             throw ApiException::unauthenticated('Account not found');
+        }
+        if (isset($claims->sid) && $tokens->isFamilyDenylisted((string) $claims->sid)) {
+            throw ApiException::unauthenticated('Session has been logged out');
         }
 
         return response()->stream(function () use ($user) {

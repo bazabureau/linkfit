@@ -52,6 +52,9 @@ abstract class ApiController extends Controller
             if ($userId === '') {
                 return null;
             }
+            if (isset($claims->sid) && app(TokenService::class)->isFamilyDenylisted((string) $claims->sid)) {
+                return null; // session was logged out — treat as unauthenticated on optional-auth routes
+            }
 
             return User::whereKey($userId)->whereNull('deleted_at')->exists() ? $userId : null;
         } catch (\Throwable $e) {

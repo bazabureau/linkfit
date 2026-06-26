@@ -77,7 +77,9 @@ Route::prefix('api/v1')->group(function () {
     Route::post('auth/reset-password', [AuthExtrasController::class, 'resetPassword'])->middleware('throttle:password-reset');
     Route::post('auth/apple', [OAuthController::class, 'apple'])->middleware('throttle:10,1');
     Route::post('auth/google', [OAuthController::class, 'google'])->middleware('throttle:10,1');
-    Route::get('auth/check', [MobileController::class, 'authCheck'])->middleware('throttle:60,1');
+    // Public email/username availability oracle — tight throttle (matches the
+    // other sensitive auth routes) so it cannot be enumerated en masse.
+    Route::get('auth/check', [MobileController::class, 'authCheck'])->middleware('throttle:10,1');
 
     Route::get('app/version', [AppInfoController::class, 'version']);
     Route::get('app/metadata', [AppInfoController::class, 'metadata']);
@@ -482,7 +484,7 @@ Route::prefix('api/v1')->group(function () {
         Route::delete('conversations/{id}/participants/{userId}', [MessagingController::class, 'removeParticipant']);
         Route::post('conversations/{id}/messages', [MessagingController::class, 'sendMessage'])->middleware('throttle:write-action');
         Route::post('conversations/{id}/read', [MessagingController::class, 'markConversationRead']);
-        Route::post('conversations/{id}/typing', [MessagingController::class, 'typing']);
+        Route::post('conversations/{id}/typing', [MessagingController::class, 'typing'])->middleware('throttle:write-action');
         Route::post('media', [MediaController::class, 'upload'])->middleware('throttle:30,1');
         Route::post('messages/upload-image', [MediaController::class, 'upload'])->middleware('throttle:30,1');
         Route::delete('media/{id}', [MediaController::class, 'delete']);

@@ -367,6 +367,13 @@ class MatchController extends ApiController
             throw ApiException::forbidden('Only the host can manage result access');
         }
 
+        // {uid} is unconstrained by the route, so a malformed value would reach
+        // the uuid `user_id` column and raise a Postgres 22P02 → 500. Treat a
+        // non-UUID as a missing participant (clean 404, not a server error).
+        if (! Str::isUuid($uid)) {
+            throw ApiException::notFound('Confirmed game participant not found');
+        }
+
         $data = $this->validateBody($request, [
             'can_report_result' => ['required', 'boolean'],
         ]);

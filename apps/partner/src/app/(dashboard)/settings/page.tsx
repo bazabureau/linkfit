@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Building,
@@ -24,8 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { usePartnerVenue, partnerKeys } from "@/lib/partner-queries";
-import { uploadVenueImage } from "@/lib/admin-venues";
+import { usePartnerVenue, partnerKeys, uploadVenueImage } from "@/lib/partner-queries";
 import { api } from "@/lib/api";
 import { SectionCard } from "./SectionCard";
 import { Field } from "./Field";
@@ -84,9 +83,13 @@ export default function SettingsPage(): React.JSX.Element {
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]): void =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  // Sync form + snapshot when the query resolves.
+  // Seed the form + snapshot once, on the first venue load. Gated by a ref so
+  // a later background refetch (e.g. on window focus) can't overwrite edits the
+  // user is in the middle of making.
+  const initialised = useRef(false);
   useEffect(() => {
-    if (venue) {
+    if (venue && !initialised.current) {
+      initialised.current = true;
       // The partner venue endpoint persists the cover image as `photo_urls`
       // (array) — see handleSave below — so the saved cover must be read back
       // from there (falling back to the legacy single `photo_url`). Reading

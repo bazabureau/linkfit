@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
+use App\Http\Controllers\Api\Concerns\ValidatesMediaUrls;
 use App\Services\Notifications\PushDispatcher;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -14,6 +15,7 @@ use Illuminate\Support\Str;
 class SquadsController extends ApiController
 {
     use FiltersBlockedUsers;
+    use ValidatesMediaUrls;
 
     public function store(Request $request): JsonResponse
     {
@@ -24,6 +26,13 @@ class SquadsController extends ApiController
             'photo_url' => ['nullable', 'url', 'max:2000'],
             'max_size' => ['required', 'integer', 'min:2', 'max:16'],
         ]);
+        // photo_url is served verbatim to every squad member, so a free URL must
+        // be https + on an allowlisted host (mirrors MeController profile photos /
+        // chat attachments). The preferred path is a MediaController upload whose
+        // returned URL is already on the media disk host.
+        if (array_key_exists('photo_url', $data) && $data['photo_url'] !== null) {
+            $data['photo_url'] = $this->assertAllowedMediaUrl($data['photo_url']);
+        }
         $id = (string) Str::uuid();
         DB::transaction(function () use ($id, $user, $data) {
             DB::table('squads')->insert([...$data, 'id' => $id, 'owner_id' => $user->id, 'created_at' => now()]);
@@ -118,6 +127,11 @@ class SquadsController extends ApiController
             'description' => ['sometimes', 'nullable', 'string', 'max:500'],
             'photo_url' => ['sometimes', 'nullable', 'url', 'max:2000'],
         ]);
+        // photo_url is served verbatim to every squad member, so a free URL must
+        // be https + on an allowlisted host (mirrors MeController profile photos).
+        if (array_key_exists('photo_url', $data) && $data['photo_url'] !== null) {
+            $data['photo_url'] = $this->assertAllowedMediaUrl($data['photo_url']);
+        }
         // A body with no recognized field yields []; Postgres rejects an empty
         // SET clause ("update ... set  where ...") with a syntax error. No-op.
         if ($data === []) {

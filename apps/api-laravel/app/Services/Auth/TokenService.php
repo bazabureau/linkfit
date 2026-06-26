@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Support\ApiException;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -84,7 +85,7 @@ class TokenService
                 throw ApiException::unauthenticated('Refresh token expired');
             }
 
-            $user = User::whereNull('deleted_at')->find($row->user_id);
+            $user = User::whereNull('deleted_at')->whereNull('suspended_at')->find($row->user_id);
             if ($user === null) {
                 throw ApiException::unauthenticated('Account not found');
             }
@@ -110,10 +111,23 @@ class TokenService
     public function revoke(string $presentedToken): void
     {
         $hashHex = hash('sha256', $presentedToken);
-        DB::table('refresh_tokens')
+        $row = DB::table('refresh_tokens')
             ->whereRaw('token_hash = decode(?, \'hex\')', [$hashHex])
+            ->first();
+        if ($row === null) {
+            return;
+        }
+
+        DB::table('refresh_tokens')
+            ->where('id', $row->id)
             ->whereNull('revoked_at')
             ->update(['revoked_at' => now()]);
+
+        // Refresh-token revocation does not by itself invalidate access tokens,
+        // which stay verifiable until their `exp` (~15 min). Denylist the
+        // session family (the access token's `sid` claim) so JwtAuthenticate
+        // rejects any still-live access token for this logged-out session.
+        $this->denylistFamily((string) $row->family_id);
     }
 
     /** Decode + validate an access token; returns claims or throws. */
@@ -125,6 +139,34 @@ class TokenService
     public function accessTtlSeconds(): int
     {
         return $this->accessTtlSeconds;
+    }
+
+    /**
+     * Block access tokens for a session family until they would expire anyway.
+     * TTL matches the access-token TTL so the cache entry self-cleans once no
+     * live token could carry this `sid`.
+     */
+    public function denylistFamily(string $familyId): void
+    {
+        if ($familyId === '') {
+            return;
+        }
+        Cache::put($this->denylistKey($familyId), true, $this->accessTtlSeconds);
+    }
+
+    /** Has this session family been logged out / revoked? */
+    public function isFamilyDenylisted(string $familyId): bool
+    {
+        if ($familyId === '') {
+            return false;
+        }
+
+        return Cache::has($this->denylistKey($familyId));
+    }
+
+    private function denylistKey(string $familyId): string
+    {
+        return 'auth:revoked-session:'.$familyId;
     }
 
     // ── internals ──────────────────────────────────────────────────

@@ -8,7 +8,8 @@ import {
   type UseMutationResult,
   type UseQueryResult,
 } from "@tanstack/react-query";
-import { api, apiFetch } from "./api";
+import { api, apiFetch, API_BASE_URL, APIError, apiHeaders } from "./api";
+import { ACCESS_TOKEN_COOKIE, getCookie } from "./cookies";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -461,32 +462,6 @@ export function useMarkPartnerBookingPaid(
   });
 }
 
-export interface CreatePartnerBookingPayload {
-  court_id: string;
-  starts_at: string;
-  duration_minutes: number;
-  // Field names must match PartnerOpsController::createBooking validation.
-  user_id?: string | null;
-  customer_name?: string | null;
-  customer_email?: string | null;
-  payment_method?: "cash" | "bank_transfer" | "manual" | "onsite";
-  payment_note?: string | null;
-  status?: "pending_payment" | "paid";
-}
-
-export function useCreatePartnerBooking() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (payload: CreatePartnerBookingPayload) => {
-      return api.post<Booking>("/api/v1/partner/bookings", payload);
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: partnerKeys.bookingsAll });
-      qc.invalidateQueries({ queryKey: partnerKeys.stats });
-    },
-  });
-}
-
 // ─── Venue-ops booking actions (check-in / no-show / refund) ─────────────────
 
 /** Generic helper: POST a partner booking action and refresh the lists. */
@@ -796,4 +771,44 @@ export function useUpdatePartnerAccount(): UseMutationResult<
       qc.invalidateQueries({ queryKey: partnerKeys.account });
     },
   });
+}
+
+// ─── Venue cover image upload ────────────────────────────────────────────────
+
+export const MAX_VENUE_IMAGE_BYTES = 4 * 1024 * 1024;
+
+/**
+ * Uploads an image to the backend via the shared messages upload endpoint.
+ * Returns the absolute URL the API persists. We keep this client-side instead
+ * of going through `api.post` because that helper auto-stringifies JSON and we
+ * need to send a `multipart/form-data` body.
+ */
+export async function uploadVenueImage(file: File): Promise<string> {
+  if (file.size > MAX_VENUE_IMAGE_BYTES) {
+    throw new APIError({
+      code: "image_too_large",
+      message: "Image is larger than 4 MB",
+      status: 413,
+    });
+  }
+  const accessToken = getCookie(ACCESS_TOKEN_COOKIE);
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${API_BASE_URL}/api/v1/messages/upload-image`, {
+    method: "POST",
+    headers: apiHeaders(undefined, accessToken),
+    body: form,
+  });
+  if (!res.ok) {
+    let message = "Image upload failed";
+    try {
+      const body = (await res.json()) as { error?: { message?: string } };
+      if (body.error?.message) message = body.error.message;
+    } catch {
+      /* keep default */
+    }
+    throw new APIError({ code: "upload_failed", message, status: res.status });
+  }
+  const body = (await res.json()) as { url: string };
+  return body.url;
 }
