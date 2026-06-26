@@ -69,13 +69,13 @@ class CatalogController extends ApiController
             $lng = (float) $query['lng'];
             $meters = (float) $query['radius_km'] * 1000;
             $base->selectRaw(
-                'earth_distance(ll_to_earth(?::float8, ?::float8), ll_to_earth(v.lat::float8, v.lng::float8))::text as distance_m',
+                'earth_distance(ll_to_earth(?::float8, ?::float8), ll_to_earth(v.lat::float8, v.lng::float8))::float8 as distance_m',
                 [$lat, $lng],
             )
                 ->whereRaw('earth_box(ll_to_earth(?::float8, ?::float8), ?) @> ll_to_earth(v.lat::float8, v.lng::float8)', [$lat, $lng, $meters])
                 ->whereRaw('earth_distance(ll_to_earth(?::float8, ?::float8), ll_to_earth(v.lat::float8, v.lng::float8)) <= ?', [$lat, $lng, $meters]);
         } else {
-            $base->selectRaw('null::text as distance_m');
+            $base->selectRaw('null::float8 as distance_m');
         }
 
         $total = (clone $base)->count('v.id');
@@ -83,7 +83,7 @@ class CatalogController extends ApiController
         if ($sort === 'rating') {
             $base->orderByDesc('v.rating_avg')->orderByDesc('v.rating_count')->orderBy('v.name');
         } elseif ($sort === 'distance' && isset($query['lat'], $query['lng'], $query['radius_km'])) {
-            $base->orderByRaw('distance_m::float asc')->orderBy('v.name');
+            $base->orderByRaw('distance_m asc nulls last')->orderBy('v.name');
         } else {
             $base->orderBy('v.name');
         }
