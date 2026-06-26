@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { ClipboardList, Download, Loader2, RefreshCw, ShieldOff } from "lucide-react";
+import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/components/ui/toast";
 import { useI18n } from "@/lib/i18n";
 import {
+  analyticsKeys,
   useCancelDeletion,
   useDeletionRequests,
   useExportRequests,
@@ -27,17 +29,29 @@ function exportVariant(status: ExportRequest["status"]): "success" | "info" | "w
 
 export default function DataRightsPage(): React.JSX.Element {
   const { t } = useI18n();
+  const qc = useQueryClient();
   const [tab, setTab] = React.useState<"deletions" | "exports">("deletions");
+  const fetching = useIsFetching({ queryKey: ["admin", "data-rights"] }) > 0;
 
   return (
     <div className="space-y-5">
-      <div>
-        <p className="text-xs font-semibold text-accent">{t("İdarəetmə")}</p>
-        <h1 className="mt-2 flex items-center gap-2 font-display text-[1.6rem] font-bold text-foreground">
-          <ClipboardList className="h-6 w-6 text-accent" />
-          {t("Data rights")}
-        </h1>
-        <p className="mt-1 text-sm text-foregroundMuted">{t("GDPR account deletions and data export requests.")}</p>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-xs font-semibold text-accent">{t("İdarəetmə")}</p>
+          <h1 className="mt-2 flex items-center gap-2 font-display text-[1.6rem] font-bold text-foreground">
+            <ClipboardList className="h-6 w-6 text-accent" />
+            {t("Data rights")}
+          </h1>
+          <p className="mt-1 text-sm text-foregroundMuted">{t("GDPR account deletions and data export requests.")}</p>
+        </div>
+        <Button
+          variant="secondary"
+          onClick={() => void qc.invalidateQueries({ queryKey: analyticsKeys.deletions }).then(() => qc.invalidateQueries({ queryKey: analyticsKeys.exports }))}
+          disabled={fetching}
+        >
+          <RefreshCw className={`h-4 w-4 ${fetching ? "animate-spin" : ""}`} />
+          {t("Refresh")}
+        </Button>
       </div>
 
       <div className="flex w-fit gap-1 rounded-pill border border-border bg-surface p-1">

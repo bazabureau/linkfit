@@ -103,6 +103,18 @@ export function VenueDetailHeader({
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
+                  {venue.logo_url ? (
+                    <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-border bg-surfaceElevated">
+                      <Image
+                        src={venue.logo_url}
+                        alt={`${venue.name} loqo`}
+                        fill
+                        sizes="36px"
+                        unoptimized
+                        className="object-cover"
+                      />
+                    </span>
+                  ) : null}
                   <h1 className="font-display text-[1.6rem] font-bold  text-foreground">
                     {venue.name}
                   </h1>

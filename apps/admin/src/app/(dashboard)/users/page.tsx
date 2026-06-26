@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft, ChevronRight, RefreshCw, UserPlus, Users } from "lucide-react";
+import Link from "next/link";
+import { ChevronLeft, ChevronRight, RefreshCw, Rocket, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { useI18n } from "@/lib/i18n";
@@ -208,6 +209,12 @@ export default function UsersPage(): React.JSX.Element {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="secondary">
+            <Link href="/users/launch-waitlist">
+              <Rocket className="h-4 w-4" />
+              {t("Launch siyahısı")}
+            </Link>
+          </Button>
           <Button variant="secondary" onClick={() => void refetch()} disabled={isFetching}>
             <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
             {t("Yenilə")}

@@ -34,6 +34,23 @@ export interface PromoCode {
   updated_at: string | null;
 }
 
+/** A single redemption of a promo code, surfaced in the usage view. */
+export interface PromoRedemption {
+  id: string;
+  booking_id: string | null;
+  user_id: string | null;
+  user_name: string | null;
+  user_email: string | null;
+  discount_minor: number;
+  booking_status: string | null;
+  created_at: string | null;
+}
+
+/** Full promo record returned by the show endpoint, including recent usage. */
+export interface PromoCodeDetail extends PromoCode {
+  recent_redemptions: PromoRedemption[];
+}
+
 export interface PromoCodesResponse {
   items: PromoCode[];
   pagination: { limit: number; offset: number; total: number };
@@ -75,6 +92,7 @@ function qs(params: object): string {
 export const promoKeys = {
   all: ["admin", "promo-codes"] as const,
   list: (p: PromoCodesParams) => [...promoKeys.all, "list", p] as const,
+  detail: (id: string) => [...promoKeys.all, "detail", id] as const,
 };
 
 export function usePromoCodes(
@@ -84,6 +102,17 @@ export function usePromoCodes(
     queryKey: promoKeys.list(params),
     queryFn: () => api.get<PromoCodesResponse>(`/api/v1/admin/promo-codes${qs(params)}`),
     placeholderData: (prev) => prev,
+    staleTime: 10_000,
+  });
+}
+
+export function usePromoCode(
+  id: string | null,
+): UseQueryResult<PromoCodeDetail> {
+  return useQuery({
+    queryKey: promoKeys.detail(id ?? ""),
+    queryFn: () => api.get<PromoCodeDetail>(`/api/v1/admin/promo-codes/${id}`),
+    enabled: id != null,
     staleTime: 10_000,
   });
 }

@@ -85,15 +85,35 @@ function SelectControl({
   );
 }
 
+// Free-text fields are debounced before hitting the shared store so typing does
+// not fire one audit request per keystroke; the entity/date controls apply
+// immediately since they change in discrete steps.
+const TEXT_FIELDS: ReadonlySet<keyof DraftFilters> = new Set([
+  "action",
+  "actor_user_id",
+]);
+const FILTER_DEBOUNCE_MS = 300;
+
 export default function AuditPage(): React.JSX.Element {
   const [draft, setDraft] = React.useState<DraftFilters>(EMPTY_DRAFT);
+  const debounceRef = React.useRef<number | null>(null);
 
-  // Filters live in a shared store consumed by AuditTable's data hook. Push the
-  // applied filters whenever the draft changes, and clear on unmount so the
-  // dashboard recent-activity feed (which shares the same hook) is unaffected.
-  React.useEffect(() => {
-    return () => resetAuditFilters();
+  const clearPending = React.useCallback(() => {
+    if (debounceRef.current !== null) {
+      window.clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
   }, []);
+
+  // Filters live in a shared store consumed by AuditTable's data hook. Clear any
+  // pending debounce and reset the store on unmount so the dashboard
+  // recent-activity feed (which shares the same hook) is unaffected.
+  React.useEffect(() => {
+    return () => {
+      clearPending();
+      resetAuditFilters();
+    };
+  }, [clearPending]);
 
   const applied = React.useMemo(() => draftToFilters(draft), [draft]);
   const activeCount = countActiveAuditFilters(applied);
@@ -101,10 +121,19 @@ export default function AuditPage(): React.JSX.Element {
   function update<K extends keyof DraftFilters>(key: K, value: string) {
     const next = { ...draft, [key]: value };
     setDraft(next);
-    setAuditFilters(draftToFilters(next));
+    clearPending();
+    if (TEXT_FIELDS.has(key)) {
+      debounceRef.current = window.setTimeout(() => {
+        debounceRef.current = null;
+        setAuditFilters(draftToFilters(next));
+      }, FILTER_DEBOUNCE_MS);
+    } else {
+      setAuditFilters(draftToFilters(next));
+    }
   }
 
   function clearAll() {
+    clearPending();
     setDraft(EMPTY_DRAFT);
     resetAuditFilters();
   }

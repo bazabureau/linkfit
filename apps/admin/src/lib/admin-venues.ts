@@ -21,6 +21,7 @@ export interface Venue {
   is_partner: boolean;
   phone: string | null;
   description: string | null;
+  logo_url?: string | null;
   photo_url: string | null;
   photo_urls?: string[];
   status?: "draft" | "pending" | "published" | "suspended";
@@ -88,6 +89,7 @@ export interface VenuePayload {
   lng: number;
   phone?: string | null;
   description?: string | null;
+  logo_url?: string | null;
   photo_url?: string | null;
   photo_urls?: string[] | null;
   is_partner: boolean;

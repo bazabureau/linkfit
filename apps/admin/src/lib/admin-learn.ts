@@ -75,6 +75,19 @@ export interface LessonPayload {
   status?: string;
 }
 
+export interface RosterEntry {
+  id: string;
+  display_name: string | null;
+  photo_url: string | null;
+  status: string;
+  booked_at: string | null;
+}
+
+export interface LessonRoster {
+  items: RosterEntry[];
+  booked_count: number;
+}
+
 export interface SportOption { id: string; slug: string; name: string }
 export interface VenueOption { id: string; name: string }
 
@@ -176,5 +189,14 @@ export function useDeleteLesson() {
   return useMutation({
     mutationFn: (id: string) => api.delete<void>(`/api/v1/admin/lessons/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "lessons"] }),
+  });
+}
+
+// ---------- Lesson roster (booked players) ----------
+export function useLessonRoster(lessonId: string | null): UseQueryResult<LessonRoster> {
+  return useQuery({
+    queryKey: lessonId ? learnKeys.roster(lessonId) : (["admin", "lessons", "roster", "none"] as const),
+    queryFn: () => api.get<LessonRoster>(`/api/v1/admin/lessons/${lessonId}/bookings`),
+    enabled: Boolean(lessonId),
   });
 }

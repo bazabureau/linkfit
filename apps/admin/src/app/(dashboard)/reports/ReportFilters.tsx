@@ -5,15 +5,40 @@ import { Search, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n";
-import type { ReportStatus } from "@/lib/admin-reports";
+import {
+  REPORT_REASONS,
+  REPORT_TARGET_KINDS,
+  type ReportReason,
+  type ReportStatus,
+  type ReportTargetKind,
+} from "@/lib/admin-reports";
+import { REPORT_REASON_AZ, TARGET_LABEL_AZ } from "./lib";
 
 export type StatusFilter = ReportStatus | "all";
+export type ReasonFilter = ReportReason | "all";
+export type TargetFilter = ReportTargetKind | "all";
 
 const STATUS_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
   { value: "pending", label: "Gözləyir" },
   { value: "reviewed", label: "Baxılıb" },
   { value: "dismissed", label: "Rədd edilib" },
   { value: "all", label: "Hamısı" },
+];
+
+const REASON_OPTIONS: Array<{ value: ReasonFilter; label: string }> = [
+  { value: "all", label: "Bütün səbəblər" },
+  ...REPORT_REASONS.map((value) => ({
+    value,
+    label: REPORT_REASON_AZ[value] ?? value,
+  })),
+];
+
+const TARGET_OPTIONS: Array<{ value: TargetFilter; label: string }> = [
+  { value: "all", label: "Bütün hədəflər" },
+  ...REPORT_TARGET_KINDS.map((value) => ({
+    value,
+    label: TARGET_LABEL_AZ[value] ?? value,
+  })),
 ];
 
 function FilterChip({
@@ -40,21 +65,58 @@ function FilterChip({
   );
 }
 
+function FilterSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+}): React.JSX.Element {
+  const { t } = useI18n();
+  return (
+    <select
+      aria-label={label}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-8 rounded-full border border-border bg-surface px-3 text-xs font-semibold text-foreground transition hover:border-borderStrong focus:outline-none focus:ring-2 focus:ring-accent/40"
+    >
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {t(option.label)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export function ReportFilters({
   status,
+  reason,
+  targetKind,
   q,
   onStatusChange,
+  onReasonChange,
+  onTargetKindChange,
   onQueryChange,
   onReset,
 }: {
   status: StatusFilter;
+  reason: ReasonFilter;
+  targetKind: TargetFilter;
   q: string;
   onStatusChange: (status: StatusFilter) => void;
+  onReasonChange: (reason: ReasonFilter) => void;
+  onTargetKindChange: (targetKind: TargetFilter) => void;
   onQueryChange: (q: string) => void;
   onReset: () => void;
 }): React.JSX.Element {
   const { t } = useI18n();
-  const hasFilters = q !== "" || status !== "pending";
+  const hasFilters =
+    q !== "" || status !== "pending" || reason !== "all" || targetKind !== "all";
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-3 shadow-card sm:p-4">
@@ -64,7 +126,7 @@ export function ReportFilters({
           <Input
             value={q}
             onChange={(event) => onQueryChange(event.target.value)}
-            placeholder={t("Səbəb, hədəf və ya ID üzrə axtar...")}
+            placeholder={t("Şikayətçi və ya qeyd üzrə axtar...")}
             className="h-10 border-transparent bg-surfaceElevated pl-9 pr-9"
           />
           {q ? (
@@ -94,12 +156,26 @@ export function ReportFilters({
             {t(item.label)}
           </FilterChip>
         ))}
-        {hasFilters ? (
-          <Button variant="ghost" size="sm" className="ml-auto" onClick={onReset}>
-            <X className="h-3.5 w-3.5" />
-            {t("Filterləri sıfırla")}
-          </Button>
-        ) : null}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <FilterSelect
+            label={t("Səbəb")}
+            value={reason}
+            options={REASON_OPTIONS}
+            onChange={(value) => onReasonChange(value as ReasonFilter)}
+          />
+          <FilterSelect
+            label={t("Hədəf")}
+            value={targetKind}
+            options={TARGET_OPTIONS}
+            onChange={(value) => onTargetKindChange(value as TargetFilter)}
+          />
+          {hasFilters ? (
+            <Button variant="ghost" size="sm" onClick={onReset}>
+              <X className="h-3.5 w-3.5" />
+              {t("Filterləri sıfırla")}
+            </Button>
+          ) : null}
+        </div>
       </div>
     </div>
   );

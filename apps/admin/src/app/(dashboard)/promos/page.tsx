@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Loader2, Pencil, Plus, RefreshCw, Tag, Trash2 } from "lucide-react";
+import { BarChart3, Loader2, Pencil, Plus, RefreshCw, Tag, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import { useI18n } from "@/lib/i18n";
 import {
   useCreatePromoCode,
   useDeletePromoCode,
+  usePromoCode,
   usePromoCodes,
   useUpdatePromoCode,
   type PromoCode,
@@ -20,6 +21,7 @@ import {
   type PromoPayload,
   type PromoStatus,
 } from "@/lib/admin-promos";
+import { ConfirmDialog } from "../venues/detail-ui";
 
 const selectCls =
   "h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:border-accent focus:outline-none";
@@ -38,15 +40,42 @@ function discountLabel(promo: PromoCode): string {
 const dt = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("az-AZ", { day: "2-digit", month: "short", year: "2-digit" }) : "—";
 
+const dtTime = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleString("az-AZ", {
+        day: "2-digit",
+        month: "short",
+        year: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "—";
+
+const money = (minor: number, currency: string | null) =>
+  `${(minor / 100).toFixed(2)} ${currency === "AZN" || !currency ? "₼" : currency}`;
+
 export default function PromosPage(): React.JSX.Element {
   const { t } = useI18n();
   const [q, setQ] = React.useState("");
   const [status, setStatus] = React.useState<PromoStatus | undefined>(undefined);
   const [dialog, setDialog] = React.useState<{ open: boolean; promo?: PromoCode }>({ open: false });
+  const [usageFor, setUsageFor] = React.useState<PromoCode | null>(null);
+  const [archiveFor, setArchiveFor] = React.useState<PromoCode | null>(null);
   const { data, isLoading, isError, refetch } = usePromoCodes({ q: q || undefined, status });
   const del = useDeletePromoCode();
   const toast = useToast();
   const promos = data?.items ?? [];
+
+  function confirmArchive() {
+    if (!archiveFor) return;
+    del.mutate(archiveFor.id, {
+      onSuccess: () => {
+        toast.success(t("Promo code archived"));
+        setArchiveFor(null);
+      },
+      onError: (err) => toast.error(t("Alınmadı"), err.message),
+    });
+  }
 
   return (
     <div className="space-y-5">
@@ -120,6 +149,9 @@ export default function PromosPage(): React.JSX.Element {
                   <TableCell><Badge variant={statusVariant(promo.status)}>{t(promo.status)}</Badge></TableCell>
                   <TableCell className="text-right">
                     <div className="inline-flex gap-1">
+                      <Button variant="ghost" size="sm" aria-label={t("View usage")} onClick={() => setUsageFor(promo)}>
+                        <BarChart3 className="h-3.5 w-3.5" />
+                      </Button>
                       <Button variant="ghost" size="sm" aria-label={t("Redaktə et")} onClick={() => setDialog({ open: true, promo })}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
@@ -128,12 +160,7 @@ export default function PromosPage(): React.JSX.Element {
                           variant="ghost"
                           size="sm"
                           aria-label={t("Arxivləşdir")}
-                          onClick={() =>
-                            del.mutate(promo.id, {
-                              onSuccess: () => toast.success(t("Promo code archived")),
-                              onError: () => toast.error(t("Alınmadı")),
-                            })
-                          }
+                          onClick={() => setArchiveFor(promo)}
                         >
                           <Trash2 className="h-3.5 w-3.5 text-danger" />
                         </Button>
@@ -148,6 +175,118 @@ export default function PromosPage(): React.JSX.Element {
       </div>
 
       {dialog.open && <PromoDialog promo={dialog.promo} onClose={() => setDialog({ open: false })} />}
+      {usageFor && <UsageDialog promo={usageFor} onClose={() => setUsageFor(null)} />}
+
+      <ConfirmDialog
+        open={archiveFor !== null}
+        title={t("Archive this promo code?")}
+        description={archiveFor ? `${archiveFor.code} — ${t("It can no longer be redeemed at checkout.")}` : ""}
+        confirmLabel={t("Arxivləşdir")}
+        danger
+        busy={del.isPending}
+        onOpenChange={(open) => !open && setArchiveFor(null)}
+        onConfirm={confirmArchive}
+      />
+    </div>
+  );
+}
+
+function UsageDialog({ promo, onClose }: { promo: PromoCode; onClose: () => void }): React.JSX.Element {
+  const { t } = useI18n();
+  const { data, isLoading, isError, refetch } = usePromoCode(promo.id);
+  const rows = data?.recent_redemptions ?? [];
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-accent" />
+            <span className="font-mono">{promo.code}</span>
+            <Badge variant={statusVariant(promo.status)}>{t(promo.status)}</Badge>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Stat label={t("Discount")} value={discountLabel(promo)} />
+          <Stat
+            label={t("Redemptions")}
+            value={`${promo.redemptions_count}${promo.max_redemptions != null ? ` / ${promo.max_redemptions}` : ""}`}
+          />
+          <Stat label={t("Per user")} value={String(promo.per_user_limit)} />
+          <Stat label={t("Window")} value={`${dt(promo.starts_at)} – ${dt(promo.ends_at)}`} />
+        </div>
+
+        <div className="mt-1">
+          <p className="mb-2 text-sm font-semibold text-foreground">{t("Recent redemptions")}</p>
+          <div className="max-h-[48vh] overflow-y-auto rounded-xl border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("User")}</TableHead>
+                  <TableHead>{t("Discount")}</TableHead>
+                  <TableHead>{t("Booking")}</TableHead>
+                  <TableHead>{t("Tarix")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-8 text-center text-foregroundMuted">
+                      {t("Yüklənir")}…
+                    </TableCell>
+                  </TableRow>
+                ) : isError ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-8 text-center">
+                      <p className="text-sm text-danger">{t("Yenidən yoxlayın")}</p>
+                      <Button variant="secondary" size="sm" className="mt-3" onClick={() => void refetch()}>
+                        <RefreshCw className="h-4 w-4" />
+                        {t("Retry")}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ) : rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-8 text-center text-foregroundMuted">
+                      {t("No redemptions yet")}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  rows.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell>
+                        <p className="font-medium text-foreground">{r.user_name ?? t("Unknown")}</p>
+                        {r.user_email && <p className="text-xs text-foregroundMuted">{r.user_email}</p>}
+                      </TableCell>
+                      <TableCell className="font-semibold text-foreground">
+                        {money(r.discount_minor, promo.currency)}
+                      </TableCell>
+                      <TableCell className="text-foregroundMuted">
+                        {r.booking_status ? <Badge variant="neutral">{t(r.booking_status)}</Badge> : "—"}
+                      </TableCell>
+                      <TableCell className="text-foregroundMuted">{dtTime(r.created_at)}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="secondary" onClick={onClose}>{t("Bağla")}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }): React.JSX.Element {
+  return (
+    <div className="rounded-xl border border-border bg-surfaceElevated/40 px-3 py-2">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-foregroundMuted">{label}</p>
+      <p className="mt-0.5 text-sm font-semibold text-foreground">{value}</p>
     </div>
   );
 }

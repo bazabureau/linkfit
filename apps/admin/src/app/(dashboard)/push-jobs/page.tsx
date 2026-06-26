@@ -8,10 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { useI18n } from "@/lib/i18n";
+import { ConfirmDialog } from "../venues/detail-ui";
 import {
   useCancelPushJob,
   usePushJobs,
   useRetryPushJob,
+  type PushJob,
   type PushJobsSummary,
   type PushJobStatus,
 } from "@/lib/admin-push-jobs";
@@ -37,11 +39,22 @@ export default function PushJobsPage(): React.JSX.Element {
   const { t } = useI18n();
   const toast = useToast();
   const [status, setStatus] = React.useState<PushJobStatus | "">("");
+  const [cancelFor, setCancelFor] = React.useState<PushJob | null>(null);
   const { data, isLoading, isError, isFetching, refetch } = usePushJobs({ status: status || undefined, limit: 100 });
   const retry = useRetryPushJob();
   const cancel = useCancelPushJob();
   const items = data?.items ?? [];
   const summary = data?.summary;
+
+  function handleCancel() {
+    if (!cancelFor) return;
+    const target = cancelFor;
+    setCancelFor(null);
+    cancel.mutate(target.id, {
+      onSuccess: () => toast.success(t("Push job cancelled")),
+      onError: () => toast.error(t("Alınmadı")),
+    });
+  }
 
   const stats: { key: keyof PushJobsSummary; label: string; tone: "warning" | "info" | "success" | "danger" | "neutral" }[] = [
     { key: "pending", label: "pending", tone: "warning" },
@@ -155,12 +168,7 @@ export default function PushJobsPage(): React.JSX.Element {
                           size="sm"
                           aria-label={t("Cancel")}
                           disabled={cancel.isPending}
-                          onClick={() =>
-                            cancel.mutate(j.id, {
-                              onSuccess: () => toast.success(t("Push job cancelled")),
-                              onError: () => toast.error(t("Alınmadı")),
-                            })
-                          }
+                          onClick={() => setCancelFor(j)}
                         >
                           <Ban className="h-3.5 w-3.5 text-danger" />
                         </Button>
@@ -173,6 +181,17 @@ export default function PushJobsPage(): React.JSX.Element {
           </TableBody>
         </Table>
       </div>
+
+      <ConfirmDialog
+        open={cancelFor !== null}
+        title={t("Cancel this push job?")}
+        description={cancelFor ? cancelFor.title : ""}
+        confirmLabel={t("Cancel")}
+        danger
+        busy={cancel.isPending}
+        onOpenChange={(open) => !open && setCancelFor(null)}
+        onConfirm={handleCancel}
+      />
     </div>
   );
 }

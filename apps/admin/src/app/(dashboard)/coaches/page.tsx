@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { GraduationCap, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, GraduationCap, Loader2, Pencil, Plus, Search, Trash2, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input, Textarea } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -16,6 +17,7 @@ import {
   useCreateLesson,
   useDeleteCoach,
   useDeleteLesson,
+  useLessonRoster,
   useSportOptions,
   useUpdateCoach,
   useUpdateLesson,
@@ -37,6 +39,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const selectCls = "h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-foreground focus:border-accent focus:outline-none";
+const filterSelectCls = "h-9 rounded-lg border border-border bg-surface px-3 text-sm text-foreground";
+
+/** Strip empty values so the react-query key stays stable when no filter is set. */
+function cleanFilters(f: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(f).filter(([, v]) => v !== "")) as Record<string, string>;
+}
 
 export default function CoachesPage(): React.JSX.Element {
   const { t } = useI18n();
@@ -91,69 +99,145 @@ export default function CoachesPage(): React.JSX.Element {
   );
 }
 
+/** Shared confirm modal for destructive actions (no global ConfirmDialog component exists). */
+function ConfirmDialog({
+  title,
+  message,
+  confirmLabel,
+  pending,
+  onConfirm,
+  onClose,
+}: {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  pending: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}): React.JSX.Element {
+  const { t } = useI18n();
+  return (
+    <Dialog open onOpenChange={(o) => !o && !pending && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-danger" />
+            {title}
+          </DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-foregroundMuted">{message}</p>
+        <DialogFooter>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>{t("Ləğv")}</Button>
+          <Button variant="danger" onClick={onConfirm} disabled={pending}>
+            {pending && <Loader2 className="h-4 w-4 animate-spin" />}
+            {confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function CoachesTab({ onEdit }: { onEdit: (c: AdminCoach) => void }): React.JSX.Element {
   const { t } = useI18n();
   const toast = useToast();
-  const { data: coaches = [], isLoading } = useAdminCoaches();
+  const { data: venues = [] } = useVenueOptions();
+  const { data: sports = [] } = useSportOptions();
+  const [filters, setFilters] = React.useState({ venue_id: "", sport: "", is_active: "", q: "" });
+  const setF = (k: keyof typeof filters, v: string) => setFilters((f) => ({ ...f, [k]: v }));
+  const hasFilters = Object.values(filters).some((v) => v !== "");
+  const { data: coaches = [], isLoading } = useAdminCoaches(cleanFilters(filters));
   const del = useDeleteCoach();
+  const [confirm, setConfirm] = React.useState<AdminCoach | null>(null);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t("Məşqçi")}</TableHead>
-            <TableHead>{t("Məkan")}</TableHead>
-            <TableHead>{t("İdman")}</TableHead>
-            <TableHead>{t("Reytinq")}</TableHead>
-            <TableHead>{t("Saatlıq")}</TableHead>
-            <TableHead>{t("Status")}</TableHead>
-            <TableHead className="text-right">{t("Əməliyyat")}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {isLoading ? (
-            <TableRow><TableCell colSpan={7} className="py-10 text-center text-foregroundMuted">{t("Yüklənir")}…</TableCell></TableRow>
-          ) : coaches.length === 0 ? (
-            <TableRow><TableCell colSpan={7} className="py-10 text-center text-foregroundMuted">{t("Hələ məşqçi yoxdur")}</TableCell></TableRow>
-          ) : (
-            coaches.map((c) => (
-              <TableRow key={c.id}>
-                <TableCell className="font-semibold text-foreground">{c.display_name}</TableCell>
-                <TableCell className="text-foregroundMuted">{c.venue_name ?? "—"}</TableCell>
-                <TableCell className="capitalize text-foregroundMuted">{c.sport_slug ?? "—"}</TableCell>
-                <TableCell className="text-foregroundMuted">{c.rating != null ? c.rating.toFixed(1) : "—"}</TableCell>
-                <TableCell className="text-foregroundMuted">{money(c.hourly_rate_minor)}</TableCell>
-                <TableCell>
-                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${c.is_active ? "bg-accent/15 text-[#3f6b00]" : "bg-foregroundMuted/15 text-foregroundMuted"}`}>
-                    {c.is_active ? t("Aktiv") : t("Deaktiv")}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="inline-flex gap-1">
-                    <Button variant="ghost" size="sm" aria-label={t("Redaktə et")} onClick={() => onEdit(c)}><Pencil className="h-3.5 w-3.5" /></Button>
-                    {c.is_active && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label={t("Deaktiv et")}
-                        onClick={() =>
-                          del.mutate(c.id, {
-                            onSuccess: () => toast.success(t("Məşqçi deaktiv edildi")),
-                            onError: () => toast.error(t("Alınmadı")),
-                          })
-                        }
-                      >
-                        <Trash2 className="h-3.5 w-3.5 text-danger" />
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <select className={filterSelectCls} value={filters.venue_id} onChange={(e) => setF("venue_id", e.target.value)}>
+          <option value="">{t("Bütün məkanlar")}</option>
+          {venues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+        </select>
+        <select className={filterSelectCls} value={filters.sport} onChange={(e) => setF("sport", e.target.value)}>
+          <option value="">{t("Bütün idmanlar")}</option>
+          {sports.map((s) => <option key={s.id} value={s.slug}>{s.name}</option>)}
+        </select>
+        <select className={filterSelectCls} value={filters.is_active} onChange={(e) => setF("is_active", e.target.value)}>
+          <option value="">{t("Bütün statuslar")}</option>
+          <option value="true">{t("Aktiv")}</option>
+          <option value="false">{t("Deaktiv")}</option>
+        </select>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-foregroundMuted" />
+          <Input value={filters.q} onChange={(e) => setF("q", e.target.value)} placeholder={t("Ad ilə axtar")} className="h-9 w-48 pl-8" />
+        </div>
+        {hasFilters && (
+          <Button variant="ghost" size="sm" onClick={() => setFilters({ venue_id: "", sport: "", is_active: "", q: "" })}>{t("Sıfırla")}</Button>
+        )}
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t("Məşqçi")}</TableHead>
+              <TableHead>{t("Məkan")}</TableHead>
+              <TableHead>{t("İdman")}</TableHead>
+              <TableHead>{t("Reytinq")}</TableHead>
+              <TableHead>{t("Saatlıq")}</TableHead>
+              <TableHead>{t("Status")}</TableHead>
+              <TableHead className="text-right">{t("Əməliyyat")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={7} className="py-10 text-center text-foregroundMuted">{t("Yüklənir")}…</TableCell></TableRow>
+            ) : coaches.length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="py-10 text-center text-foregroundMuted">{hasFilters ? t("Filtrlərə uyğun məşqçi yoxdur") : t("Hələ məşqçi yoxdur")}</TableCell></TableRow>
+            ) : (
+              coaches.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell className="font-semibold text-foreground">{c.display_name}</TableCell>
+                  <TableCell className="text-foregroundMuted">{c.venue_name ?? "—"}</TableCell>
+                  <TableCell className="capitalize text-foregroundMuted">{c.sport_slug ?? "—"}</TableCell>
+                  <TableCell className="text-foregroundMuted">{c.rating != null ? c.rating.toFixed(1) : "—"}</TableCell>
+                  <TableCell className="text-foregroundMuted">{money(c.hourly_rate_minor)}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${c.is_active ? "bg-accent/15 text-[#3f6b00]" : "bg-foregroundMuted/15 text-foregroundMuted"}`}>
+                      {c.is_active ? t("Aktiv") : t("Deaktiv")}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="inline-flex gap-1">
+                      <Button variant="ghost" size="sm" aria-label={t("Redaktə et")} onClick={() => onEdit(c)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      {c.is_active && (
+                        <Button variant="ghost" size="sm" aria-label={t("Deaktiv et")} disabled={del.isPending} onClick={() => setConfirm(c)}>
+                          <Trash2 className="h-3.5 w-3.5 text-danger" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {confirm && (
+        <ConfirmDialog
+          title={t("Məşqçini deaktiv et")}
+          message={t("«{name}» deaktiv ediləcək və yeni dərslərə təyin oluna bilməyəcək. Davam edək?").replace("{name}", confirm.display_name)}
+          confirmLabel={t("Deaktiv et")}
+          pending={del.isPending}
+          onClose={() => setConfirm(null)}
+          onConfirm={() =>
+            del.mutate(confirm.id, {
+              onSuccess: () => { toast.success(t("Məşqçi deaktiv edildi")); setConfirm(null); },
+              onError: (err: Error) => toast.error(t("Alınmadı"), err.message),
+            })
+          }
+        />
+      )}
     </div>
   );
 }
@@ -161,69 +245,167 @@ function CoachesTab({ onEdit }: { onEdit: (c: AdminCoach) => void }): React.JSX.
 function LessonsTab({ onEdit }: { onEdit: (l: AdminLesson) => void }): React.JSX.Element {
   const { t } = useI18n();
   const toast = useToast();
-  const { data: lessons = [], isLoading } = useAdminLessons();
+  const { data: venues = [] } = useVenueOptions();
+  const { data: sports = [] } = useSportOptions();
+  const [filters, setFilters] = React.useState({ venue_id: "", sport: "", status: "", kind: "" });
+  const setF = (k: keyof typeof filters, v: string) => setFilters((f) => ({ ...f, [k]: v }));
+  const hasFilters = Object.values(filters).some((v) => v !== "");
+  const { data: lessons = [], isLoading } = useAdminLessons(cleanFilters(filters));
   const del = useDeleteLesson();
+  const [confirm, setConfirm] = React.useState<AdminLesson | null>(null);
+  const [roster, setRoster] = React.useState<AdminLesson | null>(null);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t("Dərs")}</TableHead>
-            <TableHead>{t("Məşqçi")}</TableHead>
-            <TableHead>{t("Tarix")}</TableHead>
-            <TableHead>{t("Növ")}</TableHead>
-            <TableHead>{t("Yer")}</TableHead>
-            <TableHead>{t("Qiymət")}</TableHead>
-            <TableHead>{t("Status")}</TableHead>
-            <TableHead className="text-right">{t("Əməliyyat")}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {isLoading ? (
-            <TableRow><TableCell colSpan={8} className="py-10 text-center text-foregroundMuted">{t("Yüklənir")}…</TableCell></TableRow>
-          ) : lessons.length === 0 ? (
-            <TableRow><TableCell colSpan={8} className="py-10 text-center text-foregroundMuted">{t("Hələ dərs yoxdur")}</TableCell></TableRow>
-          ) : (
-            lessons.map((l) => (
-              <TableRow key={l.id}>
-                <TableCell className="font-semibold text-foreground">{l.title}</TableCell>
-                <TableCell className="text-foregroundMuted">{l.coach_name ?? "—"}</TableCell>
-                <TableCell className="text-foregroundMuted">{dt(l.starts_at)}</TableCell>
-                <TableCell className="text-foregroundMuted">{l.kind === "private" ? t("Fərdi") : t("Qrup")}</TableCell>
-                <TableCell className="text-foregroundMuted">{l.booked_count}/{l.capacity}</TableCell>
-                <TableCell className="text-foregroundMuted">{money(l.price_minor)}</TableCell>
-                <TableCell>
-                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${l.status === "scheduled" ? "bg-accent/15 text-[#3f6b00]" : l.status === "cancelled" ? "bg-danger/15 text-danger" : "bg-foregroundMuted/15 text-foregroundMuted"}`}>
-                    {l.status === "scheduled" ? t("Planlı") : l.status === "cancelled" ? t("Ləğv") : t("Bitmiş")}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="inline-flex gap-1">
-                    <Button variant="ghost" size="sm" aria-label={t("Redaktə et")} onClick={() => onEdit(l)}><Pencil className="h-3.5 w-3.5" /></Button>
-                    {l.status === "scheduled" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label={t("Ləğv")}
-                        onClick={() =>
-                          del.mutate(l.id, {
-                            onSuccess: () => toast.success(t("Dərs ləğv edildi")),
-                            onError: () => toast.error(t("Alınmadı")),
-                          })
-                        }
-                      >
-                        <Trash2 className="h-3.5 w-3.5 text-danger" />
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <select className={filterSelectCls} value={filters.venue_id} onChange={(e) => setF("venue_id", e.target.value)}>
+          <option value="">{t("Bütün məkanlar")}</option>
+          {venues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+        </select>
+        <select className={filterSelectCls} value={filters.sport} onChange={(e) => setF("sport", e.target.value)}>
+          <option value="">{t("Bütün idmanlar")}</option>
+          {sports.map((s) => <option key={s.id} value={s.slug}>{s.name}</option>)}
+        </select>
+        <select className={filterSelectCls} value={filters.status} onChange={(e) => setF("status", e.target.value)}>
+          <option value="">{t("Bütün statuslar")}</option>
+          <option value="scheduled">{t("Planlı")}</option>
+          <option value="cancelled">{t("Ləğv")}</option>
+          <option value="completed">{t("Bitmiş")}</option>
+        </select>
+        <select className={filterSelectCls} value={filters.kind} onChange={(e) => setF("kind", e.target.value)}>
+          <option value="">{t("Bütün növlər")}</option>
+          <option value="group">{t("Qrup")}</option>
+          <option value="private">{t("Fərdi")}</option>
+        </select>
+        {hasFilters && (
+          <Button variant="ghost" size="sm" onClick={() => setFilters({ venue_id: "", sport: "", status: "", kind: "" })}>{t("Sıfırla")}</Button>
+        )}
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t("Dərs")}</TableHead>
+              <TableHead>{t("Məşqçi")}</TableHead>
+              <TableHead>{t("Tarix")}</TableHead>
+              <TableHead>{t("Növ")}</TableHead>
+              <TableHead>{t("Yer")}</TableHead>
+              <TableHead>{t("Qiymət")}</TableHead>
+              <TableHead>{t("Status")}</TableHead>
+              <TableHead className="text-right">{t("Əməliyyat")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={8} className="py-10 text-center text-foregroundMuted">{t("Yüklənir")}…</TableCell></TableRow>
+            ) : lessons.length === 0 ? (
+              <TableRow><TableCell colSpan={8} className="py-10 text-center text-foregroundMuted">{hasFilters ? t("Filtrlərə uyğun dərs yoxdur") : t("Hələ dərs yoxdur")}</TableCell></TableRow>
+            ) : (
+              lessons.map((l) => (
+                <TableRow key={l.id}>
+                  <TableCell className="font-semibold text-foreground">{l.title}</TableCell>
+                  <TableCell className="text-foregroundMuted">{l.coach_name ?? "—"}</TableCell>
+                  <TableCell className="text-foregroundMuted">{dt(l.starts_at)}</TableCell>
+                  <TableCell className="text-foregroundMuted">{l.kind === "private" ? t("Fərdi") : t("Qrup")}</TableCell>
+                  <TableCell className="text-foregroundMuted">{l.booked_count}/{l.capacity}</TableCell>
+                  <TableCell className="text-foregroundMuted">{money(l.price_minor)}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${l.status === "scheduled" ? "bg-accent/15 text-[#3f6b00]" : l.status === "cancelled" ? "bg-danger/15 text-danger" : "bg-foregroundMuted/15 text-foregroundMuted"}`}>
+                      {l.status === "scheduled" ? t("Planlı") : l.status === "cancelled" ? t("Ləğv") : t("Bitmiş")}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="inline-flex gap-1">
+                      <Button variant="ghost" size="sm" aria-label={t("İştirakçılar")} onClick={() => setRoster(l)}><Users className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="sm" aria-label={t("Redaktə et")} onClick={() => onEdit(l)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      {l.status === "scheduled" && (
+                        <Button variant="ghost" size="sm" aria-label={t("Ləğv")} disabled={del.isPending} onClick={() => setConfirm(l)}>
+                          <Trash2 className="h-3.5 w-3.5 text-danger" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {confirm && (
+        <ConfirmDialog
+          title={t("Dərsi ləğv et")}
+          message={t("«{name}» dərsi ləğv ediləcək. Bron etmiş oyunçular xəbərdar olunmalıdır. Davam edək?").replace("{name}", confirm.title)}
+          confirmLabel={t("Dərsi ləğv et")}
+          pending={del.isPending}
+          onClose={() => setConfirm(null)}
+          onConfirm={() =>
+            del.mutate(confirm.id, {
+              onSuccess: () => { toast.success(t("Dərs ləğv edildi")); setConfirm(null); },
+              onError: (err: Error) => toast.error(t("Alınmadı"), err.message),
+            })
+          }
+        />
+      )}
+
+      {roster && <RosterDialog lesson={roster} onClose={() => setRoster(null)} />}
     </div>
+  );
+}
+
+function RosterDialog({ lesson, onClose }: { lesson: AdminLesson; onClose: () => void }): React.JSX.Element {
+  const { t } = useI18n();
+  const { data, isLoading, isError, refetch, isFetching } = useLessonRoster(lesson.id);
+  const items = data?.items ?? [];
+
+  const statusBadge = (status: string) =>
+    status === "booked" ? "success" : status === "cancelled" ? "danger" : status === "waitlisted" ? "warning" : "neutral";
+  const statusLabel = (status: string) =>
+    status === "booked" ? t("Bron edilib") : status === "cancelled" ? t("Ləğv edilib") : status === "waitlisted" ? t("Növbədə") : status;
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-accent" />
+            {t("İştirakçılar")}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-foreground">{lesson.title}</p>
+          <p className="text-xs text-foregroundMuted">{dt(lesson.starts_at)} · {data?.booked_count ?? lesson.booked_count}/{lesson.capacity} {t("yer")}</p>
+        </div>
+        <div className="max-h-[60vh] overflow-y-auto">
+          {isLoading ? (
+            <div className="py-10 text-center text-foregroundMuted">{t("Yüklənir")}…</div>
+          ) : isError ? (
+            <div className="py-10 text-center">
+              <p className="text-sm font-semibold text-danger">{t("İştirakçıları yükləmək alınmadı")}</p>
+              <Button variant="secondary" size="sm" className="mt-3" disabled={isFetching} onClick={() => void refetch()}>{t("Yenidən cəhd et")}</Button>
+            </div>
+          ) : items.length === 0 ? (
+            <div className="py-10 text-center text-foregroundMuted">{t("Hələ bron yoxdur")}</div>
+          ) : (
+            <ul className="divide-y divide-border">
+              {items.map((p) => (
+                <li key={p.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-foreground">{p.display_name ?? t("Adsız istifadəçi")}</p>
+                    <p className="text-xs text-foregroundMuted">{dt(p.booked_at)}</p>
+                  </div>
+                  <Badge variant={statusBadge(p.status)}>{statusLabel(p.status)}</Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="secondary" onClick={onClose}>{t("Bağla")}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

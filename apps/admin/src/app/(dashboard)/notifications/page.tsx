@@ -10,11 +10,13 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { useI18n } from "@/lib/i18n";
+import { ConfirmDialog } from "../venues/detail-ui";
 import {
   useAdminNotifications,
   useDeleteNotification,
   useMarkNotificationRead,
   useSendNotification,
+  type AdminNotification,
   type NotificationSeverity,
   type NotificationTargetRole,
   type NotificationType,
@@ -51,6 +53,7 @@ export default function NotificationsPage(): React.JSX.Element {
   const [severity, setSeverity] = React.useState<NotificationSeverity | "">("");
   const [read, setRead] = React.useState<"" | "true" | "false">("");
   const [composeOpen, setComposeOpen] = React.useState(false);
+  const [deleteFor, setDeleteFor] = React.useState<AdminNotification | null>(null);
 
   const { data, isLoading, isError, refetch } = useAdminNotifications({
     q: q || undefined,
@@ -62,6 +65,16 @@ export default function NotificationsPage(): React.JSX.Element {
   const del = useDeleteNotification();
   const items = data?.items ?? [];
   const summary = data?.summary;
+
+  function handleDelete() {
+    if (!deleteFor) return;
+    const target = deleteFor;
+    setDeleteFor(null);
+    del.mutate(target.id, {
+      onSuccess: () => toast.success(t("Notification deleted")),
+      onError: () => toast.error(t("Alınmadı")),
+    });
+  }
 
   return (
     <div className="space-y-5">
@@ -158,7 +171,11 @@ export default function NotificationsPage(): React.JSX.Element {
                         onClick={() =>
                           markRead.mutate(
                             { id: n.id, read: !n.is_read },
-                            { onError: () => toast.error(t("Alınmadı")) },
+                            {
+                              onSuccess: () =>
+                                toast.success(n.is_read ? t("Marked as unread") : t("Marked as read")),
+                              onError: () => toast.error(t("Alınmadı")),
+                            },
                           )
                         }
                       >
@@ -169,12 +186,7 @@ export default function NotificationsPage(): React.JSX.Element {
                         size="sm"
                         aria-label={t("Delete")}
                         disabled={del.isPending}
-                        onClick={() =>
-                          del.mutate(n.id, {
-                            onSuccess: () => toast.success(t("Notification deleted")),
-                            onError: () => toast.error(t("Alınmadı")),
-                          })
-                        }
+                        onClick={() => setDeleteFor(n)}
                       >
                         <Trash2 className="h-3.5 w-3.5 text-danger" />
                       </Button>
@@ -188,6 +200,17 @@ export default function NotificationsPage(): React.JSX.Element {
       </div>
 
       {composeOpen && <ComposeDialog onClose={() => setComposeOpen(false)} />}
+
+      <ConfirmDialog
+        open={deleteFor !== null}
+        title={t("Delete this notification?")}
+        description={deleteFor ? deleteFor.title : ""}
+        confirmLabel={t("Delete")}
+        danger
+        busy={del.isPending}
+        onOpenChange={(open) => !open && setDeleteFor(null)}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

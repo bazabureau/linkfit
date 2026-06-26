@@ -282,6 +282,50 @@ class BookingsHardeningTest extends TestCase
         $this->assertTrue(DB::table('booking_holds')->where('id', $holdId)->exists());
     }
 
+    public function test_admin_can_release_any_hold(): void
+    {
+        $holdId = (string) Str::uuid();
+        DB::table('booking_holds')->insert([
+            'id' => $holdId,
+            'user_id' => self::OTHER,
+            'court_id' => self::COURT,
+            'starts_at' => now()->addDay(),
+            'duration_minutes' => 60,
+            'expires_at' => now()->addMinutes(5),
+            'source' => 'app',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $request = Request::create('/api/v1/admin/booking-holds/'.$holdId, 'DELETE');
+        $admin = new User;
+        $admin->forceFill(['id' => self::BOOKER, 'admin_role' => 'admin', 'venue_id' => null]);
+        $request->attributes->set('auth_user', $admin);
+
+        $response = app(BookingsController::class)->adminReleaseHold($request, $holdId);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertFalse(DB::table('booking_holds')->where('id', $holdId)->exists());
+    }
+
+    public function test_admin_release_missing_hold_returns_404(): void
+    {
+        $request = Request::create('/api/v1/admin/booking-holds/missing', 'DELETE');
+        $admin = new User;
+        $admin->forceFill(['id' => self::BOOKER, 'admin_role' => 'admin', 'venue_id' => null]);
+        $request->attributes->set('auth_user', $admin);
+
+        $threw = false;
+        try {
+            app(BookingsController::class)->adminReleaseHold($request, (string) Str::uuid());
+        } catch (ApiException $e) {
+            $threw = true;
+            $this->assertSame(404, $e->getStatusCode());
+        }
+
+        $this->assertTrue($threw, 'Expected a 404 when releasing an unknown hold');
+    }
+
     // ---- store game_id authorisation ------------------------------------
 
     public function test_booking_cannot_be_attached_to_foreign_game(): void

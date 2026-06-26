@@ -500,6 +500,33 @@ class BookingsController extends ApiController
         return $this->holdsForOperator($request);
     }
 
+    /**
+     * Admin: release (delete) any pending booking hold by id, freeing the slot
+     * before its TTL expires. Unlike the player-facing releaseHold this is not
+     * scoped to the caller's own user_id — staff resolve stuck checkouts.
+     */
+    public function adminReleaseHold(Request $request, string $id): JsonResponse
+    {
+        $admin = $this->requireAdminPermission($request, 'bookings');
+        $deleted = DB::table('booking_holds')->where('id', $id)->delete();
+        if ($deleted < 1) {
+            throw ApiException::notFound('Booking hold not found');
+        }
+        if (Schema::hasTable('audit_log')) {
+            DB::table('audit_log')->insert([
+                'id' => (string) Str::uuid(),
+                'actor_user_id' => $admin->id,
+                'action' => 'booking_hold.release',
+                'entity' => 'booking_holds',
+                'entity_id' => $id,
+                'metadata' => json_encode([]),
+                'created_at' => now(),
+            ]);
+        }
+
+        return response()->json(['id' => $id, 'released' => true]);
+    }
+
     public function partnerHolds(Request $request): JsonResponse
     {
         $user = $this->authUser($request);

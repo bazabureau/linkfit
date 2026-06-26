@@ -29,13 +29,30 @@ function humanBytes(bytes: number): string {
   return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
+type StateFilter = "all" | "live" | "deleted";
+
 export default function MediaPage(): React.JSX.Element {
   const { t } = useI18n();
   const toast = useToast();
   const [cleanupOpen, setCleanupOpen] = React.useState(false);
-  const { data, isLoading, isError, refetch } = useMediaAssets({ limit: 100 });
+  const [stateFilter, setStateFilter] = React.useState<StateFilter>("all");
+  const [purposeFilter, setPurposeFilter] = React.useState("");
+  const { data, isLoading, isError, isFetching, refetch } = useMediaAssets({ limit: 100 });
   const del = useDeleteMediaAsset();
   const items = data?.items ?? [];
+
+  const liveCount = items.filter((m) => !m.deleted_at).length;
+  const deletedCount = items.length - liveCount;
+  const liveBytes = items.reduce((sum, m) => sum + (m.deleted_at ? 0 : m.size_bytes), 0);
+
+  const purposeNeedle = purposeFilter.trim().toLowerCase();
+  const filtered = items.filter((m) => {
+    if (stateFilter === "live" && m.deleted_at) return false;
+    if (stateFilter === "deleted" && !m.deleted_at) return false;
+    if (purposeNeedle && !(m.purpose ?? "").toLowerCase().includes(purposeNeedle)) return false;
+    return true;
+  });
+  const hasFilters = stateFilter !== "all" || purposeFilter.trim() !== "";
 
   return (
     <div className="space-y-5">
@@ -50,10 +67,51 @@ export default function MediaPage(): React.JSX.Element {
             {t("Uploaded assets — review storage and prune deleted files.")}
           </p>
         </div>
-        <Button variant="secondary" onClick={() => setCleanupOpen(true)}>
-          <Wand2 className="h-4 w-4" />
-          {t("Cleanup deleted")}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => void refetch()} disabled={isFetching}>
+            <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+            {t("Refresh")}
+          </Button>
+          <Button variant="secondary" onClick={() => setCleanupOpen(true)}>
+            <Wand2 className="h-4 w-4" />
+            {t("Cleanup deleted")}
+          </Button>
+        </div>
+      </div>
+
+      {!isLoading && !isError && items.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-border bg-surface px-4 py-2.5 text-sm text-foregroundMuted shadow-card">
+          <span><span className="font-semibold text-foreground">{liveCount}</span> {t("Live")}</span>
+          <span className="text-border">·</span>
+          <span><span className="font-semibold text-foreground">{deletedCount}</span> {t("Deleted")}</span>
+          <span className="text-border">·</span>
+          <span className="tabular-nums">{humanBytes(liveBytes)}</span>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          className="h-9 rounded-lg border border-border bg-surface px-3 text-sm text-foreground"
+          value={stateFilter}
+          onChange={(e) => setStateFilter(e.target.value as StateFilter)}
+          aria-label={t("State")}
+        >
+          <option value="all">{t("All statuses")}</option>
+          <option value="live">{t("Live")}</option>
+          <option value="deleted">{t("Deleted")}</option>
+        </select>
+        <Input
+          value={purposeFilter}
+          onChange={(e) => setPurposeFilter(e.target.value)}
+          placeholder={t("e.g. avatar, message")}
+          className="h-9 w-auto"
+          aria-label={t("Purpose")}
+        />
+        {hasFilters && (
+          <Button variant="ghost" size="sm" onClick={() => { setStateFilter("all"); setPurposeFilter(""); }}>
+            {t("Reset")}
+          </Button>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
@@ -82,10 +140,10 @@ export default function MediaPage(): React.JSX.Element {
                   </Button>
                 </TableCell>
               </TableRow>
-            ) : items.length === 0 ? (
+            ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={7} className="py-10 text-center text-foregroundMuted">{t("No media assets")}</TableCell></TableRow>
             ) : (
-              items.map((m) => (
+              filtered.map((m) => (
                 <TableRow key={m.id}>
                   <TableCell className="max-w-[280px]">
                     <p className="truncate font-mono text-xs text-foreground">{m.path}</p>

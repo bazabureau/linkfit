@@ -16,6 +16,7 @@ import {
   Hash,
   Loader2,
   MapPin,
+  Pencil,
   Sparkles,
   StickyNote,
   Trash2,
@@ -24,7 +25,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { formatDate, formatDateTime, formatTime } from "@/lib/date-format";
 import { useI18n } from "@/lib/i18n";
@@ -80,6 +81,14 @@ export default function GameDetailPage(): React.JSX.Element {
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [cancelReason, setCancelReason] = React.useState("");
 
+  // Inline edit form (capacity / Elo range / notes) — backed by PATCH /admin/games/:id.
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [editCapacity, setEditCapacity] = React.useState("");
+  const [editEloMin, setEditEloMin] = React.useState("");
+  const [editEloMax, setEditEloMax] = React.useState("");
+  const [editNotes, setEditNotes] = React.useState("");
+  const [editError, setEditError] = React.useState<string | null>(null);
+
   const cancelMut = useCancelAdminGame({
     onSuccess: () => {
       toast.success(t("Oyun ləğv edildi"), t("İştirakçılar bildiriş alacaq."));
@@ -101,6 +110,61 @@ export default function GameDetailPage(): React.JSX.Element {
     },
     onError: (err) => toast.error(t("Yeniləmə alınmadı"), err.message),
   });
+  const editMut = useUpdateAdminGame({
+    onSuccess: () => {
+      toast.success(t("Oyun yeniləndi"), t("Dəyişikliklər yadda saxlanıldı."));
+      setEditOpen(false);
+      void refetch();
+    },
+    onError: (err) => toast.error(t("Yeniləmə alınmadı"), err.message),
+  });
+
+  function openEditDialog(): void {
+    if (!game) return;
+    setEditCapacity(String(game.capacity));
+    setEditEloMin(game.skill_min_elo === null ? "" : String(game.skill_min_elo));
+    setEditEloMax(game.skill_max_elo === null ? "" : String(game.skill_max_elo));
+    setEditNotes(game.notes ?? "");
+    setEditError(null);
+    setEditOpen(true);
+  }
+
+  function submitEdit(): void {
+    if (!game) return;
+    const capacity = Number.parseInt(editCapacity, 10);
+    if (!Number.isInteger(capacity) || capacity < 1) {
+      setEditError(t("Tutum ən azı 1 olmalıdır."));
+      return;
+    }
+    if (capacity < game.participants_count) {
+      setEditError(t("Tutum təsdiqli iştirakçı sayından az ola bilməz."));
+      return;
+    }
+    const eloMin = editEloMin.trim() === "" ? null : Number.parseInt(editEloMin, 10);
+    const eloMax = editEloMax.trim() === "" ? null : Number.parseInt(editEloMax, 10);
+    if (eloMin !== null && (Number.isNaN(eloMin) || eloMin < 0)) {
+      setEditError(t("Minimum Elo düzgün deyil."));
+      return;
+    }
+    if (eloMax !== null && (Number.isNaN(eloMax) || eloMax < 0)) {
+      setEditError(t("Maksimum Elo düzgün deyil."));
+      return;
+    }
+    if (eloMin !== null && eloMax !== null && eloMin > eloMax) {
+      setEditError(t("Minimum Elo maksimumdan böyük ola bilməz."));
+      return;
+    }
+    setEditError(null);
+    editMut.mutate({
+      id: game.id,
+      data: {
+        capacity,
+        skill_min_elo: eloMin,
+        skill_max_elo: eloMax,
+        notes: editNotes.trim() === "" ? null : editNotes.trim(),
+      },
+    });
+  }
 
   if (isLoading) return <DetailSkeleton />;
   if (isError || !game) {
@@ -172,6 +236,15 @@ export default function GameDetailPage(): React.JSX.Element {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={game.deleted_at !== null || editMut.isPending}
+              onClick={openEditDialog}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              {t("Redaktə et")}
+            </Button>
             <Button
               variant="danger"
               size="sm"
@@ -350,6 +423,71 @@ export default function GameDetailPage(): React.JSX.Element {
       </div>
 
       {/* Dialogs ───────────────────────────────────────────────────────── */}
+      <Dialog
+        open={editOpen}
+        onOpenChange={(open) => !open && setEditOpen(false)}
+        title={t("Oyunu redaktə et")}
+        description={t("Tutum, Elo aralığı və qeydi yenilə. Statusu yuxarıdakı düymələrlə dəyişin.")}
+        contentClassName="max-w-lg"
+      >
+        <div className="space-y-4">
+          <Field
+            label={t("Tutum")}
+            hint={`${t("Hazırda təsdiqli")}: ${game.participants_count}`}
+          >
+            <Input
+              type="number"
+              min={Math.max(1, game.participants_count)}
+              max={64}
+              value={editCapacity}
+              onChange={(e) => setEditCapacity(e.target.value)}
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={t("Minimum Elo")} hint={t("Boş = limit yoxdur")}>
+              <Input
+                type="number"
+                min={0}
+                value={editEloMin}
+                onChange={(e) => setEditEloMin(e.target.value)}
+                placeholder="—"
+              />
+            </Field>
+            <Field label={t("Maksimum Elo")} hint={t("Boş = limit yoxdur")}>
+              <Input
+                type="number"
+                min={0}
+                value={editEloMax}
+                onChange={(e) => setEditEloMax(e.target.value)}
+                placeholder="—"
+              />
+            </Field>
+          </div>
+          <Field label={t("Qeyd")}>
+            <Textarea
+              value={editNotes}
+              maxLength={1000}
+              onChange={(e) => setEditNotes(e.target.value)}
+              placeholder={t("Daxili qeyd (istəyə bağlı)")}
+            />
+          </Field>
+          {editError ? <p className="text-xs text-danger">{editError}</p> : null}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => setEditOpen(false)}
+              disabled={editMut.isPending}
+            >
+              {t("Geri")}
+            </Button>
+            <Button onClick={submitEdit} disabled={editMut.isPending}>
+              {editMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {t("Saxla")}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
       <Dialog
         open={confirmCancel}
         onOpenChange={(open) => !open && setConfirmCancel(false)}

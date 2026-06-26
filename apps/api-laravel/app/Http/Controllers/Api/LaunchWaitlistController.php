@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
 use App\Services\Mail\TransactionalMailService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -11,6 +12,16 @@ use Illuminate\Support\Str;
 
 class LaunchWaitlistController extends ApiController
 {
+    use AuthorizesAdminPermissions;
+
+    /**
+     * The lifecycle states a launch-waitlist lead can be moved through from the
+     * admin panel. 'pending' is the DB default applied on signup.
+     *
+     * @var list<string>
+     */
+    private const STATUSES = ['pending', 'invited', 'joined', 'declined'];
+
     public function store(Request $request): JsonResponse
     {
         $data = $this->validateBody($request, [
@@ -80,5 +91,119 @@ class LaunchWaitlistController extends ApiController
         }
 
         return response()->json(['ok' => true, 'id' => $id], $existing === null ? 201 : 200);
+    }
+
+    /**
+     * Admin: paginated list of the public launch ("coming soon") signups, with
+     * optional status/role filters and an email/name search. Mirrors the
+     * {items, pagination} envelope used by the other admin list endpoints
+     * (e.g. WaitlistController::adminIndex, EngagementController::adminAnnouncements).
+     */
+    public function adminIndex(Request $request): JsonResponse
+    {
+        $this->requireAdminPermission($request, 'operations');
+        $query = $this->validateQuery($request, [
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'offset' => ['nullable', 'integer', 'min:0'],
+            'status' => ['nullable', 'in:'.implode(',', self::STATUSES)],
+            'role' => ['nullable', 'string', 'in:player,venue,coach,other'],
+            'q' => ['nullable', 'string', 'max:160'],
+        ]);
+
+        $base = DB::table('launch_waitlist_entries');
+        if (! empty($query['status'])) {
+            $base->where('status', $query['status']);
+        }
+        if (! empty($query['role'])) {
+            $base->where('role', $query['role']);
+        }
+        if (! empty($query['q'])) {
+            // Escape LIKE wildcards so a literal `%`/`_`/`\` in the admin search
+            // term matches itself instead of acting as a wildcard (parity with
+            // EngagementController::adminAnnouncements).
+            $needle = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_strtolower($query['q'])).'%';
+            $base->where(function ($q) use ($needle) {
+                $q->whereRaw('LOWER(email) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(COALESCE(name, \'\')) LIKE ?', [$needle]);
+            });
+        }
+
+        $total = (clone $base)->count();
+        $limit = (int) ($query['limit'] ?? 50);
+        $offset = (int) ($query['offset'] ?? 0);
+        $items = $base
+            ->orderByDesc('created_at')
+            ->offset($offset)
+            ->limit($limit)
+            ->get()
+            ->map(fn ($row) => $this->adminPayload($row))
+            ->values();
+
+        return response()->json([
+            'items' => $items,
+            'pagination' => [
+                'limit' => $limit,
+                'offset' => $offset,
+                'total' => $total,
+            ],
+        ]);
+    }
+
+    /**
+     * Admin: update a launch-waitlist lead's pipeline status
+     * (pending/invited/joined/declined). Returns the updated row.
+     */
+    public function adminUpdate(Request $request, string $id): JsonResponse
+    {
+        $admin = $this->requireAdminPermission($request, 'operations');
+        $data = $this->validateBody($request, [
+            'status' => ['required', 'string', 'in:'.implode(',', self::STATUSES)],
+        ]);
+
+        $updated = DB::table('launch_waitlist_entries')->where('id', $id)->update([
+            'status' => $data['status'],
+            'updated_at' => now(),
+        ]);
+        if ($updated === 0) {
+            throw \App\Support\ApiException::notFound('Waitlist entry not found');
+        }
+        $this->auditWrite($admin->id, 'launch_waitlist.update', 'launch_waitlist_entries', $id, [
+            'status' => $data['status'],
+        ]);
+
+        return response()->json($this->adminPayload(DB::table('launch_waitlist_entries')->where('id', $id)->first()));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function adminPayload(object $row): array
+    {
+        return [
+            'id' => $row->id,
+            'name' => $row->name,
+            'email' => $row->email,
+            'phone' => $row->phone ?? null,
+            'role' => $row->role ?? null,
+            'locale' => $row->locale ?? null,
+            'source' => $row->source ?? null,
+            'message' => $row->message ?? null,
+            'status' => $row->status ?? 'pending',
+            'created_at' => $this->iso($row->created_at ?? null),
+            'updated_at' => $this->iso($row->updated_at ?? null),
+        ];
+    }
+
+    private function auditWrite(?string $actorUserId, string $action, string $entity, ?string $entityId = null, array $metadata = []): void
+    {
+        DB::table('audit_log')->insert([
+            'id' => (string) Str::uuid(),
+            'actor_user_id' => $actorUserId,
+            'action' => $action,
+            'entity' => $entity,
+            'entity_id' => $entityId,
+            'metadata' => json_encode($metadata),
+            'created_at' => now(),
+        ]);
     }
 }

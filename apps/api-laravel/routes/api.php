@@ -401,8 +401,13 @@ Route::prefix('api/v1')->group(function () {
         Route::get('admin/bookings', [AdminOpsController::class, 'bookings']);
         Route::get('admin/bookings/export', [AdminOpsController::class, 'exportBookings']);
         Route::get('admin/booking-holds', [BookingsController::class, 'adminHolds']);
+        Route::delete('admin/booking-holds/{id}', [BookingsController::class, 'adminReleaseHold']);
         Route::get('admin/waitlist', [WaitlistController::class, 'adminIndex']);
         Route::patch('admin/waitlist/{id}', [WaitlistController::class, 'adminUpdate']);
+        // Launch ("coming soon") web signups — distinct from the court-booking
+        // waitlist above. Stored in launch_waitlist_entries.
+        Route::get('admin/launch-waitlist', [LaunchWaitlistController::class, 'adminIndex']);
+        Route::patch('admin/launch-waitlist/{id}', [LaunchWaitlistController::class, 'adminUpdate']);
         Route::post('admin/bookings/quote', [AdminOpsController::class, 'quoteBooking']);
         Route::post('admin/bookings', [AdminOpsController::class, 'createBooking']);
         Route::post('admin/bookings/bulk-status', [AdminOpsController::class, 'bulkUpdateBookings']);

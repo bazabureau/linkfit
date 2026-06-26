@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Building2,
   CalendarClock,
+  Images,
   Settings2,
   Users,
   Wrench,
@@ -42,6 +43,7 @@ import { CourtsPanel } from "../CourtsPanel";
 import { BlocksPanel } from "../BlocksPanel";
 import { VenueBookingsPanel } from "../VenueBookingsPanel";
 import { VenueRulesPanel } from "../VenueRulesPanel";
+import { VenueMediaPanel, type VenueMediaDraft } from "../VenueMediaPanel";
 import { PartnersPanel } from "../PartnersPanel";
 import { ConfirmDialog } from "../detail-ui";
 import { money } from "../lib";
@@ -50,10 +52,11 @@ interface SportsListResponse {
   items: SportOption[];
 }
 
-type TabKey = "courts" | "blocks" | "bookings" | "partners" | "settings";
+type TabKey = "courts" | "media" | "blocks" | "bookings" | "partners" | "settings";
 
 const TABS: Array<{ key: TabKey; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { key: "courts", label: "Kortlar", icon: Building2 },
+  { key: "media", label: "Şəkillər", icon: Images },
   { key: "blocks", label: "Maintenance", icon: Wrench },
   { key: "bookings", label: "Rezervasiyalar", icon: CalendarClock },
   { key: "partners", label: "Tərəfdaşlar", icon: Users },
@@ -179,6 +182,16 @@ export default function VenueDetailPage(): React.JSX.Element {
     }
   }
 
+  async function handleMediaSave(data: VenueMediaDraft): Promise<void> {
+    try {
+      await updateVenue.mutateAsync({ id: venueId, data });
+      toast.success("Şəkillər yeniləndi");
+    } catch (err) {
+      toast.error("Şəkillər yenilənmədi", describeError(err, "Əməliyyat alınmadı"));
+      throw err;
+    }
+  }
+
   async function handleVenueStatus(status: NonNullable<Venue["status"]>): Promise<void> {
     try {
       await updateVenueStatus.mutateAsync({ id: venueId, status });
@@ -276,6 +289,14 @@ export default function VenueDetailPage(): React.JSX.Element {
             setSelectedCourtId(court.id);
             setActiveTab("blocks");
           }}
+        />
+      ) : null}
+
+      {activeTab === "media" ? (
+        <VenueMediaPanel
+          venue={venue}
+          busy={updateVenue.isPending}
+          onSave={handleMediaSave}
         />
       ) : null}
 

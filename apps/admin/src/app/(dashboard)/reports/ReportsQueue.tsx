@@ -16,7 +16,12 @@ import {
   useReviewReport,
   type AdminReport,
 } from "@/lib/admin-reports";
-import { ReportFilters, type StatusFilter } from "./ReportFilters";
+import {
+  ReportFilters,
+  type ReasonFilter,
+  type StatusFilter,
+  type TargetFilter,
+} from "./ReportFilters";
 import { ReportsTable } from "./ReportsTable";
 import { ReportDrawer } from "./ReportDrawer";
 import { StatCards, type ReportStats } from "./StatCards";
@@ -36,6 +41,8 @@ export function ReportsQueue(): React.JSX.Element {
   const toast = useToast();
 
   const [status, setStatus] = React.useState<StatusFilter>("pending");
+  const [reason, setReason] = React.useState<ReasonFilter>("all");
+  const [targetKind, setTargetKind] = React.useState<TargetFilter>("all");
   const [q, setQ] = React.useState("");
   const debouncedQuery = useDebouncedValue(q);
   const [page, setPage] = React.useState(0);
@@ -48,33 +55,25 @@ export function ReportsQueue(): React.JSX.Element {
 
   const reviewMut = useReviewReport();
 
-  // Reset to first page whenever the status filter changes.
+  // Reset to first page whenever any server-side filter changes.
   React.useEffect(() => {
     setPage(0);
-  }, [status]);
+  }, [status, reason, targetKind, debouncedQuery]);
 
   const { data, isLoading, isError, isFetching, refetch } = useReports({
     status,
+    reason,
+    target_kind: targetKind,
+    q: debouncedQuery.trim() || undefined,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
 
+  // The backend applies status / reason / target_kind / q server-side, so the
+  // page already holds exactly the rows we render.
   const allItems = React.useMemo(() => data?.items ?? [], [data]);
+  const items = allItems;
   const total = data?.total ?? 0;
-
-  // Client-side search across the current page (backend has no `q` param).
-  const items = React.useMemo(() => {
-    const query = debouncedQuery.trim().toLowerCase();
-    if (!query) return allItems;
-    return allItems.filter(
-      (r) =>
-        r.reason.toLowerCase().includes(query) ||
-        r.target_kind.toLowerCase().includes(query) ||
-        r.target_id.toLowerCase().includes(query) ||
-        r.reporter_user_id.toLowerCase().includes(query) ||
-        r.id.toLowerCase().includes(query),
-    );
-  }, [allItems, debouncedQuery]);
 
   // Stat cards summarise the current filtered page.
   const stats = React.useMemo<ReportStats>(
@@ -139,11 +138,17 @@ export function ReportsQueue(): React.JSX.Element {
       {/* Filters */}
       <ReportFilters
         status={status}
+        reason={reason}
+        targetKind={targetKind}
         q={q}
         onStatusChange={setStatus}
+        onReasonChange={setReason}
+        onTargetKindChange={setTargetKind}
         onQueryChange={setQ}
         onReset={() => {
           setStatus("pending");
+          setReason("all");
+          setTargetKind("all");
           setQ("");
         }}
       />
