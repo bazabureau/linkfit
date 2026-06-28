@@ -133,6 +133,21 @@ class AppServiceProvider extends ServiceProvider
                 ...$this->appKeyLimit($request, 30, 'reset-code-app'),
             ];
         });
+
+        // Email verification shares the password-reset attack surface: a
+        // six-digit code that a per-IP limit alone can't protect against a
+        // distributed per-account spray. Cap attempts per real client IP AND per
+        // email so the code can't be brute-forced for a single account.
+        RateLimiter::for('verify-email', function (Request $request) {
+            $email = strtolower(trim((string) $request->input('email')));
+            $emailKey = $email !== '' ? sha1($email) : 'unknown';
+
+            return [
+                Limit::perMinute(10)->by('verify-email-ip:'.$request->ip()),
+                Limit::perMinute(5)->by('verify-email-email:'.$emailKey),
+                ...$this->appKeyLimit($request, 30, 'verify-email-app'),
+            ];
+        });
     }
 
     /**

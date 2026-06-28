@@ -165,6 +165,11 @@ class StoriesController extends ApiController
     public function view(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        // stories.id is a uuid column; reject a malformed route value as a clean
+        // 404 before Postgres surfaces it as a 22P02 (a generic 500).
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Story not found');
+        }
         // A block (either direction) hides the story from the viewer, mirroring
         // the feed's bidirectional `whereNotBlocked` discovery rule — so a
         // blocked viewer can neither read it nor inflate the author's view_count.
@@ -194,6 +199,11 @@ class StoriesController extends ApiController
 
     public function viewers(Request $request, string $id): JsonResponse
     {
+        // uuid guard before the uuid stories.id column (avoids a 22P02 → 500 on a
+        // malformed route value); a non-uuid id simply resolves to no story.
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Story not found');
+        }
         $story = DB::table('stories')->where('id', $id)->first();
         if ($story === null) {
             throw ApiException::notFound('Story not found');
@@ -240,6 +250,10 @@ class StoriesController extends ApiController
     public function react(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        // uuid guard before the uuid stories.id column (avoids a 22P02 → 500).
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Story not found');
+        }
         $data = $this->validateBody($request, ['emoji' => ['required', 'in:heart,fire,100,clap,padel']]);
         $story = DB::table('stories')->where('id', $id)->first(['user_id']);
         // Reject a client-supplied id that resolves to no story: otherwise the
@@ -269,6 +283,10 @@ class StoriesController extends ApiController
     public function reply(Request $request, string $id): JsonResponse
     {
         $user = $this->authUser($request);
+        // uuid guard before the uuid stories.id column (avoids a 22P02 → 500).
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Story not found');
+        }
         $data = $this->validateBody($request, [
             'body' => ['required', 'string', 'max:500'],
         ]);
@@ -288,7 +306,10 @@ class StoriesController extends ApiController
         if ($story->user_id === $user->id) {
             throw ApiException::validation('Cannot reply to your own story');
         }
-        if ($this->isBlockedBy((string) $user->id, (string) $story->user_id)) {
+        // Bidirectional block (mirrors MessagingController::startConversation): a
+        // reply opens/resurrects a 1:1 DM, so neither a replier the author blocked
+        // NOR a user who blocked the author may use it as a contact channel.
+        if ($this->blockExistsBetween((string) $user->id, (string) $story->user_id)) {
             throw ApiException::forbidden('Cannot reply to this story');
         }
 
@@ -333,6 +354,10 @@ class StoriesController extends ApiController
 
     public function destroy(Request $request, string $id): JsonResponse
     {
+        // uuid guard before the uuid stories.id column (avoids a 22P02 → 500).
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Story not found');
+        }
         $story = DB::table('stories')->where('id', $id)->first();
         if ($story === null) {
             throw ApiException::notFound('Story not found');

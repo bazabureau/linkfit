@@ -192,6 +192,14 @@ class OAuthController extends ApiController
                     $deleted = User::where('email', $email)->whereNotNull('deleted_at')->first();
                 }
                 if ($deleted !== null) {
+                    // Only a USER-INITIATED scheduled deletion still inside its
+                    // grace window may be reversed by re-authenticating. An admin
+                    // removal (deleted_at with no scheduled request) is a DURABLE
+                    // disable — refuse instead of silently restoring or minting a
+                    // fresh row over the soft-deleted one.
+                    if (! $this->hasOpenSelfDeletion((string) $deleted->id)) {
+                        throw ApiException::forbidden('This account has been disabled');
+                    }
                     $deleted->deleted_at = null;
                     $deleted->{$column} = $sub;
                     if ($emailVerified && $deleted->email_verified_at === null) {
@@ -228,5 +236,21 @@ class OAuthController extends ApiController
         });
 
         return $this->tokens->issueSession($user);
+    }
+
+    /**
+     * True when the user has an OPEN, USER-INITIATED deletion request still
+     * inside its grace window (status='scheduled' AND hard_delete_at in the
+     * future). Mirrors AuthController::hasOpenSelfDeletion — only such a
+     * self-deletion may be auto-reversed by re-authenticating; an admin removal
+     * is a durable disable.
+     */
+    private function hasOpenSelfDeletion(string $userId): bool
+    {
+        return DB::table('account_deletion_requests')
+            ->where('user_id', $userId)
+            ->where('status', 'scheduled')
+            ->where('hard_delete_at', '>', now())
+            ->exists();
     }
 }

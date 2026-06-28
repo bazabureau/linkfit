@@ -2910,15 +2910,27 @@ class AdminOpsController extends ApiController
             'refund_note' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ]);
         $booking = DB::table('bookings')->where('id', $id)->first();
+        if ($booking === null) {
+            throw ApiException::notFound('Booking not found');
+        }
         // Idempotent: re-cancelling an already-cancelled booking is a no-op so it
         // neither overwrites the original cancelled_at nor re-fires the
         // cancellation notification + email. Terminal refund/failed states
         // cannot be cancelled.
-        if ($booking !== null && $booking->status === 'cancelled') {
+        if ($booking->status === 'cancelled') {
             return response()->json($this->bookingPayload($this->bookingRow($id)));
         }
-        if ($booking !== null && in_array($booking->status, ['refunded', 'failed'], true)) {
+        if (in_array($booking->status, ['refunded', 'failed'], true)) {
             throw ApiException::conflict('Booking cannot be cancelled');
+        }
+        // A refund can never exceed what was paid (DB CHECK bookings_refund_le_total);
+        // surface an over-refund as a 422 instead of a constraint-violation 500.
+        if (array_key_exists('refund_amount_minor', $data) && $data['refund_amount_minor'] !== null
+            && (int) $data['refund_amount_minor'] > (int) $booking->total_minor) {
+            throw ApiException::validation('Refund amount exceeds booking total', [
+                'total_minor' => (int) $booking->total_minor,
+                'refund_amount_minor' => (int) $data['refund_amount_minor'],
+            ]);
         }
         $updates = [
             'status' => 'cancelled',
@@ -2933,7 +2945,7 @@ class AdminOpsController extends ApiController
             }
         }
         DB::table('bookings')->where('id', $id)->update($updates);
-        if ($booking !== null && $booking->user_id !== null) {
+        if ($booking->user_id !== null) {
             $this->enqueueNotification((string) $booking->user_id, 'system', 'Booking cancelled', 'Your booking was cancelled.', ['booking_id' => $id]);
         }
         app(TransactionalMailService::class)->bookingCancelled($id, $updates['cancellation_reason'] ?? null);
@@ -2962,6 +2974,14 @@ class AdminOpsController extends ApiController
             'refund_note' => $data['refund_note'] ?? null,
             'updated_at' => now(),
         ];
+        // A refund can never exceed what was paid (DB CHECK bookings_refund_le_total);
+        // surface an over-refund as a 422 instead of a constraint-violation 500.
+        if ($updates['refund_amount_minor'] !== null && (int) $updates['refund_amount_minor'] > (int) $booking->total_minor) {
+            throw ApiException::validation('Refund amount exceeds booking total', [
+                'total_minor' => (int) $booking->total_minor,
+                'refund_amount_minor' => (int) $updates['refund_amount_minor'],
+            ]);
+        }
         if ($refundStatus === 'processed') {
             $updates['status'] = 'refunded';
             $updates['refunded_at'] = now();

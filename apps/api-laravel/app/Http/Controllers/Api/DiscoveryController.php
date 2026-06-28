@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Http\Controllers\Api\Concerns\FiltersPublicPlayerDirectory;
+use App\Http\Controllers\Api\Concerns\SerializesDiscoveryEntities;
 use App\Services\Membership\MembershipService;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -15,6 +17,7 @@ class DiscoveryController extends ApiController
 {
     use FiltersBlockedUsers;
     use FiltersPublicPlayerDirectory;
+    use SerializesDiscoveryEntities;
 
     /**
      * Canonical daily-challenge codes — single source of truth for both the
@@ -73,6 +76,8 @@ class DiscoveryController extends ApiController
     public function agenda(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
+        // ISO8601-Zulu the game `starts_at` (parity with the /me/home agendaData
+        // sibling) so a typed client never has to parse a zoneless DB string.
         $games = DB::table('game_participants as gp')
             ->join('games as g', 'g.id', '=', 'gp.game_id')
             ->join('sports as s', 's.id', '=', 'g.sport_id')
@@ -82,7 +87,14 @@ class DiscoveryController extends ApiController
             ->whereIn('s.slug', ['padel', 'tennis'])
             ->orderBy('g.starts_at')
             ->limit(50)
-            ->get(['g.id', 'g.starts_at', 'g.status', 's.slug as sport_slug']);
+            ->get(['g.id', 'g.starts_at', 'g.status', 's.slug as sport_slug'])
+            ->map(fn ($g) => [
+                'id' => $g->id,
+                'starts_at' => $this->iso($g->starts_at),
+                'status' => $g->status,
+                'sport_slug' => $g->sport_slug,
+            ])
+            ->all();
         // Expose every normal `bookings` column (existing consumers may read any
         // of them) EXCEPT the internal/PII denylist, plus joined court/venue
         // names for the new `items[]`. The select is resolved from the live
@@ -97,7 +109,20 @@ class DiscoveryController extends ApiController
             ->where('b.starts_at', '>=', now()->subDay())
             ->orderBy('b.starts_at')
             ->limit(50)
-            ->get($bookingSelect);
+            ->get($bookingSelect)
+            // Same ISO normalization as agendaData() — a booking's timestamps must
+            // not reach the client as zoneless DB strings on one sibling and ISO
+            // on the other.
+            ->map(function ($b) {
+                foreach (['starts_at', 'ends_at', 'created_at', 'cancelled_at', 'paid_at'] as $f) {
+                    if (isset($b->{$f})) {
+                        $b->{$f} = $this->iso($b->{$f});
+                    }
+                }
+
+                return $b;
+            })
+            ->all();
 
         // Flat, normalized agenda list for clients that read a single ordered
         // stream (e.g. the mobile "Up next" card). The legacy `games`/`bookings`
@@ -106,19 +131,19 @@ class DiscoveryController extends ApiController
         foreach ($games as $g) {
             $items->push([
                 'kind' => 'game',
-                'id' => $g->id,
-                'starts_at' => $this->iso($g->starts_at),
-                'status' => $g->status,
-                'title' => ucfirst((string) $g->sport_slug).' game',
+                'id' => $g['id'],
+                'starts_at' => $g['starts_at'],
+                'status' => $g['status'],
+                'title' => ucfirst((string) $g['sport_slug']).' game',
                 'venue_name' => null,
-                'sport_slug' => $g->sport_slug,
+                'sport_slug' => $g['sport_slug'],
             ]);
         }
         foreach ($bookings as $b) {
             $items->push([
                 'kind' => 'booking',
                 'id' => $b->id,
-                'starts_at' => $this->iso($b->starts_at),
+                'starts_at' => $b->starts_at ?? null,
                 'status' => $b->status,
                 'title' => $b->venue_name ?: $b->court_name,
                 'venue_name' => $b->venue_name,
@@ -256,7 +281,7 @@ class DiscoveryController extends ApiController
             $winningTeam = $this->winnerFromSets($r->sets);
             $deltas = json_decode($r->elo_delta_by_user ?? '{}', true) ?: [];
             $matches[] = [
-                'at' => \Illuminate\Support\Carbon::parse($r->completed_at),
+                'at' => Carbon::parse($r->completed_at),
                 'won' => $winningTeam !== null && $userTeam === $winningTeam,
                 'delta' => (int) ($deltas[$user->id] ?? 0),
                 'opponents' => $userTeam === 'a' ? $teamB : $teamA,
@@ -296,7 +321,7 @@ class DiscoveryController extends ApiController
         // Games per ISO week (Monday-anchored).
         $weekCounts = [];
         foreach ($windowMatches as $m) {
-            $monday = $m['at']->copy()->startOfWeek(\Illuminate\Support\Carbon::MONDAY)->toDateString();
+            $monday = $m['at']->copy()->startOfWeek(Carbon::MONDAY)->toDateString();
             $weekCounts[$monday] = ($weekCounts[$monday] ?? 0) + 1;
         }
         ksort($weekCounts);
@@ -583,6 +608,10 @@ class DiscoveryController extends ApiController
             ->leftJoin('courts as c', 'c.id', '=', 'g.court_id')
             ->leftJoin('venues as v', 'v.id', '=', 'c.venue_id')
             ->leftJoin('users as h', 'h.id', '=', 'g.host_user_id')
+            ->leftJoin('player_sport_stats as hps', function ($join) {
+                $join->on('hps.user_id', '=', 'g.host_user_id')
+                    ->on('hps.sport_id', '=', 'g.sport_id');
+            })
             ->where('g.host_user_id', '!=', $userId)
             ->where('g.status', 'open')
             ->where('g.visibility', 'public')
@@ -591,50 +620,49 @@ class DiscoveryController extends ApiController
             ->when(true, fn ($q) => $this->whereNotBlocked($q, $userId, 'g.host_user_id'))
             ->orderBy('g.starts_at')
             ->limit(50)
+            // Select the same host/court/venue/pricing columns the canonical
+            // games index selects so the rows can go through the shared
+            // serializer and match `GET /games` exactly.
             ->select([
                 'g.id', 'g.sport_id', 's.slug as sport_slug', 'g.starts_at', 'g.status', 'g.visibility',
-                'g.capacity', 'g.lat', 'g.lng', 'g.court_id', 'c.name as court_name',
-                'v.id as venue_id', 'v.name as venue_name', 'g.host_user_id',
-                'h.display_name as host_display_name', 'h.photo_url as host_photo_url',
+                'g.capacity', 'g.duration_minutes', 'g.match_type', 'g.skill_min_elo', 'g.skill_max_elo',
+                'g.lat', 'g.lng', 'g.court_id', 'c.name as court_name',
+                'c.hourly_price_minor', 'c.currency',
+                'v.id as venue_id', 'v.name as venue_name', 'v.address as venue_address', 'v.photo_url as venue_photo_url',
+                'g.host_user_id', 'h.username as host_username',
+                'h.display_name as host_display_name', 'h.photo_url as host_photo_url', 'hps.elo_rating as host_elo',
             ])
             // participants_count inline (no N+1) — the client treats a game with
             // no status as ended and filters it out, so status + a full payload
             // make the home aggregate's nearby_games actually usable.
             ->selectRaw("(select count(*) from game_participants gp where gp.game_id = g.id and gp.status = 'confirmed')::int as participants_count")
             ->get()
-            ->map(fn ($g) => [
-                'id' => $g->id,
-                'sport_id' => $g->sport_id,
-                'sport_slug' => $g->sport_slug,
-                'starts_at' => $this->iso($g->starts_at),
-                'status' => $g->status,
-                'visibility' => $g->visibility,
-                'capacity' => (int) $g->capacity,
-                'participants_count' => (int) $g->participants_count,
-                'lat' => $g->lat,
-                'lng' => $g->lng,
-                'court_id' => $g->court_id,
-                'court_name' => $g->court_name,
-                'venue_id' => $g->venue_id,
-                'venue_name' => $g->venue_name,
-                'host' => $g->host_user_id ? [
-                    'id' => $g->host_user_id,
-                    'display_name' => $g->host_display_name,
-                    'photo_url' => $g->host_photo_url,
-                ] : null,
-            ])
+            ->map(fn ($g) => $this->discoveryGamePayload($g))
             ->all();
     }
 
-    /** Mirrors suggestedFollows() item shape exactly. */
+    /** Mirrors suggestedFollows() item shape exactly (shared query + serializer). */
     private function suggestedFollowsData(string $userId): array
+    {
+        return $this->suggestedFollowsRows($userId);
+    }
+
+    /**
+     * Suggested-follow candidates as canonical `Player` rows plus the suggestion
+     * extras (user_id/shared_games_count/reason) the iOS SuggestedFollowItem
+     * needs. Single source of truth for both the standalone endpoint and the
+     * /me/home aggregate so their shapes can't drift apart.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function suggestedFollowsRows(string $userId): array
     {
         // Resolve each candidate's primary (best padel/tennis) sport stat so the
         // card shows a real ELO — consistent with matchmakingPlayers() / players.
         $primaryStats = DB::table('player_sport_stats as ps')
             ->join('sports as s', 's.id', '=', 'ps.sport_id')
             ->whereIn('s.slug', ['padel', 'tennis'])
-            ->selectRaw('distinct on (ps.user_id) ps.user_id, ps.elo_rating as primary_elo')
+            ->selectRaw('distinct on (ps.user_id) ps.user_id, s.slug as primary_sport, ps.elo_rating as primary_elo, ps.reliability_score')
             ->orderBy('ps.user_id')
             ->orderByDesc('ps.games_played')
             ->orderByDesc('ps.elo_rating');
@@ -652,17 +680,27 @@ class DiscoveryController extends ApiController
             ->when(true, fn ($q) => $this->whereNotBlocked($q, $userId, 'u.id'))
             ->orderByDesc('u.created_at')
             ->limit(20)
-            ->get(['u.id', 'u.display_name', 'u.photo_url', 'primary_stats.primary_elo']);
+            // Same user/badge columns the canonical players directory selects so
+            // the serializer can emit the identical `Player` base shape.
+            ->select([
+                'u.id', 'u.username', 'u.display_name', 'u.photo_url', 'u.last_seen_at',
+                'u.is_vip', 'u.vip_expires_at', 'u.vip_badge_label', 'u.is_verified', 'u.is_ambassador',
+                'primary_stats.primary_sport', 'primary_stats.primary_elo', 'primary_stats.reliability_score',
+            ])
+            ->selectSub(
+                DB::table('follows')->selectRaw('count(*)')->whereColumn('followed_user_id', 'u.id'),
+                'followers_count',
+            )
+            ->get();
 
-        return $rows->map(fn ($u) => [
-            'id' => $u->id,
+        // Canonical Player base + the suggestion extras (iOS SuggestedFollowItem
+        // requires non-optional user_id/display_name/shared_games_count/reason;
+        // shared_games_count is a 0 placeholder until the mutual-games join lands).
+        return $rows->map(fn ($u) => $this->discoveryPlayerPayload($u, [
             'user_id' => $u->id,
-            'display_name' => $u->display_name,
-            'photo_url' => $u->photo_url,
-            'primary_elo' => isset($u->primary_elo) ? (int) $u->primary_elo : null,
             'shared_games_count' => 0,
             'reason' => 'suggested',
-        ])->all();
+        ]))->all();
     }
 
     /** Small free-tier subset of insights() headline stats for the home card. */
@@ -705,45 +743,10 @@ class DiscoveryController extends ApiController
     {
         $user = $this->authUser($request);
 
-        // Resolve each candidate's primary (best padel/tennis) sport stat so the
-        // card shows a real ELO — consistent with matchmakingPlayers() / players.
-        $primaryStats = DB::table('player_sport_stats as ps')
-            ->join('sports as s', 's.id', '=', 'ps.sport_id')
-            ->whereIn('s.slug', ['padel', 'tennis'])
-            ->selectRaw('distinct on (ps.user_id) ps.user_id, ps.elo_rating as primary_elo')
-            ->orderBy('ps.user_id')
-            ->orderByDesc('ps.games_played')
-            ->orderByDesc('ps.elo_rating');
-
-        $rows = DB::table('users as u')
-            ->leftJoinSub($primaryStats, 'primary_stats', 'primary_stats.user_id', '=', 'u.id')
-            ->where('u.id', '!=', $user->id)
-            ->whereNull('u.deleted_at')
-            // Suggestions are signed-in-only — surface all real players, not just the curated public set.
-            ->whereNotExists(function ($q) use ($user) {
-                $q->selectRaw('1')->from('follows as f')->whereColumn('f.followed_user_id', 'u.id')->where('f.follower_user_id', $user->id);
-            })
-            ->when(true, fn ($q) => $this->whereNotBlocked($q, (string) $user->id, 'u.id'))
-            ->orderByDesc('u.created_at')
-            ->limit(20)
-            ->get(['u.id', 'u.display_name', 'u.photo_url', 'primary_stats.primary_elo']);
-
-        // iOS `SuggestedFollowItem` (Endpoint+SuggestedFollows.swift) requires an
-        // explicit shape — NON-optional user_id/display_name/shared_games_count/reason
-        // — so we cannot reuse publicUser() (it emits `id`, omits the rest). ELO
-        // lives in player_sport_stats.elo_rating (joined above as primary_elo) and
-        // is null when the player has no padel/tennis stat yet, satisfying the
-        // Swift `primary_elo: Int?` optional. shared_games_count is a 0 placeholder
-        // until the mutual-games join is wired; reason is a non-null string.
-        return response()->json(['items' => $rows->map(fn ($u) => [
-            'id' => $u->id,
-            'user_id' => $u->id,
-            'display_name' => $u->display_name,
-            'photo_url' => $u->photo_url,
-            'primary_elo' => isset($u->primary_elo) ? (int) $u->primary_elo : null,
-            'shared_games_count' => 0,
-            'reason' => 'suggested',
-        ])]);
+        // Canonical `Player` rows + the iOS SuggestedFollowItem extras
+        // (user_id/shared_games_count/reason). Shared with the /me/home aggregate
+        // via suggestedFollowsRows() so the two can never drift apart.
+        return response()->json(['items' => $this->suggestedFollowsRows((string) $user->id)]);
     }
 
     public function matchmakingGames(Request $request): JsonResponse
@@ -754,6 +757,10 @@ class DiscoveryController extends ApiController
             ->join('users as h', 'h.id', '=', 'g.host_user_id')
             ->leftJoin('courts as c', 'c.id', '=', 'g.court_id')
             ->leftJoin('venues as v', 'v.id', '=', 'c.venue_id')
+            ->leftJoin('player_sport_stats as hps', function ($join) {
+                $join->on('hps.user_id', '=', 'g.host_user_id')
+                    ->on('hps.sport_id', '=', 'g.sport_id');
+            })
             ->where('g.host_user_id', '!=', $user->id)
             ->where('g.status', 'open')
             ->where('g.visibility', 'public')
@@ -762,14 +769,19 @@ class DiscoveryController extends ApiController
             ->when(true, fn ($q) => $this->whereNotBlocked($q, (string) $user->id, 'g.host_user_id'))
             ->orderBy('g.starts_at')
             ->limit(50)
+            // Select the same host/court/venue/pricing columns the canonical games
+            // index selects so the shared serializer can emit the identical `Game`
+            // wire shape (nested host, float lat/lng, ISO starts_at, pricing).
             ->selectRaw("
                 g.id, g.sport_id, s.slug as sport_slug, g.host_user_id,
-                h.display_name as host_display_name, g.court_id,
-                c.name as court_name, v.id as venue_id, v.name as venue_name,
+                h.username as host_username, h.display_name as host_display_name,
+                h.photo_url as host_photo_url, hps.elo_rating as host_elo, g.court_id,
+                c.name as court_name, c.hourly_price_minor, c.currency,
+                v.id as venue_id, v.name as venue_name,
                 v.address as venue_address, v.photo_url as venue_photo_url,
                 g.lat, g.lng, g.starts_at, g.duration_minutes, g.capacity,
                 g.status, g.visibility, g.match_type, g.skill_min_elo,
-                g.skill_max_elo, g.notes,
+                g.skill_max_elo,
                 (
                     select count(*)
                     from game_participants gp
@@ -782,7 +794,7 @@ class DiscoveryController extends ApiController
         $hasPriorityMatchmaking = $membership->canUseFeature($user->id, 'priority_matchmaking');
 
         return response()->json(array_merge([
-            'items' => $rows,
+            'items' => $rows->map(fn ($r) => $this->discoveryGamePayload($r))->values(),
         ], $this->featureAccessPayload($membership, (string) $user->id, 'priority_matchmaking', $hasPriorityMatchmaking)));
     }
 
@@ -791,11 +803,13 @@ class DiscoveryController extends ApiController
         $user = $this->authUser($request);
 
         // Primary sport stat (best of padel/tennis) per candidate, for the
-        // sport slug + ELO the iOS RecommendedPlayer card shows.
+        // sport slug + ELO the iOS RecommendedPlayer card shows. Aliased as
+        // primary_sport/primary_elo so the row feeds the shared player serializer
+        // (parity with SocialController::playersBaseQuery).
         $primary = DB::table('player_sport_stats as ps')
             ->join('sports as s', 's.id', '=', 'ps.sport_id')
             ->whereIn('s.slug', ['padel', 'tennis'])
-            ->selectRaw('distinct on (ps.user_id) ps.user_id, s.slug as primary_sport_slug, ps.elo_rating, ps.reliability_score')
+            ->selectRaw('distinct on (ps.user_id) ps.user_id, s.slug as primary_sport, ps.elo_rating as primary_elo, ps.reliability_score')
             ->orderBy('ps.user_id')
             ->orderByDesc('ps.games_played')
             ->orderByDesc('ps.elo_rating');
@@ -814,7 +828,18 @@ class DiscoveryController extends ApiController
             ->when(true, fn ($q) => $this->whereNotBlocked($q, (string) $user->id, 'u.id'))
             ->orderByDesc('u.created_at')
             ->limit(20)
-            ->get(['u.id', 'u.display_name', 'u.photo_url', 'ps.primary_sport_slug', 'ps.elo_rating', 'ps.reliability_score']);
+            // Same user/badge columns the canonical players directory selects so
+            // the serializer can emit the identical `Player` base shape.
+            ->select([
+                'u.id', 'u.username', 'u.display_name', 'u.photo_url', 'u.last_seen_at',
+                'u.is_vip', 'u.vip_expires_at', 'u.vip_badge_label', 'u.is_verified', 'u.is_ambassador',
+                'ps.primary_sport', 'ps.primary_elo', 'ps.reliability_score',
+            ])
+            ->selectSub(
+                DB::table('follows')->selectRaw('count(*)')->whereColumn('followed_user_id', 'u.id'),
+                'followers_count',
+            )
+            ->get();
 
         // People the viewer follows — used to count mutual followers per candidate.
         $viewerFollowing = DB::table('follows')->where('follower_user_id', $user->id)->pluck('followed_user_id')->all();
@@ -839,38 +864,33 @@ class DiscoveryController extends ApiController
         return response()->json(array_merge([
             'items' => $rows->map(function ($u) use ($mutualCounts) {
                 $mutual = (int) ($mutualCounts[$u->id] ?? 0);
-                $elo = $u->elo_rating !== null ? (int) $u->elo_rating : null;
+                $elo = $u->primary_elo !== null ? (int) $u->primary_elo : null;
 
                 $reasons = [];
                 if ($mutual > 0) {
                     $reasons[] = $mutual === 1 ? '1 ortaq izləyici' : $mutual.' ortaq izləyici';
                 }
-                if ($u->primary_sport_slug !== null) {
+                if ($u->primary_sport !== null) {
                     $reasons[] = 'Eyni idman növü';
                 }
                 if ($reasons === []) {
                     $reasons[] = 'Yeni oyunçu';
                 }
 
-                return [
+                // Canonical Player base (id/username/display_name/photo_url/
+                // primary_sport/primary_elo/reliability_score/badges/...) PLUS the
+                // matchmaking extras the iOS RecommendedPlayer card requires
+                // (user_id + sport/elo aliases + ranking fields).
+                return $this->discoveryPlayerPayload($u, [
                     'user_id' => $u->id,
-                    // Aliases so web clients that read id/primary_sport/primary_elo
-                    // get populated values (consistent with players & suggested-follows).
-                    'id' => $u->id,
-                    'display_name' => $u->display_name,
-                    'photo_url' => $u->photo_url,
-                    'primary_sport_slug' => $u->primary_sport_slug,
-                    'primary_sport' => $u->primary_sport_slug,
+                    'primary_sport_slug' => $u->primary_sport,
                     'elo_rating' => $elo,
-                    'primary_elo' => $elo,
-                    'reliability_score' => $u->reliability_score !== null ? (int) $u->reliability_score : null,
-                    'distance_km' => null,
-                    'mutual_followers_count' => (int) $mutual,
+                    'mutual_followers_count' => $mutual,
                     'score' => (float) ($mutual * 2 + ($elo !== null ? 1 : 0)),
                     'reasons' => $reasons,
                     'reason_codes' => null,
-                ];
-            }),
+                ]);
+            })->values(),
         ], $this->featureAccessPayload($membership, (string) $user->id, 'priority_matchmaking', $hasPriorityMatchmaking)));
     }
 

@@ -205,6 +205,41 @@ class AmericanoHardeningTest extends TestCase
         $this->assertSame(1, DB::table('americano_teams')->count());
     }
 
+    public function test_any_player_can_self_register_for_a_solo_tournament(): void
+    {
+        // A solo tournament is self-registration: a non-host player adds THEMSELVES
+        // (without this fix only the host could be added once, so a solo event
+        // could never reach the two entries start() needs).
+        $this->seedOpenTournament('solo');
+
+        $response = $this->controller->teams($this->requestFor(self::OUTSIDER), self::TOURNAMENT);
+
+        $this->assertSame(201, $response->getStatusCode());
+        $this->assertSame(self::OUTSIDER, (string) $response->getData(true)['user_id']);
+        $this->assertSame(1, DB::table('americano_teams')->where('tournament_id', self::TOURNAMENT)->where('user_id', self::OUTSIDER)->count());
+    }
+
+    public function test_solo_tournament_with_two_self_registered_players_can_start(): void
+    {
+        $this->seedOpenTournament('solo');
+
+        // Two DIFFERENT players self-register, each as their own one-person entry.
+        $this->controller->teams($this->requestFor(self::HOST), self::TOURNAMENT);
+        $this->controller->teams($this->requestFor(self::OUTSIDER), self::TOURNAMENT);
+        $this->assertSame(2, DB::table('americano_teams')->where('tournament_id', self::TOURNAMENT)->count());
+
+        // The host can now start the draw — two entries → exactly one match.
+        $response = $this->controller->start($this->requestFor(self::HOST), self::TOURNAMENT);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('playing', DB::table('americano_tournaments')->where('id', self::TOURNAMENT)->value('status'));
+        $this->assertSame(1, DB::table('americano_matches')->where('tournament_id', self::TOURNAMENT)->count());
+
+        // mine() resolves the self-registered player's joined event.
+        $mineIds = array_column($this->controller->mine($this->requestFor(self::OUTSIDER))->getData(true)['items'], 'id');
+        $this->assertContains(self::TOURNAMENT, $mineIds);
+    }
+
     public function test_team_roster_is_capped(): void
     {
         $this->seedOpenTournament('team');

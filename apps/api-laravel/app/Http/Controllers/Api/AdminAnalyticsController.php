@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Support\ApiException;
+use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -10,14 +10,18 @@ use Illuminate\Support\Facades\DB;
 /**
  * Deeper admin analytics / dashboard reports — headline KPIs, growth time
  * series, revenue, club performance, engagement and the activation funnel.
- * Admin/moderator only. Computed live from the operational tables.
+ * These are revenue-bearing, so every endpoint is gated by the grantable
+ * 'reports' permission (like AdminOps) — a moderator without it is rejected.
+ * Computed live from the operational tables.
  */
 class AdminAnalyticsController extends ApiController
 {
+    use AuthorizesAdminPermissions;
+
     /** GET /admin/analytics/overview — headline KPIs + revenue. */
     public function overview(Request $request): JsonResponse
     {
-        $this->staff($request);
+        $this->requireAdminPermission($request, 'reports');
         $d30 = now()->subDays(30);
 
         return response()->json([
@@ -62,7 +66,7 @@ class AdminAnalyticsController extends ApiController
     /** GET /admin/analytics/growth?days=30 — per-day time series. */
     public function growth(Request $request): JsonResponse
     {
-        $this->staff($request);
+        $this->requireAdminPermission($request, 'reports');
         $days = min(max((int) $request->query('days', 30), 1), 365);
         $from = now()->subDays($days)->startOfDay();
 
@@ -87,7 +91,7 @@ class AdminAnalyticsController extends ApiController
     /** GET /admin/analytics/clubs — top venues by bookings + revenue. */
     public function clubs(Request $request): JsonResponse
     {
-        $this->staff($request);
+        $this->requireAdminPermission($request, 'reports');
         $rows = DB::table('venues as v')
             ->leftJoin('courts as c', 'c.venue_id', '=', 'v.id')
             ->leftJoin('bookings as b', 'b.court_id', '=', 'c.id')
@@ -107,7 +111,7 @@ class AdminAnalyticsController extends ApiController
     /** GET /admin/analytics/engagement — activity over the last 30 days. */
     public function engagement(Request $request): JsonResponse
     {
-        $this->staff($request);
+        $this->requireAdminPermission($request, 'reports');
         $d30 = now()->subDays(30);
         $gamesTotal = DB::table('games')->whereNull('deleted_at')->count();
 
@@ -131,7 +135,7 @@ class AdminAnalyticsController extends ApiController
     /** GET /admin/analytics/funnel — registration → activation → retention. */
     public function funnel(Request $request): JsonResponse
     {
-        $this->staff($request);
+        $this->requireAdminPermission($request, 'reports');
         $registered = DB::table('users')->whereNull('deleted_at')->count();
         $playedGame = DB::table('users as u')->whereNull('u.deleted_at')
             ->whereExists(fn ($q) => $q->select(DB::raw(1))->from('game_participants as gp')->whereColumn('gp.user_id', 'u.id'))
@@ -147,15 +151,5 @@ class AdminAnalyticsController extends ApiController
             'booked_a_court' => $bookedCourt,
             'came_via_referral' => $referred,
         ]);
-    }
-
-    private function staff(Request $request): object
-    {
-        $user = $this->authUser($request);
-        if (! in_array($user->admin_role, ['admin', 'moderator'], true)) {
-            throw ApiException::forbidden('Admin access required');
-        }
-
-        return $user;
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\BlocksPendingGameResults;
 use App\Support\ApiException;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,25 +36,105 @@ class SeriesController extends ApiController
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ]);
         $id = (string) Str::uuid();
-        DB::table('game_series')->insert([
-            'id' => $id,
-            'host_user_id' => $user->id,
-            'sport_id' => $data['sport_id'],
-            'court_id' => $data['court_id'] ?? null,
-            'lat' => $data['lat'],
-            'lng' => $data['lng'],
-            'day_of_week' => $data['day_of_week'],
-            'time_of_day' => $data['time_of_day'],
-            'duration_minutes' => $data['duration_minutes'],
-            'capacity' => $data['capacity'],
-            'occurrences' => $data['occurrences'] ?? 1,
-            'starts_on' => $data['starts_on'],
-            'ends_on' => $data['ends_on'],
-            'notes' => $data['notes'] ?? null,
-            'created_at' => now(),
-        ]);
+        // Resolve the concrete per-occurrence start instants up-front (Asia/Baku
+        // business time → UTC) so the template row and the materialized games are
+        // written in one transaction below.
+        $occurrences = $this->occurrenceStartTimes($data);
+
+        DB::transaction(function () use ($id, $user, $data, $occurrences): void {
+            DB::table('game_series')->insert([
+                'id' => $id,
+                'host_user_id' => $user->id,
+                'sport_id' => $data['sport_id'],
+                'court_id' => $data['court_id'] ?? null,
+                'lat' => $data['lat'],
+                'lng' => $data['lng'],
+                'day_of_week' => $data['day_of_week'],
+                'time_of_day' => $data['time_of_day'],
+                'duration_minutes' => $data['duration_minutes'],
+                'capacity' => $data['capacity'],
+                'occurrences' => $data['occurrences'] ?? 1,
+                'starts_on' => $data['starts_on'],
+                'ends_on' => $data['ends_on'],
+                'notes' => $data['notes'] ?? null,
+                'created_at' => now(),
+            ]);
+
+            // Materialize one real games row per occurrence (schema header:
+            // "individual games are materialized at creation time") so the normal
+            // /games endpoints, ratings, bookings and reminders work without any
+            // recurrence special-casing — and show()/cancel() reflect the actual
+            // playable occurrences. Mirrors GamesController::createGame's required
+            // columns/defaults; the series template carries no visibility/match_type,
+            // so they default exactly as a freshly created ad-hoc game does.
+            $rows = [];
+            foreach ($occurrences as $i => $startsAt) {
+                $rows[] = [
+                    'id' => (string) Str::uuid(),
+                    'sport_id' => $data['sport_id'],
+                    'court_id' => $data['court_id'] ?? null,
+                    'host_user_id' => $user->id,
+                    'lat' => $data['lat'],
+                    'lng' => $data['lng'],
+                    'starts_at' => $startsAt,
+                    'duration_minutes' => $data['duration_minutes'],
+                    'capacity' => $data['capacity'],
+                    'visibility' => 'public',
+                    'match_type' => 'casual',
+                    'status' => 'open',
+                    'notes' => $data['notes'] ?? null,
+                    'series_id' => $id,
+                    'occurrence_number' => $i + 1,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+            if ($rows !== []) {
+                DB::table('games')->insert($rows);
+            }
+        });
 
         return response()->json($this->seriesPayload($id), 201);
+    }
+
+    /**
+     * Concrete UTC start instants for a series' occurrences. The schedule is
+     * defined in Asia/Baku (venue/business time, per the project timezone rule):
+     * the first occurrence is the first date on/after starts_on that falls on
+     * day_of_week, then it steps weekly. Generation stops at `occurrences`,
+     * ends_on, or a hard 52 cap — whichever comes first — so a malformed series
+     * can never spawn an unbounded number of games. Returned instants are UTC
+     * (app timezone is UTC, so the query builder persists them as the same
+     * naive Y-m-d H:i:s the rest of the codebase compares against now()).
+     *
+     * @param  array<string,mixed>  $data
+     * @return list<CarbonImmutable>
+     */
+    private function occurrenceStartTimes(array $data): array
+    {
+        $dow = (int) $data['day_of_week']; // 0=Sunday … 6=Saturday (matches Carbon)
+        $time = (string) $data['time_of_day'];
+        $time = strlen($time) === 5 ? $time.':00' : $time; // normalise H:i → H:i:s
+        [$h, $m, $s] = array_map('intval', explode(':', $time));
+
+        $cursor = CarbonImmutable::parse($data['starts_on'], 'Asia/Baku')->startOfDay();
+        for ($i = 0; $i < 7 && $cursor->dayOfWeek !== $dow; $i++) {
+            $cursor = $cursor->addDay();
+        }
+
+        $endsOn = (string) $data['ends_on'];
+        $cap = min(52, max(1, (int) ($data['occurrences'] ?? 1)));
+
+        $times = [];
+        for ($n = 0; $n < $cap; $n++) {
+            if ($cursor->toDateString() > $endsOn) {
+                break; // ran past the series window
+            }
+            $times[] = $cursor->setTime($h, $m, $s)->utc();
+            $cursor = $cursor->addWeek();
+        }
+
+        return $times;
     }
 
     public function show(Request $request, string $id): JsonResponse

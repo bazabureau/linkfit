@@ -227,6 +227,49 @@ class GameResultAccessTest extends TestCase
         $this->controller->reportResult($this->requestFor(self::PLAYER_ONE, $this->resultPayload()), 'game-one');
     }
 
+    public function test_reporting_a_single_undecided_set_is_rejected_without_applying_elo(): void
+    {
+        DB::table('match_scores')->where('game_id', 'game-one')->delete();
+
+        // One set 6-3: a winner of a single set has NOT clinched a best-of-N, so
+        // the result is undecided and must be rejected before any ELO swing.
+        try {
+            $this->controller->reportResult($this->requestFor(self::HOST, [
+                'team_a_user_ids' => [self::HOST, self::PLAYER_ONE],
+                'team_b_user_ids' => [self::PLAYER_TWO],
+                'sets' => [['a' => 6, 'b' => 3]],
+            ]), 'game-one');
+            $this->fail('Expected an undecided single-set result to be rejected.');
+        } catch (ApiException $exception) {
+            $this->assertSame(422, $exception->getStatusCode());
+        }
+
+        // No stats/ELO written and the game stays open (no recorded result).
+        $this->assertSame(0, DB::table('player_sport_stats')->count());
+        $this->assertSame('open', DB::table('games')->where('id', 'game-one')->value('status'));
+        $this->assertSame(0, DB::table('match_scores')->where('game_id', 'game-one')->where('status', 'completed')->count());
+    }
+
+    public function test_reporting_a_one_one_set_split_is_rejected(): void
+    {
+        DB::table('match_scores')->where('game_id', 'game-one')->delete();
+
+        // 6-3, 3-6 → one set each, nobody took the majority: undecided.
+        try {
+            $this->controller->reportResult($this->requestFor(self::HOST, [
+                'team_a_user_ids' => [self::HOST, self::PLAYER_ONE],
+                'team_b_user_ids' => [self::PLAYER_TWO],
+                'sets' => [['a' => 6, 'b' => 3], ['a' => 3, 'b' => 6]],
+            ]), 'game-one');
+            $this->fail('Expected a 1-1 set split to be rejected as undecided.');
+        } catch (ApiException $exception) {
+            $this->assertSame(422, $exception->getStatusCode());
+        }
+
+        $this->assertSame(0, DB::table('player_sport_stats')->count());
+        $this->assertSame('open', DB::table('games')->where('id', 'game-one')->value('status'));
+    }
+
     private function resultPayload(): array
     {
         return [

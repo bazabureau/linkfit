@@ -7,10 +7,12 @@ use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Http\Controllers\Api\Concerns\HandlesIdempotentRequests;
 use App\Services\Launch\LaunchConfig;
 use App\Services\Membership\MembershipService;
+use App\Services\Ratings\ReliabilityService;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -496,20 +498,51 @@ class GamesController extends ApiController
 
     public function noShow(Request $request, string $id, string $uid): JsonResponse
     {
-        $this->hostOnly($request, $id);
+        $game = $this->hostOnly($request, $id);
         if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $uid) !== 1) {
             throw ApiException::validation('Invalid participant id');
         }
         // Only a CURRENTLY confirmed participant can be flagged a no-show. The
         // status filter prevents the id from being used to resurrect a player who
         // already left (cancelled) or to overwrite an existing no_show/played row.
-        DB::table('game_participants')
+        $flagged = DB::table('game_participants')
             ->where('game_id', $id)
             ->where('user_id', $uid)
             ->where('status', 'confirmed')
             ->update(['status' => 'no_show', 'status_changed_at' => now()]);
 
+        // A no-show now actually counts against the player's reliability for this
+        // game's sport — only when a row genuinely flipped to no_show, and only
+        // best-effort so a recompute failure never breaks the host's action.
+        if ($flagged > 0) {
+            $this->recomputeReliabilityForNoShow((string) $game->sport_id, $uid);
+        }
+
         return $this->showResponse($request, $id);
+    }
+
+    /**
+     * Best-effort reliability recompute after a host flags a player a no-show.
+     * The drop only fully materialises once the game is completed (attendance is
+     * measured over completed games), but recomputing here also covers a no-show
+     * marked on an already-completed game. Swallows + logs any failure so it can
+     * never break the host-facing no-show action.
+     */
+    private function recomputeReliabilityForNoShow(string $sportId, string $userId): void
+    {
+        try {
+            $sportSlug = DB::table('sports')->where('id', $sportId)->value('slug');
+            if ($sportSlug === null) {
+                return;
+            }
+            app(ReliabilityService::class)->recomputeReliability($userId, (string) $sportSlug);
+        } catch (\Throwable $e) {
+            Log::warning('reliability recompute after no-show failed', [
+                'sport_id' => $sportId,
+                'user_id' => $userId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

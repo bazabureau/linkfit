@@ -53,6 +53,10 @@ trait AuthorizesAdminPermissions
             'tournaments' => true,
             'reports' => true,
             'reviews' => true,
+            // Coach/lesson management exposes roster PII and can mint coach login
+            // accounts, so it is admin-default and must be explicitly granted to a
+            // moderator (default-deny), unlike the browseable content permissions.
+            'lessons' => $adminDefaults,
             'operations' => $adminDefaults,
             'media' => true,
             'push_jobs' => $adminDefaults,

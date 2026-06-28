@@ -17,6 +17,15 @@ class ReportsController extends ApiController
     use AuthorizesAdminPermissions;
     use HidesModeratedContent;
 
+    /**
+     * The only target_kinds a moderation hide actually ENFORCES on a read path
+     * (HidesModeratedContent is wired into story/message/feed_event/feed_comment).
+     * Creating a hide for any other kind would be inert — it would set
+     * target_hidden=true while the content stayed fully visible. A user target's
+     * correct moderation action is a suspend (see adminUpdate), not a content hide.
+     */
+    private const ENFORCED_HIDE_KINDS = ['story', 'message', 'feed_event', 'feed_comment'];
+
     public function store(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
@@ -194,6 +203,14 @@ class ReportsController extends ApiController
         if ($before === null) {
             throw ApiException::notFound('Report not found');
         }
+        // Suspending a user is the same destructive action AdminOpsController
+        // ::suspendUser guards: a moderator must not be able to suspend an
+        // admin/moderator, and nobody may suspend themselves. Enforce the SAME
+        // guard here (before any write) so the report queue can't be used to
+        // escalate around it.
+        if (! empty($data['suspend_user']) && $before->target_kind === 'user') {
+            $this->assertCanSuspendUser($user, (string) $before->target_id);
+        }
         $row = DB::transaction(function () use ($id, $data, $user, $before) {
             DB::table('reports')->where('id', $id)->update([
                 'status' => $data['status'],
@@ -244,6 +261,18 @@ class ReportsController extends ApiController
                     'suspended_user_id' => (string) $before->target_id,
                     'reason' => (string) ($reason ?? 'Policy violation'),
                 ]);
+            }
+            // Dismissing a report means the moderator judged the content fine —
+            // so any active auto-hide for the target must be lifted (a reviewed
+            // or upheld report keeps it hidden). Idempotent: a no-op when nothing
+            // is hidden or it was already cleared above.
+            if ($data['status'] === 'dismissed') {
+                $this->clearActiveHide(
+                    (string) $before->target_kind,
+                    (string) $before->target_id,
+                    (string) $user->id,
+                    $id,
+                );
             }
 
             return $row;
@@ -569,6 +598,12 @@ class ReportsController extends ApiController
         if (! Schema::hasTable('moderation_hides')) {
             return;
         }
+        // Only auto-hide the kinds a read path actually enforces; a user target
+        // is suspended (never content-hidden), and game/venue_review/media have
+        // no hide filter so a hide there would be inert.
+        if (! in_array($kind, self::ENFORCED_HIDE_KINDS, true)) {
+            return;
+        }
         $threshold = (int) config('moderation.autohide_threshold', 3);
         if ($threshold < 1) {
             return;
@@ -610,7 +645,9 @@ class ReportsController extends ApiController
             'target_kind' => $kind,
             'target_id' => $targetId,
             'hidden_at' => now(),
-            'reason' => $topReason,
+            // moderation_hides.reason is varchar(255); clamp so a long reason can
+            // never overflow into a Postgres 22001 (a 500 + rolled-back report).
+            'reason' => $topReason !== null ? mb_substr((string) $topReason, 0, 255) : null,
             'auto' => true,
             'report_count' => $distinctReporters,
             'hidden_by_user_id' => null,
@@ -638,6 +675,12 @@ class ReportsController extends ApiController
         if (! Schema::hasTable('moderation_hides')) {
             return null;
         }
+        // Only the 4 ENFORCED content kinds have a read-path filter (see
+        // maybeAutoHide); never create an inert hide for a user/game/venue_review/
+        // media target — a user is suspended via suspend_user instead.
+        if (! in_array($kind, self::ENFORCED_HIDE_KINDS, true)) {
+            return null;
+        }
         $existing = DB::table('moderation_hides')
             ->where('target_kind', $kind)
             ->where('target_id', $targetId)
@@ -646,6 +689,9 @@ class ReportsController extends ApiController
         if ($existing !== null) {
             return (string) $existing->id;
         }
+        // moderation_hides.reason is varchar(255); a moderator note can be up to
+        // 4000 chars, so clamp it to avoid a Postgres 22001 overflow (a 500).
+        $reason = $reason !== null ? mb_substr($reason, 0, 255) : null;
         $hideId = (string) Str::uuid();
         DB::table('moderation_hides')->insert([
             'id' => $hideId,
@@ -689,6 +735,27 @@ class ReportsController extends ApiController
                 'target_id' => $targetId,
                 'cleared_count' => $cleared,
             ]);
+        }
+    }
+
+    /**
+     * Guard a report-queue suspension exactly like AdminOpsController
+     * ::assertCanDisableUser: nobody may suspend themselves, and only a full
+     * admin may suspend an admin/moderator (a moderator must not be able to lock
+     * staff out via a user-target report). Replicated here because the source
+     * guard is private to AdminOpsController.
+     */
+    private function assertCanSuspendUser(object $actor, string $targetId): void
+    {
+        if ((string) $actor->id === $targetId) {
+            throw ApiException::conflict('You cannot suspend your own account');
+        }
+        if ($actor->admin_role === 'admin') {
+            return;
+        }
+        $target = DB::table('users')->where('id', $targetId)->first(['admin_role']);
+        if ($target !== null && in_array($target->admin_role, ['admin', 'moderator'], true)) {
+            throw ApiException::forbidden('Only an admin can suspend a staff account');
         }
     }
 

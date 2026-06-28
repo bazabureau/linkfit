@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\BlocksPendingGameResults;
+use App\Services\Ratings\ReliabilityService;
 use App\Support\ApiException;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class MatchController extends ApiController
@@ -274,6 +276,12 @@ class MatchController extends ApiController
             'elo_delta_by_user' => $deltas ?? [],
         ]);
 
+        // Only on a fresh completion (deltas !== null; a concurrent complete()
+        // returns null and must not re-recompute). Post-commit + best-effort.
+        if ($deltas !== null) {
+            $this->recomputeReliabilityForMatch($id, (string) $game->sport_id);
+        }
+
         return $this->scoringResponse($id);
     }
 
@@ -313,6 +321,23 @@ class MatchController extends ApiController
             }
         }
         $winningTeam = $this->winnerFromSets($sets);
+        // A reported scoreline only counts as a completed match once it is
+        // actually DECIDED: the winner must have clinched the best-of-N by taking
+        // the majority of sets (>= SETS_TO_WIN_MATCH won), mirroring the
+        // point-by-point complete() guard (which only completes once a side wins
+        // SETS_TO_WIN_MATCH sets). A single reported set (e.g. 1-0) or an even
+        // split that nobody won outright (e.g. 1-1) is undecided — reject it with
+        // 422 BEFORE any ELO/stats run, instead of awarding a full K=32 swing on
+        // an unfinished match. (P3#87)
+        $setsWonByWinner = 0;
+        foreach ($sets as $s) {
+            if (($winningTeam === 'a' && $s['a'] > $s['b']) || ($winningTeam === 'b' && $s['b'] > $s['a'])) {
+                $setsWonByWinner++;
+            }
+        }
+        if ($winningTeam === null || $setsWonByWinner < self::SETS_TO_WIN_MATCH) {
+            throw ApiException::validation('Reported sets do not form a completed match: the winner must take the majority of the sets');
+        }
         $teamA = array_values($data['team_a_user_ids']);
         $teamB = array_values($data['team_b_user_ids']);
         $lastSet = end($sets) ?: ['a' => 0, 'b' => 0];
@@ -354,9 +379,42 @@ class MatchController extends ApiController
                 'winning_team' => $winningTeam,
                 'elo_delta_by_user' => $deltas,
             ]);
+            $this->recomputeReliabilityForMatch($id, (string) $game->sport_id);
         }
 
         return $this->scoringResponse($id);
+    }
+
+    /**
+     * Best-effort reliability recompute for everyone involved in a just-completed
+     * game — the players who played AND any flagged no-shows, so a no-show finally
+     * counts against a player once the game it belonged to is completed. Runs
+     * AFTER the completion transaction has committed and swallows + logs any
+     * failure (including a lean test harness with no sports/stats tables), so the
+     * reliability signal can never roll back or break the recorded match result.
+     */
+    private function recomputeReliabilityForMatch(string $gameId, string $sportId): void
+    {
+        try {
+            $sportSlug = DB::table('sports')->where('id', $sportId)->value('slug');
+            if ($sportSlug === null) {
+                return;
+            }
+            $userIds = DB::table('game_participants')
+                ->where('game_id', $gameId)
+                ->whereIn('status', ['confirmed', 'played', 'no_show'])
+                ->pluck('user_id');
+            $service = app(ReliabilityService::class);
+            foreach ($userIds as $uid) {
+                $service->recomputeReliability((string) $uid, (string) $sportSlug);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('reliability recompute after match completion failed', [
+                'game_id' => $gameId,
+                'sport_id' => $sportId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function setResultAccess(Request $request, string $id, string $uid): JsonResponse

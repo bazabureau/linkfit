@@ -57,13 +57,15 @@ class AmericanoController extends ApiController
     }
 
     /**
-     * P0#10 — register a team in the tournament (host only, before the draw).
+     * P0#10 — register an entry in the tournament (before the draw).
      *
-     * `format=team` expects an explicit `display_name`. `format=solo` registers
-     * the calling player as a one-person entry: the host is auto-added as their
-     * own team (display_name defaults to the host's name) so a solo organiser
-     * never has to also manually add themselves before starting. `user_id` is
-     * persisted when the column exists so `mine()` can resolve joined events.
+     * `format=team` is host-managed: only the host adds named pairs, each with an
+     * explicit `display_name`. `format=solo` is a self-registration — ANY
+     * authenticated player adds *themselves* as a one-person entry (display_name
+     * defaults to the caller's name). Without this a solo americano could never
+     * reach the two entries start() requires, since only the host could be added
+     * (once). `user_id` is persisted when the column exists so `mine()` can
+     * resolve joined events; one entry per user is enforced below.
      */
     public function teams(Request $request, string $id): JsonResponse
     {
@@ -72,7 +74,12 @@ class AmericanoController extends ApiController
         if ($tournament === null) {
             throw ApiException::notFound('Americano tournament not found');
         }
-        if ((string) $tournament->host_id !== (string) $user->id) {
+        $isSolo = ($tournament->format ?? 'solo') === 'solo';
+        // Team entries are host-managed (the host builds the bracket of named
+        // pairs); the host-only gate therefore applies to the team path only. A
+        // solo player self-registers, so any authenticated user may add their own
+        // single entry.
+        if (! $isSolo && (string) $tournament->host_id !== (string) $user->id) {
             throw ApiException::forbidden('Only the tournament host can manage teams');
         }
         if ($tournament->status !== 'open') {
@@ -85,11 +92,10 @@ class AmericanoController extends ApiController
             'display_name' => ['sometimes', 'string', 'max:100'],
         ]);
 
-        $isSolo = ($tournament->format ?? 'solo') === 'solo';
         $displayName = trim((string) ($data['display_name'] ?? ''));
         if ($displayName === '') {
             if ($isSolo) {
-                // Auto host team: fall back to the host's display name.
+                // Self-registration: fall back to the caller's display name.
                 $displayName = trim((string) ($user->display_name ?? '')) ?: 'Player';
             } else {
                 throw ApiException::validation('A display_name is required for team entries', [
@@ -101,7 +107,7 @@ class AmericanoController extends ApiController
         $hasUserId = Schema::hasColumn('americano_teams', 'user_id');
 
         // A solo player can only hold ONE entry in a tournament — guard against
-        // a host double-registering themselves (which would skew the draw). The
+        // the same user registering twice (which would skew the draw). The
         // dedup invariant is keyed on the user_id column, so refuse solo
         // registration on a schema that predates it rather than silently skip
         // the check and allow duplicate entries.

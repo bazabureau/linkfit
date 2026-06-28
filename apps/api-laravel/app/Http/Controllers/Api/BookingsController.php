@@ -148,7 +148,7 @@ class BookingsController extends ApiController
         // Anchor: explicit `starts_at` wins; else the start of the requested
         // Baku `date` (clamped to now for today); else now.
         if (! empty($query['starts_at'])) {
-            $requested = CarbonImmutable::parse($query['starts_at']);
+            $requested = $this->parseStartsAt($query['starts_at']);
         } elseif (! empty($query['date'])) {
             $dayStart = CarbonImmutable::parse($query['date'].' 00:00:00', 'Asia/Baku');
             $now = now('Asia/Baku');
@@ -264,7 +264,7 @@ class BookingsController extends ApiController
             return $this->show($request, $existing->id);
         }
 
-        $starts = CarbonImmutable::parse($data['starts_at']);
+        $starts = $this->parseStartsAt($data['starts_at']);
         $ends = $starts->addMinutes((int) $data['duration_minutes']);
         $this->assertBookingRules($court, $starts, (int) $data['duration_minutes']);
         if (! empty($data['game_id'])) {
@@ -435,7 +435,7 @@ class BookingsController extends ApiController
             throw ApiException::validation('Unknown court_id');
         }
 
-        $starts = CarbonImmutable::parse($data['starts_at']);
+        $starts = $this->parseStartsAt($data['starts_at']);
         $ends = $starts->addMinutes((int) $data['duration_minutes']);
         $this->assertBookingRules($court, $starts, (int) $data['duration_minutes']);
         $id = (string) Str::uuid();
@@ -549,7 +549,7 @@ class BookingsController extends ApiController
             throw ApiException::validation('Unknown court_id');
         }
 
-        $starts = CarbonImmutable::parse($data['starts_at']);
+        $starts = $this->parseStartsAt($data['starts_at']);
         $ends = $starts->addMinutes((int) $data['duration_minutes']);
         $this->assertBookingRules($court, $starts, (int) $data['duration_minutes']);
         $holdId = $data['hold_id'] ?? null;
@@ -940,7 +940,7 @@ class BookingsController extends ApiController
             throw ApiException::validation('Provide at least one field to update');
         }
 
-        $starts = array_key_exists('starts_at', $data) ? CarbonImmutable::parse($data['starts_at']) : CarbonImmutable::parse($booking->starts_at);
+        $starts = array_key_exists('starts_at', $data) ? $this->parseStartsAt($data['starts_at']) : CarbonImmutable::parse($booking->starts_at);
         $duration = (int) ($data['duration_minutes'] ?? $booking->duration_minutes);
         $updates = [];
         if (array_key_exists('payment_method', $data)) {
@@ -956,30 +956,49 @@ class BookingsController extends ApiController
                 throw ApiException::conflict('Reschedule window has passed');
             }
             $this->assertBookingRules($court, $starts, $duration);
-            DB::transaction(function () use ($booking, $starts, $duration, $id, &$updates, $court) {
-                $this->lockCourtSlot((string) $booking->court_id);
-                $this->assertCourtAvailable((string) $booking->court_id, $starts, $starts->addMinutes($duration), $id);
-                $subtotal = $this->bookingTotalMinor($court, $duration);
-                $discount = min((int) ($booking->discount_minor ?? 0), $subtotal);
-                // Re-validate a minimum-amount promo against the new subtotal: a
-                // reschedule to a cheaper/shorter slot can drop the subtotal below
-                // the promo's min_amount_minor, which would otherwise apply an
-                // unauthorised discount the code no longer qualifies for. Drop the
-                // discount entirely when the threshold is no longer met.
-                if ($discount > 0 && ! empty($booking->promo_code_id) && Schema::hasTable('promo_codes')) {
-                    $minAmount = (int) (DB::table('promo_codes')->where('id', $booking->promo_code_id)->value('min_amount_minor') ?? 0);
-                    if ($subtotal < $minAmount) {
-                        $discount = 0;
+            try {
+                DB::transaction(function () use ($booking, $starts, $duration, $id, &$updates, $court) {
+                    $this->lockCourtSlot((string) $booking->court_id);
+                    $this->assertCourtAvailable((string) $booking->court_id, $starts, $starts->addMinutes($duration), $id);
+                    $subtotal = $this->bookingTotalMinor($court, $duration);
+                    $discount = min((int) ($booking->discount_minor ?? 0), $subtotal);
+                    // Re-validate a minimum-amount promo against the new subtotal: a
+                    // reschedule to a cheaper/shorter slot can drop the subtotal below
+                    // the promo's min_amount_minor, which would otherwise apply an
+                    // unauthorised discount the code no longer qualifies for. Drop the
+                    // discount entirely when the threshold is no longer met.
+                    if ($discount > 0 && ! empty($booking->promo_code_id) && Schema::hasTable('promo_codes')) {
+                        $minAmount = (int) (DB::table('promo_codes')->where('id', $booking->promo_code_id)->value('min_amount_minor') ?? 0);
+                        if ($subtotal < $minAmount) {
+                            $discount = 0;
+                        }
                     }
+                    $updates['subtotal_minor'] = $subtotal;
+                    $updates['discount_minor'] = $discount;
+                    $updates['total_minor'] = max(0, $subtotal - $discount) + app(LaunchConfig::class)->bookingServiceFeeMinor();
+                    // Re-cap any prior refund to the new (possibly lower) total: a
+                    // reschedule to a cheaper slot can push total_minor below an
+                    // existing refund_amount_minor, violating the DB CHECK
+                    // bookings_refund_le_total. Clamp it so the invariant holds.
+                    if ($booking->refund_amount_minor !== null) {
+                        $updates['refund_amount_minor'] = min((int) $booking->refund_amount_minor, (int) $updates['total_minor']);
+                    }
+                    $updates['starts_at'] = $starts;
+                    $updates['duration_minutes'] = $duration;
+                    $updates['rescheduled_at'] = now();
+                    DB::table('bookings')->where('id', $id)->update([...$updates, 'updated_at' => now()]);
+                });
+            } catch (QueryException $e) {
+                // Defensive net: the re-cap above keeps refund_amount_minor <=
+                // total, but any residual bookings_refund_le_total CHECK violation
+                // (23514) must surface as a clean 409 rather than an uncaught 500.
+                $sqlState = (string) ($e->errorInfo[0] ?? '');
+                $detail = strtolower(((string) ($e->errorInfo[2] ?? '')).' '.$e->getMessage());
+                if ($sqlState === '23514' || str_contains($detail, 'bookings_refund_le_total')) {
+                    throw ApiException::conflict('Booking could not be rescheduled to that time');
                 }
-                $updates['subtotal_minor'] = $subtotal;
-                $updates['discount_minor'] = $discount;
-                $updates['total_minor'] = max(0, $subtotal - $discount) + app(LaunchConfig::class)->bookingServiceFeeMinor();
-                $updates['starts_at'] = $starts;
-                $updates['duration_minutes'] = $duration;
-                $updates['rescheduled_at'] = now();
-                DB::table('bookings')->where('id', $id)->update([...$updates, 'updated_at' => now()]);
-            });
+                throw $e;
+            }
         } else {
             DB::table('bookings')->where('id', $id)->update([...$updates, 'updated_at' => now()]);
         }
@@ -1268,10 +1287,17 @@ class BookingsController extends ApiController
         $open = is_array($hours) ? ($hours['open'] ?? '07:00') : '07:00';
         $close = is_array($hours) ? ($hours['close'] ?? '23:00') : '23:00';
 
-        return [
-            CarbonImmutable::parse($date.' '.$open, 'Asia/Baku'),
-            CarbonImmutable::parse($date.' '.$close, 'Asia/Baku'),
-        ];
+        $openAt = CarbonImmutable::parse($date.' '.$open, 'Asia/Baku');
+        $closeAt = CarbonImmutable::parse($date.' '.$close, 'Asia/Baku');
+        // A venue that closes past midnight (e.g. open 07:00, close 01:00) parses
+        // close <= open on the same calendar day, collapsing the window to empty.
+        // Treat the closing time as belonging to the next day so the window
+        // legitimately spans midnight.
+        if ($closeAt->lessThanOrEqualTo($openAt)) {
+            $closeAt = $closeAt->addDay();
+        }
+
+        return [$openAt, $closeAt];
     }
 
     /**
@@ -1293,6 +1319,21 @@ class BookingsController extends ApiController
                 'slot_minutes' => $policy['slot_minutes'],
             ]);
         }
+    }
+
+    /**
+     * Parse a client-supplied start time into an absolute UTC instant. A naive
+     * wall-clock string (no offset/zone) is venue-local — Asia/Baku — NOT UTC:
+     * with the app tz = UTC, CarbonImmutable::parse('2026-06-28 10:00:00') would
+     * otherwise read "10:00" as 10:00 UTC (= 14:00 Baku), shifting the booking 4
+     * hours. Offset-bearing inputs (the mobile/web clients already send these)
+     * are honoured exactly as sent and normalised to UTC.
+     */
+    private function parseStartsAt(string $value): CarbonImmutable
+    {
+        $hasOffset = (bool) preg_match('/(?:Z|[+-]\d{2}:?\d{2})$/i', trim($value));
+
+        return CarbonImmutable::parse($value, $hasOffset ? null : 'Asia/Baku')->utc();
     }
 
     private function assertBookingRules(object $court, CarbonImmutable $starts, int $duration): void

@@ -326,6 +326,48 @@ class BookingsHardeningTest extends TestCase
         $this->assertTrue($threw, 'Expected a 404 when releasing an unknown hold');
     }
 
+    // ---- reschedule refund re-cap ---------------------------------------
+
+    public function test_reschedule_to_cheaper_slot_recaps_existing_refund(): void
+    {
+        // A 120-min booking (2000) fully refunded (2000) is rescheduled down to a
+        // 60-min slot (1000). Without re-capping, refund_amount_minor (2000) would
+        // exceed the new total (1000), violating the DB CHECK bookings_refund_le_total
+        // → an uncaught 500. The re-cap clamps it to the new total.
+        $id = (string) Str::uuid();
+        DB::table('bookings')->insert([
+            'id' => $id,
+            'court_id' => self::COURT,
+            'user_id' => self::BOOKER,
+            'starts_at' => now('Asia/Baku')->addDay()->setTime(10, 0)->utc(),
+            'duration_minutes' => 120,
+            'subtotal_minor' => 2000,
+            'discount_minor' => 0,
+            'total_minor' => 2000,
+            'currency' => 'AZN',
+            'status' => 'paid',
+            'source' => 'app',
+            'payment_method' => 'onsite',
+            'refund_status' => 'processed',
+            'refund_amount_minor' => 2000,
+            'idempotency_key' => 'resched-'.$id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = app(BookingsController::class)->update($this->request([
+            'starts_at' => now('Asia/Baku')->addDay()->setTime(10, 0)->utc()->toIso8601String(),
+            'duration_minutes' => 60,
+        ], self::BOOKER), $id);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $row = DB::table('bookings')->where('id', $id)->first();
+        $this->assertSame(60, (int) $row->duration_minutes);
+        $this->assertSame(1000, (int) $row->total_minor);
+        // Refund re-capped to the new, lower total — invariant refund <= total holds.
+        $this->assertSame(1000, (int) $row->refund_amount_minor);
+    }
+
     // ---- store game_id authorisation ------------------------------------
 
     public function test_booking_cannot_be_attached_to_foreign_game(): void

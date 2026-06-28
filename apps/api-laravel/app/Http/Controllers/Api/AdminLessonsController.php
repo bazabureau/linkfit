@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
 use App\Services\Auth\PasswordService;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -11,11 +12,15 @@ use Illuminate\Support\Str;
 
 /**
  * Admin-wide management of coaches and lessons across ALL venues (the "Learn"
- * SaaS oversight). Admin/moderator only. Mirrors PartnerLessonsController but
- * not scoped to a single venue — venue_id is an explicit field/filter.
+ * SaaS oversight). Gated by the grantable 'lessons' permission (admin-default,
+ * default-deny for moderators) because it mutates coaches/lessons and reads
+ * roster PII. Mirrors PartnerLessonsController but not scoped to a single
+ * venue — venue_id is an explicit field/filter.
  */
 class AdminLessonsController extends ApiController
 {
+    use AuthorizesAdminPermissions;
+
     // ---- Coaches ----
 
     public function coaches(Request $request): JsonResponse
@@ -388,12 +393,10 @@ class AdminLessonsController extends ApiController
 
     private function staff(Request $request): object
     {
-        $user = $this->authUser($request);
-        if (! in_array($user->admin_role, ['admin', 'moderator'], true)) {
-            throw ApiException::forbidden('Admin access required');
-        }
-
-        return $user;
+        // Coach/lesson management + roster PII is gated by the 'lessons'
+        // permission (admin-default, default-deny for moderators), not by role
+        // alone — a moderator without it is rejected.
+        return $this->requireAdminPermission($request, 'lessons');
     }
 
     private function assertVenue(string $venueId): void

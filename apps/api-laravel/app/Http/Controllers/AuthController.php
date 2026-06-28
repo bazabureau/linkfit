@@ -165,17 +165,26 @@ class AuthController extends Controller
             $deleted = User::whereNotNull('deleted_at')->where('email', $email)->first();
             if ($deleted !== null && $deleted->password_hash !== null
                 && $this->passwords->verify($data['password'], $deleted->password_hash)) {
-                $deleted->deleted_at = null;
-                $deleted->save();
-                DB::table('account_deletion_requests')
-                    ->where('user_id', $deleted->id)
-                    ->where('status', 'scheduled')
-                    ->update(['status' => 'cancelled', 'cancelled_at' => now()]);
+                // Correct credentials for a disabled account. ONLY auto-restore
+                // when the USER themselves scheduled the deletion and the grace
+                // window is still open. An admin removal (suspend/ban — deleted_at
+                // with no scheduled self-deletion) is a DURABLE disable the user
+                // must not be able to undo just by signing back in.
+                if ($this->hasOpenSelfDeletion((string) $deleted->id)) {
+                    $deleted->deleted_at = null;
+                    $deleted->save();
+                    DB::table('account_deletion_requests')
+                        ->where('user_id', $deleted->id)
+                        ->where('status', 'scheduled')
+                        ->update(['status' => 'cancelled', 'cancelled_at' => now()]);
 
-                return $this->respondSession(
-                    $this->tokens->issueSession($deleted, $request->userAgent()),
-                    200,
-                );
+                    return $this->respondSession(
+                        $this->tokens->issueSession($deleted, $request->userAgent()),
+                        200,
+                    );
+                }
+
+                throw ApiException::forbidden('This account has been disabled');
             }
         }
 
@@ -238,6 +247,22 @@ class AuthController extends Controller
         // only carried a Bearer token). Expired Set-Cookie with the SAME
         // domain/path is what removes them from the browser.
         return $this->forgetSessionCookies(response()->json(null, 204));
+    }
+
+    /**
+     * True when the user has an OPEN, USER-INITIATED deletion request still
+     * inside its grace window (status='scheduled' AND hard_delete_at in the
+     * future). Only such a self-deletion may be auto-reversed by signing back
+     * in — an admin removal sets deleted_at with NO scheduled request and is a
+     * durable disable.
+     */
+    private function hasOpenSelfDeletion(string $userId): bool
+    {
+        return DB::table('account_deletion_requests')
+            ->where('user_id', $userId)
+            ->where('status', 'scheduled')
+            ->where('hard_delete_at', '>', now())
+            ->exists();
     }
 
     /** Read the refresh token from the httpOnly lf_refresh cookie (web clients). */

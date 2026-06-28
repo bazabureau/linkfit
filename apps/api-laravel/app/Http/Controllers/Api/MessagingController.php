@@ -249,12 +249,23 @@ class MessagingController extends ApiController
                 // Without it the inbox preview can disagree with the open thread.
                 ->orderByDesc('id')
                 ->distinct('conversation_id')
-                ->get(['conversation_id', 'sender_user_id', 'body', 'attachment_url', 'attachment_type', 'created_at'])
+                ->get(['id', 'conversation_id', 'sender_user_id', 'body', 'attachment_url', 'attachment_type', 'created_at'])
                 ->keyBy('conversation_id');
 
+        // Apple Guideline 1.2: redact a last-message preview an active moderation
+        // hide covers (mirrors thread()'s per-message redaction) so a removed
+        // message body/attachment never leaks through the inbox list. Scoped to
+        // the listed previews' ids so it's a single cheap lookup; a no-op when
+        // the moderation_hides table is absent.
+        $hiddenLastMessageIds = array_flip($this->activeHiddenTargetIds(
+            'message',
+            $lastMessages->pluck('id')->map(fn ($i) => (string) $i)->all(),
+        ));
+
         return response()->json([
-            'items' => $pageRows->map(function ($r) use ($lastMessages, $user) {
+            'items' => $pageRows->map(function ($r) use ($lastMessages, $user, $hiddenLastMessageIds) {
                 $last = $lastMessages->get($r->id);
+                $lastHidden = $last !== null && isset($hiddenLastMessageIds[(string) $last->id]);
                 // A group thread has no single counterpart; surface the group title
                 // (and placeholder other_* fields the client ignores for groups)
                 // derived from the conversations row rather than a member join.
@@ -268,9 +279,9 @@ class MessagingController extends ApiController
                     'other_photo_url' => $isGroup ? null : $r->other_photo_url,
                     'other_last_seen_at' => $isGroup ? null : $this->iso($r->other_last_seen_at),
                     'other_is_online' => $isGroup ? false : $this->isOnline($r->other_last_seen_at),
-                    'last_message_body' => $last->body ?? null,
-                    'last_message_attachment_url' => $last->attachment_url ?? null,
-                    'last_message_attachment_type' => $last->attachment_type ?? null,
+                    'last_message_body' => $lastHidden ? '[This message was removed by moderation]' : ($last->body ?? null),
+                    'last_message_attachment_url' => $lastHidden ? null : ($last->attachment_url ?? null),
+                    'last_message_attachment_type' => $lastHidden ? null : ($last->attachment_type ?? null),
                     'last_message_at' => $this->iso($r->last_message_at),
                     'last_message_sender_id' => $last->sender_user_id ?? null,
                     'last_message_mine' => $last !== null

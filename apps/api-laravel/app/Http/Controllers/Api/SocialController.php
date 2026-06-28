@@ -213,14 +213,22 @@ class SocialController extends ApiController
             throw ApiException::notFound('User not found');
         }
 
-        // Both follow counts in a single round-trip (two COUNT subqueries)
-        // instead of two separate queries.
-        $counts = DB::query()
-            ->selectSub(DB::table('follows')->selectRaw('count(*)')->where('followed_user_id', $id), 'followers_count')
-            ->selectSub(DB::table('follows')->selectRaw('count(*)')->where('follower_user_id', $id), 'following_count')
-            ->first();
-        $followersCount = (int) ($counts->followers_count ?? 0);
-        $followingCount = (int) ($counts->following_count ?? 0);
+        // Counts must MATCH the followers()/following() lists, which join users
+        // and exclude soft-deleted accounts plus anyone in a block relationship
+        // with the viewer (either direction). Applying the same filters here keeps
+        // the header count from disagreeing with the rendered list.
+        $followersCount = (int) DB::table('follows as f')
+            ->join('users as u', 'u.id', '=', 'f.follower_user_id')
+            ->where('f.followed_user_id', $id)
+            ->whereNull('u.deleted_at')
+            ->when($viewerId !== null, fn ($q) => $this->whereNotBlocked($q, $viewerId, 'u.id'))
+            ->count();
+        $followingCount = (int) DB::table('follows as f')
+            ->join('users as u', 'u.id', '=', 'f.followed_user_id')
+            ->where('f.follower_user_id', $id)
+            ->whereNull('u.deleted_at')
+            ->when($viewerId !== null, fn ($q) => $this->whereNotBlocked($q, $viewerId, 'u.id'))
+            ->count();
         $isFollowedByMe = $viewerId !== null && (string) $viewerId !== (string) $id
             && DB::table('follows')
                 ->where('follower_user_id', $viewerId)

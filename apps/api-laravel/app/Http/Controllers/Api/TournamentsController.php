@@ -174,11 +174,20 @@ class TournamentsController extends ApiController
                     throw ApiException::conflict('Waiver must be signed before entering');
                 }
             }
-            $playerIds = $this->validatedPlayerIds($data['player_ids'] ?? [], $user->id, (int) $tournament->squad_size);
             $existing = DB::table('tournament_entries')
                 ->where('tournament_id', $id)
                 ->where('captain_user_id', $user->id)
                 ->first(['id', 'status']);
+            // Pass the tournament + the captain's own entry so cross-squad
+            // uniqueness can exclude the entry being updated (re-submitting an
+            // unchanged roster is not a self-conflict).
+            $playerIds = $this->validatedPlayerIds(
+                $data['player_ids'] ?? [],
+                $user->id,
+                (int) $tournament->squad_size,
+                $id,
+                $existing->id ?? null,
+            );
 
             if (
                 DB::table('tournament_entries')
@@ -361,7 +370,7 @@ class TournamentsController extends ApiController
         }
     }
 
-    private function validatedPlayerIds(array $playerIds, string $captainUserId, int $squadSize): array
+    private function validatedPlayerIds(array $playerIds, string $captainUserId, int $squadSize, string $tournamentId, ?string $excludeEntryId = null): array
     {
         $playerIds = array_values(array_unique(array_filter($playerIds, fn ($uid) => is_string($uid) && $uid !== '')));
         $maxPlayers = max($squadSize - 1, 0);
@@ -380,6 +389,29 @@ class TournamentsController extends ApiController
                 ->count();
             if ($existingUsers !== count($playerIds)) {
                 throw ApiException::validation('One or more players do not exist');
+            }
+
+            // No player may be rostered in two squads of the SAME tournament.
+            // Collect every user already committed to another active (non-
+            // withdrawn) entry — as captain OR listed player — and reject any
+            // overlap. The captain's own entry is excluded so updating an
+            // existing squad doesn't conflict with itself.
+            $taken = [];
+            $otherEntries = DB::table('tournament_entries')
+                ->where('tournament_id', $tournamentId)
+                ->where('status', '!=', 'withdrawn')
+                ->when($excludeEntryId !== null, fn ($q) => $q->where('id', '!=', $excludeEntryId))
+                ->get(['captain_user_id', 'player_ids']);
+            foreach ($otherEntries as $entry) {
+                $taken[(string) $entry->captain_user_id] = true;
+                foreach ($this->parseUuidArray($entry->player_ids ?? null) as $pid) {
+                    $taken[$pid] = true;
+                }
+            }
+            foreach ($playerIds as $pid) {
+                if (isset($taken[$pid])) {
+                    throw ApiException::validation('A player is already registered in another squad of this tournament');
+                }
             }
         }
 
