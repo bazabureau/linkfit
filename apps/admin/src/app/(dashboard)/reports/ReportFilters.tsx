@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { Search, SlidersHorizontal, Timer, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n";
@@ -98,25 +98,33 @@ export function ReportFilters({
   reason,
   targetKind,
   q,
+  overdueOnly,
   onStatusChange,
   onReasonChange,
   onTargetKindChange,
   onQueryChange,
+  onOverdueChange,
   onReset,
 }: {
   status: StatusFilter;
   reason: ReasonFilter;
   targetKind: TargetFilter;
   q: string;
+  overdueOnly: boolean;
   onStatusChange: (status: StatusFilter) => void;
   onReasonChange: (reason: ReasonFilter) => void;
   onTargetKindChange: (targetKind: TargetFilter) => void;
   onQueryChange: (q: string) => void;
+  onOverdueChange: (overdueOnly: boolean) => void;
   onReset: () => void;
 }): React.JSX.Element {
   const { t } = useI18n();
   const hasFilters =
-    q !== "" || status !== "pending" || reason !== "all" || targetKind !== "all";
+    q !== "" ||
+    status !== "pending" ||
+    reason !== "all" ||
+    targetKind !== "all" ||
+    overdueOnly;
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-3 shadow-card sm:p-4">
@@ -156,6 +164,14 @@ export function ReportFilters({
             {t(item.label)}
           </FilterChip>
         ))}
+        <span className="mx-0.5 hidden h-5 w-px bg-border sm:inline-block" />
+        <FilterChip
+          active={overdueOnly}
+          onClick={() => onOverdueChange(!overdueOnly)}
+        >
+          <Timer className="mr-1 h-3.5 w-3.5" />
+          {t("Gecikənlər (24s+)")}
+        </FilterChip>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <FilterSelect
             label={t("Səbəb")}

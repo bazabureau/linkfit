@@ -7,12 +7,15 @@ import {
   CalendarClock,
   CheckCircle2,
   ExternalLink,
+  Eye,
+  EyeOff,
   Hash,
   History,
   Layers,
   Loader2,
   ShieldAlert,
   ShieldOff,
+  ShieldX,
   StickyNote,
   User,
   UserX,
@@ -34,6 +37,7 @@ import { formatDateTime } from "@/lib/date-format";
 import { useI18n } from "@/lib/i18n";
 import {
   useDeactivateUser,
+  useModerateReport,
   useModerationUser,
   useReportDetail,
   useReviewReport,
@@ -41,9 +45,12 @@ import {
   type ReportTargetUserRef,
 } from "@/lib/admin-reports";
 import {
+  HiddenBadge,
+  OverdueBadge,
   REPORT_STATUS_AZ,
   TargetIcon,
   formatRelative,
+  isReportOverdue,
   reasonLabel,
   reporterLabel,
   statusDotClass,
@@ -162,9 +169,13 @@ export function ReportDrawer({
   const toast = useToast();
   const review = useReviewReport();
   const deactivate = useDeactivateUser();
+  const moderate = useModerateReport();
   const [notes, setNotes] = React.useState("");
   const [shown, setShown] = React.useState(false);
   const [confirmDeactivate, setConfirmDeactivate] = React.useState(false);
+  const [takedown, setTakedown] = React.useState<
+    null | "hide" | "hide_suspend" | "restore"
+  >(null);
 
   // Full detail (target preview + same-target context + audit) for the open row.
   const detailQuery = useReportDetail(open ? (report?.id ?? null) : null);
@@ -209,6 +220,11 @@ export function ReportDrawer({
   const recent = detail?.recent_same_target_reports ?? [];
   const audit = detail?.audit ?? [];
 
+  // Takedown state: prefer the freshest detail value, fall back to the row, and
+  // tolerate older responses that omit `target_hidden` entirely (→ not hidden).
+  const targetHidden = (detail?.target_hidden ?? report.target_hidden) === true;
+  const overdue = isReportOverdue(report);
+
   // Already-deactivated state comes from either the moderation profile or the
   // resolved user target blob.
   const deactivated = Boolean(
@@ -242,6 +258,39 @@ export function ReportDrawer({
     } catch (error) {
       toast.error(
         t("İstifadəçi deaktiv edilmədi"),
+        error instanceof Error ? error.message : t("Yenidən yoxlayın"),
+      );
+    }
+  };
+
+  // One-click takedown / restore (Apple Guideline 1.2). All variants resolve the
+  // report (`action: 'review'`) and carry the additive hide flags; the mutation
+  // invalidates the reports query so the list + this drawer refetch on success.
+  const runTakedown = async () => {
+    if (!takedown) return;
+    try {
+      await moderate.mutateAsync({
+        id: report.id,
+        action: "review",
+        notes: notes || undefined,
+        ...(takedown === "restore"
+          ? { clear_hide: true }
+          : { hide_target: true }),
+        ...(takedown === "hide_suspend" ? { suspend_user: true } : {}),
+      });
+      toast.success(
+        takedown === "restore"
+          ? t("Məzmun bərpa edildi")
+          : takedown === "hide_suspend"
+            ? t("Məzmun silindi və istifadəçi dayandırıldı")
+            : t("Məzmun silindi"),
+        report.reason || undefined,
+      );
+      setTakedown(null);
+      onClose();
+    } catch (error) {
+      toast.error(
+        t("Əməliyyat alınmadı"),
         error instanceof Error ? error.message : t("Yenidən yoxlayın"),
       );
     }
@@ -290,6 +339,8 @@ export function ReportDrawer({
                     {samePending} {t("açıq şikayət")}
                   </span>
                 ) : null}
+                {overdue ? <OverdueBadge /> : null}
+                {targetHidden ? <HiddenBadge /> : null}
                 <span className="text-[11px] text-muted">{formatRelative(report.created_at)}</span>
               </div>
             </div>
@@ -450,6 +501,57 @@ export function ReportDrawer({
               </div>
             </div>
           ) : null}
+
+          {/* Content takedown (Apple Guideline 1.2) */}
+          <div className="my-3 rounded-2xl border border-border bg-surface p-4 shadow-card">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[11px] font-semibold   text-foregroundMuted">
+                {t("Məzmun moderasiyası")}
+              </div>
+              {targetHidden ? <HiddenBadge /> : null}
+            </div>
+            <p className="mt-1.5 text-xs text-foregroundMuted">
+              {targetHidden
+                ? t("Bu məzmun hazırda gizlədilib. Lazım olarsa bərpa edin.")
+                : t("Şikayət olunan məzmunu dərhal gizlət (Apple 1.2).")}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {targetHidden ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setTakedown("restore")}
+                  disabled={moderate.isPending}
+                >
+                  <Eye className="h-4 w-4" />
+                  {t("Məzmunu bərpa et")}
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => setTakedown("hide")}
+                    disabled={moderate.isPending}
+                  >
+                    <EyeOff className="h-4 w-4" />
+                    {t("Məzmunu sil")}
+                  </Button>
+                  {isUserTarget ? (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => setTakedown("hide_suspend")}
+                      disabled={moderate.isPending}
+                    >
+                      <ShieldX className="h-4 w-4" />
+                      {t("Sil + istifadəçini dayandır")}
+                    </Button>
+                  ) : null}
+                </>
+              )}
+            </div>
+          </div>
 
           {/* Recent same-target reports */}
           {recent.length > 1 ? (
@@ -619,6 +721,77 @@ export function ReportDrawer({
                 <UserX className="h-4 w-4" />
               )}
               {t("Deaktiv et")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Takedown / restore confirm */}
+      <Dialog
+        open={takedown !== null}
+        onOpenChange={(value) => (value ? null : setTakedown(null))}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {takedown === "restore"
+                ? t("Məzmunu bərpa et?")
+                : takedown === "hide_suspend"
+                  ? t("Məzmunu sil və istifadəçini dayandır?")
+                  : t("Məzmunu sil?")}
+            </DialogTitle>
+            <DialogDescription>
+              {takedown === "restore"
+                ? t(
+                    "Məzmun yenidən görünən olacaq və şikayət baxılıb kimi qeyd ediləcək.",
+                  )
+                : takedown === "hide_suspend"
+                  ? t(
+                      "Məzmun gizlədiləcək, istifadəçi dayandırılacaq və şikayət baxılıb kimi qeyd ediləcək.",
+                    )
+                  : t(
+                      "Məzmun istifadəçilərdən gizlədiləcək və şikayət baxılıb kimi qeyd ediləcək.",
+                    )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-surfaceElevated px-3 py-2.5">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-danger/10 text-danger">
+              {takedown === "restore" ? (
+                <Eye className="h-4 w-4" />
+              ) : (
+                <EyeOff className="h-4 w-4" />
+              )}
+            </span>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-foreground">
+                {t(targetLabel(report.target_kind))}
+              </div>
+              <div className="truncate font-mono text-[11px] text-foregroundMuted">
+                {report.target_id}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => setTakedown(null)}
+              disabled={moderate.isPending}
+            >
+              {t("Ləğv et")}
+            </Button>
+            <Button
+              variant={takedown === "restore" ? "primary" : "danger"}
+              onClick={() => void runTakedown()}
+              disabled={moderate.isPending}
+            >
+              {moderate.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : takedown === "restore" ? (
+                <Eye className="h-4 w-4" />
+              ) : (
+                <EyeOff className="h-4 w-4" />
+              )}
+              {takedown === "restore" ? t("Bərpa et") : t("Sil")}
             </Button>
           </DialogFooter>
         </DialogContent>

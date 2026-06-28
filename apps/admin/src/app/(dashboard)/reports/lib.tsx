@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import {
+  EyeOff,
   FileText,
   Gamepad2,
   Image as ImageIcon,
@@ -9,9 +10,11 @@ import {
   MessageSquare,
   Newspaper,
   Star,
+  Timer,
   User,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { useI18n } from "@/lib/i18n";
 import type { AdminReport, ReportStatus, ReportTargetKind } from "@/lib/admin-reports";
 
 export const PAGE_SIZE = 25;
@@ -180,4 +183,65 @@ export function formatRelative(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+// ─── SLA / takedown (Apple Guideline 1.2) ──────────────────────────────────────
+
+/** Moderation SLA window: a pending report older than this is "overdue". */
+export const SLA_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+
+/** Age of a report in ms; `0` for an unparseable timestamp. */
+export function reportAgeMs(iso: string): number {
+  const ms = new Date(iso).getTime();
+  return Number.isNaN(ms) ? 0 : Math.max(0, Date.now() - ms);
+}
+
+/** A report breaches the 24h SLA when it is still pending and >24h old. */
+export function isReportOverdue(
+  report: Pick<AdminReport, "status" | "created_at">,
+): boolean {
+  return (
+    report.status === "pending" && reportAgeMs(report.created_at) > SLA_THRESHOLD_MS
+  );
+}
+
+/** Whether the reported content is currently taken down / hidden. */
+export function isTargetHidden(report: Pick<AdminReport, "target_hidden">): boolean {
+  return report.target_hidden === true;
+}
+
+/** Red SLA-breach badge shown on overdue pending reports (>24h). */
+export function OverdueBadge({
+  className = "",
+}: {
+  className?: string;
+}): React.JSX.Element {
+  const { t } = useI18n();
+  return (
+    <span
+      title={t("24 saatdan çox gözləyir")}
+      className={`inline-flex items-center gap-1 rounded-full bg-danger/10 px-2 py-0.5 text-[10px] font-semibold text-danger ring-1 ring-inset ring-danger/30 ${className}`}
+    >
+      <Timer className="h-3 w-3" />
+      {t("Gecikib")} · 24s+
+    </span>
+  );
+}
+
+/** Neutral badge marking content that is currently hidden (taken down). */
+export function HiddenBadge({
+  className = "",
+}: {
+  className?: string;
+}): React.JSX.Element {
+  const { t } = useI18n();
+  return (
+    <span
+      title={t("Məzmun gizlədilib")}
+      className={`inline-flex items-center gap-1 rounded-full bg-surfaceElevated px-2 py-0.5 text-[10px] font-semibold text-foregroundMuted ring-1 ring-inset ring-border ${className}`}
+    >
+      <EyeOff className="h-3 w-3" />
+      {t("Gizlədilib")}
+    </span>
+  );
 }

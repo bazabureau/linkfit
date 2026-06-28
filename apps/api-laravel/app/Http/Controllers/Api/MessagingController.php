@@ -8,6 +8,7 @@ use App\Events\MessageSent;
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
 use App\Http\Controllers\Api\Concerns\HandlesIdempotentRequests;
+use App\Http\Controllers\Api\Concerns\HidesModeratedContent;
 use App\Http\Controllers\Api\Concerns\ResolvesDirectConversations;
 use App\Http\Controllers\Api\Concerns\ValidatesMediaUrls;
 use App\Support\ApiException;
@@ -23,6 +24,7 @@ class MessagingController extends ApiController
     use AuthorizesAdminPermissions;
     use FiltersBlockedUsers;
     use HandlesIdempotentRequests;
+    use HidesModeratedContent;
     use ResolvesDirectConversations;
     use ValidatesMediaUrls;
 
@@ -474,10 +476,25 @@ class MessagingController extends ApiController
         // Null when no older history remains. Purely additive — old clients ignore it.
         $nextCursor = $hasOlder ? $this->encodeCursor($windowRows->last(), 'created_at') : null;
 
+        // Apple Guideline 1.2: redact (don't drop — pagination/cursor must stay
+        // stable) any message an active moderation hide covers. Scoped to the
+        // current window's ids so it's a single cheap lookup.
+        $windowMessageIds = $windowRows->pluck('id')->map(fn ($i) => (string) $i)->all();
+        $hiddenMessageIds = array_flip($this->activeHiddenTargetIds('message', $windowMessageIds));
         $messages = $windowRows
             ->sortBy('created_at')
             ->values()
-            ->map(fn ($m) => $this->messagePayload($m));
+            ->map(function ($m) use ($hiddenMessageIds) {
+                $payload = $this->messagePayload($m);
+                if (isset($hiddenMessageIds[(string) $m->id])) {
+                    $payload['body'] = '[This message was removed by moderation]';
+                    $payload['attachment_url'] = null;
+                    $payload['attachment_type'] = null;
+                    $payload['moderated'] = true;
+                }
+
+                return $payload;
+            });
 
         // Group threads have no single "other" participant — a brand-new game
         // chat can even have just the host in it. The 1:1 lookup below would

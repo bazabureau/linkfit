@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
+use App\Http\Controllers\Api\Concerns\HidesModeratedContent;
 use App\Services\Feed\FeedService;
 use App\Services\Notifications\PushDispatcher;
 use App\Support\ApiException;
@@ -17,6 +18,7 @@ class FeedController extends ApiController
 {
     use AuthorizesAdminPermissions;
     use FiltersBlockedUsers;
+    use HidesModeratedContent;
 
     public function __construct(private readonly FeedService $feed) {}
 
@@ -42,12 +44,15 @@ class FeedController extends ApiController
             ->selectRaw('event_id, count(*) as comment_count')
             ->groupBy('event_id');
         $likedByMeId = $viewerId ?? '00000000-0000-0000-0000-000000000000';
+        // Apple Guideline 1.2: drop feed events an active moderation hide covers.
+        $hiddenEventIds = $this->activeHiddenTargetIds('feed_event');
 
         $rows = DB::table('feed_events as f')
             ->join('users as u', 'u.id', '=', 'f.actor_user_id')
             ->leftJoinSub($likeAgg, 'lc', 'lc.feed_event_id', '=', 'f.id')
             ->leftJoinSub($commentAgg, 'cc', 'cc.event_id', '=', 'f.id')
             ->whereNull('u.deleted_at')
+            ->when($hiddenEventIds !== [], fn ($q) => $q->whereNotIn('f.id', $hiddenEventIds))
             ->where(function ($q) use ($viewerId) {
                 $q->where('f.visibility', 'public');
                 if ($viewerId !== null) {
@@ -189,9 +194,12 @@ class FeedController extends ApiController
         // so callers could never page past the first screen. Consume it here via
         // the same (created_at, id) keyset used by index() / decodeCursor().
         $cursor = $this->decodeCursor((string) $request->query('cursor', ''));
+        // Apple Guideline 1.2: drop comments an active moderation hide covers.
+        $hiddenCommentIds = $this->activeHiddenTargetIds('feed_comment');
         $rows = DB::table('feed_comments as c')
             ->join('users as u', 'u.id', '=', 'c.user_id')
             ->where('c.event_id', $eventId)
+            ->when($hiddenCommentIds !== [], fn ($q) => $q->whereNotIn('c.id', $hiddenCommentIds))
             ->when($viewerId !== null, fn ($q) => $this->whereNotBlocked($q, $viewerId, 'c.user_id'))
             ->when($cursor !== null, fn ($q) => $q->where(function ($w) use ($cursor) {
                 $w->where('c.created_at', '<', $cursor['ts'])

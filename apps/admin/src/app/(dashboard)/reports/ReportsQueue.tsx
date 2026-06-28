@@ -25,7 +25,7 @@ import {
 import { ReportsTable } from "./ReportsTable";
 import { ReportDrawer } from "./ReportDrawer";
 import { StatCards, type ReportStats } from "./StatCards";
-import { REPORT_STATUS_AZ, PAGE_SIZE, shortId } from "./lib";
+import { REPORT_STATUS_AZ, PAGE_SIZE, isReportOverdue, shortId } from "./lib";
 
 function useDebouncedValue<T>(value: T, ms = 250): T {
   const [debounced, setDebounced] = React.useState(value);
@@ -44,6 +44,7 @@ export function ReportsQueue(): React.JSX.Element {
   const [reason, setReason] = React.useState<ReasonFilter>("all");
   const [targetKind, setTargetKind] = React.useState<TargetFilter>("all");
   const [q, setQ] = React.useState("");
+  const [overdueOnly, setOverdueOnly] = React.useState(false);
   const debouncedQuery = useDebouncedValue(q);
   const [page, setPage] = React.useState(0);
   const [drawer, setDrawer] = React.useState<AdminReport | null>(null);
@@ -72,7 +73,13 @@ export function ReportsQueue(): React.JSX.Element {
   // The backend applies status / reason / target_kind / q server-side, so the
   // page already holds exactly the rows we render.
   const allItems = React.useMemo(() => data?.items ?? [], [data]);
-  const items = allItems;
+  // "Overdue (pending >24h)" is a client-side narrowing of the already-fetched
+  // page — the list API has no age query param. It therefore filters within the
+  // current page only (pagination is hidden while it is active).
+  const items = React.useMemo(
+    () => (overdueOnly ? allItems.filter(isReportOverdue) : allItems),
+    [allItems, overdueOnly],
+  );
   const total = data?.total ?? 0;
 
   // Stat cards summarise the current filtered page.
@@ -125,8 +132,9 @@ export function ReportsQueue(): React.JSX.Element {
     }
   }
 
-  const emptyHint =
-    status === "all"
+  const emptyHint = overdueOnly
+    ? t("24 saatdan çox gözləyən şikayət yoxdur.")
+    : status === "all"
       ? t("Filterləri dəyişərək yenidən yoxlayın.")
       : `${t("Bu statusda şikayət yoxdur")}: ${t(REPORT_STATUS_AZ[status])}`;
 
@@ -141,15 +149,18 @@ export function ReportsQueue(): React.JSX.Element {
         reason={reason}
         targetKind={targetKind}
         q={q}
+        overdueOnly={overdueOnly}
         onStatusChange={setStatus}
         onReasonChange={setReason}
         onTargetKindChange={setTargetKind}
         onQueryChange={setQ}
+        onOverdueChange={setOverdueOnly}
         onReset={() => {
           setStatus("pending");
           setReason("all");
           setTargetKind("all");
           setQ("");
+          setOverdueOnly(false);
         }}
       />
 
@@ -174,7 +185,11 @@ export function ReportsQueue(): React.JSX.Element {
               {t("Moderasiya növbəsi")}
             </h2>
             <p className="text-xs text-foregroundMuted">
-              {total === 0 ? `0 ${t("göstərilir")}` : `${rangeStart}–${rangeEnd} / ${total}`}
+              {overdueOnly
+                ? `${items.length} ${t("gecikən şikayət")}`
+                : total === 0
+                  ? `0 ${t("göstərilir")}`
+                  : `${rangeStart}–${rangeEnd} / ${total}`}
             </p>
           </div>
           {isFetching ? (
@@ -195,7 +210,7 @@ export function ReportsQueue(): React.JSX.Element {
           }}
         />
 
-        {total > PAGE_SIZE ? (
+        {total > PAGE_SIZE && !overdueOnly ? (
           <div className="flex flex-col items-center justify-between gap-3 border-t border-border px-5 py-3 sm:flex-row">
             <p className="text-sm text-foregroundMuted">
               {t("Səhifə")}{" "}

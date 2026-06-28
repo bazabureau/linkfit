@@ -5,9 +5,13 @@ import { CheckCircle2, ShieldAlert, ShieldCheck, XCircle } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import type { AdminReport } from "@/lib/admin-reports";
 import {
+  HiddenBadge,
+  OverdueBadge,
   REPORT_STATUS_AZ,
   TargetIcon,
   formatRelative,
+  isReportOverdue,
+  isTargetHidden,
   reasonLabel,
   reporterLabel,
   shortId,
@@ -172,14 +176,20 @@ export function ReportsTable({
 
                   {/* Status */}
                   <td className="px-4 py-3 align-middle">
-                    <StatusPill report={report} />
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <StatusPill report={report} />
+                      {isTargetHidden(report) ? <HiddenBadge /> : null}
+                    </div>
                   </td>
 
                   {/* Created */}
                   <td className="px-4 py-3 align-middle">
-                    <span className="whitespace-nowrap text-xs text-foregroundMuted">
-                      {formatRelative(report.created_at)}
-                    </span>
+                    <div className="flex flex-col items-start gap-1">
+                      <span className="whitespace-nowrap text-xs text-foregroundMuted">
+                        {formatRelative(report.created_at)}
+                      </span>
+                      {isReportOverdue(report) ? <OverdueBadge /> : null}
+                    </div>
                   </td>
 
                   {/* Quick actions */}

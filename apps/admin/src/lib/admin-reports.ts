@@ -48,6 +48,12 @@ export type AdminReport = {
   status: ReportStatus;
   notes?: string | null;
   created_at: string;
+  /**
+   * Whether the reported content is currently auto/manually hidden (takedown).
+   * Added by the moderation backend; absent on older responses, so treat
+   * `undefined` as "not hidden" rather than crashing.
+   */
+  target_hidden?: boolean;
 };
 
 export type ReportsResponse = {
@@ -109,6 +115,43 @@ export function useReviewReport() {
         status: input.status,
         notes: input.notes,
       }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "reports"] });
+      qc.invalidateQueries({ queryKey: ["admin", "stats"] });
+    },
+  });
+}
+
+/**
+ * Moderation action for a report (Apple Guideline 1.2 takedown).
+ *
+ * `PATCH /api/v1/admin/reports/{id}` with an additive JSON body. This sits
+ * alongside (does not replace) {@link useReviewReport}'s legacy
+ * `POST .../review`: that one still drives the plain review/dismiss triage,
+ * while this one carries the content-takedown flags.
+ *
+ *   { action: 'review' | 'dismiss',
+ *     notes?: string,
+ *     hide_target?: boolean,   // take the reported content down
+ *     clear_hide?: boolean,    // restore previously-hidden content
+ *     suspend_user?: boolean } // only valid when target_kind === 'user'
+ *
+ * The response is the updated report (including the fresh `target_hidden`).
+ */
+export type ModerateReportInput = {
+  id: string;
+  action: "review" | "dismiss";
+  notes?: string;
+  hide_target?: boolean;
+  clear_hide?: boolean;
+  suspend_user?: boolean;
+};
+
+export function useModerateReport() {
+  const qc = useQueryClient();
+  return useMutation<AdminReport, Error, ModerateReportInput>({
+    mutationFn: ({ id, ...body }) =>
+      api.patch<AdminReport>(`/api/v1/admin/reports/${id}`, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "reports"] });
       qc.invalidateQueries({ queryKey: ["admin", "stats"] });

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Events\ConversationUpdated;
 use App\Events\MessageSent;
 use App\Http\Controllers\Api\Concerns\FiltersBlockedUsers;
+use App\Http\Controllers\Api\Concerns\HidesModeratedContent;
 use App\Http\Controllers\Api\Concerns\ResolvesDirectConversations;
 use App\Http\Controllers\Api\Concerns\ValidatesMediaUrls;
 use App\Support\ApiException;
@@ -16,6 +17,7 @@ use Illuminate\Support\Str;
 class StoriesController extends ApiController
 {
     use FiltersBlockedUsers;
+    use HidesModeratedContent;
     use ResolvesDirectConversations;
     use ValidatesMediaUrls;
 
@@ -126,9 +128,12 @@ class StoriesController extends ApiController
     public function feed(Request $request): JsonResponse
     {
         $viewer = $this->authUser($request);
+        // Apple Guideline 1.2: exclude stories an active moderation hide covers.
+        $hiddenStoryIds = $this->activeHiddenTargetIds('story');
         $rows = DB::table('stories as s')
             ->join('users as u', 'u.id', '=', 's.user_id')
             ->where('s.expires_at', '>', now())
+            ->when($hiddenStoryIds !== [], fn ($q) => $q->whereNotIn('s.id', $hiddenStoryIds))
             ->when(true, fn ($q) => $this->whereNotBlocked($q, (string) $viewer->id, 's.user_id'))
             ->orderByDesc('s.created_at')
             ->limit(200)
