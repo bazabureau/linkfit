@@ -130,6 +130,122 @@ Artisan::command('notifications:prune {--days=30} {--limit=1000}', function () {
     $this->line('scrubbed: '.$scrubbed);
 })->purpose('Scrub message_received notification body/payload past the retention window (PII)');
 
+// Phase 2 of GDPR/Apple account deletion: hard-purge accounts whose 30-day
+// cancellation window has elapsed. We ANONYMIZE the users row (irreversible PII
+// erasure) and hard-delete personal/sensitive child data, but keep shared
+// records (games, messages, payments, tournaments) de-identified — this honors
+// erasure without destroying other users' history, and sidesteps the RESTRICT
+// FKs on host/sender/captain columns that would block deleting the users row.
+Artisan::command('ops:purge-deleted-accounts {--limit=100} {--dry-run}', function () {
+    if (! Schema::hasTable('account_deletion_requests') || ! Schema::hasTable('users')) {
+        $this->line('purged: 0');
+
+        return;
+    }
+
+    $limit = max(1, (int) $this->option('limit'));
+    $dryRun = (bool) $this->option('dry-run');
+
+    $due = DB::table('account_deletion_requests')
+        ->where('status', 'scheduled')
+        ->whereNotNull('hard_delete_at')
+        ->where('hard_delete_at', '<=', now())
+        ->orderBy('hard_delete_at')
+        ->limit($limit)
+        ->pluck('user_id');
+
+    if ($due->isEmpty()) {
+        $this->line(($dryRun ? 'would purge: ' : 'purged: ').'0');
+
+        return;
+    }
+
+    // Personal/sensitive tables keyed by a single user column.
+    $singleColumn = [
+        'refresh_tokens' => 'user_id',
+        'device_tokens' => 'user_id',
+        'email_tokens' => 'user_id',
+        'medical_profiles' => 'user_id',
+        'tournament_waivers' => 'user_id',
+        'notification_preferences' => 'user_id',
+        'notifications' => 'user_id',
+        'data_export_requests' => 'user_id',
+        'feed_comments' => 'user_id',
+        'feed_event_reactions' => 'user_id',
+        'player_sport_stats' => 'user_id',
+        'user_achievements' => 'user_id',
+        'memberships' => 'user_id',
+        'user_saved_places' => 'user_id',
+    ];
+    // Tables that reference the user from more than one column.
+    $multiColumn = [
+        'follows' => ['follower_user_id', 'followed_user_id'],
+        'ratings' => ['rater_user_id', 'rated_user_id'],
+        'user_blocks' => ['blocker_user_id', 'blocked_user_id'],
+        'game_invitations' => ['inviter_user_id', 'invitee_user_id'],
+    ];
+
+    $purged = 0;
+    foreach ($due as $userId) {
+        if ($dryRun) {
+            $purged++;
+            continue;
+        }
+
+        DB::transaction(function () use ($userId, $singleColumn, $multiColumn): void {
+            foreach ($singleColumn as $table => $col) {
+                if (Schema::hasTable($table) && Schema::hasColumn($table, $col)) {
+                    DB::table($table)->where($col, $userId)->delete();
+                }
+            }
+            foreach ($multiColumn as $table => $cols) {
+                if (! Schema::hasTable($table)) {
+                    continue;
+                }
+                foreach ($cols as $col) {
+                    if (Schema::hasColumn($table, $col)) {
+                        DB::table($table)->where($col, $userId)->delete();
+                    }
+                }
+            }
+
+            // Anonymize the users row. password_hash is NOT NULL, so scrub it to
+            // an unusable non-null value rather than null; email must stay a
+            // valid, unique address (the format CHECK + UNIQUE still apply).
+            $anon = [
+                'email' => 'deleted-'.$userId.'@deleted.invalid',
+                'password_hash' => 'account-deleted',
+                'display_name' => 'Deleted user',
+                'photo_url' => null,
+                'home_lat' => null,
+                'home_lng' => null,
+                'deleted_at' => now(),
+            ];
+            foreach (['birth_date', 'apple_sub', 'google_sub'] as $c) {
+                if (Schema::hasColumn('users', $c)) {
+                    $anon[$c] = null;
+                }
+            }
+            if (Schema::hasColumn('users', 'photo_urls')) {
+                $anon['photo_urls'] = '{}';
+            }
+            if (Schema::hasColumn('users', 'email_verified_at')) {
+                $anon['email_verified_at'] = null;
+            }
+            DB::table('users')->where('id', $userId)->update($anon);
+
+            DB::table('account_deletion_requests')->where('user_id', $userId)->update([
+                'status' => 'completed',
+                'completed_at' => now(),
+            ]);
+        });
+
+        $purged++;
+    }
+
+    $this->line(($dryRun ? 'would purge: ' : 'purged: ').$purged);
+})->purpose('Hard-purge (anonymize + delete personal data of) accounts past their 30-day deletion grace window');
+
 Schedule::command('push:process --limit=100')
     ->everyMinute()
     ->withoutOverlapping(5);
@@ -153,6 +269,10 @@ Schedule::command('push:prune --days=7 --limit=1000')
 Schedule::command('notifications:prune --days=30 --limit=1000')
     ->dailyAt('03:40')
     ->withoutOverlapping(60);
+
+Schedule::command('ops:purge-deleted-accounts --limit=200')
+    ->dailyAt('03:50')
+    ->withoutOverlapping(120);
 
 Artisan::command('feed:fanout', function () {
     $stats = app(FeedService::class)->fanOut();

@@ -53,10 +53,20 @@ class AuthFlowHardeningTest extends TestCase
             $table->timestamp('updated_at')->nullable();
             $table->timestamp('deleted_at')->nullable();
         });
+
+        Schema::create('account_deletion_requests', function ($table): void {
+            $table->string('user_id')->primary();
+            $table->timestamp('requested_at')->nullable();
+            $table->timestamp('hard_delete_at')->nullable();
+            $table->string('status')->nullable();
+            $table->timestamp('cancelled_at')->nullable();
+            $table->timestamp('completed_at')->nullable();
+        });
     }
 
     protected function tearDown(): void
     {
+        Schema::dropIfExists('account_deletion_requests');
         Schema::dropIfExists('users');
 
         parent::tearDown();
@@ -263,19 +273,58 @@ class AuthFlowHardeningTest extends TestCase
         $this->assertSame('UNAUTHENTICATED', $code);
     }
 
-    public function test_login_rejects_soft_deleted_account(): void
+    public function test_login_restores_soft_deleted_account_within_grace(): void
     {
-        $this->insertUser(['email' => 'gone@example.com', 'username' => 'goneuser', 'deleted_at' => now()]);
+        // A user who deleted their account can sign back in within the 30-day
+        // grace window with the correct password: the account is restored
+        // (deleted_at cleared) and the pending deletion is cancelled.
+        $id = $this->insertUser([
+            'email' => 'gone@example.com',
+            'username' => 'goneuser',
+            'deleted_at' => now(),
+        ]);
+        DB::table('account_deletion_requests')->insert([
+            'user_id' => $id,
+            'requested_at' => now(),
+            'hard_delete_at' => now()->addDays(30),
+            'status' => 'scheduled',
+        ]);
+
+        $response = $this->authController()->login(
+            Request::create('/api/v1/auth/login', 'POST', [
+                'email' => 'gone@example.com',
+                'password' => 'SuperSecret123',
+            ])
+        );
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertNull(DB::table('users')->where('id', $id)->value('deleted_at'));
+        $this->assertSame(
+            'cancelled',
+            DB::table('account_deletion_requests')->where('user_id', $id)->value('status'),
+        );
+    }
+
+    public function test_login_rejects_soft_deleted_account_with_wrong_password(): void
+    {
+        // Restore only happens for the legitimate owner — a wrong password must
+        // NOT reactivate a soft-deleted account.
+        $id = $this->insertUser([
+            'email' => 'gone@example.com',
+            'username' => 'goneuser',
+            'deleted_at' => now(),
+        ]);
 
         [$status, $code] = $this->captureApiException(fn () => $this->authController()->login(
             Request::create('/api/v1/auth/login', 'POST', [
                 'email' => 'gone@example.com',
-                'password' => 'SuperSecret123',
+                'password' => 'WrongPassword999',
             ])
         ));
 
         $this->assertSame(401, $status);
         $this->assertSame('UNAUTHENTICATED', $code);
+        $this->assertNotNull(DB::table('users')->where('id', $id)->value('deleted_at'));
     }
 
     // ── role logins ─────────────────────────────────────────────────

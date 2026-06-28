@@ -343,10 +343,12 @@ class SquadsController extends ApiController
             ->whereNull('g.deleted_at')
             ->whereIn('g.host_user_id', $members)
             // P2#56: the squad games feed surfaces games the squad can actually
-            // see — public ones (and squad-scoped ones once that visibility
-            // exists). A member's private invite-only games stay private and
-            // must not leak into the shared feed.
-            ->whereIn('g.visibility', ['public', 'squad'])
+            // see — public ones. A member's private invite-only games stay
+            // private and must not leak into the shared feed. NB: the
+            // game_visibility enum only has ('public','invite'); binding a
+            // non-existent label ('squad') here makes Postgres raise "invalid
+            // input value for enum" and 500s the whole endpoint.
+            ->where('g.visibility', 'public')
             ->orderByDesc('g.starts_at')
             ->limit(50)
             ->selectRaw("

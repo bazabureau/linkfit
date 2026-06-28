@@ -17,7 +17,8 @@ class DataRightsController extends ApiController
         // Soft-delete the account and revoke sessions atomically with the
         // scheduling row. PII is intentionally NOT anonymized here so the
         // 30-day cancellation window can cleanly restore the account; the
-        // hard purge is a separate scheduled sweep (not yet wired).
+        // hard purge/anonymize runs in the scheduled `ops:purge-deleted-accounts`
+        // sweep (see routes/console.php) once hard_delete_at passes.
         DB::transaction(function () use ($user): void {
             DB::table('account_deletion_requests')->updateOrInsert(
                 ['user_id' => $user->id],

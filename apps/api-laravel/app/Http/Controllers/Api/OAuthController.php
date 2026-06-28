@@ -181,6 +181,31 @@ class OAuthController extends ApiController
             }
 
             if ($existing === null) {
+                // Re-login to an account that was soft-deleted within the
+                // 30-day grace window: RESTORE it instead of inserting a new
+                // row with the same email/sub (which hits the unique constraint
+                // and 500s). Matches the GDPR cancellation window + Apple's
+                // account-deletion expectations. Look up the soft-deleted row by
+                // provider sub, or by a verified email.
+                $deleted = User::where($column, $sub)->whereNotNull('deleted_at')->first();
+                if ($deleted === null && $emailVerified) {
+                    $deleted = User::where('email', $email)->whereNotNull('deleted_at')->first();
+                }
+                if ($deleted !== null) {
+                    $deleted->deleted_at = null;
+                    $deleted->{$column} = $sub;
+                    if ($emailVerified && $deleted->email_verified_at === null) {
+                        $deleted->email_verified_at = now();
+                    }
+                    $deleted->save();
+                    DB::table('account_deletion_requests')
+                        ->where('user_id', $deleted->id)
+                        ->where('status', 'scheduled')
+                        ->update(['status' => 'cancelled', 'cancelled_at' => now()]);
+
+                    return $deleted;
+                }
+
                 $new = new User;
                 $new->email = $email;
                 $new->display_name = $displayName;

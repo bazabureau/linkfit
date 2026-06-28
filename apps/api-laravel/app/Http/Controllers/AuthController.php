@@ -156,6 +156,29 @@ class AuthController extends Controller
         $email = mb_strtolower(trim($data['email']));
         $user = User::whereNull('deleted_at')->where('email', $email)->first();
 
+        // Re-login to an account soft-deleted within the 30-day grace window:
+        // when the password matches, RESTORE it (clear deleted_at + cancel the
+        // pending deletion) and sign in — so a user who deleted their account
+        // can come back, matching the GDPR cancellation window. After the hard
+        // purge the row is gone and this falls through to the normal 401.
+        if ($user === null) {
+            $deleted = User::whereNotNull('deleted_at')->where('email', $email)->first();
+            if ($deleted !== null && $deleted->password_hash !== null
+                && $this->passwords->verify($data['password'], $deleted->password_hash)) {
+                $deleted->deleted_at = null;
+                $deleted->save();
+                DB::table('account_deletion_requests')
+                    ->where('user_id', $deleted->id)
+                    ->where('status', 'scheduled')
+                    ->update(['status' => 'cancelled', 'cancelled_at' => now()]);
+
+                return $this->respondSession(
+                    $this->tokens->issueSession($deleted, $request->userAgent()),
+                    200,
+                );
+            }
+        }
+
         // Constant-ish response: never reveal whether the email exists.
         if ($user === null || $user->password_hash === null
             || ! $this->passwords->verify($data['password'], $user->password_hash)) {
