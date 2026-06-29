@@ -4,6 +4,7 @@ namespace App\Services\Notifications;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Pushok\AuthProvider\Token;
 use Pushok\Client;
 use Pushok\Notification;
@@ -323,6 +324,13 @@ class PushDispatcher
                 $join->on('np.user_id', '=', 'u.id')->whereRaw('CAST(np.type AS text) = ?', [(string) $job->type]);
             })
             ->where('u.id', $job->user_id)
+            // Authoritative push gate: never deliver to an account that can no
+            // longer receive it. enqueueNotification already filters these at
+            // send time, but a user can be suspended/deleted AFTER a job is
+            // queued and before push:process claims it — catch that here too.
+            // Both columns are guarded since minimal fixtures may omit them.
+            ->when(Schema::hasColumn('users', 'deleted_at'), fn ($q) => $q->whereNull('u.deleted_at'))
+            ->when(Schema::hasColumn('users', 'suspended_at'), fn ($q) => $q->whereNull('u.suspended_at'))
             ->first([
                 'u.quiet_hours_start',
                 'u.quiet_hours_end',

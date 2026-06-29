@@ -262,8 +262,34 @@ class MessagingController extends ApiController
             $lastMessages->pluck('id')->map(fn ($i) => (string) $i)->all(),
         ));
 
+        // Per-conversation unread COUNT (the inbox `unread` boolean only says
+        // whether anything is unread). Batched in ONE grouped query over the
+        // page's ids: number of messages from the OTHER side this user hasn't
+        // read past (last_read_at NULL, or message newer than last_read_at).
+        // Joins the viewer's own (active) participant row for last_read_at so
+        // it stays consistent with the `unread` flag below — a thread whose
+        // newest message is the viewer's own reads 0 (their last_read_at is
+        // advanced on send). A no-op (empty) when the page is empty.
+        $unreadCounts = empty($conversationIds)
+            ? collect()
+            : DB::table('messages as m')
+                ->join('conversation_participants as cp', function ($join) use ($user) {
+                    $join->on('cp.conversation_id', '=', 'm.conversation_id')
+                        ->where('cp.user_id', '=', (string) $user->id)
+                        ->whereNull('cp.left_at');
+                })
+                ->whereIn('m.conversation_id', $conversationIds)
+                ->where('m.sender_user_id', '!=', (string) $user->id)
+                ->where(function ($q) {
+                    $q->whereNull('cp.last_read_at')
+                        ->orWhereColumn('m.created_at', '>', 'cp.last_read_at');
+                })
+                ->groupBy('m.conversation_id')
+                ->selectRaw('m.conversation_id as cid, count(*) as cnt')
+                ->pluck('cnt', 'cid');
+
         return response()->json([
-            'items' => $pageRows->map(function ($r) use ($lastMessages, $user, $hiddenLastMessageIds) {
+            'items' => $pageRows->map(function ($r) use ($lastMessages, $user, $hiddenLastMessageIds, $unreadCounts) {
                 $last = $lastMessages->get($r->id);
                 $lastHidden = $last !== null && isset($hiddenLastMessageIds[(string) $last->id]);
                 // A group thread has no single counterpart; surface the group title
@@ -291,6 +317,10 @@ class MessagingController extends ApiController
                     'unread' => $last !== null
                         && (string) $last->sender_user_id !== (string) $user->id
                         && ($r->last_read_at === null || $last->created_at > $r->last_read_at),
+                    // Per-conversation count of unread messages from the other
+                    // side (0 when fully read). Consistent with `unread`: this is
+                    // >= 1 exactly when `unread` is true.
+                    'unread_count' => (int) ($unreadCounts->get($r->id) ?? 0),
                 ];
             })->values(),
             'next_cursor' => $hasMore ? $this->encodeCursor($pageRows->last(), 'last_message_at') : null,
@@ -492,8 +522,13 @@ class MessagingController extends ApiController
         // current window's ids so it's a single cheap lookup.
         $windowMessageIds = $windowRows->pluck('id')->map(fn ($i) => (string) $i)->all();
         $hiddenMessageIds = array_flip($this->activeHiddenTargetIds('message', $windowMessageIds));
+        // Re-sort the (DESC-fetched) window ascending for rendering. Tie-break on
+        // id ASC so same-timestamp messages render in a STABLE order that is the
+        // exact reverse of the keyset's (created_at DESC, id DESC) windowing —
+        // without it, messages sharing one timestamp render reversed within a
+        // page and pages wouldn't concatenate into one consistent ascending run.
         $messages = $windowRows
-            ->sortBy('created_at')
+            ->sortBy([['created_at', 'asc'], ['id', 'asc']])
             ->values()
             ->map(function ($m) use ($hiddenMessageIds) {
                 $payload = $this->messagePayload($m);
@@ -838,11 +873,31 @@ class MessagingController extends ApiController
         // threads notify all of them; a direct thread has exactly one). Wrapped so
         // an enqueue failure can NEVER fail message delivery.
         try {
-            $recipients = DB::table('conversation_participants')
-                ->where('conversation_id', $id)
-                ->where('user_id', '!=', $user->id)
-                ->whereNull('left_at')
-                ->pluck('user_id');
+            $recipients = DB::table('conversation_participants as cp')
+                ->join('users as u', 'u.id', '=', 'cp.user_id')
+                ->where('cp.conversation_id', $id)
+                ->where('cp.user_id', '!=', $user->id)
+                ->whereNull('cp.left_at')
+                // Never queue a notification/push for an account that can no
+                // longer receive it: a soft-deleted (deleted_at) recipient has
+                // no session, and a suspended (suspended_at) one is barred — both
+                // would otherwise accrue dead notification rows + push jobs.
+                // suspended_at is guarded since older fixtures omit the column.
+                ->whereNull('u.deleted_at')
+                ->when(Schema::hasColumn('users', 'suspended_at'), fn ($q) => $q->whereNull('u.suspended_at'))
+                ->pluck('cp.user_id');
+            // The notification title is the SENDER's name (the in-app inbox and
+            // the APNs/FCM alert both render `title`); the body is a moderation-
+            // safe preview — an attachment shows a type label, never its URL.
+            $sender = DB::table('users')->where('id', $user->id)->first(['display_name', 'photo_url']);
+            $senderName = (string) (($sender->display_name ?? '') !== '' ? $sender->display_name : 'New message');
+            $preview = $this->messageNotificationPreview($body, $data['attachment_type'] ?? null);
+            $payloadExtra = ['conversation_id' => $id, 'sender_user_id' => $user->id];
+            if (($sender->photo_url ?? null) !== null) {
+                // Lets the client render the sender's avatar on the notification
+                // tile (the notifications inbox reads `sender_photo_url`).
+                $payloadExtra['sender_photo_url'] = $sender->photo_url;
+            }
             // In a 1:1 thread, re-check the block at enqueue time: sendMessage()
             // already validated it, but a block created in that narrow window must
             // not surface a notification for a thread the recipient can no longer
@@ -860,9 +915,9 @@ class MessagingController extends ApiController
                     $this->enqueueNotification(
                         (string) $recipientId,
                         'message_received',
-                        'New message',
-                        $body !== '' ? $body : 'Sent an attachment',
-                        ['conversation_id' => $id, 'sender_user_id' => $user->id],
+                        $senderName,
+                        $preview,
+                        $payloadExtra,
                     );
                 } catch (\Throwable $e) {
                     report($e);
@@ -1017,6 +1072,25 @@ class MessagingController extends ApiController
             'attachment_type' => $m->attachment_type ?? null,
             'created_at' => $this->iso($m->created_at),
         ];
+    }
+
+    /**
+     * Moderation-safe push/notification body. A text message previews its body;
+     * an attachment-only message shows a generic type label so the alert never
+     * carries the raw (off-domain) attachment URL.
+     */
+    private function messageNotificationPreview(string $body, ?string $attachmentType): string
+    {
+        if ($body !== '') {
+            return $body;
+        }
+
+        return match ($attachmentType) {
+            'image' => 'Sent a photo',
+            'voice', 'audio' => 'Sent a voice message',
+            'video' => 'Sent a video',
+            default => 'Sent an attachment',
+        };
     }
 
     private function groupConversationForParticipant(string $id, string $userId): object
