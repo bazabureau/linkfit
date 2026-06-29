@@ -66,6 +66,51 @@ class TransactionalMailService
         $this->send($email, $c['subject'], $this->layout($c['headline'], $c['body']));
     }
 
+    /**
+     * One-off launch announcement to launch-waitlist leads: the app is now LIVE
+     * on the App Store. Localized (az/en/ru), with an App Store CTA and an
+     * explicit ask to send feedback to info@linkfit.az. Dispatched by the
+     * `waitlist:announce-launch` console command (best-effort; see send()).
+     */
+    public function launchAnnouncement(string $email, string $name, string $locale = 'az'): void
+    {
+        $first = $this->e(trim(explode(' ', trim($name))[0]) ?: ($locale === 'ru' ? 'друг' : ($locale === 'en' ? 'there' : 'dostum')));
+        $appStore = 'https://apps.apple.com/az/app/id6770729499';
+
+        $copy = [
+            'az' => [
+                'subject' => 'LinkFit artıq App Store-da 🎾 — ilk sən yüklə!',
+                'headline' => 'LinkFit App Store-da yayımdadır, '.$first.'! 🎾',
+                'body' => '<p>Salam, '.$first.'! Gözləmə siyahısında olduğun üçün xəbəri <strong>ilk sənə</strong> veririk: <strong>LinkFit artıq App Store-da yayımdadır</strong> və indi iPhone-una yükləyə bilərsən. 🎾</p>'
+                    .'<p>Oyunçu tap, kort rezerv et, nəticəni qeyd et və ELO reytinqi qazan — hamısı bir tətbiqdə.</p>'
+                    .'<p>Tətbiqi yüklə, sına və <strong>fikrini bizimlə bölüş</strong>. Hər hansı problem, təklif və ya istəyin olsa, birbaşa <strong>info@linkfit.az</strong> ünvanına yaz — hər mesajı oxuyur və tətbiqi məhz sizin üçün daha yaxşı edirik.</p>'
+                    .'<p>Bu, yalnız başlanğıcdır — qarşıda <strong>çoxlu yeniliklər, sürprizlər, turnirlər və mükafatlar</strong> var. İzləməkdə qal! 🎾</p>',
+                'cta' => 'App Store-dan yüklə',
+            ],
+            'en' => [
+                'subject' => 'LinkFit is live on the App Store 🎾 — be the first to download',
+                'headline' => 'LinkFit is live on the App Store, '.$first.'! 🎾',
+                'body' => '<p>Hi '.$first.'! Because you are on our waitlist, you are among the <strong>first to know</strong>: <strong>LinkFit is now live on the App Store</strong> and ready to download on your iPhone. 🎾</p>'
+                    .'<p>Find players, book courts, log your results and earn an ELO rating — all in one app.</p>'
+                    .'<p>Download it, try it, and <strong>tell us what you think</strong>. If you hit any problem or have a suggestion or request, email us directly at <strong>info@linkfit.az</strong> — we read every message and keep making the app better for you.</p>'
+                    .'<p>This is only the beginning — <strong>lots of new features, surprises, tournaments and prizes</strong> are on the way. Stay tuned! 🎾</p>',
+                'cta' => 'Download on the App Store',
+            ],
+            'ru' => [
+                'subject' => 'LinkFit уже в App Store 🎾 — скачайте первыми',
+                'headline' => 'LinkFit уже в App Store, '.$first.'! 🎾',
+                'body' => '<p>Привет, '.$first.'! Вы в листе ожидания, поэтому узнаёте <strong>одними из первых</strong>: <strong>LinkFit теперь доступен в App Store</strong> — скачивайте на свой iPhone. 🎾</p>'
+                    .'<p>Находите игроков, бронируйте корты, записывайте результаты и зарабатывайте рейтинг ELO — всё в одном приложении.</p>'
+                    .'<p>Скачайте, попробуйте и <strong>поделитесь мнением</strong>. Если столкнётесь с проблемой или будет предложение — напишите нам напрямую на <strong>info@linkfit.az</strong>. Мы читаем каждое сообщение и делаем приложение лучше для вас.</p>'
+                    .'<p>Это только начало — впереди <strong>много нового: сюрпризы, турниры и призы</strong>. Оставайтесь с нами! 🎾</p>',
+                'cta' => 'Скачать в App Store',
+            ],
+        ];
+
+        $c = $copy[$locale] ?? $copy['az'];
+        $this->send($email, $c['subject'], $this->layout($c['headline'], $c['body'], $c['cta'], $appStore));
+    }
+
     public function bookingConfirmed(string $bookingId): void
     {
         $booking = $this->booking($bookingId);
