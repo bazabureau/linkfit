@@ -3,16 +3,19 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminPermissions;
+use App\Http\Controllers\Api\Concerns\ValidatesMediaUrls;
 use App\Support\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MediaController extends ApiController
 {
     use AuthorizesAdminPermissions;
+    use ValidatesMediaUrls;
 
     public function upload(Request $request): JsonResponse
     {
@@ -62,7 +65,13 @@ class MediaController extends ApiController
             throw ApiException::validation('File is too large');
         }
 
-        $disk = env('MEDIA_DISK', config('filesystems.default') === 's3' ? 's3' : 'public');
+        // Chat images/videos/voice notes are private: stored on a NON-public
+        // disk and served only through the signed media.serve route. Everything
+        // else (avatars use their own endpoint) keeps a direct public URL.
+        $isPrivate = in_array($purpose, (array) config('media.private_purposes', []), true);
+        $disk = $isPrivate
+            ? (string) config('media.private_disk', 'local')
+            : env('MEDIA_DISK', config('filesystems.default') === 's3' ? 's3' : 'public');
 
         if ($isVideo || $isAudio) {
             // Binary media skips image-compression entirely so playback stays
@@ -110,18 +119,23 @@ class MediaController extends ApiController
         // Fail loudly if the write doesn't land (e.g. storage not writable by the
         // PHP-FPM user) — otherwise we'd return 201 with a URL that 404s and the
         // attachment silently never appears.
-        $stored = Storage::disk($disk)->put($path, $contents, ['visibility' => 'public']);
+        $stored = Storage::disk($disk)->put($path, $contents, ['visibility' => $isPrivate ? 'private' : 'public']);
         if ($stored === false || ! Storage::disk($disk)->exists($path)) {
             throw ApiException::internal('Failed to store the uploaded file');
         }
-        $url = Storage::disk($disk)->url($path);
         $id = (string) Str::uuid();
+        // Private media: store the STABLE canonical serve route as the asset URL
+        // (re-signed fresh on every read by presentMediaUrl) and hand the caller
+        // a signed URL now for immediate preview. Public media keeps its direct
+        // disk URL.
+        $canonicalUrl = $isPrivate ? url('/api/v1/media/'.$id) : Storage::disk($disk)->url($path);
+        $url = $isPrivate ? $this->signedMediaServeUrl($id) : $canonicalUrl;
         DB::table('media_assets')->insert([
             'id' => $id,
             'user_id' => $user->id,
             'disk' => $disk,
             'path' => $path,
-            'url' => $url,
+            'url' => $canonicalUrl,
             'mime' => $mime,
             'size_bytes' => strlen($contents),
             'width' => $width,
@@ -132,6 +146,29 @@ class MediaController extends ApiController
         ]);
 
         return response()->json(['id' => $id, 'url' => $url, 'type' => $type, 'width' => $width, 'height' => $height, 'mime' => $mime], 201);
+    }
+
+    /**
+     * Stream a media asset. Reachable ONLY with a valid temporary signature
+     * (the 'signed' middleware) — the message serializers mint one fresh for
+     * viewers already authorised to read the attachment, so private chat media
+     * is no longer a permanent, world-readable URL.
+     */
+    public function serve(Request $request, string $media): StreamedResponse
+    {
+        $asset = DB::table('media_assets')->where('id', $media)->first(['disk', 'path', 'mime', 'deleted_at']);
+        if ($asset === null || ($asset->deleted_at ?? null) !== null) {
+            throw ApiException::notFound('Media not found');
+        }
+        $disk = Storage::disk((string) $asset->disk);
+        if (! $disk->exists((string) $asset->path)) {
+            throw ApiException::notFound('Media not found');
+        }
+
+        return $disk->response((string) $asset->path, basename((string) $asset->path), [
+            'Content-Type' => (string) ($asset->mime ?: 'application/octet-stream'),
+            'Cache-Control' => 'private, max-age=3600',
+        ]);
     }
 
     private function normalizeMime(string $mime): string

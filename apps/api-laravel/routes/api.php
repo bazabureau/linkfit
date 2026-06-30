@@ -103,6 +103,9 @@ Route::prefix('api/v1')->group(function () {
     Route::get('games/{id}', [GamesController::class, 'show'])->middleware('throttle:public-discovery');
     Route::get('players', [SocialController::class, 'players'])->middleware('throttle:public-discovery');
     Route::get('search', [SocialController::class, 'search'])->middleware('throttle:public-discovery');
+    // Private media (chat images/videos/voice) served only via a valid temporary
+    // signature, minted fresh by the message serializers for authorised viewers.
+    Route::get('media/{media}', [MediaController::class, 'serve'])->middleware('signed')->name('media.serve');
     Route::get('feed', [FeedController::class, 'index'])->middleware('throttle:public-discovery');
     Route::get('feed/{eventId}/comments', [FeedController::class, 'comments'])->middleware('throttle:public-discovery');
     Route::get('leaderboards/elo', [EngagementController::class, 'leaderboards'])->middleware('throttle:public-discovery');

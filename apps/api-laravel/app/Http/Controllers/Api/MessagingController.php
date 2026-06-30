@@ -306,7 +306,7 @@ class MessagingController extends ApiController
                     'other_last_seen_at' => $isGroup ? null : $this->iso($r->other_last_seen_at),
                     'other_is_online' => $isGroup ? false : $this->isOnline($r->other_last_seen_at),
                     'last_message_body' => $lastHidden ? '[This message was removed by moderation]' : ($last->body ?? null),
-                    'last_message_attachment_url' => $lastHidden ? null : ($last->attachment_url ?? null),
+                    'last_message_attachment_url' => $lastHidden ? null : $this->presentMediaUrl($last->attachment_url ?? null),
                     'last_message_attachment_type' => $lastHidden ? null : ($last->attachment_type ?? null),
                     'last_message_at' => $this->iso($r->last_message_at),
                     'last_message_sender_id' => $last->sender_user_id ?? null,
@@ -1068,7 +1068,7 @@ class MessagingController extends ApiController
             'conversation_id' => $m->conversation_id,
             'sender_user_id' => $m->sender_user_id,
             'body' => $m->body,
-            'attachment_url' => $m->attachment_url ?? null,
+            'attachment_url' => $this->presentMediaUrl($m->attachment_url ?? null),
             'attachment_type' => $m->attachment_type ?? null,
             'created_at' => $this->iso($m->created_at),
         ];

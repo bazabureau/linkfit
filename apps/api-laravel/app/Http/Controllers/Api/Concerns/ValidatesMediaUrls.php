@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Concerns;
 
 use App\Support\ApiException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 
 /**
  * Constrains the client-supplied media URLs we store and re-serve to other
@@ -48,6 +49,39 @@ trait ValidatesMediaUrls
 
         if ($scheme !== 'https' || $host === '' || ! in_array($host, $allowed, true)) {
             throw ApiException::validation('media_url host is not allowed; upload via media and reference media_asset_id, or use an https URL on an approved host');
+        }
+
+        return $url;
+    }
+
+    /**
+     * A short-lived signed URL for the private media.serve route. Regenerated
+     * fresh each time, so a stored value's own (possibly expired) signature is
+     * irrelevant — only the media id in its path matters.
+     */
+    protected function signedMediaServeUrl(string $mediaId): string
+    {
+        return URL::temporarySignedRoute(
+            'media.serve',
+            now()->addMinutes((int) config('media.signed_ttl_minutes', 10080)),
+            ['media' => $mediaId],
+        );
+    }
+
+    /**
+     * Present a stored attachment/media URL to a client. Our private media-serve
+     * URLs (`/api/v1/media/{uuid}`) are re-signed fresh at read time so a viewer
+     * already authorised to see the message/story gets a working, expiring link.
+     * Everything else — legacy public `/storage/...` URLs, approved external
+     * hosts — passes through unchanged, so existing media never breaks.
+     */
+    protected function presentMediaUrl(?string $url): ?string
+    {
+        if ($url === null || $url === '') {
+            return $url;
+        }
+        if (preg_match('#/media/([0-9a-fA-F-]{36})(?:[/?]|$)#', $url, $m) === 1) {
+            return $this->signedMediaServeUrl($m[1]);
         }
 
         return $url;

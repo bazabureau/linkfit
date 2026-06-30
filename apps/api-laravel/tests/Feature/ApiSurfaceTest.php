@@ -355,6 +355,10 @@ class ApiSurfaceTest extends TestCase
             'api/v1/auth/check',
             'api/v1/mobile/config',
             'api/v1/membership/plans',
+            // Private chat media: public URL but gated by a valid temporary
+            // signature ('signed' middleware), minted only for authorised viewers
+            // by the message serializers — not a discovery (throttled) endpoint.
+            'api/v1/media/{media}',
             'api/v1/og/{path?}',
             'api/v1/realtime/health',
             'api/v1/realtime/sse',

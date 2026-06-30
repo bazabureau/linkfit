@@ -44,6 +44,9 @@ class MediaUploadTest extends TestCase
 
         DB::table('users')->insert(['id' => self::USER_ID]);
         Storage::fake('public');
+        // Chat voice/image/video uploads now land on the private 'local' disk
+        // and are served via the signed media.serve route, so fake it too.
+        Storage::fake('local');
     }
 
     protected function tearDown(): void
@@ -68,7 +71,8 @@ class MediaUploadTest extends TestCase
         $asset = DB::table('media_assets')->where('id', $payload['id'])->first();
         $this->assertSame('message_voice', $asset->purpose);
         $this->assertStringEndsWith('.webm', $asset->path);
-        Storage::disk('public')->assertExists($asset->path);
+        $this->assertSame('local', $asset->disk);
+        Storage::disk($asset->disk)->assertExists($asset->path);
     }
 
     public function test_voice_message_upload_accepts_ios_m4a_when_reported_as_octet_stream(): void
@@ -84,7 +88,8 @@ class MediaUploadTest extends TestCase
 
         $asset = DB::table('media_assets')->where('id', $payload['id'])->first();
         $this->assertStringEndsWith('.m4a', $asset->path);
-        Storage::disk('public')->assertExists($asset->path);
+        $this->assertSame('local', $asset->disk);
+        Storage::disk($asset->disk)->assertExists($asset->path);
     }
 
     private function requestFor(UploadedFile $file, string $purpose): Request
