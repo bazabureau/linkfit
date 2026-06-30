@@ -24,10 +24,24 @@ export const API_BASE_URL =
 const LINKFIT_APP_KEY =
   process.env.NEXT_PUBLIC_LINKFIT_APP_KEY || process.env.NEXT_PUBLIC_API_KEY;
 
-/** Inject the public app key header if configured and not already present. */
-function applyAppKey(headers: Headers): void {
+// This panel authenticates with the httpOnly `lf_access` cookie, never a body
+// token. Announcing the cookie transport tells the API to strip the
+// access/refresh tokens out of auth-response bodies (they are unused here —
+// auth rides on the Set-Cookie headers), shrinking the token's exposure.
+const AUTH_TRANSPORT = "cookie";
+
+/**
+ * Inject the default Linkfit headers (public app key + cookie auth-transport)
+ * when not already present. The app key identifies Linkfit-owned client builds
+ * to the Cloudflare/API gate (ApiKeyGuard); it is NOT a private secret and
+ * never replaces user JWT auth.
+ */
+function applyDefaultHeaders(headers: Headers): void {
   if (LINKFIT_APP_KEY && !headers.has("X-Linkfit-App-Key")) {
     headers.set("X-Linkfit-App-Key", LINKFIT_APP_KEY);
+  }
+  if (!headers.has("X-Auth-Transport")) {
+    headers.set("X-Auth-Transport", AUTH_TRANSPORT);
   }
 }
 
@@ -117,14 +131,14 @@ function buildHeaders(init: ApiRequestOptions): Headers {
     headers.set("Content-Type", "application/json");
   }
   if (!headers.has("Accept")) headers.set("Accept", "application/json");
-  applyAppKey(headers);
+  applyDefaultHeaders(headers);
   return headers;
 }
 
 export function apiHeaders(headers?: HeadersInit): Headers {
   const next = new Headers(headers ?? {});
   if (!next.has("Accept")) next.set("Accept", "application/json");
-  applyAppKey(next);
+  applyDefaultHeaders(next);
   return next;
 }
 

@@ -27,6 +27,15 @@ const APP_KEY =
   process.env.NEXT_PUBLIC_LINKFIT_APP_KEY ?? process.env.NEXT_PUBLIC_API_KEY;
 const APP_KEY_HEADER = "X-Linkfit-App-Key";
 
+/**
+ * The admin panel authenticates purely via the httpOnly lf_access/lf_refresh
+ * cookies and NEVER reads tokens from the response body. Declaring this
+ * transport makes the API strip the raw access/refresh tokens out of
+ * auth-response JSON (login/refresh), so an XSS foothold cannot exfiltrate them.
+ */
+const AUTH_TRANSPORT_HEADER = "X-Auth-Transport";
+const AUTH_TRANSPORT_VALUE = "cookie";
+
 export class APIError extends Error {
   public readonly code: string;
   public readonly status: number;
@@ -110,6 +119,9 @@ function buildHeaders(init: ApiRequestOptions): Headers {
   if (APP_KEY && !headers.has(APP_KEY_HEADER)) {
     headers.set(APP_KEY_HEADER, APP_KEY);
   }
+  if (!headers.has(AUTH_TRANSPORT_HEADER)) {
+    headers.set(AUTH_TRANSPORT_HEADER, AUTH_TRANSPORT_VALUE);
+  }
   return headers;
 }
 
@@ -122,6 +134,9 @@ export function apiHeaders(headers?: HeadersInit): Headers {
   if (!next.has("Accept")) next.set("Accept", "application/json");
   if (APP_KEY && !next.has(APP_KEY_HEADER)) {
     next.set(APP_KEY_HEADER, APP_KEY);
+  }
+  if (!next.has(AUTH_TRANSPORT_HEADER)) {
+    next.set(AUTH_TRANSPORT_HEADER, AUTH_TRANSPORT_VALUE);
   }
   return next;
 }
