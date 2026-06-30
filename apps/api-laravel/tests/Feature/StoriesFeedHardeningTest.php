@@ -56,6 +56,9 @@ class StoriesFeedHardeningTest extends TestCase
             $table->string('id')->primary();
             $table->string('display_name')->nullable();
             $table->string('photo_url')->nullable();
+            // Mirrors the production users.admin_role column the feed query filters
+            // on: staff/partner/coach accounts are excluded from the public feed.
+            $table->string('admin_role')->nullable();
             $table->timestamp('deleted_at')->nullable();
         });
         Schema::create('feed_events', function ($table): void {

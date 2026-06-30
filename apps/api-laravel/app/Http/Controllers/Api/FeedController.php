@@ -52,6 +52,9 @@ class FeedController extends ApiController
             ->leftJoinSub($likeAgg, 'lc', 'lc.feed_event_id', '=', 'f.id')
             ->leftJoinSub($commentAgg, 'cc', 'cc.event_id', '=', 'f.id')
             ->whereNull('u.deleted_at')
+            // Staff/partner/coach accounts aren't real players — never surface
+            // their activity in the public feed (parity with playersBaseQuery).
+            ->whereNull('u.admin_role')
             ->when($hiddenEventIds !== [], fn ($q) => $q->whereNotIn('f.id', $hiddenEventIds))
             ->where(function ($q) use ($viewerId) {
                 $q->where('f.visibility', 'public');

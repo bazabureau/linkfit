@@ -221,12 +221,16 @@ class SocialController extends ApiController
             ->join('users as u', 'u.id', '=', 'f.follower_user_id')
             ->where('f.followed_user_id', $id)
             ->whereNull('u.deleted_at')
+            // Staff/partner/coach accounts aren't real players — exclude them so
+            // the count matches the staff-free followers() list below.
+            ->whereNull('u.admin_role')
             ->when($viewerId !== null, fn ($q) => $this->whereNotBlocked($q, $viewerId, 'u.id'))
             ->count();
         $followingCount = (int) DB::table('follows as f')
             ->join('users as u', 'u.id', '=', 'f.followed_user_id')
             ->where('f.follower_user_id', $id)
             ->whereNull('u.deleted_at')
+            ->whereNull('u.admin_role')
             ->when($viewerId !== null, fn ($q) => $this->whereNotBlocked($q, $viewerId, 'u.id'))
             ->count();
         $isFollowedByMe = $viewerId !== null && (string) $viewerId !== (string) $id
@@ -352,6 +356,9 @@ class SocialController extends ApiController
             ->join('users as u', 'u.id', '=', 'f.follower_user_id')
             ->where('f.followed_user_id', $id)
             ->whereNull('u.deleted_at')
+            // Staff/partner/coach accounts are never listed as players (parity with
+            // playersBaseQuery); keep them out of the public follower enumeration.
+            ->whereNull('u.admin_role')
             ->when($viewerId !== null, fn ($q) => $this->whereNotBlocked($q, $viewerId, 'u.id'))
             ->orderByDesc('f.created_at')
             ->offset($offset)
@@ -410,6 +417,9 @@ class SocialController extends ApiController
             ->join('users as u', 'u.id', '=', 'f.followed_user_id')
             ->where('f.follower_user_id', $id)
             ->whereNull('u.deleted_at')
+            // Staff/partner/coach accounts are never listed as players (parity with
+            // playersBaseQuery); keep them out of the public following enumeration.
+            ->whereNull('u.admin_role')
             ->when($viewerId !== null, fn ($q) => $this->whereNotBlocked($q, $viewerId, 'u.id'))
             ->orderByDesc('f.created_at')
             ->offset($offset)

@@ -671,7 +671,11 @@ class DiscoveryController extends ApiController
             ->leftJoinSub($primaryStats, 'primary_stats', 'primary_stats.user_id', '=', 'u.id')
             ->where('u.id', '!=', $userId)
             ->whereNull('u.deleted_at')
-            // Suggestions are signed-in-only — surface all real players, not just the curated public set.
+            // Staff/partner/coach accounts aren't real players — exclude them
+            // (parity with matchmakingPlayers/playersBaseQuery). Suggestions are
+            // signed-in-only, so we still surface every real player, not just the
+            // curated public directory.
+            ->whereNull('u.admin_role')
             ->whereNotExists(function ($q) use ($userId) {
                 $q->selectRaw('1')->from('follows as f')
                     ->whereColumn('f.followed_user_id', 'u.id')
