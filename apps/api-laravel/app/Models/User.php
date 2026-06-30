@@ -75,6 +75,9 @@ class User extends Model
             'is_vip' => (bool) ($this->is_vip ?? false),
             'is_verified' => (bool) ($this->is_verified ?? false),
             'is_ambassador' => (bool) ($this->is_ambassador ?? false),
+            // 'founder' | 'co_founder' | null — the people who started Linkfit get
+            // a distinct badge + a differentiated profile in the app.
+            'founder_role' => $this->founder_role ?? null,
             'vip_badge_label' => $this->vip_badge_label,
             'vip_expires_at' => optional($this->vip_expires_at)->toIso8601ZuluString('millisecond'),
             'admin_role' => $this->admin_role ?? null,

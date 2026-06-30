@@ -136,7 +136,9 @@ Route::prefix('api/v1')->group(function () {
         Route::get('me', [MeController::class, 'show']);
         Route::get('mobile/bootstrap', [MobileController::class, 'bootstrap']);
         Route::get('web/dashboard', [WebController::class, 'dashboard']);
-        Route::patch('me', [MeController::class, 'update']);
+        // Profile edits — incl. username (handle) changes — are throttled to
+        // curb username churn/abuse while staying generous for normal edits.
+        Route::patch('me', [MeController::class, 'update'])->middleware('throttle:30,1');
         Route::post('me/avatar', [MeController::class, 'avatar'])->middleware('throttle:30,1');
         Route::delete('me/avatar', [MeController::class, 'deleteAvatar']);
         Route::post('me/change-password', [MeController::class, 'changePassword'])->middleware('throttle:5,1');

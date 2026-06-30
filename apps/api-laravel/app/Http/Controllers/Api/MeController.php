@@ -8,6 +8,7 @@ use App\Services\Auth\PasswordService;
 use App\Services\Mail\TransactionalMailService;
 use App\Services\Notifications\PushDispatcher;
 use App\Support\ApiException;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -34,6 +35,10 @@ class MeController extends ApiController
     {
         $data = $this->validateBody($request, [
             'display_name' => ['sometimes', 'string', 'min:1', 'max:80'],
+            // Same charset/length the registration form accepts (AuthController):
+            // 3–40 of [letters, digits, dot, underscore]. Not nullable — the
+            // handle is a NOT NULL unique column and cannot be cleared.
+            'username' => ['sometimes', 'string', 'min:3', 'max:40', 'regex:/^[a-zA-Z0-9._]+$/'],
             'phone' => ['sometimes', 'nullable', 'string', 'min:7', 'max:40', 'regex:/^\+?[0-9\s().-]{7,40}$/'],
             'photo_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
             'home_lat' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
@@ -63,12 +68,62 @@ class MeController extends ApiController
                 $data['photo_url'] = $this->assertAllowedMediaUrl($data['photo_url']);
             }
         }
+        // Username (handle) changes reuse the canonical registration rules
+        // (AuthController::normalizeUsername/isValidUsername): lowercase + trim,
+        // then exactly [a-z0-9._]{3,40}. The handle is stored already-lowercased,
+        // so the uniqueness check below is inherently case-insensitive. This
+        // project has no reserved-word list and no change cooldown, so neither
+        // is enforced here (none is invented). The field error is keyed by
+        // `username` so the app can surface it inline on the field.
+        if (array_key_exists('username', $data)) {
+            $username = mb_strtolower(trim((string) $data['username']));
+            if (! preg_match('/^[a-z0-9._]{3,40}$/', $username)) {
+                throw ApiException::validation('Request validation failed', [
+                    'issues' => ['username' => ['Username must be 3-40 characters and can only contain letters, numbers, dots, and underscores']],
+                ]);
+            }
+            $data['username'] = $username;
+        }
 
         $user = $this->authUser($request);
+
+        // Case-insensitive uniqueness, excluding the caller. Skipped when the
+        // handle is unchanged so re-saving your own username stays a no-op.
+        if (array_key_exists('username', $data)
+            && $data['username'] !== mb_strtolower((string) ($user->username ?? ''))
+            && DB::table('users')
+                ->where('username', $data['username'])
+                ->where('id', '!=', $user->id)
+                ->whereNull('deleted_at')
+                ->exists()
+        ) {
+            throw ApiException::validation('Request validation failed', [
+                'issues' => ['username' => ['This username is already taken']],
+            ]);
+        }
+
         foreach ($data as $key => $value) {
             $user->{$key} = $value;
         }
-        $user->save();
+        try {
+            $user->save();
+        } catch (QueryException $e) {
+            // A concurrent sign-up/change won the race between the uniqueness
+            // check above and this save. The DB unique index on `username` is the
+            // final guard — re-map the violation to the same field error rather
+            // than leaking a 500.
+            if (array_key_exists('username', $data)
+                && DB::table('users')
+                    ->where('username', $data['username'])
+                    ->where('id', '!=', $user->id)
+                    ->exists()
+            ) {
+                throw ApiException::validation('Request validation failed', [
+                    'issues' => ['username' => ['This username is already taken']],
+                ]);
+            }
+            throw $e;
+        }
 
         return response()->json($user->fresh()->toPublicUser());
     }
