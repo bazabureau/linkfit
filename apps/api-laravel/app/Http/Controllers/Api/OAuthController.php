@@ -218,6 +218,9 @@ class OAuthController extends ApiController
                 $new->email = $email;
                 $new->display_name = $displayName;
                 $new->{$column} = $sub;
+                // SSO sign-ups don't choose a handle, but a username is mandatory
+                // — derive a unique one from the display name (same rule as register).
+                $new->username = $this->uniqueUsernameFromDisplayName($displayName);
                 if ($emailVerified) {
                     $new->email_verified_at = now();
                 }
@@ -236,6 +239,30 @@ class OAuthController extends ApiController
         });
 
         return $this->tokens->issueSession($user);
+    }
+
+    /**
+     * Generate a unique, valid username from a display name. SSO (Apple/Google)
+     * sign-ups choose no handle, but a username is mandatory, so we derive one —
+     * mirrors AuthController::uniqueUsernameFromDisplayName.
+     */
+    private function uniqueUsernameFromDisplayName(string $displayName): string
+    {
+        $base = \Illuminate\Support\Str::slug($displayName, '_');
+        $base = preg_replace('/[^a-z0-9._]/', '', mb_strtolower($base)) ?: 'player';
+        $base = substr($base, 0, 30);
+        if (strlen($base) < 3) {
+            $base = str_pad($base, 3, '0');
+        }
+
+        $candidate = $base;
+        $suffix = 1;
+        while (User::where('username', $candidate)->exists()) {
+            $suffix += 1;
+            $candidate = substr($base, 0, 40 - strlen((string) $suffix) - 1).'_'.$suffix;
+        }
+
+        return $candidate;
     }
 
     /**
