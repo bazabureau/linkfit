@@ -49,6 +49,7 @@ class OAuthController extends ApiController
     {
         $data = $this->validateBody($request, [
             'identity_token' => ['required', 'string', 'min:8', 'max:8192'],
+            'nonce' => ['sometimes', 'nullable', 'string', 'min:8', 'max:256'],
             'name' => ['sometimes', 'array'],
             'name.first' => ['sometimes', 'nullable', 'string', 'max:80'],
             'name.last' => ['sometimes', 'nullable', 'string', 'max:80'],
@@ -58,6 +59,17 @@ class OAuthController extends ApiController
         // trust an unverified base64-decoded payload (that is forgeable).
         $claims = $this->verifyAppleIdentityToken($data['identity_token']);
         if ($claims === null || empty($claims['sub']) || empty($claims['email'])) {
+            return $this->unauth($request, 'Invalid Apple token');
+        }
+
+        // Replay protection: when the client runs the recommended nonce flow (it
+        // passes sha256(nonce) to Apple and sends us the raw nonce), bind the
+        // token to that single sign-in ceremony by checking Apple echoed our hash
+        // back in the `nonce` claim. Optional for backward compatibility with
+        // older clients that send no nonce; when a nonce IS sent it MUST match
+        // (fail closed) so a captured token can't be replayed.
+        $rawNonce = isset($data['nonce']) ? trim((string) $data['nonce']) : '';
+        if ($rawNonce !== '' && ! hash_equals(hash('sha256', $rawNonce), (string) ($claims['nonce'] ?? ''))) {
             return $this->unauth($request, 'Invalid Apple token');
         }
 
