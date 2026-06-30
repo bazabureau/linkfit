@@ -684,7 +684,7 @@ class DiscoveryController extends ApiController
             // the serializer can emit the identical `Player` base shape.
             ->select([
                 'u.id', 'u.username', 'u.display_name', 'u.photo_url', 'u.last_seen_at',
-                'u.is_vip', 'u.vip_expires_at', 'u.vip_badge_label', 'u.is_verified', 'u.is_ambassador',
+                'u.is_vip', 'u.vip_expires_at', 'u.vip_badge_label', 'u.is_verified', 'u.is_ambassador', 'u.founder_role',
                 'primary_stats.primary_sport', 'primary_stats.primary_elo', 'primary_stats.reliability_score',
             ])
             ->selectSub(
@@ -832,7 +832,7 @@ class DiscoveryController extends ApiController
             // the serializer can emit the identical `Player` base shape.
             ->select([
                 'u.id', 'u.username', 'u.display_name', 'u.photo_url', 'u.last_seen_at',
-                'u.is_vip', 'u.vip_expires_at', 'u.vip_badge_label', 'u.is_verified', 'u.is_ambassador',
+                'u.is_vip', 'u.vip_expires_at', 'u.vip_badge_label', 'u.is_verified', 'u.is_ambassador', 'u.founder_role',
                 'ps.primary_sport', 'ps.primary_elo', 'ps.reliability_score',
             ])
             ->selectSub(

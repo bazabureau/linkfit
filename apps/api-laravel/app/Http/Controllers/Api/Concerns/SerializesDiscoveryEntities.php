@@ -141,6 +141,7 @@ trait SerializesDiscoveryEntities
             'vip_label' => $vipActive ? (trim((string) ($u->vip_badge_label ?? '')) ?: 'VIP') : null,
             'is_verified' => (bool) ($u->is_verified ?? false),
             'is_ambassador' => (bool) ($u->is_ambassador ?? false),
+            'founder_role' => $u->founder_role ?? null,
         ];
     }
 

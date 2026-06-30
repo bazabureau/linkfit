@@ -34,6 +34,7 @@ class SocialPrivacyTest extends TestCase
             $table->string('vip_badge_label')->nullable();
             $table->boolean('is_verified')->default(false);
             $table->boolean('is_ambassador')->default(false);
+            $table->string('founder_role', 20)->nullable();
             $table->timestamp('last_seen_at')->nullable();
             $table->timestamp('email_verified_at')->nullable();
             $table->timestamps();

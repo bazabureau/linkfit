@@ -366,6 +366,7 @@ class SocialController extends ApiController
                 'u.vip_badge_label',
                 'u.is_verified',
                 'u.is_ambassador',
+                'u.founder_role',
                 'f.created_at as followed_at',
             ]);
 
@@ -423,6 +424,7 @@ class SocialController extends ApiController
                 'u.vip_badge_label',
                 'u.is_verified',
                 'u.is_ambassador',
+                'u.founder_role',
                 'f.created_at as followed_at',
             ]);
 
@@ -613,6 +615,7 @@ class SocialController extends ApiController
             'vip_label' => $vipActive ? (trim((string) ($u->vip_badge_label ?? '')) ?: 'VIP') : null,
             'is_verified' => (bool) ($u->is_verified ?? false),
             'is_ambassador' => (bool) ($u->is_ambassador ?? false),
+            'founder_role' => $u->founder_role ?? null,
         ];
     }
 
@@ -659,6 +662,7 @@ class SocialController extends ApiController
                 'u.vip_badge_label',
                 'u.is_verified',
                 'u.is_ambassador',
+                'u.founder_role',
                 'primary_stats.primary_sport',
                 'primary_stats.primary_elo',
                 'primary_stats.reliability_score',
