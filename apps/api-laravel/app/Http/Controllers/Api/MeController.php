@@ -205,6 +205,30 @@ class MeController extends ApiController
         return response()->json($user->fresh()->toPublicUser());
     }
 
+    /**
+     * Revoke every refresh family for the user (optionally keeping the caller's
+     * current one) AND denylist each revoked family so its still-valid access
+     * JWT (sid = family_id) is rejected immediately, instead of surviving until
+     * its ~15-minute natural expiry. Shared by the credential-change paths.
+     */
+    private function revokeOtherSessions(string $userId, ?string $keepFamilyId): void
+    {
+        $families = DB::table('refresh_tokens')
+            ->where('user_id', $userId)
+            ->when($keepFamilyId !== null, fn ($q) => $q->where('family_id', '!=', $keepFamilyId))
+            ->distinct()
+            ->pluck('family_id');
+        DB::table('refresh_tokens')
+            ->where('user_id', $userId)
+            ->whereNull('revoked_at')
+            ->when($keepFamilyId !== null, fn ($q) => $q->where('family_id', '!=', $keepFamilyId))
+            ->update(['revoked_at' => now()]);
+        $tokenService = app(\App\Services\Auth\TokenService::class);
+        foreach ($families as $familyId) {
+            $tokenService->denylistFamily((string) $familyId);
+        }
+    }
+
     public function changePassword(Request $request): JsonResponse
     {
         $user = $this->authUser($request);
@@ -220,14 +244,7 @@ class MeController extends ApiController
             'password_hash' => $this->passwords->hash($data['password']),
             'updated_at' => now(),
         ]);
-        $familyId = $request->attributes->get('auth_family_id');
-        $tokens = DB::table('refresh_tokens')
-            ->where('user_id', $user->id)
-            ->whereNull('revoked_at');
-        if ($familyId !== null) {
-            $tokens->where('family_id', '!=', $familyId);
-        }
-        $tokens->update(['revoked_at' => now()]);
+        $this->revokeOtherSessions((string) $user->id, $request->attributes->get('auth_family_id'));
 
         return response()->json(['changed' => true]);
     }
@@ -264,14 +281,7 @@ class MeController extends ApiController
         // Email is a credential/identity change and a classic account-takeover
         // lever, so — exactly like changePassword — revoke every OTHER refresh
         // family while keeping the caller's current session alive.
-        $familyId = $request->attributes->get('auth_family_id');
-        $tokens = DB::table('refresh_tokens')
-            ->where('user_id', $user->id)
-            ->whereNull('revoked_at');
-        if ($familyId !== null) {
-            $tokens->where('family_id', '!=', $familyId);
-        }
-        $tokens->update(['revoked_at' => now()]);
+        $this->revokeOtherSessions((string) $user->id, $request->attributes->get('auth_family_id'));
 
         // Changing the email resets verification, so issue a fresh 6-digit code
         // to the NEW address — otherwise the account is left unverified with no

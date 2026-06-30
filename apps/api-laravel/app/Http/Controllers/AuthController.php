@@ -335,6 +335,19 @@ class AuthController extends Controller
      */
     private function respondSession(array $session, int $status): JsonResponse
     {
+        // Web/panel clients authenticate purely via the httpOnly lf_access/
+        // lf_refresh cookies attached below and never touch the tokens in JS.
+        // When such a client opts in with `X-Auth-Transport: cookie`, strip the
+        // raw tokens from the JSON body so an XSS foothold cannot exfiltrate
+        // them. Native clients send no such header and keep receiving the tokens
+        // in the body (they have no cookie jar and store the tokens directly),
+        // so the default behaviour is unchanged.
+        $accessToken = $session['access_token'] ?? null;
+        $refreshToken = $session['refresh_token'] ?? null;
+        if (request()->header('X-Auth-Transport') === 'cookie') {
+            unset($session['access_token'], $session['refresh_token']);
+        }
+
         $response = response()->json($session, $status);
 
         $domain = config('auth_tokens.cookie_domain');
@@ -342,15 +355,15 @@ class AuthController extends Controller
         $accessTtl = (int) config('auth_tokens.access_ttl_seconds', 900);
         $refreshTtl = (int) config('auth_tokens.refresh_ttl_seconds', 30 * 86400);
 
-        if (! empty($session['access_token'])) {
+        if (! empty($accessToken)) {
             $response->withCookie(new Cookie(
-                'lf_access', (string) $session['access_token'],
+                'lf_access', (string) $accessToken,
                 time() + $accessTtl, '/', $domain, $secure, true, false, Cookie::SAMESITE_LAX
             ));
         }
-        if (! empty($session['refresh_token'])) {
+        if (! empty($refreshToken)) {
             $response->withCookie(new Cookie(
-                'lf_refresh', (string) $session['refresh_token'],
+                'lf_refresh', (string) $refreshToken,
                 time() + $refreshTtl, '/', $domain, $secure, true, false, Cookie::SAMESITE_LAX
             ));
         }

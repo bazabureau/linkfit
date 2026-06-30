@@ -109,7 +109,8 @@ class AuthExtrasController extends ApiController
         // revoking live sessions must all commit together. Without the
         // transaction a mid-way failure could burn the code or leave stolen
         // sessions valid after the password changed.
-        DB::transaction(function () use ($data, $password) {
+        $resetUserId = null;
+        DB::transaction(function () use ($data, $password, &$resetUserId) {
             if (isset($data['email'], $data['code'])) {
                 $user = User::whereNull('deleted_at')->where('email', mb_strtolower(trim($data['email'])))->first();
                 if ($user === null) {
@@ -131,7 +132,20 @@ class AuthExtrasController extends ApiController
                 ->where('user_id', $row->user_id)
                 ->whereNull('revoked_at')
                 ->update(['revoked_at' => now()]);
+            $resetUserId = (string) $row->user_id;
         });
+
+        // Revoking the refresh tokens alone leaves any already-stolen ACCESS JWT
+        // valid until its ~15-minute expiry. Denylist every token family for the
+        // user (sid = family_id) so those access tokens die immediately — the
+        // whole point of a reset is to lock an attacker out right away.
+        if ($resetUserId !== null) {
+            $families = DB::table('refresh_tokens')->where('user_id', $resetUserId)->distinct()->pluck('family_id');
+            $tokenService = app(\App\Services\Auth\TokenService::class);
+            foreach ($families as $familyId) {
+                $tokenService->denylistFamily((string) $familyId);
+            }
+        }
 
         return response()->json(['reset' => true]);
     }

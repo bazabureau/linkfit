@@ -275,7 +275,21 @@ class StoriesController extends ApiController
 
     public function unreact(Request $request, string $id): JsonResponse
     {
-        DB::table('story_reactions')->where('story_id', $id)->where('user_id', $this->authUser($request)->id)->delete();
+        $user = $this->authUser($request);
+        // Mirror react()'s guards: uuid (avoids a 22P02 → 500), story existence,
+        // and the block check — otherwise a blocked viewer could read the story's
+        // aggregate reaction counts back via this endpoint's response.
+        if (! Str::isUuid($id)) {
+            throw ApiException::notFound('Story not found');
+        }
+        $story = DB::table('stories')->where('id', $id)->first(['user_id']);
+        if ($story === null) {
+            throw ApiException::notFound('Story not found');
+        }
+        if ($this->blockExistsBetween((string) $user->id, (string) $story->user_id)) {
+            throw ApiException::forbidden('Cannot react to this story');
+        }
+        DB::table('story_reactions')->where('story_id', $id)->where('user_id', $user->id)->delete();
 
         return response()->json(['reactions' => $this->reactionCounts($id), 'my_reaction' => null]);
     }
