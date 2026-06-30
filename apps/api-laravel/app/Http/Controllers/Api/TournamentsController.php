@@ -32,6 +32,9 @@ class TournamentsController extends ApiController
             // CatalogController's aggregate pattern.
             ->leftJoinSub($this->entryCountAggregate(), 'ec', 'ec.tournament_id', '=', 't.id')
             ->whereIn('s.slug', ['padel', 'tennis'])
+            // Cancelled tournaments never belong in the public browse list — they
+            // only surface to their own participants via `mine`.
+            ->where('t.status', '!=', 'cancelled')
             ->when(! empty($query['sport']), fn ($q) => $q->where('s.slug', $query['sport']))
             ->when(! empty($query['status']), fn ($q) => $q->where('t.status', $query['status']))
             ->orderBy('t.starts_at')
